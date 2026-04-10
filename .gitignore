@@ -1,0 +1,9 @@
+# Godot 4.x 캐시
+.godot/
+
+# Claude Code 메모리
+.claude/
+
+# 기타
+*.tmp
+export_presets.cfg
