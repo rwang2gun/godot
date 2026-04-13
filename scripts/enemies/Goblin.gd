@@ -43,6 +43,8 @@ var _eye_right     : MeshInstance3D
 #  _ready
 # =====================================================================
 func _ready() -> void:
+	# Pivot을 올려서 다리 하단이 CharacterBody3D 원점에 맞게
+	pivot.position.y = 0.35
 	_build_visuals()
 	attack_cd = randf_range(0.5, 2.0)   # 초기 어긋남
 
@@ -138,7 +140,7 @@ func _ai_update(delta: float) -> void:
 
 	# 항상 플레이어 방향으로 얼굴
 	if dist > 0.1:
-		var target_angle := atan2(to_p.x, to_p.z)
+		var target_angle := atan2(-to_p.x, -to_p.z)
 		pivot.rotation.y = lerp_angle(pivot.rotation.y, target_angle, 8.0 * delta)
 
 	if role == "attacker":

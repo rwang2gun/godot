@@ -1,9 +1,11 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://autoloads/GameManager.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/camera/CameraRig.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/characters/Player.gd" id="3"]
 [ext_resource type="Script" path="res://scripts/enemies/Goblin.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/characters/CharacterEF.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/characters/CharacterWM.gd" id="6"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
 
@@ -53,43 +55,67 @@ shape = SubResource("BoxShape3D_1")
 [node name="CameraRig" type="Node3D" parent="."]
 script = ExtResource("2")
 
-[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+[node name="Pitch" type="Node3D" parent="CameraRig"]
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraRig/Pitch"]
+spring_length = 7.0
+margin = 0.5
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig/Pitch/SpringArm3D"]
 fov = 60.0
 
 [node name="Player" type="CharacterBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
 script = ExtResource("3")
 
 [node name="Collision" type="CollisionShape3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 shape = SubResource("CapsuleShape3D_player")
 
-[node name="Pivot" type="Node3D" parent="Player"]
+[node name="CharacterEF" type="CharacterBody3D" parent="."]
+visible = false
+script = ExtResource("5")
+
+[node name="Collision" type="CollisionShape3D" parent="CharacterEF"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="CharacterWM" type="CharacterBody3D" parent="."]
+visible = false
+script = ExtResource("6")
+
+[node name="Collision" type="CollisionShape3D" parent="CharacterWM"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_player")
 
 [node name="Goblins" type="Node3D" parent="."]
 
 [node name="Goblin1" type="CharacterBody3D" parent="Goblins"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.8, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.1, 0)
 script = ExtResource("4")
 
 [node name="Collision" type="CollisionShape3D" parent="Goblins/Goblin1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 shape = SubResource("CapsuleShape3D_goblin")
 
 [node name="Pivot" type="Node3D" parent="Goblins/Goblin1"]
 
 [node name="Goblin2" type="CharacterBody3D" parent="Goblins"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.8, 3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.1, 3)
 script = ExtResource("4")
 
 [node name="Collision" type="CollisionShape3D" parent="Goblins/Goblin2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 shape = SubResource("CapsuleShape3D_goblin")
 
 [node name="Pivot" type="Node3D" parent="Goblins/Goblin2"]
 
 [node name="Goblin3" type="CharacterBody3D" parent="Goblins"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0.8, -5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0.1, -5)
 script = ExtResource("4")
 
 [node name="Collision" type="CollisionShape3D" parent="Goblins/Goblin3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 shape = SubResource("CapsuleShape3D_goblin")
 
 [node name="Pivot" type="Node3D" parent="Goblins/Goblin3"]
@@ -131,4 +157,4 @@ offset_bottom = 30.0
 anchor_top = 1.0
 anchor_bottom = 1.0
 grow_vertical = 0
-text = "WASD: Move | LMB/Space: Attack | Shift: Dodge | ESC: Unlock mouse"
+text = "WASD: Move | LMB/Space: Attack | Shift: Dodge | E: Skill | Q: Ult | Tab/1-3: Swap | ESC: Mouse"

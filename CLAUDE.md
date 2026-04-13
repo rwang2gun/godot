@@ -30,6 +30,9 @@ ui/              # HUD 관련
 - 시그널: past tense (`health_changed`, `enemy_died`)
 - 들여쓰기: 탭 (Godot 기본)
 - .gd.uid 파일은 Godot이 자동 생성 — 삭제하지 말 것
+- untyped Array/Dictionary에서 값을 꺼낼 때 `:=` 사용 금지 → `var x: Type = arr[i]` 형식으로 명시적 타입 선언 필수
+- untyped 변수(예: `var parent`)의 메서드 반환값도 `:=`로 추론 불가 → `var result: Type = parent.method()` 형식 필수
+- Autoload 싱글톤 프로퍼티, `Dictionary.get()`, `$NodePath` 접근도 Variant 반환 → `:=` 사용 금지, 명시적 타입 선언 필수
 
 ## Key Design Decisions
 - Skeleton3D 사용하지 않음 — Node3D 계층 + rotation 직접 조작 (PoseSystem)
@@ -59,6 +62,10 @@ ui/              # HUD 관련
 - 작업 시작 전 "이 작업은 Codex 검증을 추천합니다"라고 알리고, 승인 후 진행
 - 단순 구조 작업(폴더 정리, 빈 파일 생성 등)은 Codex 불필요
 - 검증 시 반드시 `CODEX_CHECKLIST.md`의 항목을 프롬프트에 포함할 것
+
+### 오류 수정 시
+- 오류를 공유받으면 해당 오류만 고치지 말고, **동일 패턴의 오류가 최근 작업한 모든 파일에 없는지 전수 검사** 후 일괄 수정할 것
+- 검사 범위: 같은 세션에서 생성/수정한 모든 .gd 파일
 
 ### 작업 완료 후
 1. Godot 에디터에서 실행 테스트(내가 수동)

@@ -570,14 +570,15 @@ func _reassign_roles() -> void:
 - [x] `CharacterBase.gd` 스켈레톤 씬 수작업 배치, 포즈 적용 확인
 
 ### Phase 2 — 플레이어
-- [ ] `InputManager.gd` Autoload, InputMap 등록
-- [ ] `CameraRig.gd` (SpringArm3D)
-- [ ] State 10종 이식 (Idle → Walk → Dash → Hurt 순)
-- [ ] AttackState 콤보 로직, ChargeAttackState
-- [ ] `CharacterEF.gd`, `CharacterWM.gd` 오버라이드
-- [ ] 캐릭터 교체 SwapOut/SwapIn
+- [x] `InputManager.gd` Autoload, InputMap 등록
+- [x] `CameraRig.gd` (SpringArm3D)
+- [x] State 10종 이식 (Idle → Walk → Dash → Hurt 순)
+- [x] AttackState 콤보 로직, ChargeAttackState
+- [x] `CharacterEF.gd`, `CharacterWM.gd` 오버라이드
+- [x] 캐릭터 교체 SwapOut/SwapIn
 
-### Phase 3 — 적·AI
+### Phase 3 — 적·AI·전투 분기
+- [ ] 거리 기반 공격 분기 (근거리 콤보 / 중거리 접근기 / 원거리 돌진기)
 - [ ] `Goblin.gd` + 기본 AI
 - [ ] `GoblinSpearman.gd` + MagicBolt
 - [ ] GameManager AI 코디네이터

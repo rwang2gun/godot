@@ -46,6 +46,9 @@ var parts: Dictionary = {}
 var current_pose: Dictionary = PoseData.POSES["idle"]
 var pose_speed: float = 10.0
 
+# --- Pivot (facing 회전용, 스켈레톤의 부모) ---
+var pivot: Node3D
+
 
 func _ready() -> void:
 	_init_materials()
@@ -88,10 +91,15 @@ func _make_mat(color: Color) -> StandardMaterial3D:
 #  스켈레톤 구축 — HTML buildGeometry() 1:1 이식 (좌표 변환 적용)
 # =====================================================================
 func _build_skeleton() -> void:
+	# Pivot (facing 회전용)
+	pivot = Node3D.new()
+	pivot.name = "Pivot"
+	add_child(pivot)
+
 	# Root (position.y = legH)
 	var root := _make_joint("Root")
 	root.position.y = LEG_H
-	add_child(root)
+	pivot.add_child(root)
 	parts["root"] = root
 
 	# Pelvis mesh
