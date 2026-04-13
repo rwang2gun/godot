@@ -309,7 +309,7 @@ func _get_move_dir() -> Vector3:
 	raw = raw.normalized()
 
 	# 카메라 수평각 기반 변환
-	var theta := camera_rig.theta if camera_rig else 0.0
+	var theta: float = camera_rig.theta if camera_rig else 0.0
 	# forward = (-sin θ, 0, -cos θ), right = (cos θ, 0, -sin θ)
 	var fwd := Vector3(-sin(theta), 0.0, -cos(theta))
 	var rgt := Vector3( cos(theta), 0.0, -sin(theta))

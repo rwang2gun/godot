@@ -54,6 +54,12 @@ ui/              # HUD 관련
 - 새 스크립트는 반드시 계획서의 폴더 구조(`scripts/core/`, `scripts/states/` 등)를 따를 것
   - Hook이 scripts/ 밖에 .gd 파일 생성을 막아줌
 
+### Codex 검증
+- 복잡한 로직(전투 시스템, 좌표 변환, State 이식, AI 등)은 Codex 검증 권장
+- 작업 시작 전 "이 작업은 Codex 검증을 추천합니다"라고 알리고, 승인 후 진행
+- 단순 구조 작업(폴더 정리, 빈 파일 생성 등)은 Codex 불필요
+- 검증 시 반드시 `CODEX_CHECKLIST.md`의 항목을 프롬프트에 포함할 것
+
 ### 작업 완료 후
 1. Godot 에디터에서 실행 테스트(내가 수동)
 2. 문제 없으면 `GODOT_Battle_Prototype.md`의 해당 체크박스를 `[x]`로 업데이트

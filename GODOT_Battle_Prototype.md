@@ -563,11 +563,11 @@ func _reassign_roles() -> void:
 ## 단계별 이관 순서
 
 ### Phase 1 — 기반 구조
-- [ ] Godot 4.6 프로젝트 생성, 폴더 구조 세팅
-- [ ] `StateMachine.gd` / `State.gd` 구현 및 테스트
-- [ ] `data/poses.gd` — HTML POSES 딕셔너리 복사
-- [ ] `PoseSystem.gd` — `apply_pose` / `lerp_joint` 구현
-- [ ] `CharacterBase.gd` 스켈레톤 씬 수작업 배치, 포즈 적용 확인
+- [x] Godot 4.6 프로젝트 생성, 폴더 구조 세팅
+- [x] `StateMachine.gd` / `State.gd` 구현 및 테스트
+- [x] `data/poses.gd` — HTML POSES 딕셔너리 복사
+- [x] `PoseSystem.gd` — `apply_pose` / `lerp_joint` 구현
+- [x] `CharacterBase.gd` 스켈레톤 씬 수작업 배치, 포즈 적용 확인
 
 ### Phase 2 — 플레이어
 - [ ] `InputManager.gd` Autoload, InputMap 등록
