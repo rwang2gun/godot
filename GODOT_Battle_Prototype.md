@@ -9,18 +9,73 @@
 
 ## 좌표계
 
-Three.js와 Godot 4 모두 **Y-up, 오른손 좌표계, -Z 전방** → 좌표 변환 불필요.
+⚠️ **Three.js 원본은 +Z 전방**, Godot은 -Z 전방 — 좌표 변환 필요!
 
-| 항목 | Three.js | Godot 4 |
-|------|----------|---------|
-| 전방 | `-Z` | `-Z` |
-| 오른쪽 | `+X` | `+X` |
-| 위 | `+Y` | `+Y` |
-| 회전 | 오른손 법칙 | 오른손 법칙 |
-| 캐릭터 전방 각도 | `atan2(dir.x, dir.z)` | `atan2(dir.x, dir.z)` |
+| 항목 | Three.js (원본) | Godot 4 | 비고 |
+|------|----------------|---------|------|
+| 전방 | **`+Z`** | **`-Z`** | 180° 반대 |
+| 오른쪽 | `-X` | `+X` | 좌우 반전 |
+| 위 | `+Y` | `+Y` | 동일 |
+| 회전 | 오른손 법칙 | 오른손 법칙 | 동일 |
+| Euler Order (관절) | `XYZ` (기본) | `YXZ` (기본) | 관절에 XYZ 지정 필요 |
+| 캐릭터 전방 벡터 | `Vector3(0,0,1)` | `Vector3(0,0,-1)` | |
 
-> POSES 딕셔너리의 `rx/ry/rz` 수치는 라디안이므로 Godot `rotation` 속성에 **그대로 복사 가능**.  
-> Godot 기본 Euler 순서는 `YXZ`. 현재 코드는 관절별로 X/Y/Z를 개별 설정하므로 동일하게 동작.
+> 원본 HTML에서 확인: `const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion)`  
+> nose 마커도 `z = +headD/2` 에 배치 → 얼굴이 +Z를 향함.
+
+### 좌표 변환 규칙 (R_Y(π) 켤레변환)
+
++Z → -Z 전방 전환 시, Y축 180° 회전의 켤레변환을 적용:
+
+```
+R_Y(π) · R_x(θ) · R_Y(-π) = R_x(-θ)   → X축 회전: 부호 반전
+R_Y(π) · R_y(θ) · R_Y(-π) = R_y(θ)    → Y축 회전: 유지
+R_Y(π) · R_z(θ) · R_Y(-π) = R_z(-θ)   → Z축 회전: 부호 반전
+```
+
+**요약: X축·Z축 회전 → 부호 반전, Y축 회전 → 그대로**
+
+### 포즈 데이터 변환표
+
+| 필드 | 대응 축 | 변환 |
+|------|---------|------|
+| `root.y` | position.y | 유지 |
+| `root.rx`, `waist.rx`, `chest.rx` | rotation.x | **부호 반전** |
+| `root.ry`, `waist.ry`, `chest.ry` | rotation.y | 유지 |
+| `rArm/lArm.sx` | shoulder.rotation.x | **부호 반전** |
+| `rArm/lArm.sy` | shoulder.rotation.y | 유지 |
+| `rArm/lArm.sz` | shoulder.rotation.z | **부호 반전** |
+| `rArm/lArm.ex` | elbow.rotation.x | **부호 반전** |
+| `rArm/lArm.wx` | wrist.rotation.x | **부호 반전** |
+| `rArm/lArm.wy` | wrist.rotation.y | 유지 |
+| `rHip/lHip.rx` | hip.rotation.x | **부호 반전** |
+| `rHip/lHip.ry` | hip.rotation.y | 유지 |
+| `rHip/lHip.rz` | hip.rotation.z | **부호 반전** |
+| `rHip/lHip.knee` | knee.rotation.x | **부호 반전** |
+
+### 스켈레톤 위치 변환
+
+좌우도 반전되므로 X 오프셋 부호 반전, Z 오프셋 부호 반전:
+
+| 부위 | Three.js | Godot |
+|------|----------|-------|
+| 오른팔 shoulder.x | `-0.23` | `+0.23` |
+| 왼팔 shoulder.x | `+0.23` | `-0.23` |
+| 오른다리 hip.x | `-0.11` | `+0.11` |
+| 왼다리 hip.x | `+0.11` | `-0.11` |
+| nose.z | `+headD/2` | `-headD/2` |
+| sword.z | `+0.6` | `-0.6` |
+
+### Euler Order 설정
+
+Three.js 캐릭터 관절은 XYZ order. Godot 기본은 YXZ이므로 **관절 Node3D에 명시적 설정 필요**:
+
+```gdscript
+# 각 관절 Node3D 생성 시
+joint.rotation_order = EULER_ORDER_XYZ
+```
+
+> Goblin만 `mesh.rotation.order = 'YXZ'` 사용 — Goblin의 mesh(최상위)는 Godot 기본 YXZ와 일치.
 
 ---
 
@@ -85,63 +140,112 @@ freeflow_godot/
 ### 1. 스켈레톤 (buildGeometry)
 
 **현재**: `THREE.Group` + `BoxGeometry` 계층 구조  
-**Godot**: `Node3D` 계층 + `MeshInstance3D(BoxMesh)` — 구조 그대로 이식
+**Godot**: `Node3D` 계층 + `MeshInstance3D(BoxMesh)` — 구조 이식 + 좌표 변환 적용
 
 > `Skeleton3D` / `BoneAttachment3D`는 사용하지 않음.  
 > 포즈 시스템이 `Node3D.rotation`을 직접 조작하므로 계층 Node3D가 더 적합.
 
+⚠️ **좌표 변환 적용**: +Z forward → -Z forward 전환에 따라 X 오프셋 부호 반전.  
+⚠️ **Euler Order**: 모든 관절 Node3D에 `rotation_order = EULER_ORDER_XYZ` 설정 필요 (Godot 기본 YXZ와 다름).
+
 ```
 CharacterBase (CharacterBody3D)
-  └─ Root (Node3D)              ← parts["root"],  position.y = legH
+  └─ Root (Node3D, EULER_ORDER_XYZ) ← parts["root"],  position.y = legH
        ├─ PelvisMesh (MeshInstance3D)
-       ├─ Waist (Node3D)        ← parts["waist"]
+       ├─ Waist (Node3D, EULER_ORDER_XYZ) ← parts["waist"]
        │    ├─ WaistMesh
-       │    └─ Chest (Node3D)   ← parts["chest"]
+       │    └─ Chest (Node3D, EULER_ORDER_XYZ) ← parts["chest"]
        │         ├─ ChestMesh
-       │         ├─ Neck (Node3D)
+       │         ├─ Neck (Node3D, EULER_ORDER_XYZ)
        │         │    └─ Head (MeshInstance3D)
+       │         │         └─ Nose (position.z = -headD/2)  ← Z 반전!
        │         ├─ RightArm/
-       │         │    ├─ Shoulder (Node3D)  ← parts["right_arm"]["shoulder"]
-       │         │    ├─ Elbow   (Node3D)
-       │         │    └─ Wrist   (Node3D)
-       │         └─ LeftArm/ (동일 구조)
+       │         │    ├─ Shoulder (Node3D, EULER_ORDER_XYZ, x=+0.23)  ← X 반전!
+       │         │    ├─ Elbow   (Node3D, EULER_ORDER_XYZ)
+       │         │    └─ Wrist   (Node3D, EULER_ORDER_XYZ)
+       │         │         └─ Sword (position.z = -0.6)  ← Z 반전!
+       │         └─ LeftArm/
+       │              ├─ Shoulder (Node3D, EULER_ORDER_XYZ, x=-0.23)  ← X 반전!
+       │              ├─ Elbow   (Node3D, EULER_ORDER_XYZ)
+       │              └─ Wrist   (Node3D, EULER_ORDER_XYZ)
        ├─ RightLeg/
-       │    ├─ Hip  (Node3D)    ← parts["right_leg"]["hip"]
-       │    └─ Knee (Node3D)
-       └─ LeftLeg/ (동일 구조)
+       │    ├─ Hip  (Node3D, EULER_ORDER_XYZ, x=+0.11)  ← X 반전!
+       │    └─ Knee (Node3D, EULER_ORDER_XYZ)
+       └─ LeftLeg/
+            ├─ Hip  (Node3D, EULER_ORDER_XYZ, x=-0.11)  ← X 반전!
+            └─ Knee (Node3D, EULER_ORDER_XYZ)
 ```
+
+**위치 오프셋 변환 요약** (Three.js → Godot):
+
+| 부위 | Three.js X | Godot X | Three.js Z | Godot Z |
+|------|-----------|---------|-----------|---------|
+| RightArm shoulder | -0.23 | **+0.23** | 0 | 0 |
+| LeftArm shoulder | +0.23 | **-0.23** | 0 | 0 |
+| RightLeg hip | -0.11 | **+0.11** | 0 | 0 |
+| LeftLeg hip | +0.11 | **-0.11** | 0 | 0 |
+| Nose | 0 | 0 | +headD/2 | **-headD/2** |
+| Sword | 0 | 0 | +0.6 | **-0.6** |
 
 ---
 
 ### 2. 포즈 시스템
 
-**현재**: JS `POSES` 딕셔너리 + `applyPose(pose, speed, dt)` + `lerpJoint()`
+**현재**: JS `POSES` 딕셔너리 + `applyPose(pose, speed, dt)` + `lerpJoint()`  
+**변환**: 좌표계 섹션의 변환 규칙에 따라 X축·Z축 회전 부호 반전 적용
+
+> ⚠️ HTML의 POSES를 **그대로 복사하면 안 됨**. 아래 변환이 적용된 값을 사용할 것.
+
+**변환 예시 — idle 포즈 (HTML 원본 → Godot 변환)**:
+
+```
+HTML 원본:
+  root:  { y:0.8, rx:0,     ry:-0.37 }
+  waist: { rx:-0.09, ry:0 }
+  chest: { rx:0.06,  ry:0.22 }
+  rArm:  { sx:0.13,  sy:-0.01, sz:-0.09, ex:-0.49, wx:-0.26, wy:0 }
+  lArm:  { sx:0.3,   sy:-0.68, sz:0.32,  ex:-0.51 }
+  rHip:  { rx:-0.22, ry:-0.14, rz:-0.18, knee:0.21 }
+  lHip:  { rx:0.07,  ry:0.38,  rz:0.1,   knee:0.05 }
+
+Godot 변환 (rx,rz,sx,sz,ex,wx,knee → 부호 반전 / ry,sy,wy → 유지):
+  root:  { y:0.8, rx:0,     ry:-0.37 }      ← rx=0 반전해도 0
+  waist: { rx:0.09,  ry:0 }                  ← rx 반전
+  chest: { rx:-0.06, ry:0.22 }               ← rx 반전
+  rArm:  { sx:-0.13, sy:-0.01, sz:0.09, ex:0.49, wx:0.26, wy:0 }
+  lArm:  { sx:-0.3,  sy:-0.68, sz:-0.32, ex:0.51 }
+  rHip:  { rx:0.22,  ry:-0.14, rz:0.18, knee:-0.21 }
+  lHip:  { rx:-0.07, ry:0.38,  rz:-0.1, knee:-0.05 }
+```
 
 ```gdscript
 # data/poses.gd
+# ⚠️ 모든 값은 HTML 원본에서 좌표 변환(X축·Z축 부호 반전) 적용 완료된 상태
 const POSES: Dictionary = {
     "idle": {
-        "root":  {"y": 0.72, "rx": 0.0,  "ry": 0.0},
-        "waist": {"rx": 0.0, "ry": 0.0},
-        "chest": {"rx": 0.0, "ry": 0.0},
-        "rArm":  {"sx": 0.0, "sy": 0.0, "sz": 0.0, "ex": -0.1, "wx": 0.0, "wy": 0.0},
-        "lArm":  {"sx": 0.0, "sy": 0.0, "sz": 0.0, "ex": -0.1},
-        "rHip":  {"rx": -0.3, "ry": 0.0, "rz": 0.0, "knee": 0.05},
-        "lHip":  {"rx": -0.3, "ry": 0.0, "rz": 0.0, "knee": 0.05},
+        "root":  {"y": 0.8, "rx": 0.0, "ry": -0.37},
+        "waist": {"rx": 0.09, "ry": 0.0},
+        "chest": {"rx": -0.06, "ry": 0.22},
+        "rArm":  {"sx": -0.13, "sy": -0.01, "sz": 0.09, "ex": 0.49, "wx": 0.26, "wy": 0.0},
+        "lArm":  {"sx": -0.3, "sy": -0.68, "sz": -0.32, "ex": 0.51},
+        "rHip":  {"rx": 0.22, "ry": -0.14, "rz": 0.18, "knee": -0.21},
+        "lHip":  {"rx": -0.07, "ry": 0.38, "rz": -0.1, "knee": -0.05},
     },
-    # ... HTML의 POSES 딕셔너리를 그대로 복사
+    # ... 나머지 24개 포즈도 동일한 변환 규칙 적용
+    # 변환 자동화: poses.gd 생성 시 스크립트로 일괄 변환 권장
 }
 ```
 
 ```gdscript
 # scripts/core/PoseSystem.gd
+# apply_pose 코드 자체는 변환 전후 동일 — 데이터만 변환됨
 func apply_pose(parts: Dictionary, pose: Dictionary, speed: float, delta: float) -> void:
     var a := minf(1.0, speed * delta)
 
     # root
-    parts["root"].position.y     = lerpf(parts["root"].position.y,     pose["root"].get("y",  0.0), a)
-    parts["root"].rotation.x     = lerpf(parts["root"].rotation.x,     pose["root"].get("rx", 0.0), a)
-    parts["root"].rotation.y     = lerpf(parts["root"].rotation.y,     pose["root"].get("ry", 0.0), a)
+    parts["root"].position.y = lerpf(parts["root"].position.y, pose["root"].get("y", 0.0), a)
+    parts["root"].rotation.x = lerpf(parts["root"].rotation.x, pose["root"].get("rx", 0.0), a)
+    parts["root"].rotation.y = lerpf(parts["root"].rotation.y, pose["root"].get("ry", 0.0), a)
 
     # waist / chest
     parts["waist"].rotation.x = lerpf(parts["waist"].rotation.x, pose["waist"].get("rx", 0.0), a)
@@ -334,9 +438,12 @@ func _input(event: InputEvent) -> void:
 **현재**: `calculateMovement()` → 카메라 기준 벡터 계산 후 수동 위치 이동  
 **Godot**: `CharacterBody3D.move_and_slide()`
 
+> ⚠️ HTML은 `forward = Vector3(0,0,1)` (+Z) 이지만, Godot은 `-basis.z` (-Z) 가 전방.  
+> `atan2(dir.x, dir.z)` 공식은 동일 — -Z 전방 기준에서도 올바른 Y 회전각을 반환.
+
 ```gdscript
 func calculate_movement() -> Vector3:
-    var cam_forward := -camera.global_transform.basis.z
+    var cam_forward := -camera.global_transform.basis.z  # Godot -Z = 전방
     cam_forward.y = 0.0
     cam_forward = cam_forward.normalized()
     var cam_left := Vector3.UP.cross(cam_forward).normalized()
