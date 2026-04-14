@@ -1,3 +1,4 @@
+class_name CameraRig
 extends Node3D
 
 ## =====================================================================
@@ -23,11 +24,30 @@ var _target: Node3D = null
 
 func set_target(t: Node3D) -> void:
 	_target = t
+	# 타겟 CharacterBody3D를 SpringArm 충돌에서 제외 (플레이어 캡슐에 카메라가 끌려들어가는 문제 방지)
+	if t is CollisionObject3D and _spring:
+		_spring.add_excluded_object(t.get_rid())
 
 
 func _ready() -> void:
 	_spring.spring_length = target_distance
-	_spring.add_excluded_object(get_parent())  # 자기 자신 제외
+	# Main 트리에 있는 모든 CharacterBody3D를 spring 충돌에서 제외
+	# (Player, CharacterEF, CharacterWM, 고블린들 — 카메라가 캡슐 안에 있어 raycast가 자신에 맞는 문제)
+	call_deferred("_exclude_all_character_bodies")
+
+
+func _exclude_all_character_bodies() -> void:
+	var root_node: Node = get_tree().current_scene
+	if root_node == null:
+		return
+	_exclude_recursive(root_node)
+
+
+func _exclude_recursive(node: Node) -> void:
+	if node is CharacterBody3D:
+		_spring.add_excluded_object((node as CollisionObject3D).get_rid())
+	for child in node.get_children():
+		_exclude_recursive(child)
 
 
 func _input(event: InputEvent) -> void:

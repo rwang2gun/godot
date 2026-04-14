@@ -439,7 +439,8 @@ func _input(event: InputEvent) -> void:
 **Godot**: `CharacterBody3D.move_and_slide()`
 
 > ⚠️ HTML은 `forward = Vector3(0,0,1)` (+Z) 이지만, Godot은 `-basis.z` (-Z) 가 전방.  
-> `atan2(dir.x, dir.z)` 공식은 동일 — -Z 전방 기준에서도 올바른 Y 회전각을 반환.
+> Yaw 공식은 `atan2(-dir.x, -dir.z)` — -Z 전방 기준 모델이 dir 방향을 향하도록 보정.  
+> (HTML 원본 `atan2(dir.x, dir.z)` 그대로 옮기면 모델이 등을 보임 — 부호 반전 필수)
 
 ```gdscript
 func calculate_movement() -> Vector3:
@@ -456,7 +457,8 @@ func calculate_movement() -> Vector3:
 
     if input_dir.length_squared() > 0.0001:
         input_dir = input_dir.normalized()
-        var target_angle := atan2(input_dir.x, input_dir.z)
+        # -Z 전방 보정: HTML의 atan2(x, z)에서 부호 반전
+        var target_angle: float = atan2(-input_dir.x, -input_dir.z)
         mesh.rotation.y = target_angle   # 즉시 회전 (HTML과 동일)
     return input_dir
 ```

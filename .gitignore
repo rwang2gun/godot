@@ -4,6 +4,9 @@
 # Claude Code 메모리
 .claude/
 
+# HTML 참조 원본
+*.html
+
 # 기타
 *.tmp
 export_presets.cfg

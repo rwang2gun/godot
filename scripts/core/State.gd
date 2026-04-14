@@ -2,9 +2,9 @@ class_name BaseState
 extends RefCounted
 
 ## 캐릭터(CharacterBase) 참조 — _init 에서 주입
-var parent
+var parent: CharacterBase
 
-func _init(p) -> void:
+func _init(p: CharacterBase) -> void:
 	parent = p
 
 ## 상태 진입 시 호출

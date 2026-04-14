@@ -33,20 +33,24 @@ func _process(delta: float) -> void:
 	# 이전 프레임 트리거 리셋 (→ _physics_process까지 1프레임 유지됨)
 	_reset_triggers()
 
-	# 공격: 누르는 즉시 발동 + 홀드 시 차지 전환
+	# 공격: 누르는 시점엔 트리거 없음 → 홀드 시간 누적 → 릴리스 시 분기
+	# - hold < CHARGE_THRESHOLD → attack_triggered (일반 공격)
+	# - hold >= CHARGE_THRESHOLD → is_charging=true (홀드 중) → 릴리스 시 charge_attack_released
 	if Input.is_action_just_pressed("attack"):
-		attack_triggered = true
 		attack_hold_time = 0.0
 		is_charging = false
 	elif Input.is_action_pressed("attack"):
 		attack_hold_time += delta
 		if not is_charging and attack_hold_time >= CHARGE_THRESHOLD:
 			is_charging = true
-	elif Input.is_action_just_released("attack"):
+
+	if Input.is_action_just_released("attack"):
 		if is_charging:
 			charge_attack_released = true
-		attack_hold_time = 0.0
+		elif attack_hold_time < CHARGE_THRESHOLD:
+			attack_triggered = true
 		is_charging = false
+		attack_hold_time = 0.0
 
 	# 스킬/궁극기/대시
 	if Input.is_action_just_pressed("skill"):
@@ -100,8 +104,13 @@ func _setup_input_map() -> void:
 		InputMap.action_add_event("attack", mouse_ev)
 	_ensure_key_action("attack", KEY_SPACE)
 
-	# dodge: Shift
+	# dodge: Shift + RMB + Period(.)
 	_ensure_key_action("dodge", KEY_SHIFT)
+	_ensure_key_action("dodge", KEY_PERIOD)
+	var rmb_ev := InputEventMouseButton.new()
+	rmb_ev.button_index = MOUSE_BUTTON_RIGHT
+	if not _action_has_event("dodge", rmb_ev):
+		InputMap.action_add_event("dodge", rmb_ev)
 
 	# skill: E
 	_ensure_key_action("skill", KEY_E)
