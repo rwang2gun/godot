@@ -1,0 +1,222 @@
+{
+  "title": "CandyAnts — 디자인 방향 문서",
+  "based_on": "REFERENCE_Lemmings.json (오리지널 레밍즈 역기획)",
+  "purpose": "CandyAnts 게임의 핵심 설계 결정 기록. 구현 단계의 단일 진실 공급원(SoT).",
+  "created_at": "2026-05-07",
+  "status": "v1 — 핵심 시스템 잠금. 세부 밸런싱은 프로토타입 후 조정.",
+
+  "concept": {
+    "elevator_pitch": "레밍즈의 자율 군중 + 간접 통제 메카닉을 유지하되, 편도 탈출이 아닌 사탕 왕복 운반 게임으로 재해석. 의인화된 개미가 사탕에서 한 입씩 떼어 집으로 가져온다.",
+    "theme": "개미 + 사탕 왕국",
+    "core_change_from_lemmings": "One-way → Round-trip (사탕 픽업 + 귀환)",
+    "design_inheritance": "원작의 시그니처 메카닉 5종(자율 군중, 스킬 인벤토리 유한성, Release Rate, 비가역성, 다중 해법)은 그대로 계승"
+  },
+
+  "core_loop": [
+    "레벨 시작 → Home(진입구)에서 일개미가 Release Rate에 따라 스폰",
+    "개미는 자율적으로 전진 → 사탕 도달 시 한 입 픽업(HP -1) → 180° 회전",
+    "운반 중 개미는 75-80% 속도로 귀환",
+    "Home 도달 시 사탕 조각 +1 (saved)",
+    "사탕 HP=0 + 모든 생존 운반자 귀가 시 클리어",
+    "점수 = 무사 귀환 조각 / 총 사탕 HP × 100%"
+  ],
+
+  "win_conditions": {
+    "clear": {
+      "type": "binary",
+      "rule": "사탕 HP = 0 AND 운반 중인 모든 살아있는 개미가 Home 도달"
+    },
+    "score": {
+      "type": "graded",
+      "formula": "(무사 귀환 사탕 조각) / (총 사탕 HP)",
+      "design_intent": "클리어와 분리된 평가축 → 리플레이/스피드런/완벽 클리어 동기"
+    },
+    "fail": {
+      "rule": "시간 종료 + 사탕 HP > 0  OR  모든 개미 사망"
+    }
+  },
+
+  "resource_economy": {
+    "axes": ["시간", "총 개미 수 N", "사탕 HP K", "스킬 인벤토리"],
+    "key_relation": "N ≥ K 필수 (그렇지 않으면 클리어 불가)",
+    "sacrifice_budget": "N − K 마리는 운반 외 용도(Blocker, Bomber 등)로 사용 가능",
+    "design_principle": "원작의 '% 구원' 단일 축이 두 자원(N, K)으로 분리되어 더 명시적인 레벨 디자인 가능"
+  },
+
+  "ant_ai": {
+    "states": [
+      {
+        "name": "Walker",
+        "role": "기본 전진 상태",
+        "speed_multiplier": 1.0
+      },
+      {
+        "name": "Faller",
+        "role": "낙하 중. 임계 거리 초과 시 추락사",
+        "speed_multiplier": null
+      },
+      {
+        "name": "Carrying",
+        "role": "사탕 픽업 후 귀환 중. 운반 조각 1개 소지",
+        "speed_multiplier": {
+          "default": 0.78,
+          "range": [0.75, 0.80],
+          "note": "Walker 속도 대비"
+        },
+        "skill_applicable": true,
+        "death_consequence": "사탕 조각 영구 소실"
+      },
+      {
+        "name": "Worker",
+        "role": "스킬 부여 상태 (Builder, Basher, Miner, Digger, Blocker 등 작업 중)",
+        "speed_multiplier": "스킬별 상이 (원작과 동일)"
+      },
+      {
+        "name": "Saved",
+        "role": "Home 도달 → 카운트 처리 후 사라짐"
+      },
+      {
+        "name": "Dead",
+        "role": "위험 요소 접촉. Carrying 상태였다면 조각 영구 소실"
+      }
+    ],
+    "key_transitions": {
+      "candy_reached_with_hp": "Walker → Carrying (사탕 HP -1, 180° 회전)",
+      "candy_reached_when_empty": "그 자리에서 180° 회전 → 빈손 귀환 (사망 아님, 자원 낭비)",
+      "carrier_reaches_home": "Carrying → Saved (점수 조각 +1)",
+      "carrier_dies": "Carrying → Dead (조각 영구 소실)",
+      "carrier_uses_bomber": "5초 후 폭발, 조각 영구 소실"
+    },
+    "pathing": {
+      "outbound": "단방향 전진 + 자연 회전(벽/바닥)",
+      "return": "180° 회전 후 왔던 길 — 단순 룰 (페로몬/A* 미사용)",
+      "rationale": "MVP 단순성. 향후 페로몬 시스템으로 확장 가능."
+    }
+  },
+
+  "skills": {
+    "policy": "원작 8종 스킬 인터페이스 그대로 계승. Carrying 상태 개미에게도 적용 가능.",
+    "list": ["Climber", "Floater", "Bomber", "Blocker", "Builder", "Basher", "Miner", "Digger"],
+    "candyants_specific_implications": {
+      "Climber": "왕복 모두 적용 → 가치 ↑ (귀환로 확보 핵심 도구)",
+      "Floater": "왕복 모두 적용 → 가치 ↑",
+      "Bomber": "Carrying 상태 자폭 시 조각 영구 소실. Blocker 제거의 유일 수단.",
+      "Blocker": "양방향 차단 — 외출/귀환 개미 모두 회전시킴. 트래픽 제어 도구.",
+      "Builder": "양방향 통행 가능한 계단 → 귀환로 확보의 주력 스킬",
+      "Basher": "양방향 통과 가능한 수평 굴착",
+      "Miner": "양방향 통과 가능한 대각선 굴착",
+      "Digger": "수직 굴착 → 떨어지면 Climber/Builder 없이는 못 올라옴 → 편도 함정 메카닉의 핵심"
+    }
+  },
+
+  "level_components": {
+    "home": {
+      "role": "진입구 + 출구 동일 지점",
+      "behavior": "Walker 스폰 + Carrying 도착지"
+    },
+    "candy": {
+      "role": "왕복 목적지",
+      "hp": "레벨별 정수값 K",
+      "visual_feedback": "HP 감소에 따라 시각적으로 깎이는 효과 (점진적 축소)",
+      "depletion": "도달한 개미마다 HP -1, 0 도달 시 빈 사탕 상태",
+      "count_per_level": "MVP는 1개 (다중 사탕은 향후 검토)"
+    },
+    "terrain": {
+      "destructible": "Basher/Miner/Digger로 굴착 가능",
+      "indestructible": "스틸 블록 — 솔루션 강제 장치"
+    },
+    "hazards": {
+      "static": ["물(익사)", "용암", "가시", "절벽(추락)"],
+      "dynamic": ["압착기", "회전 칼날", "화염", "함정문"]
+    },
+    "level_meta": {
+      "total_ants_N": "10 ~ 100 (원작 범위 계승)",
+      "candy_hp_K": "K ≤ N (필수 제약)",
+      "time_limit": "원작 대비 ~2배 (왕복 고려, 넉넉한 설정)",
+      "skill_inventory": "스킬별 개수 제한",
+      "release_rate": "1~99 (플레이어 조정 가능)"
+    }
+  },
+
+  "level_patterns": {
+    "inherited_from_lemmings": [
+      "튜토리얼형", "조합형", "트릭형", "타이밍형", "자원 압박형", "다중 해법형"
+    ],
+    "candyants_specific": [
+      {
+        "name": "귀환로 퍼즐형",
+        "description": "외출은 단순하나 귀환에 별도 솔루션 필요. Climber/Builder 사용 강제."
+      },
+      {
+        "name": "자기 파괴형",
+        "description": "외출 솔루션이 귀환로를 손상. Digger로 떨어졌다가 못 올라오는 식."
+      },
+      {
+        "name": "트래픽형",
+        "description": "외출/귀환 개미가 좁은 길에서 충돌. Blocker 양방향 차단을 의도적 설계 도구로 활용."
+      },
+      {
+        "name": "2단 자원 관리형",
+        "description": "스킬 인벤토리를 외출/귀환에 분배 강제. 예: 'Builder 5개 = 외출 3 + 귀환 2'."
+      }
+    ]
+  },
+
+  "ux_ui": {
+    "inheritance": "원작 레이아웃 골격 그대로 계승 — 메인 뷰 / 미니맵 / 스킬 툴바 / HUD / Release Rate 슬라이더",
+    "candyants_additions": {
+      "candy_hp_indicator": "사탕에 직접 HP 표시 (시각적 깎임 + 숫자 오버레이)",
+      "carrying_state_visual": "운반 중 개미 머리 위/등에 사탕 조각 표시",
+      "score_preview": "현재까지 무사 귀환한 조각 / 총 HP 비율 표시",
+      "in_transit_counter": "현재 Home으로 향하는 운반자 수"
+    }
+  },
+
+  "signature_mechanics_inherited": [
+    "자율 군중 + 간접 통제",
+    "스킬 인벤토리의 유한성",
+    "Release Rate 슬라이더 (자기 페이싱)",
+    "연쇄 실수의 비가역성",
+    "다중 해법 가능성"
+  ],
+
+  "signature_mechanics_added": [
+    {
+      "name": "왕복 라운드트립",
+      "description": "한 개미의 여정이 두 단계 (외출/귀환). 각 단계가 별개 퍼즐이 될 수 있음."
+    },
+    {
+      "name": "사탕 HP 자원",
+      "description": "도달자 수 ≠ 클리어 조건. HP라는 별도 자원이 존재."
+    },
+    {
+      "name": "운반 부하 (Slow + Vulnerable)",
+      "description": "Carrying 상태는 느리고, 사망 시 진행도 손실 → 후반부 위험이 증폭"
+    },
+    {
+      "name": "클리어/점수 분리",
+      "description": "binary 클리어 + graded 점수 → 리플레이 동기 명시적 분리"
+    }
+  ],
+
+  "open_questions_for_future": [
+    "한 입 크기를 개미 종류별로 다르게? (현재: 1마리 = 1 HP 고정)",
+    "사탕이 여러 개인 레벨 도입 시점",
+    "랭크 시스템 임계값 (예: 100%=S, 90%+=A, 70%+=B, 50%+=C, 클리어=D)",
+    "Carrying ↔ Carrying 충돌 동작 (현재 가정: Walker처럼 회전)",
+    "사망한 운반자가 떨어뜨린 사탕 조각을 다른 개미가 픽업 가능? (현재: 영구 소실)",
+    "페로몬 기반 귀환 경로 도입 시점 (현재: 단순 180°)"
+  ],
+
+  "mvp_scope": {
+    "phase_1_minimum": [
+      "Ant 상태머신: Walker / Faller / Carrying / Saved / Dead",
+      "사탕 HP 시스템 + 픽업 + 감소",
+      "Home = 진입구 + 도착 카운트",
+      "스킬 1~2종만 (Builder + Blocker 추천 — 핵심 라운드트립 메카닉 검증용)",
+      "테스트 레벨 1~2개"
+    ],
+    "phase_2_full_skills": "원작 8종 스킬 완성 + 모든 hazard 타입",
+    "phase_3_polish": "캐릭터 의인화, 사탕 시각 효과, 사운드, 점수 랭크 시스템"
+  }
+}

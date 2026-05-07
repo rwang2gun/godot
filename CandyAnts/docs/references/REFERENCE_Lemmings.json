@@ -1,0 +1,296 @@
+{
+  "title": "Lemmings (1991) — 오리지널 역기획",
+  "purpose": "CandyAnts 각색 작업의 레퍼런스 자료. 원작의 시스템/메카닉/디자인 철학을 구조화.",
+  "created_at": "2026-05-07",
+
+  "overview": {
+    "developer": "DMA Design (이후 Rockstar North)",
+    "publisher": "Psygnosis",
+    "release_year": 1991,
+    "original_platform": "Amiga",
+    "ported_platforms": "100+ (역대 가장 많이 이식된 게임 중 하나)",
+    "genre": "실시간 퍼즐 (RTS와 퍼즐의 경계)",
+    "hook": "자살 충동에 가까운 무지한 군중을, 직접 조작하지 않고 출구까지 안내하라"
+  },
+
+  "core_concept": {
+    "principle": "플레이어는 레밍을 직접 조작하지 않는다. 자율 에이전트인 레밍에게 직업(skill)을 부여하는 간접 통제 방식.",
+    "emergence_source": "단순한 규칙(앞으로 걷기, 벽에서 회전, 절벽에서 낙하) + 8개 스킬 + 다양한 지형 = 거대한 솔루션 공간",
+    "constraints": ["유한한 자원(시간/레밍 수/스킬 인벤토리)", "실시간 진행", "비가역적 결정"]
+  },
+
+  "core_loop": [
+    "레벨 시작 → 진입구(trapdoor)에서 Release Rate에 따라 레밍 스폰",
+    "레밍은 무뇌 상태로 전진/낙하/턴 반복",
+    "플레이어가 위험 인지 → 일시정지(Pause) 또는 실시간 판단",
+    "스킬 선택 → 특정 레밍 클릭 → 행동 변화",
+    "출구 도달 = saved / 위험 도달 = 사망",
+    "시간 종료 시 saved/total ≥ 목표 % → 클리어"
+  ],
+
+  "sub_loop": "관찰 → 일시정지 사고 → 스킬 할당 → 결과 검증",
+
+  "systems": {
+    "lemming_ai": {
+      "default_state": "Walker (단방향 전진)",
+      "transitions": {
+        "wall_collision": "방향 전환",
+        "no_ground": "Faller 상태로 전이 → 임계 거리 초과 시 추락사",
+        "hazard_water": "사망 (익사 애니메이션)",
+        "hazard_lava_fire_spike_trap": "사망 (타입별 애니메이션)",
+        "exit_reached": "Yippee! 외치고 사라짐 → saved 카운터 +1"
+      },
+      "design_note": "모든 레밍은 동일한 의사결정 트리를 공유. 개체 차이 없음."
+    },
+
+    "skills": [
+      {
+        "id": 1,
+        "name": "Climber",
+        "category": "개체 강화",
+        "action": "수직 벽을 기어오름",
+        "persistence": "영구 (해당 레밍의 새 능력)",
+        "consumed_per_use": 1
+      },
+      {
+        "id": 2,
+        "name": "Floater",
+        "category": "개체 강화",
+        "action": "낙하 시 우산을 펴서 추락사 면역",
+        "persistence": "영구",
+        "consumed_per_use": 1
+      },
+      {
+        "id": 3,
+        "name": "Bomber",
+        "category": "자기 희생",
+        "action": "5초 카운트다운 후 폭발 — 지형 파괴 + 본인 사망",
+        "persistence": "1회성",
+        "consumed_per_use": 1,
+        "design_note": "유일하게 지형을 동적으로 파괴+개체 소모. Blocker 제거의 유일한 수단이기도 함."
+      },
+      {
+        "id": 4,
+        "name": "Blocker",
+        "category": "군중 제어",
+        "action": "그 자리에 멈춤. 다른 레밍이 부딪히면 회전",
+        "persistence": "영구 (Bomber 외에 제거 불가)",
+        "consumed_per_use": 1
+      },
+      {
+        "id": 5,
+        "name": "Builder",
+        "category": "지형 조작 (건설)",
+        "action": "우상향 12계단 건설 후 Walker 복귀",
+        "persistence": "12 블록 한정",
+        "consumed_per_use": 1,
+        "design_note": "유일하게 지형을 추가하는 스킬"
+      },
+      {
+        "id": 6,
+        "name": "Basher",
+        "category": "지형 조작 (굴착)",
+        "action": "수평 방향 굴착",
+        "persistence": "지형 끝까지 또는 하늘 만날 때까지",
+        "consumed_per_use": 1
+      },
+      {
+        "id": 7,
+        "name": "Miner",
+        "category": "지형 조작 (굴착)",
+        "action": "우하향 대각선 굴착",
+        "persistence": "지형 끝까지",
+        "consumed_per_use": 1
+      },
+      {
+        "id": 8,
+        "name": "Digger",
+        "category": "지형 조작 (굴착)",
+        "action": "수직 아래로 굴착",
+        "persistence": "지형 바닥까지",
+        "consumed_per_use": 1
+      }
+    ],
+
+    "skill_meta_verbs": [
+      "개체 강화 (Climber, Floater)",
+      "자기 희생 (Bomber)",
+      "군중 제어 (Blocker)",
+      "지형 조작 — 건설 (Builder)",
+      "지형 조작 — 굴착 (Basher, Miner, Digger; 방향 차이)"
+    ],
+
+    "level_components": {
+      "entrance": {
+        "name": "Trapdoor",
+        "role": "레밍 스폰 지점",
+        "count_per_level": "보통 1~2개"
+      },
+      "exit": {
+        "role": "도달 시 saved 카운트 +1"
+      },
+      "terrain": {
+        "destructible": "굴착 스킬로 파괴 가능",
+        "indestructible": "스틸 블록 — 어떤 스킬로도 못 뚫음. 솔루션 강제 장치 역할"
+      },
+      "hazards": {
+        "static": ["물(익사)", "용암(소각)", "가시(즉사)", "절벽(추락사)"],
+        "dynamic": ["압착기", "회전 칼날", "화염 분사기", "함정문(트리거식)"]
+      },
+      "level_meta": {
+        "total_lemmings": "10 ~ 100",
+        "save_target_percent": "10% ~ 100%",
+        "time_limit": "1분 ~ 9분",
+        "skill_inventory": "스킬별 개수 제한 (예: Builder 3개, Basher 2개)",
+        "release_rate": {
+          "range": "1 ~ 99",
+          "player_adjustable": true,
+          "design_note": "레벨마다 최소 Release Rate가 정해져 있고, 플레이어는 그 이상으로만 올릴 수 있음"
+        }
+      }
+    },
+
+    "resource_economy": {
+      "axes": ["시간", "레밍 수", "스킬 인벤토리"],
+      "tradeoffs": [
+        "시간 부족 → Release Rate 증가 (군중 통제 난이도 ↑)",
+        "스킬 부족 → 다목적 활용 강제 (예: Builder를 차단용으로)",
+        "레밍 부족 → 자폭(Bomber) 절제 강제"
+      ],
+      "design_principle": "이 트라이앵글이 솔루션 공간을 정의한다"
+    }
+  },
+
+  "ux_ui": {
+    "screen_layout": {
+      "main_view": "상단 ~80%, 사이드뷰 스크롤",
+      "minimap": "하단 좌, 전체 레벨 위치 + 레밍 점 표시",
+      "skill_toolbar": "하단 중앙, 8개 스킬 아이콘 + 잔여 개수",
+      "hud": "하단 우 — Out/Home 카운터, 남은 시간, Pause, Nuke 'em",
+      "release_rate_slider": "좌측 끝"
+    },
+    "input": {
+      "primary": "마우스 1버튼 — 스킬 선택 후 레밍 클릭",
+      "shortcuts": "스킬 1~8, Pause, Speed up",
+      "nuke_em": "모든 레밍에게 Bomber 부여. 포기 또는 강제 종료용"
+    },
+    "feedback_channels": {
+      "visual": [
+        "레밍 머리 위 직업 라벨",
+        "Bomber 카운트다운 숫자 (5,4,3,2,1)",
+        "사망 종류별 애니메이션 차별화 (압착/익사/추락)",
+        "마지막 10초 화면 깜빡임"
+      ],
+      "audio": [
+        "음성 큐 — Let's go! / Oh no! / Yippee! (레밍 캐릭터화에 결정적)",
+        "액션별 SFX — 굴착/폭발/익사",
+        "시간 부족 시 BGM 템포 가속",
+        "4채널 8비트 BGM (Lemming 1 곡이 아이코닉)"
+      ]
+    }
+  },
+
+  "level_design": {
+    "cognitive_load_axes": [
+      "공간 인지 — 레벨 형상 파악",
+      "시간 인지 — 레밍 도달 시점 예측",
+      "자원 인지 — 어느 스킬 몇 개 가능한가",
+      "인과 인지 — 이 행동이 어떤 결과를 낳는가"
+    ],
+    "level_patterns": [
+      {
+        "type": "튜토리얼형",
+        "characteristic": "신규 스킬 1개 도입, 강제 동선"
+      },
+      {
+        "type": "조합형",
+        "characteristic": "여러 스킬 + 순서 제약"
+      },
+      {
+        "type": "트릭형",
+        "characteristic": "반직관적 솔루션 (예: Builder를 차단용으로)"
+      },
+      {
+        "type": "타이밍형",
+        "characteristic": "동일 솔루션 + 정밀 타이밍 요구"
+      },
+      {
+        "type": "자원 압박형",
+        "characteristic": "스킬은 충분, 시간이 부족"
+      },
+      {
+        "type": "다중 해법형",
+        "characteristic": "여러 풀이 가능 → 스피드런 요소"
+      }
+    ],
+    "difficulty_tiers": [
+      {"name": "Fun", "level_count": 30, "focus": "메카닉 학습"},
+      {"name": "Tricky", "level_count": 30, "focus": "조합 학습"},
+      {"name": "Taxing", "level_count": 30, "focus": "정밀도 요구"},
+      {"name": "Mayhem", "level_count": 30, "focus": "종합 시험"}
+    ],
+    "tier_progression_rule": "레밍 수 ↑, 시간 ↓, 스킬 ↓, 위험 ↑로 압박 가중"
+  },
+
+  "signature_mechanics": [
+    {
+      "id": 1,
+      "name": "자율 군중 + 간접 통제",
+      "description": "직접 조작 0%, 시스템 설계 100%. RTS와 퍼즐 사이의 정체성을 정의."
+    },
+    {
+      "id": 2,
+      "name": "스킬 인벤토리의 유한성",
+      "description": "'이 레벨에서 Builder 3개, Basher 2개' 같은 제약이 솔루션 공간을 정의."
+    },
+    {
+      "id": 3,
+      "name": "Release Rate 슬라이더",
+      "description": "동일 레벨이라도 플레이어가 페이스를 조절. 자기 페이싱 게임."
+    },
+    {
+      "id": 4,
+      "name": "연쇄 실수의 비가역성",
+      "description": "Bomber 한 번 잘못 누르면 못 되돌림 → 신중함 강제. 일시정지가 핵심 도구가 됨."
+    },
+    {
+      "id": 5,
+      "name": "다중 해법 가능성",
+      "description": "정답이 하나가 아닌 경우가 다수. 리플레이성과 커뮤니티 발견의 원천."
+    }
+  ],
+
+  "design_insights": [
+    {
+      "title": "시스템의 우아함",
+      "detail": "8 스킬 × 지형 조합 = 거대한 솔루션 공간. 룰은 단순, 표현력은 풍부."
+    },
+    {
+      "title": "인과 가독성",
+      "detail": "모든 죽음/구원의 이유가 시각적으로 명확 → 학습 가능. 실패에서 배움이 발생."
+    },
+    {
+      "title": "마이크로/매크로 동시 사고",
+      "detail": "한 마리에 클릭하지만 결과는 군중에 미친다. 개체와 흐름을 동시에 사고하게 함."
+    },
+    {
+      "title": "시간의 이중 역할",
+      "detail": "단순 페널티가 아니라 조절 가능한 자원. Release Rate로 시간을 직접 조작."
+    },
+    {
+      "title": "무력감의 미학",
+      "detail": "플레이어는 신이 아니다. 한 마리도 못 살릴 때의 무력감이 다음 시도의 동기."
+    }
+  ],
+
+  "candy_ants_adaptation_hooks": {
+    "purpose": "각색 시 검토할 후보 변경 포인트 (논의용 메모)",
+    "candidates": [
+      "테마: 레밍 → 개미 / 환경 → 사탕 왕국",
+      "메타 동사 재해석: 굴착 → 사탕 깨물기, 건설 → 캐러멜 다리",
+      "협력 동작 추가 가능성: 실제 개미의 군집 행동 (다리 만들기, 운반)",
+      "AI 차별화: 개미 직군(일개미/병정개미/여왕)으로 개체 차이 도입 검토",
+      "출구 변형: '여왕에게 음식 운반' 같은 자원 회수형 목표"
+    ]
+  }
+}
