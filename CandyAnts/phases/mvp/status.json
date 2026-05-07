@@ -1,0 +1,128 @@
+{
+  "task": "mvp",
+  "started_at": "2026-05-08T00:26:05",
+  "completed_at": null,
+  "phases": [
+    {
+      "id": 1,
+      "file": "phase01-bootstrap.md",
+      "name": "bootstrap",
+      "duration_estimate": 3600,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 2,
+      "file": "phase02-stage1-core.md",
+      "name": "stage1-core",
+      "duration_estimate": 10800,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 3,
+      "file": "phase03-stage2-builder.md",
+      "name": "stage2-builder",
+      "duration_estimate": 7200,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 4,
+      "file": "phase04-stage3-blocker.md",
+      "name": "stage3-blocker",
+      "duration_estimate": 5400,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 5,
+      "file": "phase05-stage4-hazard-water.md",
+      "name": "stage4-hazard-water",
+      "duration_estimate": 7200,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 6,
+      "file": "phase06-stage5-basher.md",
+      "name": "stage5-basher",
+      "duration_estimate": 7200,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 7,
+      "file": "phase07-stage6-digger.md",
+      "name": "stage6-digger",
+      "duration_estimate": 5400,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 8,
+      "file": "phase08-stage7-miner.md",
+      "name": "stage7-miner",
+      "duration_estimate": 5400,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 9,
+      "file": "phase09-stage8-climber.md",
+      "name": "stage8-climber",
+      "duration_estimate": 5400,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 10,
+      "file": "phase10-stage9-floater.md",
+      "name": "stage9-floater",
+      "duration_estimate": 5400,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 11,
+      "file": "phase11-stage10-bomber-polish.md",
+      "name": "stage10-bomber-polish",
+      "duration_estimate": 9000,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    }
+  ]
+}
