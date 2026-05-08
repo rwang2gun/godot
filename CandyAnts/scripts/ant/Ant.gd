@@ -15,6 +15,7 @@ var _grace_until: float = 0.0
 
 func _ready() -> void:
 	_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
+	add_to_group("ants")
 	state_machine = $StateMachine
 	state_machine.ant = self
 	state_machine.change_state(WalkerState.new())

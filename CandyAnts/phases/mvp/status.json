@@ -31,10 +31,10 @@
       "name": "stage2-builder",
       "duration_estimate": 7200,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-08T14:54:31",
+      "completed_at": "2026-05-08T15:18:51",
+      "duration_seconds": 1460
     },
     {
       "id": 4,

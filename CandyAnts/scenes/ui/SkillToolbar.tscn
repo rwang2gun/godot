@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/SkillToolbar.gd" id="1"]
+
+[node name="SkillToolbar" type="CanvasLayer"]
+layer = 5
+script = ExtResource("1")
+hbox_path = NodePath("Panel/HBox")
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -80.0
+offset_right = 480.0
+offset_bottom = -16.0
+grow_vertical = 0
+
+[node name="HBox" type="HBoxContainer" parent="Panel"]

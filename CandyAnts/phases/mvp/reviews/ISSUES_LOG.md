@@ -50,6 +50,20 @@
 - **검증**: 회귀 검증 (A: cleared score=1.0 / A2: 0건) 통과.
 - **재발 방지**: lifecycle 자원(Timer/AudioStreamPlayer/Tween 등)은 lazy `_ensure_*()` 패턴 권장. plan 작성 시 외부 호출 진입점 검토 항목으로 추가.
 
+### #5 🟠 [HIGH] Phase 3 — TDD bypass + 자동화 테스트 부재로 코어 invariant 무방어
+- **출처**: codex-pre (`phases/mvp/reviews/phase03-review.md`)
+- **상태**: ✅ fixed (plan 갱신, 구현 단계에서 tests/ 추가)
+- **원본 인용** (Codex):
+  > The plan introduces a new SkillToolbar input path, group-based ant targeting, WorkerState movement/tile placement, dynamic terrain collision, and Stage02 geometry, but then lists unit tests as deferred and includes a TDD bypass removal as the exit gate. Inference from the plan: this means the phase can be accepted after manual/headless scenarios without a repeatable test asserting the critical invariants, such as inventory not decrementing on failed can_apply, WorkerState returning carrying ants to the correct speed/state, Terrain.add_tile collision setup, and Stage02 remaining clearable. The likely impact is a shippable regression that only appears under click timing, geometry drift, or later refactors, with no automated signal to block it.
+- **근본 원인**: Phase 1·2가 `.tdd_bypass` 토큰으로 TDD Guard 우회 + 단위 테스트 deferred. Phase 3에서도 같은 패턴 답습 시 timing/geometry/UI 회귀가 자동 검출되지 않음. 누적 빌드 원칙(이전 빌드 회귀 0)과 충돌.
+- **수정** (plan 갱신):
+  - `tests/Stage02HeadlessTest.{gd,tscn}` 통합 회귀 테스트 신규 — UI 우회로 BuilderSkill 직접 적용, stage_cleared/score 자동 검증
+  - per-file 스텁 `tests/test_<Stem>.gd` 7건 (TDD Guard 파일 존재 확인 통과)
+  - **`.tdd_bypass` 사용 금지** — Codex 권고 직접 반영 (Next steps 2)
+  - exit gate를 "bypass 부재 + 통합 테스트 PASS"로 강화 (검증 §F)
+- **검증**: Phase 3 검증 시나리오 §C(Stage02HeadlessTest 통합 PASS) + §F(bypass 부재 자동 확인).
+- **재발 방지**: Phase 4+ plan 템플릿에 "automation coverage required (no bypass)" 체크박스 추가. 통합 테스트 driver 패턴(`tests/StageNNHeadlessTest`) 표준화.
+
 ### #4 🟠 [HIGH] Carrying→Faller 전이 시 candy 분실 → in_transit 영구 잔존 → 클리어 데드락
 - **출처**: codex-post (`phases/mvp/reviews/phase02-cumulative-review.md`)
 - **상태**: ✅ fixed (커밋 `da3fa85`)
@@ -82,6 +96,16 @@
   여기서 `FRAMES = 60 * desired_seconds`.
 - **재발 방지**: phase별 plan의 검증 시나리오에 `--fixed-fps 60` 명시.
 
+### #S3 🟡 [MEDIUM] Phase 3 — 사선 stair 다리는 Walker가 climb 못해 다른 ants 차단
+- **출처**: self (Stage02HeadlessTest 첫 실행 시 발견)
+- **상태**: ✅ fixed (수평 다리로 설계 변경 + plan 갱신)
+- **현상**: 초기 plan대로 `target_cell = cell + (dir, 0)` + ant.global_position += `(dir*16, -16)`로 사선 12 cell stair 형성. Builder ant는 teleport로 stair 등반 가능했으나, **다른 ants는 stair 첫 타일을 16px 수직 wall로 인식하고 flip → 다리 못 건너감**. 통합 테스트에서 candy_picked=1 (Builder ant만) + time_out 발견.
+- **근본 원인**: Walker 상태에 climb 능력 없음 (Phase 8 Climber에서 도입 예정). 16x16 RectangleShape2D 타일은 슬로프 없는 직각 — 평지 ant가 step-up 못함.
+- **수정**: 수평 다리로 변경 — `target_cell = cell + (dir, 1)` (forward + DOWN one row = ant 발 밑 행), `ant.global_position += (dir*16, 0)` (y 변경 없음). 모든 12 cell이 row 55 (= platform top row)에 배치. Walker가 같은 y level에서 step 없이 통과.
+- **Stage02 geometry 동시 변경**: gap 144→160px (left 880, right 880, 1920=880+160+880). bridge cell 55..66, 마지막 2 cell이 right platform 내부에 살짝 overlap (허용).
+- **검증**: 통합 테스트 재실행 시 10/10 saved + score=1.0. Stage1 회귀 + Stage2 noskill smoke 동시 통과.
+- **재발 방지**: ARCHITECTURE §5.3의 "사선 12셀"은 Climber/슬로프 도입 시점(Phase 8+)에 정확화. 현재 phase에서는 "12 타일 bridge" 의도만 충족.
+
 ### #S2 ⚪ [LOW] git config 미설정으로 `execute.py complete` 자동 커밋 스킵
 - **출처**: self (Phase 1 완료 시점)
 - **상태**: ✅ fixed (사용자가 `user.email`/`user.name` 설정 후 정상화)
@@ -94,16 +118,16 @@
 
 ## 통계
 
-- **총 발견**: 6건 (Codex 4 + 자체 2)
-- **즉시 수정**: 6건
+- **총 발견**: 8건 (Codex 5 + 자체 3)
+- **즉시 수정**: 8건
 - **deferred**: 0건
 - **wontfix**: 0건
 
 | Severity | 건수 |
 |----------|------|
 | 🔴 CRITICAL | 1 |
-| 🟠 HIGH | 2 |
-| 🟡 MEDIUM | 1 |
+| 🟠 HIGH | 3 |
+| 🟡 MEDIUM | 2 |
 | ⚪ LOW | 2 |
 
 ## 패턴
@@ -118,4 +142,5 @@
 - [ ] phase plan 템플릿에 "lifecycle 진입점 검토" 체크박스 추가
 - [ ] phase plan 템플릿에 "데이터 vs 상태 분리 검토" 체크박스 추가
 - [ ] 검증 명령에 `--fixed-fps 60` 항상 명시
-- [ ] phase별 `.tdd_bypass` 3중 가드 패턴 README 단일 SoT 유지
+- [x] ~~phase별 `.tdd_bypass` 3중 가드 패턴~~ → **Phase 3에서 폐기**. 대신 통합 테스트 + per-file 스텁 패턴 표준화.
+- [ ] phase plan 템플릿에 "automation coverage (no bypass)" 항목 추가 (#5 재발 방지)

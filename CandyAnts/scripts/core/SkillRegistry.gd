@@ -1,13 +1,15 @@
 extends Node
 
-const SKILL_SCRIPTS: Array[Script] = []
+const SKILL_SCRIPTS: Array[Script] = [
+	preload("res://scripts/skills/BuilderSkill.gd"),
+]
 
 var _skills: Dictionary = {}
 
 func _ready() -> void:
 	for script: Script in SKILL_SCRIPTS:
 		var id: String = script.ID
-		assert(id != "_base_", "Skill must override ID")
+		assert(id != "", "Skill subclass must define const ID")
 		assert(not _skills.has(id), "Duplicate skill ID: %s" % id)
 		_skills[id] = script
 

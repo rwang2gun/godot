@@ -1,4 +1,38 @@
 class_name Terrain extends Node2D
 
-# Phase 6 Basher에서 TileMap 동적 파괴 도입 시 채움.
-# 현재는 Stage01의 평지 StaticBody2D + ColorRect로 대체.
+const CELL_SIZE: int = 16
+# Phase 6 Basher에서 TileMap 동적 파괴 도입 시, 내부를 TileMap으로 교체.
+# 외부 인터페이스(add_tile / has_tile)는 유지.
+
+var _placed: Dictionary = {}   # Vector2i → StaticBody2D
+
+func add_tile(cell: Vector2i) -> bool:
+	if _placed.has(cell):
+		return false
+	var body: StaticBody2D = StaticBody2D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var shape: CollisionShape2D = CollisionShape2D.new()
+	var rect: RectangleShape2D = RectangleShape2D.new()
+	rect.size = Vector2(CELL_SIZE, CELL_SIZE)
+	shape.shape = rect
+	body.add_child(shape)
+	var sprite: Polygon2D = Polygon2D.new()
+	sprite.polygon = PackedVector2Array([
+		Vector2(-8, -8), Vector2(8, -8), Vector2(8, 8), Vector2(-8, 8)
+	])
+	sprite.color = Color(0.4, 0.7, 0.3, 1)
+	body.add_child(sprite)
+	body.global_position = Vector2(
+		float(cell.x) * CELL_SIZE + CELL_SIZE / 2.0,
+		float(cell.y) * CELL_SIZE + CELL_SIZE / 2.0
+	)
+	add_child(body)
+	_placed[cell] = body
+	return true
+
+func has_tile(cell: Vector2i) -> bool:
+	return _placed.has(cell)
+
+func tile_count() -> int:
+	return _placed.size()
