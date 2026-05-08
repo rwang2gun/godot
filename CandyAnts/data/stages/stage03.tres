@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/StageData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = 3
+display_name = "양갈래"
+total_ants = 10
+candy_hp = 9
+time_limit_seconds = 200.0
+available_skills = ["builder", "blocker"]
+skill_inventory = { "builder": 0, "blocker": 2 }
+release_rate_initial = 30
+release_rate_min = 1

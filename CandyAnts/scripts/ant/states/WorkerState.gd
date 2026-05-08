@@ -16,21 +16,35 @@ func enter() -> void:
 	var a: Ant = ant as Ant
 	if a == null:
 		return
-	# Builder 외 work_type은 즉시 Walker로 — Phase 4+에서 확장.
-	if _work_type != "builder":
+	# has_candy / has_been_carrying 절대 변경 안 함 (Codex HIGH #4 가드).
+	if _work_type == "builder":
+		_enter_builder(a)
+	elif _work_type == "blocker":
+		_enter_blocker(a)
+	else:
 		_aborted = true
-		return
+
+func _enter_builder(a: Ant) -> void:
 	_remaining = TOTAL_TILES
 	_tick_accum = 0.0
 	_aborted = false
 	a.velocity = Vector2.ZERO
-	# has_candy / has_been_carrying 절대 변경 안 함 (Codex HIGH #4 가드).
+
+func _enter_blocker(a: Ant) -> void:
+	_aborted = false
+	a.velocity = Vector2.ZERO
+	a.set_blocker_active(true)
 
 func update(delta: float) -> void:
 	var a: Ant = ant as Ant
 	if a == null:
 		return
 
+	if _work_type == "blocker":
+		_update_blocker(a, delta)
+		return
+
+	# builder 분기 (기존 로직 유지)
 	if _aborted or _remaining <= 0:
 		a.state_machine.change_state(WalkerState.new())
 		return
@@ -52,6 +66,22 @@ func update(delta: float) -> void:
 
 	if _remaining <= 0 and not _aborted:
 		a.state_machine.change_state(WalkerState.new())
+
+func _update_blocker(a: Ant, delta: float) -> void:
+	# 영구 정지. 절벽 끝에서만 Faller로 자연 해제.
+	a.velocity.y += a.gravity * delta
+	a.velocity.x = 0.0
+	a.move_and_slide()
+	if not a.is_on_floor():
+		a.set_blocker_active(false)
+		a.state_machine.change_state(FallerState.new())
+
+func exit() -> void:
+	# blocker 정리 — Faller/Walker/Saved/Dead 어떤 경로든 BlockerHitbox 비활성. 멱등.
+	if _work_type == "blocker":
+		var a: Ant = ant as Ant
+		if a != null:
+			a.set_blocker_active(false)
 
 func _place_one_tile(a: Ant) -> void:
 	var terrain: Terrain = _find_terrain(a)

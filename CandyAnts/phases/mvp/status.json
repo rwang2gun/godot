@@ -42,9 +42,9 @@
       "name": "stage3-blocker",
       "duration_estimate": 5400,
       "verify": "",
-      "state": "pending",
+      "state": "completed",
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-05-08T22:28:35",
       "duration_seconds": null
     },
     {

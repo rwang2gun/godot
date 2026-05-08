@@ -1,10 +1,13 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/ant/Ant.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/ant/AntStateMachine.gd" id="2"]
 
 [sub_resource type="RectangleShape2D" id="shape"]
 size = Vector2(12, 10)
+
+[sub_resource type="RectangleShape2D" id="blocker_shape"]
+size = Vector2(20, 16)
 
 [node name="Ant" type="CharacterBody2D"]
 collision_layer = 4
@@ -17,6 +20,16 @@ shape = SubResource("shape")
 [node name="Sprite" type="Polygon2D" parent="."]
 polygon = PackedVector2Array(-6, -5, 6, -5, 6, 5, -6, 5)
 color = Color(0.2, 0.1, 0.05, 1)
+
+[node name="BlockerHitbox" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 4
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BlockerHitbox"]
+shape = SubResource("blocker_shape")
+disabled = true
 
 [node name="StateMachine" type="Node" parent="."]
 script = ExtResource("2")

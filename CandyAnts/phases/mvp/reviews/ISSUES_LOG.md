@@ -81,6 +81,35 @@
 
 ---
 
+## Phase 4 — stage3-blocker
+
+### #6 🟠 [HIGH] BlockerSkill.can_apply 명세 모순 — 운반자 Blocker화 데드락 위험
+- **출처**: codex-pre (`phases/mvp/reviews/phase04-review.md`)
+- **상태**: ✅ fixed (plan 갱신 — 단일 진실 출처화)
+- **원본 인용** (Codex):
+  > The plan first specifies `BlockerSkill.can_apply(ant)` should allow `WalkerState` or `CarryingState`, but later says carrying ants must be rejected with `not ant.has_candy`. Implementers following the earlier skill spec would ship the exact high-impact failure the decision section identifies.
+- **근본 원인**: §신규 Skill 정의(Walker/Carrying 허용)와 §핵심 결정 #3(carrying 거부)이 모순. 구현자가 첫 번째 정의만 따르면 carrier-blocker 결합 → in_transit 영구 잔존 → 클리어 데드락.
+- **수정** (plan 단계 사전 차단):
+  - BlockerSkill.can_apply 정의를 5단계 단일 진실 출처로 재작성 — `state is WalkerState`만 통과 + `has_candy=false`만 통과(이중 가드).
+  - §핵심 결정 #3을 정의 참조로 슬림화.
+  - §엣지 케이스 #2를 "이중 가드 동작" 명세로 교체.
+  - §검증 §D를 §D-1/§D-2/§D-3 3단계로 분해 — §D-2가 carrying ant 대상 false 반환 + 인벤토리 보존 자동 검증.
+- **재발 방지**: 향후 phase plan 작성 시 skill `can_apply` 명세를 한 곳에만 작성, 결정/엣지 케이스 섹션은 참조만.
+
+### #7 🟡 [MEDIUM] AntSpawner alternation off-by-one — 첫 ant direction 불일치
+- **출처**: codex-pre (`phases/mvp/reviews/phase04-review.md`)
+- **상태**: ✅ fixed (plan 갱신 — zero-based index 명세화)
+- **원본 인용** (Codex):
+  > The proposed `_spawn_one()` logic computes direction after `_spawned` has already been incremented... a wrong first direction can change timing/order assumptions and mask or break the intended release pattern.
+- **근본 원인**: 초안 plan이 `_spawned` 증가 **후** 인덱스 계산. 첫 ant=1(홀수)→`-spawn_direction`. 명세("짝수=정방향")와 어긋남. Stage03 토폴로지가 첫 ant +1을 가정하므로 실제 동작이 어긋날 가능성.
+- **수정** (plan 단계 사전 차단):
+  - `_spawn_one()` 시퀀스를 zero-based `spawn_index = _spawned` 캡처 후 `_spawned += 1`로 명세 확정.
+  - `ant.direction = dir`을 `add_child` 전에 설정 (Ant._ready의 WalkerState 사용 직전).
+  - 통합 테스트 §D-1 신설 — 첫 4개 ant direction을 코드로 `[+1,-1,+1,-1]` assert (로그 검사 아님).
+- **재발 방지**: spawner 로직처럼 **인덱스 의미가 동작에 영향**을 주는 부분은 plan에 zero-based 여부와 증가 순서를 명시 + 코드 assert로 강제.
+
+---
+
 ## 자체 발견 (self) — 도구/환경
 
 ### #S1 ⚪ [LOW] headless 검증 시 simulation 시간 ≪ wall-clock
@@ -118,16 +147,16 @@
 
 ## 통계
 
-- **총 발견**: 8건 (Codex 5 + 자체 3)
-- **즉시 수정**: 8건
+- **총 발견**: 10건 (Codex 7 + 자체 3)
+- **즉시 수정**: 10건
 - **deferred**: 0건
 - **wontfix**: 0건
 
 | Severity | 건수 |
 |----------|------|
 | 🔴 CRITICAL | 1 |
-| 🟠 HIGH | 3 |
-| 🟡 MEDIUM | 2 |
+| 🟠 HIGH | 4 |
+| 🟡 MEDIUM | 3 |
 | ⚪ LOW | 2 |
 
 ## 패턴

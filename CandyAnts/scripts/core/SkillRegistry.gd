@@ -2,6 +2,7 @@ extends Node
 
 const SKILL_SCRIPTS: Array[Script] = [
 	preload("res://scripts/skills/BuilderSkill.gd"),
+	preload("res://scripts/skills/BlockerSkill.gd"),
 ]
 
 var _skills: Dictionary = {}

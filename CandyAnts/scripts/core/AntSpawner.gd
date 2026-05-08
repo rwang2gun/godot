@@ -6,6 +6,8 @@ signal spawn_finished
 @export var spawn_position: Vector2 = Vector2.ZERO
 @export var total: int = 10
 @export var release_rate: int = 50
+@export var spawn_direction: int = 1
+@export var spawn_direction_alternate: bool = false
 
 var _spawned: int = 0
 var _timer: Timer = null
@@ -58,5 +60,11 @@ func _spawn_one() -> void:
 		push_error("[AntSpawner] ant_scene did not instantiate as Ant")
 		return
 	ant.global_position = spawn_position
+	# Codex MEDIUM 대응 — zero-based index 사용. _spawned 증가는 add_child 후.
+	var spawn_index: int = _spawned
+	var dir: int = spawn_direction
+	if spawn_direction_alternate and (spawn_index % 2 == 1):
+		dir = -spawn_direction
+	ant.direction = dir
 	_spawn_parent.add_child(ant)
 	_spawned += 1
