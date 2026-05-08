@@ -12,7 +12,8 @@ phases/mvp/
 ├── plans/
 │   └── phaseNN-plan.md              # phase 시작 시 작성 (구현 계획)
 └── reviews/
-    ├── phaseNN-review.md            # adversarial-review stdout 보존
+    ├── phaseNN-review.md            # /codex:adversarial-review stdout (Step 2, plan 단계)
+    ├── phaseNN-impl-review.md       # /codex:adversarial-review stdout (Step 7, impl 단계)
     └── phaseNN-deferred.md          # 미수정 이슈 기록 (있을 때만)
 ```
 
@@ -78,15 +79,38 @@ stdout을 그대로 저장. 헤더로 다음 추가:
 ### 5. 구현
 갱신된 plan대로 진행. 파일/씬은 ARCHITECTURE의 폴더 구조 + 명명 규약(snake_case 함수, PascalCase 클래스, UPPER_SNAKE const) 준수.
 
-### 6. 수동 검증
-Godot 에디터에서 phase 정의의 "검증 방법"대로 플레이 테스트.
-검증 통과 못 하면 7단계로 가지 말고 구현/plan 수정.
+### 6. 수동·자동 검증
+- **헤드리스 자동**: `python scripts/run_test.py <scene>` (예: `tests/Stage03HeadlessTest.tscn`, `tests/BlockerOverlapTest.tscn`). 모든 회귀 씬은 PASS 필수.
+- **에디터 수동**: Godot 에디터에서 phase 정의의 "검증 방법"대로 플레이 테스트.
+- 검증 통과 못 하면 다음 단계로 가지 말고 구현/plan 수정.
 
-### 7. 완료 처리
+### 7. 구현 리뷰 — `/codex:adversarial-review`
+수동 검증 통과 후, complete 커밋 직전 working-tree 상태에서 실행.
+Step 2(plan 리뷰)와 달리 **실제 구현된 코드의 설계 결정·가정·트레이드오프를 challenge**한다.
+
+```bash
+/codex:adversarial-review --background "phase NN <slug>: <한 줄 포커스>"
+/codex:adversarial-review --wait "<focus>"           # 변경이 1~2 파일로 작을 때만
+```
+
+> 이미 커밋된 phase를 사후 리뷰할 때만: `/codex:adversarial-review --base HEAD~1 --scope branch --background "<focus>"`
+
+stdout을 `reviews/phaseNN-impl-review.md`에 저장. 헤더는 Step 3와 동일한 포맷(scope, base ref, head ref 명시).
+
+이슈 분류 정책 (Step 4와 동일하지만 Step 7은 더 엄격):
+- **CRITICAL/HIGH**: **defer 금지**. 반드시 수정 → 동일 인자로 `/codex:adversarial-review` 재실행. verdict가 clean(needs-attention 해소)이 될 때까지 루프
+  - 매 회차 stdout은 `phaseNN-impl-review.md`에 누적 (`## Round 2`, `## Round 3` … 헤더)
+  - 사후(=phase 커밋 후) HIGH 발견 시 후속 hot-fix 커밋(`fix: <요약> (phase NN sweep)`)으로 처리
+- **MEDIUM/LOW**: 미수정 시 `reviews/phaseNN-deferred.md`에 기록
+
+> CRITICAL/HIGH가 남은 채로 Step 8로 넘어가는 것은 절대 금지.
+> 사후 HIGH 발견 시 **다음 phase 시작도 금지** — 먼저 sweep 마무리.
+
+### 8. 완료 처리
 ```bash
 python scripts/execute.py mvp complete N
 ```
-자동 커밋 메시지: `phase N: <phase name>`. plans/reviews/deferred 모두 함께 커밋된다.
+자동 커밋 메시지: `phase N: <phase name>`. plans/reviews/codex-review/deferred 모두 함께 커밋된다.
 
 ## 중단/재개
 

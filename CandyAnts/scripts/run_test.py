@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""
+Headless test runner — Godot 헤드리스 테스트 씬 실행
+
+Usage:
+    python scripts/run_test.py <scene>                    # res:// 또는 로컬 경로
+    python scripts/run_test.py tests/Stage03HeadlessTest.tscn
+    python scripts/run_test.py res://tests/BlockerOverlapTest.tscn
+
+Environment:
+    GODOT_BIN — 강제 지정 (없으면 PATH → 알려진 후보 순으로 탐색)
+
+Exit code: 테스트 씬이 get_tree().quit(N)으로 emit하는 N (0=PASS, 1=FAIL).
+타임아웃은 --quit-after 3600 (60s @ 60fps) 안전망.
+"""
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+# 알려진 Godot 4.x 설치 후보 (Windows). 추가/이동되면 여기 갱신.
+CANDIDATES: list[Path] = [
+    Path("D:/Godot_v4.6.2-stable_win64_console.exe"),  # console = stdout 캡처 가능
+    Path("D:/Godot_v4.6.2-stable_win64.exe"),
+    Path.home() / "AppData/Local/Programs/Godot/Godot_console.exe",
+    Path.home() / "AppData/Local/Programs/Godot/Godot.exe",
+    Path("C:/Program Files/Godot/Godot_console.exe"),
+    Path("C:/Program Files/Godot/Godot.exe"),
+]
+
+DEFAULT_QUIT_AFTER_FRAMES = 18000  # 5분 @ 60fps 안전망 (스테이지 완주 여유)
+
+
+def find_godot() -> Path:
+    env_bin = os.environ.get("GODOT_BIN")
+    if env_bin:
+        p = Path(env_bin)
+        if p.exists():
+            return p
+        sys.exit(f"[run_test] GODOT_BIN={env_bin} 경로에 파일 없음")
+
+    for name in ("godot", "godot4", "godot_console", "Godot_console"):
+        which = shutil.which(name)
+        if which:
+            return Path(which)
+
+    for c in CANDIDATES:
+        if c.exists():
+            return c
+
+    sys.exit(
+        "[run_test] Godot 바이너리를 찾을 수 없습니다.\n"
+        "  - 환경변수 GODOT_BIN을 절대경로로 지정\n"
+        "  - 또는 PATH에 godot/godot_console 등록\n"
+        f"  - 확인된 후보: {[str(c) for c in CANDIDATES]}"
+    )
+
+
+def normalize_scene(arg: str) -> str:
+    if arg.startswith("res://"):
+        return arg
+    return "res://" + arg.replace("\\", "/")
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print(__doc__)
+        return 64
+
+    scene = normalize_scene(sys.argv[1])
+    extra_args = sys.argv[2:]
+
+    godot = find_godot()
+    cmd = [
+        str(godot),
+        "--headless",
+        "--path", str(ROOT),
+        "--quit-after", str(DEFAULT_QUIT_AFTER_FRAMES),
+        scene,
+        *extra_args,
+    ]
+    print(f"[run_test] godot={godot.name} scene={scene}", flush=True)
+    proc = subprocess.run(cmd, cwd=str(ROOT))
+    return proc.returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -16,6 +16,10 @@
 - CRITICAL: Phase 시작 전 `docs/` 3개 문서(PRD/ARCHITECTURE/ADR) 모두 읽기
 - CRITICAL: Stage N 빌드 시작 전 이전 Stage가 회귀 없이 동작하는지 확인
 - CRITICAL: 한 Phase 완료 후에만 커밋, Phase 중간 커밋 금지
+- CRITICAL: Phase 완료 직전(수동 검증 통과 후 · `execute.py complete` 직전) 반드시 `/codex:adversarial-review` 실행, 결과는 `phases/<task>/reviews/phaseNN-impl-review.md`에 보존
+- CRITICAL: adversarial-review에서 **CRITICAL/HIGH가 1건이라도 나오면 반드시 수정**한다. defer·wontfix 금지. 수정 후 동일 인자로 `/codex:adversarial-review` **재실행**, verdict가 clean(needs-attention 해소)이 될 때까지 수정·재리뷰 루프를 반복. 매 회차의 stdout은 `phaseNN-impl-review.md`에 회차 헤더(`## Round 2`, `## Round 3` …)로 누적
+- CRITICAL: 사후(=phase 커밋 후) 리뷰에서 HIGH가 발견되면 즉시 후속 hot-fix 커밋(`fix: <요약> (phase NN sweep)`)으로 처리하고, 동일 루프(재리뷰 → clean)까지 진행. 다음 phase 시작 금지. MEDIUM/LOW만 `phaseNN-deferred.md` 허용
 - 작업 진행은 `python scripts/execute.py {task-name}`로 상태 관리
+- 헤드리스 테스트는 `python scripts/run_test.py <scene>` (예: `tests/Stage03HeadlessTest.tscn`). Godot 바이너리는 `GODOT_BIN` 환경변수 → `PATH` → 알려진 후보 순으로 자동 탐색. 새 머신/위치 사용 시 `scripts/run_test.py`의 `CANDIDATES` 갱신 또는 `GODOT_BIN` 지정
 - 커밋 메시지: `phase {N}: {요약}` 형식 (Phase 단위) 또는 conventional commits (feat:, fix:, refactor:)
 - Hook이 차단/경고하면 우회 금지, 의도 확인 후 정공법으로 처리
