@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/StageData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = 1
+display_name = "첫 외출"
+total_ants = 10
+candy_hp = 10
+time_limit_seconds = 120.0
+available_skills = []
+skill_inventory = {}
+release_rate_initial = 50
+release_rate_min = 1

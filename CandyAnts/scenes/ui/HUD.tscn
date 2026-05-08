@@ -1,0 +1,32 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="Root" type="VBoxContainer" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 320.0
+offset_bottom = 240.0
+
+[node name="Time" type="Label" parent="Root"]
+text = "Time: --"
+
+[node name="Out" type="Label" parent="Root"]
+text = "In transit: 0"
+
+[node name="Saved" type="Label" parent="Root"]
+text = "Saved: 0"
+
+[node name="Lost" type="Label" parent="Root"]
+text = "Lost: 0"
+
+[node name="Candy" type="Label" parent="Root"]
+text = "Candy HP: --"
+
+[node name="StageCompleteDialog" type="AcceptDialog" parent="."]
+title = "Stage"
+dialog_text = ""
+size = Vector2i(400, 120)

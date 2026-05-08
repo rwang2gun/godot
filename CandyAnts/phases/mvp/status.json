@@ -20,10 +20,10 @@
       "name": "stage1-core",
       "duration_estimate": 10800,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-08T11:23:32",
+      "completed_at": "2026-05-08T11:45:22",
+      "duration_seconds": 1310
     },
     {
       "id": 3,
