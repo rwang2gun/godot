@@ -12,6 +12,11 @@ var _timer: Timer = null
 var _spawn_parent: Node = null
 
 func _ready() -> void:
+	_ensure_timer()
+
+func _ensure_timer() -> void:
+	if _timer != null:
+		return
 	_timer = Timer.new()
 	_timer.one_shot = false
 	_timer.wait_time = _interval_for(release_rate)
@@ -19,6 +24,7 @@ func _ready() -> void:
 	add_child(_timer)
 
 func start(parent: Node) -> void:
+	_ensure_timer()
 	_spawn_parent = parent
 	_spawned = 0
 	if total <= 0 or ant_scene == null:

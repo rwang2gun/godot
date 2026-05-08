@@ -4,6 +4,7 @@ func enter() -> void:
 	var a: Ant = ant as Ant
 	if a != null:
 		a.has_been_carrying = true
+		a.has_candy = true
 
 func update(delta: float) -> void:
 	var a: Ant = ant as Ant
