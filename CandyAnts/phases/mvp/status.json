@@ -9,10 +9,10 @@
       "name": "bootstrap",
       "duration_estimate": 3600,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-08T11:10:53",
+      "completed_at": "2026-05-08T11:17:39",
+      "duration_seconds": 406
     },
     {
       "id": 2,

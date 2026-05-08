@@ -1,0 +1,20 @@
+# Godot 4 표준
+.godot/
+.import/
+*.translation
+export.cfg
+export_presets.cfg
+
+# 빌드/임포트 산출물
+*.tmp
+*.import
+
+# IDE/OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Phase 1 ephemeral — TDD bypass 토큰은 절대 staging 금지
+scripts/hooks/.tdd_bypass
