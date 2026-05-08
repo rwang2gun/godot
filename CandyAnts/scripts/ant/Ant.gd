@@ -15,6 +15,9 @@ var has_candy: bool = false
 var state_machine: AntStateMachine = null
 var _grace_until: float = 0.0
 var _blocker_hitbox: Area2D = null
+# 같은 physics frame에 두 번 이상 발화해도 첫 호출만 direction 반전. 중복 발화 시
+# 두 번 flip되어 원래 방향으로 복귀하는 결함 방지 (Codex round 2 HIGH 대응).
+var _last_blocker_bounce_frame: int = -1
 
 func _ready() -> void:
 	_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
@@ -62,7 +65,14 @@ func _on_blocker_body_entered(body: Node2D) -> void:
 	# Blocker끼리 무한 반전 차단 — 정지 상태 ant는 안 건드림.
 	if other.state_machine != null and other.state_machine.current_state is WorkerState:
 		return
-	# 절대 설정 — 블로커로부터 멀어지는 방향. flip이 아니므로 double-bump에도 안전.
-	var rel_x: float = other.global_position.x - global_position.x
-	other.direction = 1 if rel_x >= 0.0 else -1
+	# 같은 physics frame에 두 blocker가 동시 발화하면 두 번째 이후는 무시.
+	# 두 번 flip되어 원래 방향으로 복귀하는 결함 방지 (Codex round 2 HIGH 대응).
+	var phys_frame: int = Engine.get_physics_frames()
+	if other._last_blocker_bounce_frame == phys_frame:
+		return
+	other._last_blocker_bounce_frame = phys_frame
+	# 유입 방향 반전 — 활성화 순간 깊은 overlap·큰 physics delta로 ant 중심이
+	# 이미 blocker를 통과했어도 결정론적 바운스 (post-overlap 위치 기반은 통과
+	# 방향을 그대로 유지시킬 수 있음, Codex round 1 HIGH). direction은 ±1 invariant.
+	other.direction = -other.direction
 	bumped_blocker.emit(other.direction)
