@@ -84,7 +84,7 @@ stdout을 그대로 저장. 헤더로 다음 추가:
 - **에디터 수동**: Godot 에디터에서 phase 정의의 "검증 방법"대로 플레이 테스트.
 - 검증 통과 못 하면 다음 단계로 가지 말고 구현/plan 수정.
 
-### 7. 구현 리뷰 — `/codex:adversarial-review`
+### 7. 구현 리뷰 — `/codex:adversarial-review` + 자체 적대적 리뷰 사이클
 수동 검증 통과 후, complete 커밋 직전 working-tree 상태에서 실행.
 Step 2(plan 리뷰)와 달리 **실제 구현된 코드의 설계 결정·가정·트레이드오프를 challenge**한다.
 
@@ -97,14 +97,32 @@ Step 2(plan 리뷰)와 달리 **실제 구현된 코드의 설계 결정·가정
 
 stdout을 `reviews/phaseNN-impl-review.md`에 저장. 헤더는 Step 3와 동일한 포맷(scope, base ref, head ref 명시).
 
-이슈 분류 정책 (Step 4와 동일하지만 Step 7은 더 엄격):
-- **CRITICAL/HIGH**: **defer 금지**. 반드시 수정 → 동일 인자로 `/codex:adversarial-review` 재실행. verdict가 clean(needs-attention 해소)이 될 때까지 루프
-  - 매 회차 stdout은 `phaseNN-impl-review.md`에 누적 (`## Round 2`, `## Round 3` … 헤더)
+#### 자체 적대적 리뷰 사이클 (CRITICAL — 2026-05-09 도입)
+
+매 codex 라운드 사이에 **자체 적대적 리뷰**를 끼워넣는다. 목적: codex 라운드 폭증 방지(이전 phase 5 plan은 15+ 라운드 발생) + usage limit 보호 + cross-doc/dead-branch/circular-SoT 같은 구조적 위험을 codex 호출 전에 선제 차단.
+
+**사이클**:
+1. codex 1회 실행 → finding이 나오면 plan/구현 수정.
+2. **수정 결과물을 본인이 직접 적대적 리뷰**한다. codex와 동일 기준:
+   - CRITICAL / HIGH / MEDIUM / LOW 분류
+   - hypothetical 위험("implementer가 이걸 보고 잘못할 수 있나") 포함
+   - 추가로 codex가 약한 영역 가혹하게 점검: cross-doc 일관성, dead branch, circular SoT, fixture redundancy, 시간적 위험(다음 phase에서 첫 활성될 때 검증 0인 코드)
+3. 자체 리뷰 stdout을 동일 review 파일에 `## Self-Review Round N` 헤더로 누적.
+4. CRITICAL/HIGH가 1건이라도 있으면 추가 수정 → 자체 재리뷰. **자체 리뷰가 clean(HIGH 0건)이 될 때까지 반복.**
+5. 자체 리뷰 clean 확인 후 비로소 codex 재리뷰 실행. codex가 새로 HIGH 발견하면 1번부터 다시.
+6. **codex만 연달아 호출 금지** — 매 codex 라운드 사이에 자체 리뷰 사이클 ≥1회 필수.
+
+#### 이슈 분류 정책 (Step 4와 동일하지만 Step 7은 더 엄격)
+- **CRITICAL/HIGH**: **defer 금지**. 반드시 수정 → 자체 리뷰 사이클 → codex 재실행. verdict가 clean(needs-attention 해소)이 될 때까지 루프.
+  - 매 회차 stdout은 `phaseNN-impl-review.md`에 누적 (`## Round N` = codex, `## Self-Review Round N` = 자체)
   - 사후(=phase 커밋 후) HIGH 발견 시 후속 hot-fix 커밋(`fix: <요약> (phase NN sweep)`)으로 처리
 - **MEDIUM/LOW**: 미수정 시 `reviews/phaseNN-deferred.md`에 기록
 
 > CRITICAL/HIGH가 남은 채로 Step 8로 넘어가는 것은 절대 금지.
 > 사후 HIGH 발견 시 **다음 phase 시작도 금지** — 먼저 sweep 마무리.
+
+#### Plan-stage(Step 2) 리뷰에도 동일 사이클 적용
+Step 2(plan 리뷰)도 위 사이클과 동일. plan-stage review는 `reviews/phaseNN-review.md`에 누적, codex 라운드와 자체 리뷰 라운드를 모두 보존.
 
 ### 8. 완료 처리
 ```bash
