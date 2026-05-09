@@ -3,7 +3,7 @@ name: stage9-floater
 duration_estimate: 5400
 ---
 
-# Phase 18: Stage 9 + Floater (빌드 0.9)
+# Phase 19: Stage 9 + Floater (빌드 0.9)
 
 ## 목표
 Floater (낙하 면역) 추가. Faller가 일정 거리 이상 떨어지면 사망 → Floater면 면역. Stage 1~8 회귀 없음.

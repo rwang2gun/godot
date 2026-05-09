@@ -3,7 +3,7 @@ name: stage8-climber
 duration_estimate: 5400
 ---
 
-# Phase 17: Stage 8 + Climber (빌드 0.8)
+# Phase 18: Stage 8 + Climber (빌드 0.8)
 
 ## 목표
 Climber (벽 등반) 추가. Walker가 벽 만나면 회전 대신 등반. Stage 1~7 회귀 없음.

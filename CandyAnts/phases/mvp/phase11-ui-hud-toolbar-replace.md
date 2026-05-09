@@ -4,7 +4,7 @@ duration_estimate: 7200
 verify: ""
 ---
 
-# Phase 10: HUD / SkillToolbar 씬 교체 (atoms 인스턴스화)
+# Phase 11: HUD / SkillToolbar 씬 교체 (atoms 인스턴스화)
 
 ## 목표
 `scenes/ui/HUD.tscn`, `scenes/ui/SkillToolbar.tscn`을 phase 9 atom들의 인스턴스로 재구성한다. **`.gd` 스크립트는 노드 경로/시그널 계약만 보존하면 거의 무수정**.

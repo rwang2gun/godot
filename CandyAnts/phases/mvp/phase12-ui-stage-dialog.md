@@ -4,7 +4,7 @@ duration_estimate: 5400
 verify: ""
 ---
 
-# Phase 11: StageDialog (win/loss) + 트랜지션 + 사운드 hook
+# Phase 12: StageDialog (win/loss) + 트랜지션 + 사운드 hook
 
 ## 목표
 스테이지 종료 모달(win/loss) + design handoff motion 시스템 적용 + 페이드 트랜지션 + post-MVP 사운드 hook 자리. **Title/Menu는 phase 12 범위**.

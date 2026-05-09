@@ -4,7 +4,7 @@ duration_estimate: 7200
 verify: ""
 ---
 
-# Phase 9: UI Atoms Foundation (CButton · Chip · Counter · SkillSlot · Motion)
+# Phase 10: UI Atoms Foundation (CButton · Chip · Counter · SkillSlot · Motion)
 
 ## 목표
 Theme 위에 4개 atom을 Custom Control로 만든다 + Motion 헬퍼 정적 클래스를 만든다. **HUD/Toolbar 씬 교체는 안 함** — 본 phase는 atoms 단위 단독 검증만.

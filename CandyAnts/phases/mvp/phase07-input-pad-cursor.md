@@ -3,7 +3,7 @@ name: input-pad-cursor
 duration_estimate: 7200
 ---
 
-# Phase 6: Pad + VirtualCursor
+# Phase 7: Pad + VirtualCursor
 
 ## 목표
 ROG Ally X 패드 풀 매핑. VirtualCursor 도입 + 개미 스냅 점프. SkillToolbar는 디바이스 분기 없음.

@@ -4,7 +4,7 @@ duration_estimate: 7200
 verify: ""
 ---
 
-# Phase 8: Theme + 폰트 + SVG 에셋 임포트
+# Phase 9: Theme + 폰트 + SVG 에셋 임포트
 
 ## 목표
 디자인 토큰을 Godot Theme 리소스로 인코딩 + 폰트/SVG 에셋 임포트. **UI 씬 교체는 안 함** — 기존 placeholder UI에 Theme만 적용해 시각이 1차 적용되도록.

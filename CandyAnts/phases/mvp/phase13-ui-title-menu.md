@@ -4,7 +4,7 @@ duration_estimate: 5400
 verify: ""
 ---
 
-# Phase 12: 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData
+# Phase 13: 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData
 
 ## 목표
 게임 진입 흐름 완성: 타이틀 → 메인 메뉴 → 스테이지 셀렉트 → 스테이지 → StageDialog → (셀렉트로 복귀 또는 다음 스테이지). MVP 1회독 가능 + 진행도 저장.

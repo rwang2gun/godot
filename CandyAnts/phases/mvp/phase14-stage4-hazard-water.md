@@ -3,7 +3,7 @@ name: stage4-hazard-water
 duration_estimate: 7200
 ---
 
-# Phase 13: Stage 4 + Hazard 시스템 (빌드 0.4)
+# Phase 14: Stage 4 + Hazard 시스템 (빌드 0.4)
 
 ## 목표
 Hazard 추상 + Water 첫 구현. 운반 중 사망 시 `lost_pieces` 첫 발생. Stage 1~3 회귀 없음.

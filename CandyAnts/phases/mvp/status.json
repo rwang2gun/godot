@@ -60,8 +60,8 @@
     },
     {
       "id": 6,
-      "file": "phase06-input-pad-cursor.md",
-      "name": "input-pad-cursor",
+      "file": "phase06-game-flow-foundation.md",
+      "name": "game-flow-foundation",
       "duration_estimate": 7200,
       "verify": "",
       "state": "pending",
@@ -71,7 +71,18 @@
     },
     {
       "id": 7,
-      "file": "phase07-input-pause-step.md",
+      "file": "phase07-input-pad-cursor.md",
+      "name": "input-pad-cursor",
+      "duration_estimate": 7200,
+      "verify": "",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 8,
+      "file": "phase08-input-pause-step.md",
       "name": "input-pause-step",
       "duration_estimate": 5400,
       "verify": "",
@@ -81,8 +92,8 @@
       "duration_seconds": null
     },
     {
-      "id": 8,
-      "file": "phase08-ui-theme-assets.md",
+      "id": 9,
+      "file": "phase09-ui-theme-assets.md",
       "name": "ui-theme-assets",
       "duration_estimate": 7200,
       "verify": "",
@@ -92,8 +103,8 @@
       "duration_seconds": null
     },
     {
-      "id": 9,
-      "file": "phase09-ui-atoms-foundation.md",
+      "id": 10,
+      "file": "phase10-ui-atoms-foundation.md",
       "name": "ui-atoms-foundation",
       "duration_estimate": 7200,
       "verify": "",
@@ -103,8 +114,8 @@
       "duration_seconds": null
     },
     {
-      "id": 10,
-      "file": "phase10-ui-hud-toolbar-replace.md",
+      "id": 11,
+      "file": "phase11-ui-hud-toolbar-replace.md",
       "name": "ui-hud-toolbar-replace",
       "duration_estimate": 7200,
       "verify": "",
@@ -114,8 +125,8 @@
       "duration_seconds": null
     },
     {
-      "id": 11,
-      "file": "phase11-ui-stage-dialog.md",
+      "id": 12,
+      "file": "phase12-ui-stage-dialog.md",
       "name": "ui-stage-dialog",
       "duration_estimate": 5400,
       "verify": "",
@@ -125,8 +136,8 @@
       "duration_seconds": null
     },
     {
-      "id": 12,
-      "file": "phase12-ui-title-menu.md",
+      "id": 13,
+      "file": "phase13-ui-title-menu.md",
       "name": "ui-title-menu",
       "duration_estimate": 5400,
       "verify": "",
@@ -136,8 +147,8 @@
       "duration_seconds": null
     },
     {
-      "id": 13,
-      "file": "phase13-stage4-hazard-water.md",
+      "id": 14,
+      "file": "phase14-stage4-hazard-water.md",
       "name": "stage4-hazard-water",
       "duration_estimate": 7200,
       "verify": "",
@@ -147,8 +158,8 @@
       "duration_seconds": null
     },
     {
-      "id": 14,
-      "file": "phase14-stage5-basher.md",
+      "id": 15,
+      "file": "phase15-stage5-basher.md",
       "name": "stage5-basher",
       "duration_estimate": 7200,
       "verify": "",
@@ -158,8 +169,8 @@
       "duration_seconds": null
     },
     {
-      "id": 15,
-      "file": "phase15-stage6-digger.md",
+      "id": 16,
+      "file": "phase16-stage6-digger.md",
       "name": "stage6-digger",
       "duration_estimate": 5400,
       "verify": "",
@@ -169,8 +180,8 @@
       "duration_seconds": null
     },
     {
-      "id": 16,
-      "file": "phase16-stage7-miner.md",
+      "id": 17,
+      "file": "phase17-stage7-miner.md",
       "name": "stage7-miner",
       "duration_estimate": 5400,
       "verify": "",
@@ -180,8 +191,8 @@
       "duration_seconds": null
     },
     {
-      "id": 17,
-      "file": "phase17-stage8-climber.md",
+      "id": 18,
+      "file": "phase18-stage8-climber.md",
       "name": "stage8-climber",
       "duration_estimate": 5400,
       "verify": "",
@@ -191,8 +202,8 @@
       "duration_seconds": null
     },
     {
-      "id": 18,
-      "file": "phase18-stage9-floater.md",
+      "id": 19,
+      "file": "phase19-stage9-floater.md",
       "name": "stage9-floater",
       "duration_estimate": 5400,
       "verify": "",
@@ -202,8 +213,8 @@
       "duration_seconds": null
     },
     {
-      "id": 19,
-      "file": "phase19-stage10-bomber-polish.md",
+      "id": 20,
+      "file": "phase20-stage10-bomber-polish.md",
       "name": "stage10-bomber-polish",
       "duration_estimate": 9000,
       "verify": "",

@@ -3,7 +3,7 @@ name: stage7-miner
 duration_estimate: 5400
 ---
 
-# Phase 16: Stage 7 + Miner (빌드 0.7)
+# Phase 17: Stage 7 + Miner (빌드 0.7)
 
 ## 목표
 Miner (대각선 아래 굴착) 추가. Stage 1~6 회귀 없음.

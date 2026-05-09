@@ -3,7 +3,7 @@ name: input-pause-step
 duration_estimate: 5400
 ---
 
-# Phase 7: Pause / StepFrame / InputModeTracker
+# Phase 8: Pause / StepFrame / InputModeTracker
 
 ## 목표
 Pause 중 스킬 부여 명시 보장 + StepFrame(1프레임 전진) + InputModeTracker(UI 힌트 전용).

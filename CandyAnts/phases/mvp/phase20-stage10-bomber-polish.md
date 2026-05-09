@@ -3,7 +3,7 @@ name: stage10-bomber-polish
 duration_estimate: 9000
 ---
 
-# Phase 19: Stage 10 + Bomber + 폴리싱 (빌드 1.0 = MVP 완료)
+# Phase 20: Stage 10 + Bomber + 폴리싱 (빌드 1.0 = MVP 완료)
 
 ## 목표
 Bomber (원형 폭파) 추가 + Release Rate 슬라이더 폴리싱 + 카메라/HUD 정돈. MVP 종료.

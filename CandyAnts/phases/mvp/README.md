@@ -53,16 +53,18 @@ stdout을 그대로 저장. 헤더로 다음 추가:
 <stdout 그대로>
 ```
 
-### 4. 이슈 분류 + 처리
+### 4. 이슈 분류 + 처리 (Plan stage)
 
-| Severity | 처리 정책 |
+> **Plan stage 정책 (2026-05-09 갱신)**: codex 리뷰에서 **CRITICAL/HIGH가 1건이라도 나오면 작업 즉시 중단 + 사용자 보고**. 자동 재리뷰 사이클 없음. 사용자가 수정 방향·범위·취소 여부 결정. 근거: plan stage 자동 재리뷰 사이클이 라운드 폭증을 유발 (이전 game-flow plan v1~v5 5라운드), 비효율 + usage limit 소진.
+
+| Severity | Plan stage 처리 정책 |
 |----------|----------|
-| CRITICAL | **반드시 수정**. plan 갱신 후 진행 |
-| HIGH     | **반드시 수정**. plan 갱신 후 진행 |
+| CRITICAL | **즉시 중단 → 사용자 보고**. 사용자가 수정 방향 결정 |
+| HIGH     | **즉시 중단 → 사용자 보고**. 사용자가 수정 방향 결정 |
 | MEDIUM   | 수정 권장. 미수정 시 deferred 기록 필수 |
 | LOW      | 선택. 미수정 시 deferred 기록 권장 |
 
-미수정 이슈는 `reviews/phaseNN-deferred.md`에:
+미수정 MEDIUM/LOW 이슈는 `reviews/phaseNN-deferred.md`에:
 
 ```markdown
 # Phase NN Deferred Issues
@@ -74,7 +76,7 @@ stdout을 그대로 저장. 헤더로 다음 추가:
 - **재검토 시점**: Phase X | Stage Y | never
 ```
 
-> CRITICAL/HIGH를 deferred에 넣는 것은 **금지**. 반드시 수정 후 진행.
+> CRITICAL/HIGH를 deferred에 넣는 것은 **금지**. 반드시 수정 또는 사용자 결정 거친 후 진행.
 
 ### 5. 구현
 갱신된 plan대로 진행. 파일/씬은 ARCHITECTURE의 폴더 구조 + 명명 규약(snake_case 함수, PascalCase 클래스, UPPER_SNAKE const) 준수.
@@ -121,8 +123,21 @@ stdout을 `reviews/phaseNN-impl-review.md`에 저장. 헤더는 Step 3와 동일
 > CRITICAL/HIGH가 남은 채로 Step 8로 넘어가는 것은 절대 금지.
 > 사후 HIGH 발견 시 **다음 phase 시작도 금지** — 먼저 sweep 마무리.
 
-#### Plan-stage(Step 2) 리뷰에도 동일 사이클 적용
-Step 2(plan 리뷰)도 위 사이클과 동일. plan-stage review는 `reviews/phaseNN-review.md`에 누적, codex 라운드와 자체 리뷰 라운드를 모두 보존.
+#### Plan-stage(Step 2) 리뷰는 다른 정책 (2026-05-09 갱신)
+
+Step 2(plan 리뷰)는 **자동 재리뷰 사이클을 돌리지 않는다**. codex 1회 실행 후:
+
+- CRITICAL/HIGH 0건 → 그대로 Step 5(구현)로 진행
+- CRITICAL/HIGH 1건 이상 → **즉시 작업 중단 + 사용자에게 보고**. 사용자가 수정 방향·범위·취소 여부 결정. 수정 후 사용자가 재리뷰 지시 시에만 codex 재실행
+
+근거:
+- plan stage 자동 재리뷰는 라운드 폭증을 유발 (이전 game-flow plan은 v1~v5 5라운드)
+- plan은 코드와 달리 사용자 의도·우선순위와 직접 연결되어 자동 결정이 위험
+- usage limit + 시간 비용
+
+plan-stage review stdout은 `reviews/phaseNN-review.md`에 1회 라운드만 보존. 사용자 결정으로 재리뷰 시 `## Round 2` 추가.
+
+> 자체 적대적 리뷰 사이클은 **impl stage(Step 7)에만 적용**. plan stage는 codex 1회만.
 
 ### 8. 완료 처리
 ```bash
@@ -141,7 +156,8 @@ python scripts/execute.py mvp next   # 다음 pending phase 정의 출력
 ## Phase 목록 (요약)
 
 > 2026-05-09 개정 v2: phase 5~12에 input(3) + UI(5)를 신설(atoms를 별도 phase로 분리). 기존 stage4~10 phase를 13~19로 시프트.
-> 상세 근거: `docs/INPUT_PLAN.md`, `docs/UI_GUIDE.md`, `docs/design_handoff/` (프로젝트 안 흡수됨).
+> 2026-05-09 개정 v3 (game-flow): phase 6에 `game-flow-foundation` 신규 삽입. 기존 6~19 → 7~20, post-MVP 20~22 → 21~23. 상세 근거: `docs/GAME_FLOW_PROPOSAL_V5.md`.
+> 상세 근거: `docs/INPUT_PLAN.md`, `docs/UI_GUIDE.md`, `docs/GAME_FLOW_PROPOSAL_V5.md`, `docs/design_handoff/` (프로젝트 안 흡수됨).
 
 | # | 트랙 | 이름 | 핵심 산출물 |
 |---|------|------|-------------|
@@ -150,17 +166,21 @@ python scripts/execute.py mvp next   # 다음 pending phase 정의 출력
 | 3 | core | stage2-builder | SkillRegistry 활성화, SkillToolbar, WorkerState, Builder |
 | 4 | core | stage3-blocker | Blocker 스킬 |
 | 5 | input | input-action-foundation | InputRouter + InputMap + KB/Mouse 마이그레이션 |
-| 6 | input | input-pad-cursor | VirtualCursor + Pad 매핑 + 개미 스냅 |
-| 7 | input | input-pause-step | pause 중 부여 + StepFrame + InputModeTracker |
-| 8 | ui | ui-theme-assets | Theme 리소스 + 폰트 + SVG 에셋 임포트 + Tokens.gd |
-| 9 | ui | ui-atoms-foundation | CButton/Chip/Counter/SkillSlot atoms + Motion 헬퍼 |
-| 10 | ui | ui-hud-toolbar-replace | HUD/SkillToolbar 씬 교체 (atom 인스턴스화) |
-| 11 | ui | ui-stage-dialog | StageDialog (win/loss) + 트랜지션 + 사운드 hook |
-| 12 | ui | ui-title-menu | 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData |
-| 13 | stage | stage4-hazard-water | Hazard 시스템 + Water |
-| 14 | stage | stage5-basher | TileMap 동적 파괴 + Basher |
-| 15 | stage | stage6-digger | Digger (수직 굴착) |
-| 16 | stage | stage7-miner | Miner (대각선 굴착) |
-| 17 | stage | stage8-climber | 벽 감지 + Climber |
-| 18 | stage | stage9-floater | 낙하 변형 + Floater |
-| 19 | stage | stage10-bomber-polish | 원형 파괴 + Bomber + Release Rate 폴리싱 (MVP 종료) |
+| 6 | core | game-flow-foundation | Main/SceneFlow + EventBus request_* + StageResultOverlayStub + Dictionary payload + no_more_ants |
+| 7 | input | input-pad-cursor | VirtualCursor + Pad 매핑 + 개미 스냅 |
+| 8 | input | input-pause-step | pause 중 부여 + StepFrame + InputModeTracker |
+| 9 | ui | ui-theme-assets | Theme 리소스 + 폰트 + SVG 에셋 임포트 + Tokens.gd |
+| 10 | ui | ui-atoms-foundation | CButton/Chip/Counter/SkillSlot atoms + Motion 헬퍼 |
+| 11 | ui | ui-hud-toolbar-replace | HUD/SkillToolbar 씬 교체 (atom 인스턴스화) |
+| 12 | ui | ui-stage-dialog | StageDialog (win/loss) + 트랜지션 + 사운드 hook |
+| 13 | ui | ui-title-menu | 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData |
+| 14 | stage | stage4-hazard-water | Hazard 시스템 + Water |
+| 15 | stage | stage5-basher | TileMap 동적 파괴 + Basher |
+| 16 | stage | stage6-digger | Digger (수직 굴착) |
+| 17 | stage | stage7-miner | Miner (대각선 굴착) |
+| 18 | stage | stage8-climber | 벽 감지 + Climber |
+| 19 | stage | stage9-floater | 낙하 변형 + Floater |
+| 20 | stage | stage10-bomber-polish | 원형 파괴 + Bomber + Release Rate 폴리싱 (MVP 종료) |
+| 21 | post-MVP | sound-bgm-sfx | 사운드 임포트 + 모달/카운터/스킬 SFX |
+| 22 | post-MVP | input-touch | 터치 + 드래그앤드롭 + 루페 |
+| 23 | post-MVP | input-advanced | Rewind + Preview + CommandWheel + Overlay |

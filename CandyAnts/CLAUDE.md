@@ -17,14 +17,17 @@
 - CRITICAL: Stage N 빌드 시작 전 이전 Stage가 회귀 없이 동작하는지 확인
 - CRITICAL: 한 Phase 완료 후에만 커밋, Phase 중간 커밋 금지
 - CRITICAL: Phase 완료 직전(수동 검증 통과 후 · `execute.py complete` 직전) 반드시 `/codex:adversarial-review` 실행, 결과는 `phases/<task>/reviews/phaseNN-impl-review.md`에 보존
-- CRITICAL: adversarial-review에서 **CRITICAL/HIGH가 1건이라도 나오면 반드시 수정**한다. defer·wontfix 금지. 수정 후 동일 인자로 `/codex:adversarial-review` **재실행**, verdict가 clean(needs-attention 해소)이 될 때까지 수정·재리뷰 루프를 반복. 매 회차의 stdout은 `phaseNN-impl-review.md`에 회차 헤더(`## Round 2`, `## Round 3` …)로 누적
-- CRITICAL: **codex 재리뷰 전 자체 적대적 리뷰 사이클** (codex 라운드 효율화 정책, 2026-05-09 도입). 최초 `/codex:adversarial-review` 1회 실행 후 finding이 나오면:
-  1. plan/구현을 수정한다.
+- CRITICAL: adversarial-review의 stage별 정책이 다르다 (2026-05-09 정책 갱신).
+  - **Plan stage (Step 2~3, plan 리뷰)**: codex 리뷰에서 **CRITICAL/HIGH가 1건이라도 나오면 작업을 즉시 중단**하고 사용자에게 보고한다. 자동 재리뷰 사이클을 돌리지 않는다. 사용자가 수정 방향·범위·취소 여부를 결정한다. 근거: plan 단계 자동 재리뷰 사이클은 라운드 폭증을 유발하며(이전 game-flow plan은 v1~v5 5라운드), 비효율적이고 usage limit을 빠르게 소진한다.
+  - **Impl stage (Step 7, 구현 리뷰)**: 기존 정책 유지. **CRITICAL/HIGH가 1건이라도 나오면 반드시 수정**한다. defer·wontfix 금지. 수정 후 동일 인자로 `/codex:adversarial-review` **재실행**, verdict가 clean(needs-attention 해소)이 될 때까지 수정·재리뷰 루프를 반복. 매 회차의 stdout은 `phaseNN-impl-review.md`에 회차 헤더(`## Round 2`, `## Round 3` …)로 누적
+- CRITICAL: **Impl stage codex 재리뷰 전 자체 적대적 리뷰 사이클** (impl stage에만 적용, 2026-05-09 정책 갱신). 최초 `/codex:adversarial-review` 1회 실행 후 finding이 나오면:
+  1. 구현을 수정한다.
   2. **수정 결과물을 본인이 직접 적대적 리뷰**한다 — codex와 동일 기준(CRITICAL/HIGH/MEDIUM/LOW + hypothetical 위험 + cross-doc 일관성 + dead branch + circular SoT 등 구조적 위험까지 가혹하게).
-  3. 자체 리뷰에서 CRITICAL/HIGH가 1건이라도 나오면 추가 수정 → 재자체리뷰. **자체 리뷰가 clean(HIGH 0건)이 될 때까지 반복.** 매 자체리뷰 stdout은 `phaseNN-review.md`(plan stage) 또는 `phaseNN-impl-review.md`(impl stage)에 `## Self-Review Round N` 헤더로 누적.
+  3. 자체 리뷰에서 CRITICAL/HIGH가 1건이라도 나오면 추가 수정 → 재자체리뷰. **자체 리뷰가 clean(HIGH 0건)이 될 때까지 반복.** 매 자체리뷰 stdout은 `phaseNN-impl-review.md`에 `## Self-Review Round N` 헤더로 누적.
   4. 자체 리뷰 clean 확인 후 비로소 codex 재리뷰 실행. codex가 새로 HIGH 발견하면 1번부터 다시.
   5. 매 codex 라운드 사이에 자체 리뷰 사이클 1회 이상 끼움. codex만 연달아 호출 금지(usage limit + 라운드 폭증 방지).
-- CRITICAL: 사후(=phase 커밋 후) 리뷰에서 HIGH가 발견되면 즉시 후속 hot-fix 커밋(`fix: <요약> (phase NN sweep)`)으로 처리하고, 동일 루프(자체리뷰 → codex 재리뷰 → clean)까지 진행. 다음 phase 시작 금지. MEDIUM/LOW만 `phaseNN-deferred.md` 허용
+  6. **Plan stage에는 적용하지 않는다** — plan stage는 codex HIGH 발견 시 즉시 중단·사용자 결정.
+- CRITICAL: 사후(=phase 커밋 후) 리뷰에서 HIGH가 발견되면 즉시 후속 hot-fix 커밋(`fix: <요약> (phase NN sweep)`)으로 처리하고, 동일 impl-stage 루프(자체리뷰 → codex 재리뷰 → clean)까지 진행. 다음 phase 시작 금지. MEDIUM/LOW만 `phaseNN-deferred.md` 허용
 - 작업 진행은 `python scripts/execute.py {task-name}`로 상태 관리
 - 헤드리스 테스트는 `python scripts/run_test.py <scene>` (예: `tests/Stage03HeadlessTest.tscn`). Godot 바이너리는 `GODOT_BIN` 환경변수 → `PATH` → 알려진 후보 순으로 자동 탐색. 새 머신/위치 사용 시 `scripts/run_test.py`의 `CANDIDATES` 갱신 또는 `GODOT_BIN` 지정
 - 커밋 메시지: `phase {N}: {요약}` 형식 (Phase 단위) 또는 conventional commits (feat:, fix:, refactor:)

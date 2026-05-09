@@ -3,7 +3,7 @@ name: stage5-basher
 duration_estimate: 7200
 ---
 
-# Phase 14: Stage 5 + Basher (빌드 0.5)
+# Phase 15: Stage 5 + Basher (빌드 0.5)
 
 ## 목표
 TileMap 동적 파괴 시스템 + Basher (수평 굴착). Stage 1~4 회귀 없음.
