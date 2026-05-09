@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" fill="none">
+  <defs></defs>
+  
+  <g stroke="rgba(42,31,24,0.4)" stroke-width="3" stroke-linecap="round">
+    <line x1="14" y1="0" x2="14" y2="20"></line>
+    <line x1="34" y1="0" x2="34" y2="14"></line>
+    <line x1="86" y1="0" x2="86" y2="16"></line>
+    <line x1="106" y1="0" x2="106" y2="22"></line>
+  </g>
+  
+  <path class="k" d="M 50 60 C 36 50, 28 40, 26 30"></path>
+  <circle class="ink-fill" cx="26" cy="30" r="4"></circle>
+  <path class="k" d="M 76 60 C 88 52, 96 42, 100 32"></path>
+  <circle class="ink-fill" cx="100" cy="32" r="4"></circle>
+  
+  <ellipse class="hood" cx="60" cy="92" rx="32" ry="30"></ellipse>
+  <ellipse class="k" cx="60" cy="92" rx="32" ry="30"></ellipse>
+  <path class="skin" d="M 44 84 Q 40 116 60 122 Q 84 118 86 92 Q 82 78 60 78 Q 50 78 44 84 Z"></path>
+  <path class="k" d="M 44 84 Q 40 116 60 122 Q 84 118 86 92 Q 82 78 60 78 Q 50 78 44 84 Z"></path>
+  <path class="hair" d="M 44 86 Q 52 78 64 84 Q 74 78 86 92 Q 80 92 74 88 Q 66 92 60 88 Z"></path>
+  <path class="k" d="M 44 86 Q 52 78 64 84 Q 74 78 86 92 Q 80 92 74 88 Q 66 92 60 88 Z"></path>
+  
+  <circle class="ink-fill" cx="58" cy="100" r="3"></circle>
+  <circle class="ink-fill" cx="78" cy="100" r="3"></circle>
+  <ellipse class="blush" cx="54" cy="110" rx="4" ry="2.5"></ellipse>
+  <ellipse class="blush" cx="82" cy="110" rx="4" ry="2.5"></ellipse>
+  
+  <ellipse class="mouth" cx="68" cy="112" rx="4" ry="5"></ellipse>
+  <ellipse class="k" cx="68" cy="112" rx="4" ry="5"></ellipse>
+  
+  <path class="hood" d="M 32 84 Q 22 70 18 56"></path>
+  <path class="k" d="M 32 84 Q 22 70 18 56"></path>
+  <path class="hood" d="M 88 84 Q 96 70 102 56"></path>
+  <path class="k" d="M 88 84 Q 96 70 102 56"></path>
+  
+  <ellipse class="shoe" cx="42" cy="142" rx="7" ry="4" transform="rotate(-25 42 142)"></ellipse>
+  <ellipse class="k" cx="42" cy="142" rx="7" ry="4" transform="rotate(-25 42 142)"></ellipse>
+  <ellipse class="shoe" cx="76" cy="142" rx="7" ry="4" transform="rotate(25 76 142)"></ellipse>
+  <ellipse class="k" cx="76" cy="142" rx="7" ry="4" transform="rotate(25 76 142)"></ellipse>
+</svg>

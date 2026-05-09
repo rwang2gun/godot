@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  
+  
+  <path class="k" d="M 32 6 L 50 14 L 50 36 Q 50 52 32 58 Q 14 52 14 36 L 14 14 Z" fill="oklch(0.70 0.20 15)"></path>
+  
+  <path class="k" d="M 18 32 L 12 32 M 46 32 L 52 32" fill="none"></path>
+  
+  <circle cx="26" cy="32" r="3" fill="oklch(0.26 0.045 50)"></circle>
+  <circle cx="38" cy="32" r="3" fill="oklch(0.26 0.045 50)"></circle>
+  <path class="k" d="M 26 42 Q 32 38 38 42" fill="none"></path>
+</svg>

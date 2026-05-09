@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  
+  
+  <path class="k" d="M 4 18 L 60 18 L 60 60 L 4 60 Z" fill="oklch(0.88 0.040 65)"></path>
+  <path class="k" d="M 14 18 L 38 42 L 56 42 L 56 60" fill="oklch(0.965 0.020 70)"></path>
+  
+  <line class="k" x1="36" y1="10" x2="50" y2="24" stroke-width="5" stroke="oklch(0.40 0.060 50)"></line>
+  <path class="k" d="M 28 4 Q 40 4 50 14 Q 46 18 42 18 Q 36 12 28 12 Z" fill="oklch(0.72 0.14 300)"></path>
+</svg>

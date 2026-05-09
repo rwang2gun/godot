@@ -122,16 +122,27 @@ python scripts/execute.py mvp next   # 다음 pending phase 정의 출력
 
 ## Phase 목록 (요약)
 
-| # | 빌드 | 이름 | 핵심 산출물 |
+> 2026-05-09 개정 v2: phase 5~12에 input(3) + UI(5)를 신설(atoms를 별도 phase로 분리). 기존 stage4~10 phase를 13~19로 시프트.
+> 상세 근거: `docs/INPUT_PLAN.md`, `docs/UI_GUIDE.md`, `docs/design_handoff/` (프로젝트 안 흡수됨).
+
+| # | 트랙 | 이름 | 핵심 산출물 |
 |---|------|------|-------------|
-| 1 | —   | bootstrap | project.godot, 폴더 구조, Autoload 빈 셸 |
-| 2 | 0.1 | stage1-core | Vertical Slice — Ant 6상태, Candy/Home, ScoreSystem, HUD |
-| 3 | 0.2 | stage2-builder | SkillRegistry 활성화, SkillToolbar, WorkerState, Builder |
-| 4 | 0.3 | stage3-blocker | Blocker 스킬 |
-| 5 | 0.4 | stage4-hazard-water | Hazard 시스템 + Water |
-| 6 | 0.5 | stage5-basher | TileMap 동적 파괴 + Basher |
-| 7 | 0.6 | stage6-digger | Digger (수직 굴착) |
-| 8 | 0.7 | stage7-miner | Miner (대각선 굴착) |
-| 9 | 0.8 | stage8-climber | 벽 감지 + Climber |
-| 10 | 0.9 | stage9-floater | 낙하 변형 + Floater |
-| 11 | 1.0 | stage10-bomber-polish | 원형 파괴 + Bomber + Release Rate 폴리싱 |
+| 1 | core | bootstrap | project.godot, 폴더 구조, Autoload 빈 셸 |
+| 2 | core | stage1-core | Vertical Slice — Ant 6상태, Candy/Home, ScoreSystem, HUD |
+| 3 | core | stage2-builder | SkillRegistry 활성화, SkillToolbar, WorkerState, Builder |
+| 4 | core | stage3-blocker | Blocker 스킬 |
+| 5 | input | input-action-foundation | InputRouter + InputMap + KB/Mouse 마이그레이션 |
+| 6 | input | input-pad-cursor | VirtualCursor + Pad 매핑 + 개미 스냅 |
+| 7 | input | input-pause-step | pause 중 부여 + StepFrame + InputModeTracker |
+| 8 | ui | ui-theme-assets | Theme 리소스 + 폰트 + SVG 에셋 임포트 + Tokens.gd |
+| 9 | ui | ui-atoms-foundation | CButton/Chip/Counter/SkillSlot atoms + Motion 헬퍼 |
+| 10 | ui | ui-hud-toolbar-replace | HUD/SkillToolbar 씬 교체 (atom 인스턴스화) |
+| 11 | ui | ui-stage-dialog | StageDialog (win/loss) + 트랜지션 + 사운드 hook |
+| 12 | ui | ui-title-menu | 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData |
+| 13 | stage | stage4-hazard-water | Hazard 시스템 + Water |
+| 14 | stage | stage5-basher | TileMap 동적 파괴 + Basher |
+| 15 | stage | stage6-digger | Digger (수직 굴착) |
+| 16 | stage | stage7-miner | Miner (대각선 굴착) |
+| 17 | stage | stage8-climber | 벽 감지 + Climber |
+| 18 | stage | stage9-floater | 낙하 변형 + Floater |
+| 19 | stage | stage10-bomber-polish | 원형 파괴 + Bomber + Release Rate 폴리싱 (MVP 종료) |

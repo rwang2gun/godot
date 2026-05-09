@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="oklch(0.94 0.04 235)"></stop>
+      <stop offset="0.7" stop-color="oklch(0.92 0.05 215)"></stop>
+      <stop offset="1" stop-color="oklch(0.93 0.06 145)"></stop>
+    </linearGradient>
+    <pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="3" fill="oklch(1 0 0 / 0.35)"></circle>
+      <circle cx="30" cy="28" r="2" fill="oklch(0.78 0.155 28 / 0.18)"></circle>
+    </pattern>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"></rect>
+  <rect width="1920" height="1080" fill="url(#dots)" opacity="0.8"></rect>
+  
+  <path d="M 0 760 Q 320 660 640 740 T 1280 720 T 1920 750 L 1920 1080 L 0 1080 Z" fill="oklch(0.88 0.07 145)"></path>
+  <path d="M 0 850 Q 480 780 960 830 T 1920 850 L 1920 1080 L 0 1080 Z" fill="oklch(0.84 0.09 140)"></path>
+  
+  <rect x="0" y="900" width="1920" height="180" fill="oklch(0.78 0.10 80)"></rect>
+  <line x1="0" y1="900" x2="1920" y2="900" stroke="oklch(0.40 0.060 50)" stroke-width="6"></line>
+</svg>

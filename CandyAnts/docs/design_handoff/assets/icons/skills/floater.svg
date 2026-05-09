@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  
+  
+  <path class="k" d="M 8 26 Q 32 6 56 26 Z" fill="oklch(0.82 0.13 175)"></path>
+  <path class="k" d="M 20 26 Q 24 14 32 12 Q 40 14 44 26" fill="none"></path>
+  
+  <line class="k" x1="32" y1="26" x2="32" y2="40"></line>
+  <path class="k" d="M 32 40 Q 28 44 28 48" fill="none"></path>
+  
+  <ellipse class="k" cx="32" cy="52" rx="8" ry="6" fill="oklch(0.26 0.045 50)"></ellipse>
+  <ellipse class="k" cx="22" cy="52" rx="5" ry="4" fill="oklch(0.26 0.045 50)"></ellipse>
+  <ellipse class="k" cx="42" cy="52" rx="6" ry="4" fill="oklch(0.26 0.045 50)"></ellipse>
+</svg>

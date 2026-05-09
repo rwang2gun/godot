@@ -122,30 +122,42 @@ static func world_to_screen(world_pos: Vector2, viewport: Viewport) -> Vector2:
 
 ---
 
-## 3. Phase 분할 — 3개 신규 phase 끼워넣기
+## 3. Phase 분할 — input 3개 + UI 5개 신규, stage 7개 시프트
 
-현 status.json 기준 phase 1~4 완료. 5~11 pending. **본 계획은 5~7로 input 3개 phase를 끼우고 기존 5~11을 8~14로 시프트**.
+> **2026-05-09 개정 v2**: 사용자 결정으로 phase 5~12에 **input(3) + UI(5)** 8개를 끼워넣고 기존 stage 7개를 13~19로 시프트. UI는 흡수된 design handoff(`docs/design_handoff/`)를 시각 레퍼런스로, `docs/UI_GUIDE.md`를 1차 SoT로 사용. atoms는 별도 phase로 분리(phase 9). 사운드/BGM은 post-MVP.
+
+현 status.json 기준 phase 1~4 완료, 5~19 pending.
 
 | # | 신규/기존 | 이름 | 핵심 산출물 |
 |---|---|---|---|
-| 5 | **신규** | input-action-foundation | InputRouter + InputMap + KB/Mouse 마이그레이션 |
-| 6 | **신규** | input-pad-cursor | VirtualCursor + Pad 매핑 + 개미 스냅 |
-| 7 | **신규** | input-pause-step | pause 중 부여 보장 + StepFrame + InputModeTracker + UI 힌트 |
-| 8 | 5→8 | stage4-hazard-water | (그대로) |
-| 9 | 6→9 | stage5-basher | (그대로 — 단, 타일 스냅 후보 추가는 본 phase에서) |
-| 10 | 7→10 | stage6-digger | (그대로) |
-| 11 | 8→11 | stage7-miner | (그대로) |
-| 12 | 9→12 | stage8-climber | (그대로) |
-| 13 | 10→13 | stage9-floater | (그대로) |
-| 14 | 11→14 | stage10-bomber-polish | (그대로 — MVP 종료) |
-| 15 | **신규(post-MVP)** | input-touch | 터치 + 드래그 앤 드롭 + 루페 |
-| 16 | **신규(post-MVP)** | input-advanced | Rewind(undo) + Preview + CommandWheel + Overlay |
+| 5 | **신규(input)** | input-action-foundation | InputRouter + InputMap + KB/Mouse 마이그레이션 |
+| 6 | **신규(input)** | input-pad-cursor | VirtualCursor + Pad 매핑 + 개미 스냅 |
+| 7 | **신규(input)** | input-pause-step | pause 중 부여 + StepFrame + InputModeTracker + UI 힌트 |
+| 8 | **신규(ui)** | ui-theme-assets | Theme 리소스 + 폰트(Jua/Gaegu) + SVG 에셋 임포트 + Tokens.gd |
+| 9 | **신규(ui)** | ui-atoms-foundation | CButton/Chip/Counter/SkillSlot atoms + Motion 헬퍼 (단독 검증) |
+| 10 | **신규(ui)** | ui-hud-toolbar-replace | HUD/SkillToolbar 씬 교체 (atom 인스턴스화, 스크립트는 노드 경로만) |
+| 11 | **신규(ui)** | ui-stage-dialog | StageDialog(win/loss) + 트랜지션 + 사운드 hook |
+| 12 | **신규(ui)** | ui-title-menu | 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData(`user://save.cfg`) |
+| 13 | 5→13 | stage4-hazard-water | (그대로) |
+| 14 | 6→14 | stage5-basher | (그대로 — 단, 타일 스냅 후보 추가는 본 phase에서) |
+| 15 | 7→15 | stage6-digger | (그대로) |
+| 16 | 8→16 | stage7-miner | (그대로) |
+| 17 | 9→17 | stage8-climber | (그대로) |
+| 18 | 10→18 | stage9-floater | (그대로) |
+| 19 | 11→19 | stage10-bomber-polish | (그대로 — MVP 종료) |
+| 20 | **post-MVP** | sound-bgm-sfx | 사운드/BGM 임포트 + 모달/카운터/스킬 SFX (hook 자리는 phase 11에서 `EventBus.sfx_request`로 마련) |
+| 21 | **post-MVP** | input-touch | 터치 + 드래그 앤 드롭 + 루페 |
+| 22 | **post-MVP** | input-advanced | Rewind(undo) + Preview + CommandWheel + Overlay |
 
-### 왜 input 3개를 stage4 시작 전에?
+### 왜 input → UI → stage 순서? (v2 정리)
 
-1. **현재 SkillToolbar가 stage4~10에서 매번 손댐** (인벤토리·새 스킬 추가). 액션 레이어 마이그레이션이 늦어질수록 stage phase 재작업 증가.
-2. **ROG Ally X 환경에서 dev-test = 패드**. stage4~10을 마우스로 dev-test하다가 후반에 패드 합치면 UX 회귀 위험.
-3. **타일 스냅 후보 등록은 stage5(basher)에서 자연스럽게 합류** — 본 phase 6에서 인터페이스만 열어두고 stage5에서 채움.
+1. **input과 UI 모두 SkillToolbar를 손댐** — input을 먼저 마이그레이션하면 UI 교체 phase에서 회귀 진단이 쉬움(원인이 노드 경로 변경뿐).
+2. **현재 SkillToolbar가 stage4~10에서 매번 손댐** (인벤토리·새 스킬 추가). 액션 레이어 + 시각 레이어가 모두 안정된 후 stage 진행 → 재작업 0.
+3. **ROG Ally X 환경에서 dev-test = 패드**. stage4~10을 마우스로 dev-test하다가 후반에 패드 합치면 UX 회귀 위험.
+4. **UI를 input 다음에 두는 이유**: 디자인 적용 후 마우스/패드 양쪽으로 시각 검증해야 디자인 갭(예: VirtualCursor z-order, hover hint 위치)을 한 번에 잡음.
+5. **atoms를 별도 phase(9)로 분리한 이유**: 4 atom + Motion 헬퍼가 phase 10 HUD/Toolbar 교체 + phase 11 StageDialog + phase 12 메뉴에서 모두 재사용. 검증 단위를 atom 단독으로 쪼개면 시각/단위/회귀 검증이 가벼워지고 다음 phase의 변경 폭이 줄어듦.
+6. **타이틀/메뉴를 phase 12에 두는 이유**: StageDialog(phase 11)의 SceneFlow가 Title/Menu 진입점을 갖도록 자연스럽게 확장. 그 전에 둘 이유 없음.
+7. **타일 스냅 후보 등록은 stage5(basher)에서 자연스럽게 합류** — phase 6에서 인터페이스만 열어두고 phase 14에서 채움.
 
 ---
 
@@ -225,16 +237,16 @@ KB+Mouse 측은 별도 InputMap 액션으로 명확:
 
 > 같은 raw-처리 패턴을 **post-MVP에서 다른 더블 액션이 추가되면 그대로 적용** (예: Menu 단발=minimap / 홀드 2초=nuke). InputMap 1대1이 깨지는 모든 케이스는 router에서 raw 처리.
 
-### 4.2 post-MVP (phase 15~16)
+### 4.2 post-MVP (phase 21~22)
 
 | 액션 ID | 비고 |
 |---|---|
-| `tap_drag_skill` | 터치 드래그 앤 드롭 (phase 15) |
-| `pinch_zoom` | 두 손가락 핀치 (phase 15) |
-| `rewind_hold` | 누르는 동안 undo (phase 16) |
-| `command_wheel_open` | LB 홀드 / 길게 누르기 (phase 16) |
-| `overlay_toggle` | Alt / Y (phase 16) |
-| `nuke` | Menu 홀드 / F12 더블 (phase 16) |
+| `tap_drag_skill` | 터치 드래그 앤 드롭 (phase 21 — input-touch) |
+| `pinch_zoom` | 두 손가락 핀치 (phase 21 — input-touch) |
+| `rewind_hold` | 누르는 동안 undo (phase 22 — input-advanced) |
+| `command_wheel_open` | LB 홀드 / 길게 누르기 (phase 22 — input-advanced) |
+| `overlay_toggle` | Alt / Y (phase 22 — input-advanced) |
+| `nuke` | Menu 홀드 / F12 더블 (phase 22 — input-advanced) |
 
 > MVP에서 `nuke`는 미구현. 사용자가 막히면 `restart_stage`로 우회.
 
@@ -569,7 +581,7 @@ InputModeTracker._on_action  → mode = "pad" (UI 힌트 전용)
 ### 6.7 결정 보류
 
 - **카메라 추적 곡선** — 화면 가장자리 80%부터 선형 vs 90%부터 가속 → 스테이지 빌드 후 튜닝. v0.1 = 80% 선형.
-- **스틱 가속 곡선** — `pow(value, 1.5)` 기본. 사용자 옵션 노출은 phase 16(폴리싱).
+- **스틱 가속 곡선** — `pow(value, 1.5)` 기본. 사용자 옵션 노출은 phase 19(stage10-bomber-polish) 또는 post-MVP.
 
 ---
 
@@ -684,20 +696,26 @@ phase 5/6/7 각 종료 시 다음이 모두 PASS:
 
 ## 10. 비-범위 (post-MVP로 명시 보류)
 
-- **터치 입력** (phase 15): 핀치 / 드래그 앤 드롭 / 루페
-- **Rewind**: 시뮬 롤백 또는 명령 undo (phase 16). MVP에서 결정 동결
-- **Preview**: 시뮬레이션 기반 결과 미리보기 (phase 16). MVP는 hover 색상만
-- **CommandWheel**: 패드 LB 홀드 / 터치 길게 (phase 16)
-- **Overlay**: 경로/위험/스킬 영역 시각화 (phase 16)
-- **사용자 키 리매핑 UI** (phase 16 또는 v1.2)
-- **마우스 모서리 자동 스크롤** (phase 16)
+- **터치 입력** (phase 21 — input-touch): 핀치 / 드래그 앤 드롭 / 루페
+- **Rewind**: 시뮬 롤백 또는 명령 undo (phase 22 — input-advanced). MVP에서 결정 동결
+- **Preview**: 시뮬레이션 기반 결과 미리보기 (phase 22 — input-advanced). MVP는 hover 색상만
+- **CommandWheel**: 패드 LB 홀드 / 터치 길게 (phase 22 — input-advanced)
+- **Overlay**: 경로/위험/스킬 영역 시각화 (phase 22 — input-advanced)
+- **사용자 키 리매핑 UI** (phase 22 — input-advanced 또는 v1.2)
+- **마우스 모서리 자동 스크롤** (phase 22 — input-advanced)
 
 ---
 
-## 11. 다음 액션
+## 11. 다음 액션 (v2)
 
-1. 본 문서 사용자 검토 → phase 시프트 결정 OK 받기
-2. `phases/mvp/phase05-input-action-foundation.md` 작성 + 기존 phase05~11 → 06~14 시프트 (파일명 + status.json + 본 문서 §3 표 기준)
-3. phase 5 plan 작성 → adversarial-review → 구현 → impl-review → 완료
-4. phase 6, 7 동일 절차
-5. 기존 stage4~stage10-polish phase는 본 phase 5~7 결과를 활용 (마우스/패드 양쪽으로 dev-test)
+1. ~~본 문서 사용자 검토 → phase 시프트 결정 OK 받기~~ ✅ (2026-05-09 사용자 승인: 1=신설/2=post/3=동의)
+2. ~~`phases/mvp/phase05~11` 작성 + 기존 phase05~11 → 12~18 시프트~~ ✅ (v1 — 본 v2에서 추가 시프트됨)
+3. ~~v2 개정: design_handoff 흡수 + UI_GUIDE 신설 + atoms 분리 → phase 5~12 input(3)+UI(5), stage 13~19~~ ✅ (REVISION_2026-05-09 §8~14 참조)
+4. ~~Codex adversarial-review Round 1~8 누적 needs-attention → 수정 통과~~ ✅ (`phases/mvp/reviews/REVISION_2026-05-09-review.md`)
+5. **⏸ Codex Round 9 재시도** — OpenAI usage limit 풀린 후. 절차는 `phases/mvp/REVISION_2026-05-09.md` §15.3 Step 2.
+6. R9+ verdict clean 시 → §15.4 plan-revision 단일 commit
+7. Ant.gd / Ant.tscn (stash@{0}) 처리 — 사용자 의도 확인 후 별도 commit / 폐기 / 보류
+8. phase 5(input-action-foundation) plan 작성 → adversarial-review → 구현 → impl-review → 완료
+9. phase 6(pad-cursor), 7(pause-step) 동일 절차
+10. phase 8~12(UI 5종) — `docs/UI_GUIDE.md`(1차 SoT) + `docs/design_handoff/`(시각 레퍼런스)로 plan 작성. 8 Theme/에셋 → 9 atoms+Motion → 10 HUD/Toolbar 교체 → 11 StageDialog → 12 Title/Menu 순서. 사운드는 phase 11에서 `EventBus.sfx_request` hook만 잡고 post-MVP로 분리.
+11. phase 13~19(기존 stage4~10) — input/UI 양쪽 안정된 상태에서 마우스/패드 양쪽 dev-test.

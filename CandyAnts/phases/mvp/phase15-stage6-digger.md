@@ -3,7 +3,7 @@ name: stage6-digger
 duration_estimate: 5400
 ---
 
-# Phase 7: Stage 6 + Digger (빌드 0.6)
+# Phase 15: Stage 6 + Digger (빌드 0.6)
 
 ## 목표
 Digger (수직 아래 굴착) 추가. Stage 1~5 회귀 없음.

@@ -1,0 +1,197 @@
+/* CandyAnts Design System — design tokens
+   Source of truth for color, type, spacing, radii, shadow, motion.
+   Import once per HTML file. */
+
+@import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  /* ────────────── Color — primitive scale ────────────── */
+  /* Cream paper / ink (the two non‑negotiables) */
+  --cream-50:  oklch(0.985 0.012 75);   /* page background */
+  --cream-100: oklch(0.965 0.020 70);   /* card fill */
+  --cream-200: oklch(0.93  0.030 70);   /* recessed surface */
+  --cream-300: oklch(0.88  0.040 65);   /* hairline divider */
+
+  --ink-900:   oklch(0.26  0.045 50);   /* chocolate — body text + outlines */
+  --ink-700:   oklch(0.40  0.060 50);   /* secondary text */
+  --ink-500:   oklch(0.58  0.045 55);   /* tertiary / disabled */
+  --ink-soft:  oklch(0.40  0.060 50 / 0.35); /* soft drop shadow */
+
+  /* Candy palette — primary, secondary, semantic */
+  --peach-300: oklch(0.90 0.08  35);    /* peach tint */
+  --peach-500: oklch(0.78 0.155 28);    /* PRIMARY brand */
+  --peach-700: oklch(0.62 0.165 30);    /* primary press */
+
+  --mint-300:  oklch(0.92 0.07  175);
+  --mint-500:  oklch(0.82 0.13  175);   /* SUCCESS / saved */
+  --mint-700:  oklch(0.60 0.13  175);
+
+  --berry-300: oklch(0.86 0.10  10);
+  --berry-500: oklch(0.70 0.20  15);    /* DANGER / lost */
+  --berry-700: oklch(0.55 0.20  15);
+
+  --lemon-300: oklch(0.95 0.10  95);
+  --lemon-500: oklch(0.88 0.16  95);    /* WARN / time */
+  --lemon-700: oklch(0.72 0.16  90);
+
+  --grape-300: oklch(0.88 0.07  300);
+  --grape-500: oklch(0.72 0.14  300);   /* INFO / in‑transit */
+  --grape-700: oklch(0.55 0.14  300);
+
+  --sky-300:   oklch(0.92 0.05  235);   /* stage sky top */
+  --grass-300: oklch(0.88 0.07  140);   /* stage ground */
+
+  /* ────────────── Color — semantic aliases ────────────── */
+  --bg:           var(--cream-50);
+  --surface:      var(--cream-100);
+  --surface-sunk: var(--cream-200);
+  --hairline:     var(--cream-300);
+
+  --fg:           var(--ink-900);
+  --fg-muted:     var(--ink-700);
+  --fg-subtle:    var(--ink-500);
+
+  --ink:          var(--ink-900);
+
+  --primary:      var(--peach-500);
+  --primary-press:var(--peach-700);
+  --primary-soft: var(--peach-300);
+
+  --success:      var(--mint-500);
+  --success-soft: var(--mint-300);
+  --danger:       var(--berry-500);
+  --danger-soft:  var(--berry-300);
+  --warn:         var(--lemon-500);
+  --warn-soft:    var(--lemon-300);
+  --info:         var(--grape-500);
+  --info-soft:    var(--grape-300);
+
+  /* HUD‑counter aliases (these are stable across the brand) */
+  --c-candy-hp:    var(--peach-500);
+  --c-in-transit:  var(--grape-500);
+  --c-saved:       var(--mint-500);
+  --c-lost:        var(--berry-500);
+  --c-time:        var(--lemon-700);
+
+  /* ────────────── Type ────────────── */
+  --font-display: 'Jua', 'Cafe24Ohsquare', system-ui, sans-serif;
+  --font-body:    'Gaegu', 'Pretendard', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+  --fs-12: 12px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-32: 32px;
+  --fs-44: 44px;
+  --fs-64: 64px;
+  --fs-96: 96px;
+
+  --lh-tight: 1.05;
+  --lh-snug:  1.20;
+  --lh-body:  1.45;
+
+  /* ────────────── Spacing (8px base, with 4 micro) ────────────── */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  24px;
+  --s-6:  32px;
+  --s-7:  48px;
+  --s-8:  64px;
+  --s-9:  96px;
+
+  --safe-area: 32px; /* handheld bezel safety */
+
+  /* ────────────── Radii ────────────── */
+  --r-sm:   8px;
+  --r-md:  12px;
+  --r-lg:  16px;
+  --r-xl:  20px;
+  --r-2xl: 24px;
+  --r-pill: 999px;
+
+  /* ────────────── Stroke / shadow ────────────── */
+  --stroke: 3px;
+  --stroke-thick: 4px;
+
+  /* hard, offset "sticker" shadow — the system's signature */
+  --shadow-sticker:    4px 4px 0 var(--ink);
+  --shadow-sticker-sm: 2px 2px 0 var(--ink);
+  --shadow-sticker-lg: 6px 6px 0 var(--ink);
+  --shadow-card:       0 8px 0 var(--ink-soft);
+  --shadow-pop:        0 12px 0 var(--ink-soft);
+
+  /* candy‑gloss inner highlight */
+  --gloss: inset 0 4px 0 oklch(1 0 0 / 0.45);
+  --gloss-press: inset 0 2px 0 oklch(1 0 0 / 0.25);
+
+  /* ────────────── Motion ────────────── */
+  --ease-boop: cubic-bezier(0.5, 1.5, 0.5, 1);
+  --ease-out:  cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-press: 120ms;
+  --t-state: 220ms;
+  --t-celebrate: 600ms;
+
+  /* ────────────── Z stack ────────────── */
+  --z-stage: 0;
+  --z-hud:   10;
+  --z-overlay: 50;
+  --z-dialog: 100;
+  --z-toast: 200;
+}
+
+/* ────────────── Element defaults (semantic) ────────────── */
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--fs-20);
+  line-height: var(--lh-body);
+  font-weight: 700; /* Gaegu reads better at 700 for UI */
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 400; /* Jua is a single weight */
+  color: var(--fg);
+  line-height: var(--lh-tight);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+h1 { font-size: var(--fs-64); }
+h2 { font-size: var(--fs-44); }
+h3 { font-size: var(--fs-32); }
+h4 { font-size: var(--fs-24); }
+
+p     { margin: 0; }
+small { font-size: var(--fs-14); color: var(--fg-muted); }
+code, kbd, .mono { font-family: var(--font-mono); font-size: 0.9em; }
+
+.display-xl { font-family: var(--font-display); font-size: var(--fs-96); line-height: var(--lh-tight); }
+.numeric    { font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+
+/* ────────────── Reusable bits ────────────── */
+.ca-card {
+  background: var(--surface);
+  border: var(--stroke) solid var(--ink);
+  border-radius: var(--r-2xl);
+  box-shadow: var(--shadow-sticker);
+  padding: var(--s-5);
+}
+
+.ca-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-1) var(--s-3);
+  border: var(--stroke) solid var(--ink);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-family: var(--font-display);
+  font-size: var(--fs-16);
+  box-shadow: var(--shadow-sticker-sm);
+}

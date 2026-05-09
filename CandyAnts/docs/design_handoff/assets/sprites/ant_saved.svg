@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" fill="none">
+  <defs></defs>
+  
+  <rect class="confetti1" x="10" y="20" width="6" height="8" transform="rotate(20 13 24)"></rect>
+  <rect class="confetti2" x="120" y="14" width="6" height="8" transform="rotate(-30 123 18)"></rect>
+  <rect class="confetti3" x="20" y="60" width="6" height="8" transform="rotate(45 23 64)"></rect>
+  <rect class="confetti4" x="116" y="60" width="6" height="8" transform="rotate(-15 119 64)"></rect>
+  <circle class="confetti1" cx="40" cy="14" r="3"></circle>
+  <circle class="confetti3" cx="100" cy="30" r="3"></circle>
+  <circle class="confetti2" cx="6" cy="100" r="3"></circle>
+  <circle class="confetti4" cx="132" cy="100" r="3"></circle>
+  
+  <path d="M 30 92 Q 70 70 110 92" stroke="rgba(42,31,24,0.25)" stroke-width="3" stroke-dasharray="4 5" fill="none"></path>
+  
+  <path class="k" d="M 56 50 C 48 36, 46 24, 54 18"></path>
+  <circle class="ink-fill" cx="54" cy="18" r="4"></circle>
+  <path class="k" d="M 86 50 C 94 36, 96 24, 88 18"></path>
+  <circle class="ink-fill" cx="88" cy="18" r="4"></circle>
+  
+  <ellipse class="hood" cx="70" cy="80" rx="32" ry="30"></ellipse>
+  <ellipse class="k" cx="70" cy="80" rx="32" ry="30"></ellipse>
+  <path class="skin" d="M 54 72 Q 50 104 70 110 Q 94 106 96 80 Q 92 66 70 66 Q 60 66 54 72 Z"></path>
+  <path class="k" d="M 54 72 Q 50 104 70 110 Q 94 106 96 80 Q 92 66 70 66 Q 60 66 54 72 Z"></path>
+  <path class="hair" d="M 54 74 Q 62 66 74 72 Q 84 66 96 80 Q 90 80 84 76 Q 76 80 70 76 Q 62 80 58 76 Z"></path>
+  <path class="k" d="M 54 74 Q 62 66 74 72 Q 84 66 96 80 Q 90 80 84 76 Q 76 80 70 76 Q 62 80 58 76 Z"></path>
+  
+  <path class="k" d="M 60 86 Q 64 80 68 86" stroke-width="3.5"></path>
+  <path class="k" d="M 80 86 Q 84 80 88 86" stroke-width="3.5"></path>
+  <ellipse class="blush" cx="58" cy="96" rx="5" ry="3"></ellipse>
+  <ellipse class="blush" cx="90" cy="96" rx="5" ry="3"></ellipse>
+  
+  <path class="mouth" d="M 64 98 Q 74 110 84 98 Q 74 106 64 98 Z"></path>
+  <path class="k" d="M 64 98 Q 74 110 84 98"></path>
+  
+  <path class="hood" d="M 42 70 Q 30 50 26 36"></path>
+  <path class="k" d="M 42 70 Q 30 50 26 36"></path>
+  <path class="hood" d="M 98 70 Q 110 50 114 36"></path>
+  <path class="k" d="M 98 70 Q 110 50 114 36"></path>
+  
+  <circle cx="26" cy="36" r="6" fill="#f4dcc4" stroke="#2a1f18" stroke-width="3"></circle>
+  <circle cx="114" cy="36" r="6" fill="#f4dcc4" stroke="#2a1f18" stroke-width="3"></circle>
+  
+  <ellipse class="hood" cx="70" cy="120" rx="28" ry="14"></ellipse>
+  <ellipse class="k" cx="70" cy="120" rx="28" ry="14"></ellipse>
+  
+  <ellipse class="shoe" cx="54" cy="138" rx="7" ry="4" transform="rotate(-15 54 138)"></ellipse>
+  <ellipse class="k" cx="54" cy="138" rx="7" ry="4" transform="rotate(-15 54 138)"></ellipse>
+  <ellipse class="shoe" cx="88" cy="138" rx="7" ry="4" transform="rotate(15 88 138)"></ellipse>
+  <ellipse class="k" cx="88" cy="138" rx="7" ry="4" transform="rotate(15 88 138)"></ellipse>
+  
+  <text x="14" y="44" font-family="Jua, sans-serif" font-size="22" fill="#e87a8e">★</text>
+  <text x="118" y="48" font-family="Jua, sans-serif" font-size="20" fill="#f3d77a">♪</text>
+</svg>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" fill="none">
+  <defs></defs>
+  
+  <path class="canopy" d="M 14 50 Q 70 4 126 50 Z"></path>
+  <path class="k" d="M 14 50 Q 70 4 126 50 Z"></path>
+  <path class="canopy2" d="M 40 50 Q 50 26 70 22 Q 90 26 100 50 Z"></path>
+  <path class="k" d="M 40 50 Q 50 26 70 22 Q 90 26 100 50"></path>
+  <path class="k" d="M 70 22 L 70 50"></path>
+  
+  <line class="k" x1="70" y1="50" x2="70" y2="80"></line>
+  
+  <path class="k" d="M 64 76 C 56 70, 56 64, 64 60"></path>
+  <circle class="ink-fill" cx="64" cy="60" r="4"></circle>
+  <ellipse class="hood" cx="70" cy="98" rx="28" ry="26"></ellipse>
+  <ellipse class="k" cx="70" cy="98" rx="28" ry="26"></ellipse>
+  <path class="skin" d="M 60 88 Q 56 122 76 126 Q 96 122 96 100 Q 92 86 76 86 Q 64 86 60 88 Z"></path>
+  <path class="k" d="M 60 88 Q 56 122 76 126 Q 96 122 96 100 Q 92 86 76 86 Q 64 86 60 88 Z"></path>
+  <path class="hair" d="M 60 90 Q 68 82 78 88 Q 88 82 96 100 Q 90 100 84 96 Q 78 100 72 96 Z"></path>
+  <path class="k" d="M 60 90 Q 68 82 78 88 Q 88 82 96 100 Q 90 100 84 96 Q 78 100 72 96 Z"></path>
+  <path class="k" d="M 84 106 Q 88 112 92 106" stroke-width="3"></path>
+  <ellipse class="blush" cx="88" cy="116" rx="4" ry="2.5"></ellipse>
+  <path class="k" d="M 81 114 Q 84 120 87 114"></path>
+  
+  <ellipse class="hood" cx="70" cy="138" rx="22" ry="12"></ellipse>
+  <ellipse class="k" cx="70" cy="138" rx="22" ry="12"></ellipse>
+  
+  <path class="hood" d="M 60 86 Q 64 76 70 76"></path>
+  <path class="k" d="M 60 86 Q 64 76 70 76"></path>
+  <path class="hood" d="M 80 86 Q 76 76 70 76"></path>
+  <path class="k" d="M 80 86 Q 76 76 70 76"></path>
+  
+  <ellipse class="shoe" cx="58" cy="152" rx="6" ry="4"></ellipse>
+  <ellipse class="k" cx="58" cy="152" rx="6" ry="4"></ellipse>
+  <ellipse class="shoe" cx="82" cy="152" rx="6" ry="4"></ellipse>
+  <ellipse class="k" cx="82" cy="152" rx="6" ry="4"></ellipse>
+</svg>

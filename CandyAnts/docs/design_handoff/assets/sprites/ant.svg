@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    
+  </defs>
+
+  
+  <path class="k" d="M 64 28 C 56 18, 56 10, 64 4"></path>
+  <circle class="ink-fill" cx="64" cy="4" r="5"></circle>
+  <circle cx="64" cy="4" r="5" class="k"></circle>
+
+  
+  <ellipse class="hood" cx="58" cy="52" rx="32" ry="30"></ellipse>
+  <ellipse class="k" cx="58" cy="52" rx="32" ry="30"></ellipse>
+
+  
+  <path class="hair" d="M 38 54 Q 30 70 36 84 Q 42 78 44 70 Z"></path>
+  <path class="k" d="M 38 54 Q 30 70 36 84 Q 42 78 44 70 Z"></path>
+
+  
+  <path class="skin" d="M 50 44 Q 46 78 64 84 Q 86 80 88 56 Q 84 42 64 42 Q 54 42 50 44 Z"></path>
+  <path class="k" d="M 50 44 Q 46 78 64 84 Q 86 80 88 56 Q 84 42 64 42 Q 54 42 50 44 Z"></path>
+
+  
+  <path class="hair" d="M 50 46 Q 58 38 68 44 Q 78 38 88 56 Q 82 56 76 52 Q 70 56 64 52 Q 56 56 52 52 Z"></path>
+  <path class="k" d="M 50 46 Q 58 38 68 44 Q 78 38 88 56 Q 82 56 76 52 Q 70 56 64 52 Q 56 56 52 52 Z"></path>
+
+  
+  <g transform="translate(54 60)">
+    <path class="ribbon" d="M -6 0 L 0 -3 L 0 4 Z"></path>
+    <path class="ribbon" d="M  6 0 L 0 -3 L 0 4 Z"></path>
+    <path class="k" d="M -6 0 L 0 -3 L 0 4 Z M 6 0 L 0 -3 L 0 4 Z"></path>
+    <circle class="ribbon" cx="0" cy="0.5" r="2"></circle>
+    <circle class="k" cx="0" cy="0.5" r="2"></circle>
+  </g>
+
+  
+  <path class="k" d="M 76 64 Q 80 70 84 64" stroke-width="3"></path>
+  <ellipse class="blush" cx="80" cy="74" rx="4" ry="2.5"></ellipse>
+  <path class="mouth" d="M 73 72 Q 76 78 79 72 Q 77 76 76 76 Q 75 76 73 72 Z"></path>
+  <path class="k" d="M 73 72 Q 76 78 79 72"></path>
+
+  
+  <ellipse class="hood" cx="60" cy="100" rx="30" ry="14"></ellipse>
+  <ellipse class="k" cx="60" cy="100" rx="30" ry="14"></ellipse>
+
+  
+  <path class="hood" d="M 38 96 Q 32 102 30 110"></path>
+  <path class="k" d="M 38 96 Q 32 102 30 110"></path>
+  <path class="hood" d="M 86 100 Q 92 96 96 92"></path>
+  <path class="k" d="M 86 100 Q 92 96 96 92"></path>
+
+  
+  <ellipse class="shoe" cx="48" cy="116" rx="8" ry="4"></ellipse>
+  <ellipse class="k" cx="48" cy="116" rx="8" ry="4"></ellipse>
+  <ellipse class="shoe" cx="74" cy="116" rx="8" ry="4"></ellipse>
+  <ellipse class="k" cx="74" cy="116" rx="8" ry="4"></ellipse>
+</svg>

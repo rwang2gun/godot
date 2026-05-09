@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 120" fill="none">
+  <defs></defs>
+  
+  <ellipse class="halo" cx="70" cy="14" rx="22" ry="6"></ellipse>
+  <ellipse class="k" cx="70" cy="14" rx="22" ry="6"></ellipse>
+  <ellipse class="halo" cx="70" cy="14" rx="14" ry="3" opacity="0.7"></ellipse>
+  
+  
+  <path class="k" d="M 50 70 C 42 64, 36 60, 30 60"></path>
+  <circle class="ink-fill" cx="30" cy="60" r="4"></circle>
+  
+  <ellipse class="hood" cx="56" cy="92" rx="30" ry="20"></ellipse>
+  <ellipse class="k" cx="56" cy="92" rx="30" ry="20"></ellipse>
+  
+  <ellipse class="skin" cx="62" cy="92" rx="20" ry="14"></ellipse>
+  <ellipse class="k" cx="62" cy="92" rx="20" ry="14"></ellipse>
+  
+  <path class="hair" d="M 50 84 Q 60 78 70 82 Q 78 80 80 92 Q 70 88 60 90 Z"></path>
+  <path class="k" d="M 50 84 Q 60 78 70 82 Q 78 80 80 92 Q 70 88 60 90 Z"></path>
+  
+  <g class="k" stroke-width="3">
+    <line x1="58" y1="88" x2="64" y2="94"></line>
+    <line x1="64" y1="88" x2="58" y2="94"></line>
+    <line x1="72" y1="88" x2="78" y2="94"></line>
+    <line x1="78" y1="88" x2="72" y2="94"></line>
+  </g>
+  
+  <line class="k" x1="64" y1="100" x2="74" y2="100" stroke-width="3"></line>
+  
+  <ellipse class="hood" cx="100" cy="98" rx="22" ry="12"></ellipse>
+  <ellipse class="k" cx="100" cy="98" rx="22" ry="12"></ellipse>
+  
+  <line class="k" x1="118" y1="98" x2="128" y2="92" stroke-width="5"></line>
+  <line class="k" x1="118" y1="102" x2="130" y2="106" stroke-width="5"></line>
+  <ellipse class="shoe" cx="130" cy="92" rx="6" ry="4"></ellipse>
+  <ellipse class="k" cx="130" cy="92" rx="6" ry="4"></ellipse>
+  <ellipse class="shoe" cx="132" cy="106" rx="6" ry="4"></ellipse>
+  <ellipse class="k" cx="132" cy="106" rx="6" ry="4"></ellipse>
+  
+  <path d="M 0 116 L 140 116" stroke="#2a1f18" stroke-width="3"></path>
+</svg>

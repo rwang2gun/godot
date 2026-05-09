@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" fill="none">
+  
+  
+  <path class="k" d="M 8 60 L 28 32 L 28 88 Z" fill="oklch(0.78 0.155 28)"></path>
+  <path class="k" d="M 152 60 L 132 32 L 132 88 Z" fill="oklch(0.78 0.155 28)"></path>
+  
+  <ellipse class="k" cx="80" cy="60" rx="56" ry="42" fill="oklch(0.90 0.08 35)"></ellipse>
+  
+  <path d="M 38 30 Q 80 18 122 30" stroke="oklch(0.78 0.155 28)" stroke-width="8" fill="none" stroke-linecap="round"></path>
+  <path d="M 32 60 Q 80 50 128 60" stroke="oklch(0.78 0.155 28)" stroke-width="8" fill="none" stroke-linecap="round"></path>
+  <path d="M 38 90 Q 80 102 122 90" stroke="oklch(0.78 0.155 28)" stroke-width="8" fill="none" stroke-linecap="round"></path>
+  
+  <ellipse cx="60" cy="42" rx="14" ry="8" fill="oklch(1 0 0 / 0.5)"></ellipse>
+</svg>

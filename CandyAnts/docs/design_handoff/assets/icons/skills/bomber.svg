@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  
+  
+  <circle class="k" cx="30" cy="40" r="20" fill="oklch(0.40 0.060 50)"></circle>
+  <circle cx="22" cy="32" r="5" fill="oklch(1 0 0 / 0.4)"></circle>
+  
+  <path class="k" d="M 30 20 Q 38 12 36 6" fill="none"></path>
+  
+  <g stroke="oklch(0.88 0.16 95)" stroke-width="3" stroke-linecap="round">
+    <line x1="36" y1="6" x2="42" y2="2"></line>
+    <line x1="36" y1="6" x2="44" y2="8"></line>
+    <line x1="36" y1="6" x2="32" y2="0"></line>
+  </g>
+  <circle cx="36" cy="6" r="3" fill="oklch(0.70 0.20 15)"></circle>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  
+  
+  <rect class="k" x="6" y="46" width="14" height="12" fill="oklch(0.95 0.10 95)"></rect>
+  <rect class="k" x="20" y="34" width="14" height="24" fill="oklch(0.88 0.16 95)"></rect>
+  <rect class="k" x="34" y="22" width="14" height="36" fill="oklch(0.95 0.10 95)"></rect>
+  <rect class="k" x="48" y="10" width="12" height="48" fill="oklch(0.88 0.16 95)"></rect>
+  
+  <line class="k" x1="20" y1="46" x2="34" y2="46"></line>
+  <line class="k" x1="34" y1="34" x2="48" y2="34"></line>
+</svg>

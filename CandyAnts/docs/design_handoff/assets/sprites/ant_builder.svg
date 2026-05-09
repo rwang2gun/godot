@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 120" fill="none">
+  <defs></defs>
+  
+  <rect class="brick" x="74" y="92" width="20" height="16"></rect><rect class="k" x="74" y="92" width="20" height="16" fill="none"></rect>
+  <rect class="brickD" x="94" y="80" width="20" height="28"></rect><rect class="k" x="94" y="80" width="20" height="28" fill="none"></rect>
+  <rect class="brick" x="114" y="68" width="20" height="40"></rect><rect class="k" x="114" y="68" width="20" height="40" fill="none"></rect>
+  
+  <path class="k" d="M 38 28 C 30 18, 30 10, 38 4"></path>
+  <circle class="ink-fill" cx="38" cy="4" r="4"></circle>
+  <ellipse class="hood" cx="36" cy="58" rx="30" ry="28"></ellipse>
+  <ellipse class="k" cx="36" cy="58" rx="30" ry="28"></ellipse>
+  <path class="skin" d="M 26 50 Q 22 84 42 88 Q 64 84 64 60 Q 60 44 42 44 Q 30 44 26 50 Z"></path>
+  <path class="k" d="M 26 50 Q 22 84 42 88 Q 64 84 64 60 Q 60 44 42 44 Q 30 44 26 50 Z"></path>
+  <path class="hair" d="M 26 52 Q 34 44 44 50 Q 54 44 64 60 Q 58 60 52 56 Q 44 60 38 56 Z"></path>
+  <path class="k" d="M 26 52 Q 34 44 44 50 Q 54 44 64 60 Q 58 60 52 56 Q 44 60 38 56 Z"></path>
+  <path class="k" d="M 50 64 Q 54 70 58 64" stroke-width="3"></path>
+  <ellipse class="blush" cx="54" cy="74" rx="4" ry="2.5"></ellipse>
+  <path class="k" d="M 46 72 Q 50 78 54 72"></path>
+  
+  <ellipse class="hood" cx="40" cy="92" rx="26" ry="14"></ellipse>
+  <ellipse class="k" cx="40" cy="92" rx="26" ry="14"></ellipse>
+  
+  <path class="hood" d="M 60 86 Q 70 84 80 92"></path>
+  <path class="k" d="M 60 86 Q 70 84 80 92"></path>
+  
+  <rect class="brick" x="56" y="76" width="14" height="12"></rect>
+  <rect class="k" x="56" y="76" width="14" height="12" fill="none"></rect>
+  
+  <ellipse class="shoe" cx="30" cy="110" rx="7" ry="4"></ellipse>
+  <ellipse class="k" cx="30" cy="110" rx="7" ry="4"></ellipse>
+  <ellipse class="shoe" cx="50" cy="110" rx="7" ry="4"></ellipse>
+  <ellipse class="k" cx="50" cy="110" rx="7" ry="4"></ellipse>
+</svg>

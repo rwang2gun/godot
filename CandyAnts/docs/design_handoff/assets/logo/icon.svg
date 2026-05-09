@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none">
+  <defs>
+    
+  </defs>
+
+  
+  <rect x="6" y="6" width="168" height="168" rx="36" class="frame"></rect>
+  <rect x="6" y="6" width="168" height="168" rx="36" stroke="#2a1f18" stroke-width="5" stroke-linejoin="round" fill="none"></rect>
+  <rect x="14" y="14" width="152" height="152" rx="30" stroke="rgba(255,255,255,0.55)" stroke-width="2" fill="none"></rect>
+
+  
+  <g transform="translate(20 20)">
+    
+    <path class="k" d="M 50 28 C 42 16, 42 8, 50 2"></path>
+    <circle class="ink-fill" cx="50" cy="2" r="6"></circle>
+    <circle cx="50" cy="2" r="6" class="k"></circle>
+    <path class="k" d="M 88 26 C 96 14, 96 6, 88 0"></path>
+    <circle class="ink-fill" cx="88" cy="0" r="6"></circle>
+    <circle cx="88" cy="0" r="6" class="k"></circle>
+
+    
+    <ellipse class="hood" cx="72" cy="58" rx="48" ry="42"></ellipse>
+    <ellipse class="k" cx="72" cy="58" rx="48" ry="42"></ellipse>
+
+    
+    <circle class="ant-eye" cx="34" cy="52" r="5.5"></circle>
+    <circle class="k" cx="34" cy="52" r="5.5"></circle>
+    <circle class="gloss" cx="32" cy="50" r="1.8"></circle>
+
+    
+    <path class="skin" d="M 50 50 Q 50 92 72 100 Q 102 96 104 56 Q 100 46 72 46 Q 54 46 50 50 Z"></path>
+    <path class="k" d="M 50 50 Q 50 92 72 100 Q 102 96 104 56 Q 100 46 72 46 Q 54 46 50 50 Z"></path>
+
+    
+    <path class="hair" d="M 50 52 Q 58 42 68 48 Q 76 40 84 46 Q 92 40 104 56 Q 100 60 92 56 Q 84 62 76 56 Q 68 62 62 56 Q 56 62 52 58 Q 50 56 50 52 Z"></path>
+    <path class="k" d="M 50 52 Q 58 42 68 48 Q 76 40 84 46 Q 92 40 104 56 Q 100 60 92 56 Q 84 62 76 56 Q 68 62 62 56 Q 56 62 52 58 Q 50 56 50 52 Z"></path>
+    <path class="hair" d="M 102 60 Q 112 74 104 92 Q 96 82 96 74 Z"></path>
+    <path class="k" d="M 102 60 Q 112 74 104 92 Q 96 82 96 74 Z"></path>
+    <path class="hair" d="M 50 56 Q 40 76 50 92 Q 56 82 56 72 Z"></path>
+    <path class="k" d="M 50 56 Q 40 76 50 92 Q 56 82 56 72 Z"></path>
+
+    
+    <g transform="translate(54 68)">
+      <path class="ribbon" d="M -8 0 L 0 -4 L 0 6 Z"></path>
+      <path class="ribbon" d="M  8 0 L 0 -4 L 0 6 Z"></path>
+      <path class="k" d="M -8 0 L 0 -4 L 0 6 Z M 8 0 L 0 -4 L 0 6 Z"></path>
+      <circle class="ribbon" cx="0" cy="1" r="2.4"></circle>
+      <circle class="k" cx="0" cy="1" r="2.4"></circle>
+    </g>
+
+    
+    <path class="k" d="M 64 76 Q 69 82 74 76" stroke-width="3.4"></path>
+    <path class="k" d="M 86 76 Q 91 82 96 76" stroke-width="3.4"></path>
+    <ellipse class="blush" cx="62" cy="90" rx="5" ry="3"></ellipse>
+    <ellipse class="blush" cx="98" cy="88" rx="5" ry="3"></ellipse>
+    <path class="mouth" d="M 76 86 Q 80 94 84 86 Q 82 90 80 92 Q 78 90 76 86 Z"></path>
+    <path class="k" d="M 76 86 Q 80 94 84 86 Q 82 90 80 92 Q 78 90 76 86 Z"></path>
+
+    
+    <ellipse class="hood" cx="72" cy="138" rx="46" ry="20"></ellipse>
+    <ellipse class="k" cx="72" cy="138" rx="46" ry="20"></ellipse>
+
+    
+    <path class="hood" d="M 44 130 Q 50 120 62 122"></path>
+    <path class="k" d="M 44 130 Q 50 120 62 122"></path>
+    <path class="hood" d="M 100 130 Q 94 120 82 122"></path>
+    <path class="k" d="M 100 130 Q 94 120 82 122"></path>
+
+    
+    <g transform="translate(72 130)">
+      <path class="twist" d="M -22 0 L -32 -8 L -32 8 Z"></path>
+      <path class="k" d="M -22 0 L -32 -8 L -32 8 Z"></path>
+      <path class="twist" d="M 22 0 L 32 -8 L 32 8 Z"></path>
+      <path class="k" d="M 22 0 L 32 -8 L 32 8 Z"></path>
+      <ellipse class="candy" cx="0" cy="0" rx="22" ry="14"></ellipse>
+      <ellipse class="k" cx="0" cy="0" rx="22" ry="14"></ellipse>
+      <circle cx="-8" cy="-4" r="2.2" fill="#fff7e8"></circle>
+      <circle cx="6" cy="-2" r="2.2" fill="#fff7e8"></circle>
+      <circle cx="0" cy="6" r="2.4" fill="#fff7e8"></circle>
+      <ellipse class="gloss" cx="-8" cy="-7" rx="6" ry="2"></ellipse>
+    </g>
+  </g>
+</svg>
