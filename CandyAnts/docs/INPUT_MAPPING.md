@@ -1,9 +1,17 @@
 # 입력 매핑 설계서
 
-**버전**: v0.1 (설계만, 구현은 패드부터)
-**작성 일자**: 2026-05-08
+**버전**: v0.2 (액션 이름을 INPUT_PLAN.md §4.1과 정합 — 2026-05-09)
+**작성 일자**: 2026-05-08 (v0.1) / 2026-05-09 (v0.2 정합 갱신)
 **대상 환경**: ROG Ally X (Xbox 패드 내장 + 터치) + 옵션으로 키보드·마우스
 **참조**: `LEMMINGS_CONTROLS_REFERENCE.md` (원작 UI 패턴 분석)
+
+> **v0.2 변경 노트** (2026-05-09 — Phase 5 plan codex review HIGH 대응):
+> 본 문서의 액션 이름을 `docs/INPUT_PLAN.md` §4.1의 implementation SoT에 맞춰 다음과 같이 갱신:
+> - `skill_select_next` / `skill_select_prev` → **`skill_cycle_next` / `skill_cycle_prev`** (슬롯 직접 선택 `skill_select_n`과 구분)
+> - `cursor_target_next_ant` / `cursor_target_prev_ant` → **`target_next_ant` / `target_prev_ant`**
+> - `speed_up` + `speed_normal` → **`speed_toggle`** (정상↔빠르기 단일 토글로 압축, INPUT_PLAN §4.1 R3 / F)
+>
+> 본 문서가 디자인 카탈로그 + 디바이스 binding 시각 레퍼런스. **action-name SoT는 INPUT_PLAN §4.1**. 둘 사이 충돌 시 INPUT_PLAN 우선.
 
 ---
 
@@ -18,7 +26,7 @@
 3. **Keyboard + Mouse** — 도크 연결 시. v1.2 — 데스크톱 PC 이식 시 필수
 
 ### 1.3 설계 원칙
-- **액션 레벨 추상화** — 디바이스마다 분기하지 않고 액션(예: `skill_select_next`, `cursor_move_to`)으로 통일
+- **액션 레벨 추상화** — 디바이스마다 분기하지 않고 액션(예: `skill_cycle_next`, `cursor_move`)으로 통일
 - **패드 우선** — Lemmings 류는 마우스 친화적이지만 본 환경에서 마우스 없음. 패드가 일급 시민
 - **자동 보정** — 패드는 정밀 클릭 어려우므로 군중 클릭 정확도 보정 필요
 - **일관성** — 모든 디바이스에서 동일한 게임 진행 흐름. 어느 디바이스로 시작해도 막힘 없이 가능
@@ -31,29 +39,30 @@
 
 ### 2.1 카메라 / 시야
 
-| 액션 ID | 의미 | 발동 빈도 |
-|---|---|---|
-| `camera_pan` | 카메라 이동 (8방향) | 매우 높음 |
-| `camera_zoom_in` | 줌 인 | 중간 |
-| `camera_zoom_out` | 줌 아웃 | 중간 |
-| `camera_focus_cursor` | 커서/선택 위치로 카메라 점프 | 낮음 |
-| `minimap_toggle` | 미니맵 표시 토글 | 낮음 |
+> **Phase 분류**: `camera_pan`/`camera_zoom`은 **Phase 6에서 CameraController 도입과 함께 GameAction const + InputMap binding(KB) + synthetic poll(패드) 동시 추가**. Phase 5는 카메라 컨트롤러 부재로 본 액션 미등록·미발화. `camera_focus_cursor`/`minimap_toggle`은 post-MVP.
+
+| 액션 ID | 의미 | 발동 빈도 | Phase |
+|---|---|---|---|
+| `camera_pan` | 카메라 이동 (8방향) | 매우 높음 | Phase 6 (KB InputMap + 패드 synthetic) |
+| `camera_zoom` | 줌 인/아웃 (delta 부호 분기) | 중간 | Phase 6 (KB 휠 InputMap + 패드 LT/RT synthetic) |
+| `camera_focus_cursor` | 커서/선택 위치로 카메라 점프 | 낮음 | post-MVP |
+| `minimap_toggle` | 미니맵 표시 토글 | 낮음 | post-MVP |
 
 ### 2.2 커서 / 포인터
 
 | 액션 ID | 의미 | 비고 |
 |---|---|---|
-| `cursor_move` | 커서 위치 이동 | 패드/마우스/터치 |
-| `cursor_target_next_ant` | 가까운 다음 개미로 커서 점프 | **패드 정확도 보정** |
-| `cursor_target_prev_ant` | 가까운 이전 개미로 커서 점프 | 패드 정확도 보정 |
+| `cursor_move` | 커서 위치 이동 | 패드/마우스/터치 (synthetic, phase 5 마우스만 emit) |
+| `target_next_ant` | 가까운 다음 개미로 커서 점프 | **패드 정확도 보정** (phase 5 InputMap, 수신자는 phase 6) |
+| `target_prev_ant` | 가까운 이전 개미로 커서 점프 | 패드 정확도 보정 (phase 5 InputMap, 수신자는 phase 6) |
 
 ### 2.3 스킬 선택
 
 | 액션 ID | 의미 | 비고 |
 |---|---|---|
 | `skill_select_n` (1~8) | n번 슬롯 직접 선택 | 키보드/숫자 단축 |
-| `skill_select_next` | 다음 슬롯 사이클 | 패드 LB/RB |
-| `skill_select_prev` | 이전 슬롯 사이클 | 패드 LB/RB |
+| `skill_cycle_next` | 다음 슬롯 사이클 | 패드 RB / KB E |
+| `skill_cycle_prev` | 이전 슬롯 사이클 | 패드 LB / KB Q |
 | `skill_assign` | 현재 커서 위치 개미에 선택 스킬 부여 | 핵심 액션 |
 
 ### 2.4 게임 컨트롤
@@ -61,11 +70,11 @@
 | 액션 ID | 의미 | 비고 |
 |---|---|---|
 | `pause_toggle` | 일시정지 / 재개 | |
+| `step_frame` | 1프레임 진행 (paused 상태) | INPUT_PLAN §4.1 추가 |
 | `release_rate_up` | 스폰 레이트 증가 | |
 | `release_rate_down` | 스폰 레이트 감소 | |
-| `speed_up` | 빨리감기 | 시뮬 tick 가속 |
-| `speed_normal` | 정상 속도 | |
-| `nuke` | 전체 자폭 (포기) | 더블 입력 또는 홀드 권장 |
+| `speed_toggle` | 빨리감기 ↔ 정상 토글 | 시뮬 tick 가속 토글 (단발) |
+| `nuke` | 전체 자폭 (포기) | 더블 입력 또는 홀드 권장 (post-MVP) |
 | `restart_stage` | 스테이지 재시작 | 더블 입력 권장 |
 | `back_menu` | 메뉴로 나가기 | |
 
@@ -86,22 +95,22 @@ ROG Ally X 내장 패드는 Xbox 배열. 표준 Xbox 컨트롤러와 동일.
 
 | 입력 | 액션 | 비고 |
 |---|---|---|
-| **좌 스틱** | `cursor_move` (가상 커서 이동) | 가속 곡선 적용 |
-| **우 스틱** | `camera_pan` | 8방향 |
+| **좌 스틱** | `cursor_move` (가상 커서 이동) | 가속 곡선 적용 (synthetic) |
+| **우 스틱** | `camera_pan` | 8방향 (synthetic) |
 | **D-Pad ↑/↓** | `release_rate_up` / `release_rate_down` | |
-| **D-Pad ←/→** | `cursor_target_prev/next_ant` | **개미 스냅 점프** (패드 정확도 보정) |
+| **D-Pad ←/→** | `target_prev_ant` / `target_next_ant` | **개미 스냅 점프** (패드 정확도 보정) |
 | **A** | `skill_assign` | 커서 위치 개미에 부여 |
-| **B** | `back_menu` (단발) / `restart_stage` (홀드 1초) | 더블 액션 |
+| **B** | `back_menu` (단발) / `restart_stage` (홀드 1초) | 더블 액션 (raw 처리, INPUT_PLAN §4.1) |
 | **X** | `info_toggle` (단발) — 커서 아래 개미 상세 | |
-| **Y** | `cursor_priority_toggle` | NeoLemmix 패턴 |
-| **LB** | `skill_select_prev` | 슬롯 사이클 |
-| **RB** | `skill_select_next` | 슬롯 사이클 |
-| **LT** | `camera_zoom_out` (홀드) | 아날로그 |
-| **RT** | `camera_zoom_in` (홀드) | 아날로그 |
+| **Y** | `cursor_priority_toggle` | NeoLemmix 패턴 (post-MVP) |
+| **LB** | `skill_cycle_prev` | 슬롯 사이클 |
+| **RB** | `skill_cycle_next` | 슬롯 사이클 |
+| **LT** | `camera_zoom` (홀드, 음의 delta) | 아날로그 (synthetic) |
+| **RT** | `camera_zoom` (홀드, 양의 delta) | 아날로그 (synthetic) |
 | **View(좌)** | `pause_toggle` | |
-| **Menu(우)** | `minimap_toggle` (단발) / `nuke` (홀드 2초) | 더블 액션 |
-| **L3 (좌스틱 클릭)** | `camera_focus_cursor` | |
-| **R3 (우스틱 클릭)** | `speed_up` (토글) | |
+| **Menu(우)** | `minimap_toggle` (단발) / `nuke` (홀드 2초) | 더블 액션 (post-MVP) |
+| **L3 (좌스틱 클릭)** | `camera_focus_cursor` | post-MVP |
+| **R3 (우스틱 클릭)** | `speed_toggle` | 정상↔빠르기 토글 |
 
 **핵심 패턴**:
 - **좌 스틱 = 가상 커서**, **우 스틱 = 카메라** — 각자 독립
@@ -123,7 +132,7 @@ ROG Ally X 내장 패드는 Xbox 배열. 표준 Xbox 컨트롤러와 동일.
 |---|---|---|
 | 화면 탭 (게임 영역) | `cursor_move` + `skill_assign` (즉시 부여) | 자동 줌 보정 후 |
 | 화면 탭 (스킬 슬롯) | `skill_select_n` | 슬롯 직접 선택 |
-| 두 손가락 핀치 | `camera_zoom_in/out` | |
+| 두 손가락 핀치 | `camera_zoom` | post-MVP touch (phase 21) |
 | 두 손가락 드래그 | `camera_pan` | 한 손가락 드래그는 부여로 오해될 수 있음 |
 | 길게 누르기 (개미) | `info_toggle` | |
 | 길게 누르기 (스킬 슬롯) | 스킬 정보 |
@@ -140,24 +149,26 @@ ROG Ally X 내장 패드는 Xbox 배열. 표준 Xbox 컨트롤러와 동일.
 
 | 입력 | 액션 | 비고 |
 |---|---|---|
-| 마우스 이동 | `cursor_move` | |
-| 좌클릭 | `skill_assign` | |
-| 우클릭 | `cursor_priority_toggle` (모드) + 다음 레밍 우선 | NeoLemmix 패턴 |
-| 마우스 모서리 | `camera_pan` (자동 스크롤) | 옵션 |
-| 휠 업/다운 | `camera_zoom_in/out` | |
-| 1~8 | `skill_select_n` | 직접 선택 |
-| Q / E | `skill_select_prev/next` | 패드 LB/RB와 일관성 |
-| WASD 또는 화살표 | `camera_pan` | |
-| Space 또는 P | `pause_toggle` | |
-| F1 / F2 | `release_rate_down/up` | 원작 호환 |
-| F | `speed_up` (토글) | NeoLemmix 호환 |
-| M | `minimap_toggle` | |
-| R | `restart_stage` | 더블 입력 권장 |
-| F12 | `nuke` | 더블 입력 권장 |
-| Tab | `cursor_target_next_ant` | 패드 D-Pad와 일관 |
-| Shift+Tab | `cursor_target_prev_ant` | |
-| ESC | `back_menu` | |
-| H 또는 길게 호버 | `info_toggle` | |
+| 마우스 이동 | `cursor_move` | synthetic (phase 5 emit) |
+| 좌클릭 | `skill_assign` | phase 5 InputMap |
+| 우클릭 | `skill_cancel` | phase 5 InputMap (우클릭만 — Esc는 phase 12에서 game state 분기와 함께 추가) |
+| 마우스 모서리 | `camera_pan` (자동 스크롤) | **post-MVP 옵션** (phase 22) |
+| 휠 업/다운 | `camera_zoom` | **Phase 6 도입** (CameraController 합류 시 InputMap binding 등록 — phase 5에는 미등록·미발화) |
+| 1~8 | `skill_select_n` | phase 5 InputMap (직접 선택) |
+| Q | `skill_cycle_prev` | phase 5 InputMap (패드 LB와 일관성) |
+| E | `skill_cycle_next` | phase 5 InputMap (패드 RB와 일관성) |
+| WASD 또는 화살표 | `camera_pan` | **Phase 6 도입** (CameraController 합류 시 InputMap source-action 등록 — phase 5에는 미등록·미발화) |
+| Space | `pause_toggle` | INPUT_PLAN §4.1 (P 키는 미등록) |
+| `.` (period) | `step_frame` | paused 상태 1프레임 진행 |
+| F1 / F2 | `release_rate_down` / `release_rate_up` | 원작 호환 |
+| F | `speed_toggle` | NeoLemmix 호환 |
+| M | `minimap_toggle` | post-MVP |
+| Ctrl+R | `restart_stage` | INPUT_PLAN §4.1 |
+| F12 | `nuke` | post-MVP |
+| Tab | `target_next_ant` | 패드 D-Pad →와 일관 |
+| Shift+Tab | `target_prev_ant` | 패드 D-Pad ←와 일관 |
+| Esc | `skill_cancel` (메뉴 미오픈) / `back_menu` (메뉴 오픈) | **Phase 12 도입** (game state 분기와 함께 Esc binding + dispatch routing 동시 추가). Phase 5에는 미바인딩 — `skill_cancel`은 우클릭만. |
+| H | `info_toggle` | |
 
 ---
 
@@ -228,7 +239,7 @@ ROG Ally X 환경에서 자주 발생: 패드 + 터치 동시. 둘 다 활성 �
 3. **가상 커서 시스템** 구현 (`scripts/ui/virtual_cursor.gd`)
    - 좌 스틱 입력 → 화면 좌표 이동
    - 화면 가장자리 시 카메라 추적
-   - 개미 스냅 점프 (`cursor_target_next/prev_ant`)
+   - 개미 스냅 점프 (`target_next_ant` / `target_prev_ant`)
 4. SkillToolbar에 LB/RB 사이클 + 슬롯 강조 시각
 5. Pause / Rate / Nuke / Restart 핫키
 6. UI 힌트 표시 (모드: Pad 고정)
@@ -331,25 +342,29 @@ ROG Ally X 환경에서 자주 발생: 패드 + 터치 동시. 둘 다 활성 �
 
 ## 부록 B: 액션 → 디바이스 빠른 참조표
 
-| 게임 액션 | Pad | Touch | K+M |
+> **Producer 표기 규약**: 같은 액션이라도 디바이스 producer가 다를 수 있다. 셀에 `(synthetic)` = InputRouter가 raw event/poll로 직접 emit, `(InputMap)` = Godot InputMap binding 경유, 미표기 = 액션 단일 producer.
+
+| 게임 액션 (action ID) | Pad | Touch | K+M |
 |---|---|---|---|
-| Skill 부여 | A | 화면 탭 | 좌클릭 |
-| Skill 다음 | RB | 슬롯 탭 | 1~8 또는 E |
-| Skill 이전 | LB | 슬롯 탭 | 1~8 또는 Q |
-| 커서 이동 | 좌 스틱 | (자동) | 마우스 |
-| 다음 개미 | D-Pad → | (자동 보정) | Tab |
-| 이전 개미 | D-Pad ← | (자동 보정) | Shift+Tab |
-| 카메라 | 우 스틱 | 두 손가락 드래그 | WASD/화살표 |
-| 줌 인 | RT | 핀치 아웃 | 휠 업 |
-| 줌 아웃 | LT | 핀치 인 | 휠 다운 |
-| 일시정지 | View | 가상 버튼 | Space/P |
-| Rate + | D-Pad ↑ | 가상 버튼 | F2 |
-| Rate − | D-Pad ↓ | 가상 버튼 | F1 |
-| Nuke | Menu (홀드) | 가상 버튼 (홀드) | F12 (더블) |
-| 미니맵 | Menu (단발) | 우상단 버튼 | M |
-| 재시작 | B (홀드) | 메뉴 | R (더블) |
-| 메뉴 | B (단발) | 메뉴 | ESC |
-| 정보 | X | 길게 누르기 | H 또는 호버 |
-| 우선순위 토글 | Y | (모드 설정) | 우클릭 |
-| 카메라 → 커서 | L3 | 미니맵 탭 | 휠 클릭? |
-| 빨리감기 | R3 | 가상 버튼 | F |
+| `skill_assign` | A (InputMap) | 화면 탭 | 좌클릭 (InputMap) |
+| `skill_cycle_next` | RB (InputMap) | 슬롯 탭 | E (InputMap) |
+| `skill_cycle_prev` | LB (InputMap) | 슬롯 탭 | Q (InputMap) |
+| `skill_select_n` (1~8) | (없음) | 슬롯 직접 탭 | 1~8 (InputMap) |
+| `skill_cancel` | B 단발(인게임+pending, raw) | 메뉴 | 우클릭 (InputMap, phase 5) — Esc는 phase 12에서 game state 분기와 함께 추가 |
+| `cursor_move` | 좌 스틱 (synthetic) | (자동, synthetic) | 마우스 (synthetic) |
+| `target_next_ant` | D-Pad → (InputMap) | (자동 보정) | Tab (InputMap) |
+| `target_prev_ant` | D-Pad ← (InputMap) | (자동 보정) | Shift+Tab (InputMap) |
+| `camera_pan` | 우 스틱 (synthetic poll) | 두 손가락 드래그 (synthetic) | WASD/화살표 (InputMap, phase 6) |
+| `camera_zoom` | RT/LT analog (synthetic poll) | 핀치 (synthetic) | 휠 업/다운 (InputMap, phase 6) |
+| `pause_toggle` | View | 가상 버튼 | Space |
+| `step_frame` | (없음) | (없음) | `.` (period) |
+| `release_rate_up` | D-Pad ↑ | 가상 버튼 | F2 |
+| `release_rate_down` | D-Pad ↓ | 가상 버튼 | F1 |
+| `nuke` (post-MVP) | Menu (홀드 2초) | 가상 버튼 (홀드) | F12 (더블) |
+| `minimap_toggle` (post-MVP) | Menu (단발) | 우상단 버튼 | M |
+| `restart_stage` | B (홀드 1초) | 메뉴 | Ctrl+R |
+| `back_menu` | B 단발(메뉴/모달) | 메뉴 | Esc (InputMap, phase 12 — 메뉴 오픈 시 game state 분기) |
+| `info_toggle` | X | 길게 누르기 | H |
+| `cursor_priority_toggle` (post-MVP) | Y | (모드 설정) | (미배정) |
+| `camera_focus_cursor` (post-MVP) | L3 | 미니맵 탭 | (미배정) |
+| `speed_toggle` | R3 | 가상 버튼 | F |

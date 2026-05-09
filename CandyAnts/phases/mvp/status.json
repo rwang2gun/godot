@@ -53,10 +53,10 @@
       "name": "input-action-foundation",
       "duration_estimate": 7200,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-09T16:11:25",
+      "completed_at": "2026-05-09T21:29:02",
+      "duration_seconds": 19057
     },
     {
       "id": 6,

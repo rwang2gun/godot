@@ -8,3 +8,9 @@ signal ant_saved(ant: Node, with_candy: bool)
 signal stage_cleared(score: float)
 signal stage_failed(reason: String)
 signal release_rate_changed(new_rate: int)
+
+# Phase 5 — InputRouter가 emit, SkillToolbar 등이 구독.
+# payload 형식: GameAction.is_positional(name)이 true면 {position_valid, screen_pos, world_pos}
+# (TARGET_NEXT_ANT/TARGET_PREV_ANT는 from_world_pos 키 사용).
+signal action_triggered(name: StringName, payload: Dictionary)
+signal input_mode_changed(mode: StringName)  # "mouse" / "pad" / "touch" — Phase 7 InputModeTracker

@@ -180,7 +180,7 @@ InputMap에 등록할 **액션 이름은 snake_case 고정**. 디바이스별 bi
 | `skill_cycle_next` | E | RB | InputMap | 높음 | — |
 | `skill_cycle_prev` | Q | LB | InputMap | 높음 | — |
 | `skill_assign` | 좌클릭 | A | InputMap | 매우 높음 | `{screen_pos: Vector2, world_pos: Vector2}` |
-| `skill_cancel` | 우클릭 / Esc | B 단발 (game state=인게임+pending 시) | KB는 InputMap, 패드 B는 **raw** (release 시점 분기, 아래 규약) | 중간 | — |
+| `skill_cancel` | 우클릭 (InputMap, **phase 5**) / Esc (InputMap, **phase 12** — game state 분기와 함께) | B 단발 (game state=인게임+pending 시) | KB는 InputMap, 패드 B는 **raw** (release 시점 분기, 아래 규약) | 중간 | — |
 | `target_next_ant` | Tab | D-Pad → | InputMap | 중간 | `{from_world_pos: Vector2}` |
 | `target_prev_ant` | Shift+Tab | D-Pad ← | InputMap | 중간 | `{from_world_pos: Vector2}` |
 | `pause_toggle` | Space | View | InputMap | 낮음 | — |
@@ -190,7 +190,7 @@ InputMap에 등록할 **액션 이름은 snake_case 고정**. 디바이스별 bi
 | `release_rate_up` | F2 | D-Pad ↑ | InputMap | 낮음 | — |
 | `release_rate_down` | F1 | D-Pad ↓ | InputMap | 낮음 | — |
 | `info_toggle` | H | X | InputMap | 낮음 | — |
-| `back_menu` | Esc (메뉴 상태 / 또는 인게임에서 pending 없음) | B 단발 (game state=메뉴 또는 인게임+pending 없음) | KB는 InputMap, 패드 B는 **raw** (release 시점 분기) | 낮음 | — |
+| `back_menu` | Esc (InputMap, **phase 12** — 메뉴 상태 / 또는 인게임에서 pending 없음) | B 단발 (game state=메뉴 또는 인게임+pending 없음) | KB는 InputMap, 패드 B는 **raw** (release 시점 분기) | 낮음 | — |
 
 #### Synthetic 액션 발화 규약 (InputRouter 내부)
 
@@ -219,7 +219,7 @@ _process(delta):
 
 #### Pad B 버튼 — 단발/홀드 분기 (raw 처리, codex review HIGH Round 4)
 
-`skill_cancel`(우클릭/Esc), `restart_stage`, `back_menu`는 디바이스마다 다른 입력 방식이어서 **단일 InputMap entry로 매핑하면 안전하지 않다**. 특히 패드 B는 단발(`skill_cancel` 또는 `back_menu`)과 홀드(`restart_stage`) 둘 다를 가지는데 `event.is_action_pressed` 발화는 press 즉시이므로 단발 emit 후 1초 후 홀드 emit이 둘 다 발생 = race + destructive.
+`skill_cancel`(우클릭 phase 5 / Esc phase 12), `restart_stage`, `back_menu`(Esc phase 12)는 디바이스마다 다른 입력 방식이어서 **단일 InputMap entry로 매핑하면 안전하지 않다**. 특히 패드 B는 단발(`skill_cancel` 또는 `back_menu`)과 홀드(`restart_stage`) 둘 다를 가지는데 `event.is_action_pressed` 발화는 press 즉시이므로 단발 emit 후 1초 후 홀드 emit이 둘 다 발생 = race + destructive.
 
 **규약**:
 - B 버튼은 **InputMap에 등록하지 않음**. InputRouter가 raw `InputEventJoypadButton`(button_index=JOY_BUTTON_B)을 직접 잡는다.
@@ -231,9 +231,9 @@ _process(delta):
 - timer 만료 (1초 도달, 아직 press 중): `restart_stage` emit + 이후 release 무시 (timer reset).
 
 KB+Mouse 측은 별도 InputMap 액션으로 명확:
-- `skill_cancel` ← 우클릭 / Esc (단발 — 단순)
-- `restart_stage` ← Ctrl+R (단발 — 단순)
-- `back_menu` ← Esc (메뉴 상태에서만 — game state가 `skill_cancel`과 분기)
+- `skill_cancel` ← 우클릭 (phase 5 InputMap) / Esc (phase 12 InputMap — game state 분기와 함께 추가)
+- `restart_stage` ← Ctrl+R (단발 — 단순, phase 5 InputMap)
+- `back_menu` ← Esc (phase 12 InputMap — 메뉴 상태에서만, game state가 `skill_cancel`과 분기)
 
 > 같은 raw-처리 패턴을 **post-MVP에서 다른 더블 액션이 추가되면 그대로 적용** (예: Menu 단발=minimap / 홀드 2초=nuke). InputMap 1대1이 깨지는 모든 케이스는 router에서 raw 처리.
 
@@ -449,7 +449,7 @@ InputModeTracker._on_action(...)        → mode = "mouse"|"pad" (event 종류�
 1. **마우스 클릭이 SkillToolbar UI 영역(버튼)일 때 `skill_assign`이 발화하면 안 됨** → InputRouter가 `get_viewport().is_input_handled()` 검사 후 emit. UI Control이 먼저 `accept_event()`함.
 2. **InputMap에 등록 안 된 액션 이름으로 emit 호출** → 컴파일 타임 잡기 위해 `GameAction.gd`의 const만 emit에 사용. 매직 스트링 금지.
 3. **`skill_select_3` 발화 시 stage_data.available_skills.size() < 3** → SkillToolbar에서 noop + 사운드/UI 거절 (이미 `_inventory.get(id, 0) <= 0`은 disabled 처리).
-4. **Esc가 메뉴 열기와 skill_cancel 둘 다** → 메뉴 미오픈 상태에서만 skill_cancel. 메뉴 오픈 상태에서는 메뉴 닫기 우선. 우선순위는 InputRouter가 game state 확인 후 분기.
+4. **Esc가 메뉴 열기와 skill_cancel 둘 다** → **phase 12 도입 시점**의 엣지 케이스. 메뉴 미오픈 상태에서만 skill_cancel. 메뉴 오픈 상태에서는 메뉴 닫기 우선. 우선순위는 InputRouter가 game state 확인 후 분기. **Phase 5에서는 Esc가 InputMap 미등록 → 어떤 액션도 발화하지 않음** (회귀 가드: phase05-plan §검증 시나리오 case-C).
 5. **`_unhandled_input` 미수신** → InputRouter는 Autoload(=루트 자식)이므로 viewport input 큐의 마지막 핸들러. UI Control 노드가 먼저 받게 보장. CanvasLayer SkillToolbar의 Button 클릭은 UI 우선이므로 `_unhandled_input`까지 안 옴 — 검증 필요.
 6. **stage1~3 마우스 회귀** — `_pending_skill_id` 상태 머신을 EventBus 액션 흐름으로 옮기되, 동작 일치. 헤드리스 테스트 추가: `tests/InputRouterTest.tscn` (skill_select → skill_assign → 인벤토리 차감).
 7. **카메라가 origin 아닐 때 좌표 변환 (codex review HIGH 후속)** — InputRouter가 매번 `viewport.get_canvas_transform()`을 다시 읽어야 함. 캐싱 금지(카메라 매 프레임 이동 가능). 회귀 테스트 §5.6에 명시.
@@ -475,7 +475,7 @@ InputModeTracker._on_action(...)        → mode = "mouse"|"pad" (event 종류�
    - 그 world_pos에 미리 배치한 Ant가 정확히 선택되는지 assert
 3. Stage01~03 마우스 회귀 — 클릭 → 부여 → 인벤토리 차감 정상 (특히 Stage03 카메라가 origin 아님)
 4. 1~8 키로 슬롯 전환 + 좌클릭으로 부여
-5. Q/E로 cycle, Esc로 cancel
+5. Q/E로 cycle, **우클릭으로 cancel** (Esc는 phase 5에 미바인딩 — phase 12에서 game state 분기와 함께 도입)
 6. `python scripts/run_test.py tests/Stage03HeadlessTest.tscn` PASS
 
 ---

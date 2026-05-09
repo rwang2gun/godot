@@ -9,6 +9,13 @@
 # HTML 참조 원본
 *.html
 
+# Phase 5 plan revision에서 docs/design_handoff/로 흡수한 외부 원본 (저장소 외부 SoT 아님)
+design_handoff_candyants_ui/
+
+# Python 캐시
+__pycache__/
+*.pyc
+
 # 기타
 *.tmp
 export_presets.cfg
