@@ -1,0 +1,33 @@
+{
+  "_about": {
+    "purpose": "Phase DB 동기화용 Notion page_id 매핑 SoT. CLAUDE.md \"Notion Phase DB 동기화\" 섹션 참조.",
+    "database_url": "https://www.notion.so/35bb23cf3720804db915f35fa9f04032",
+    "data_source_id": "35bb23cf-3720-8023-8ff1-000bc1eb0d52",
+    "status_options": ["시작 전", "진행 중", "완료"],
+    "created_at": "2026-05-09"
+  },
+  "phases": {
+    "1": {"slug": "bootstrap",                "page_id": "35bb23cf-3720-810a-9ee2-ffc5279b7cae", "url": "https://www.notion.so/35bb23cf3720810a9ee2ffc5279b7cae"},
+    "2": {"slug": "stage1-core",              "page_id": "35bb23cf-3720-8158-bf82-de1e3c6ddcdb", "url": "https://www.notion.so/35bb23cf37208158bf82de1e3c6ddcdb"},
+    "3": {"slug": "stage2-builder",           "page_id": "35bb23cf-3720-81c6-972c-cccb377c0c72", "url": "https://www.notion.so/35bb23cf372081c6972ccccb377c0c72"},
+    "4": {"slug": "stage3-blocker",           "page_id": "35bb23cf-3720-81d7-854b-f0e07db40242", "url": "https://www.notion.so/35bb23cf372081d7854bf0e07db40242"},
+    "5": {"slug": "input-action-foundation",  "page_id": "35bb23cf-3720-8137-9043-e6576eefbb1a", "url": "https://www.notion.so/35bb23cf372081379043e6576eefbb1a"},
+    "6": {"slug": "input-pad-cursor",         "page_id": "35bb23cf-3720-81ed-a176-f1b962a4f88b", "url": "https://www.notion.so/35bb23cf372081eda176f1b962a4f88b"},
+    "7": {"slug": "input-pause-step",         "page_id": "35bb23cf-3720-81c0-a4eb-ea111260ed7b", "url": "https://www.notion.so/35bb23cf372081c0a4ebea111260ed7b"},
+    "8": {"slug": "ui-theme-assets",          "page_id": "35bb23cf-3720-81ef-84b3-d2e4244e85b9", "url": "https://www.notion.so/35bb23cf372081ef84b3d2e4244e85b9"},
+    "9": {"slug": "ui-atoms-foundation",      "page_id": "35bb23cf-3720-8189-b6da-cf38ab02a415", "url": "https://www.notion.so/35bb23cf37208189b6dacf38ab02a415"},
+    "10": {"slug": "ui-hud-toolbar-replace",  "page_id": "35bb23cf-3720-81f8-a658-f41d1cf2c038", "url": "https://www.notion.so/35bb23cf372081f8a658f41d1cf2c038"},
+    "11": {"slug": "ui-stage-dialog",         "page_id": "35bb23cf-3720-816c-9d0d-da1f40b879a1", "url": "https://www.notion.so/35bb23cf3720816c9d0dda1f40b879a1"},
+    "12": {"slug": "ui-title-menu",           "page_id": "35bb23cf-3720-81a1-9ef9-cb9133884b5a", "url": "https://www.notion.so/35bb23cf372081a19ef9cb9133884b5a"},
+    "13": {"slug": "stage4-hazard-water",     "page_id": "35bb23cf-3720-81f8-8d11-faab11099797", "url": "https://www.notion.so/35bb23cf372081f88d11faab11099797"},
+    "14": {"slug": "stage5-basher",           "page_id": "35bb23cf-3720-81a3-8b01-c0f9b88a5532", "url": "https://www.notion.so/35bb23cf372081a38b01c0f9b88a5532"},
+    "15": {"slug": "stage6-digger",           "page_id": "35bb23cf-3720-816b-9afe-ff7373c0430e", "url": "https://www.notion.so/35bb23cf3720816b9afeff7373c0430e"},
+    "16": {"slug": "stage7-miner",            "page_id": "35bb23cf-3720-8136-abf4-db89c2874549", "url": "https://www.notion.so/35bb23cf37208136abf4db89c2874549"},
+    "17": {"slug": "stage8-climber",          "page_id": "35bb23cf-3720-8142-bf18-f9d000e59391", "url": "https://www.notion.so/35bb23cf37208142bf18f9d000e59391"},
+    "18": {"slug": "stage9-floater",          "page_id": "35bb23cf-3720-8113-93f6-cdf077fa78d8", "url": "https://www.notion.so/35bb23cf3720811393f6cdf077fa78d8"},
+    "19": {"slug": "stage10-bomber-polish",   "page_id": "35bb23cf-3720-8185-ba61-d7d9eaa32470", "url": "https://www.notion.so/35bb23cf37208185ba61d7d9eaa32470"},
+    "20": {"slug": "sound-bgm-sfx",           "page_id": "35bb23cf-3720-81c1-ae4f-d3a75838f3f3", "url": "https://www.notion.so/35bb23cf372081c1ae4fd3a75838f3f3"},
+    "21": {"slug": "input-touch",             "page_id": "35bb23cf-3720-81c5-8945-dd44b6dc355b", "url": "https://www.notion.so/35bb23cf372081c58945dd44b6dc355b"},
+    "22": {"slug": "input-advanced",          "page_id": "35bb23cf-3720-8143-b156-d98f29bf23c4", "url": "https://www.notion.so/35bb23cf37208143b156d98f29bf23c4"}
+  }
+}

@@ -23,3 +23,24 @@
 - 헤드리스 테스트는 `python scripts/run_test.py <scene>` (예: `tests/Stage03HeadlessTest.tscn`). Godot 바이너리는 `GODOT_BIN` 환경변수 → `PATH` → 알려진 후보 순으로 자동 탐색. 새 머신/위치 사용 시 `scripts/run_test.py`의 `CANDIDATES` 갱신 또는 `GODOT_BIN` 지정
 - 커밋 메시지: `phase {N}: {요약}` 형식 (Phase 단위) 또는 conventional commits (feat:, fix:, refactor:)
 - Hook이 차단/경고하면 우회 금지, 의도 확인 후 정공법으로 처리
+
+## Notion Phase DB 동기화
+
+- **Phase DB**: https://www.notion.so/35bb23cf3720804db915f35fa9f04032 (data source `35bb23cf-3720-8023-8ff1-000bc1eb0d52`)
+- **page_id 매핑 SoT**: `phases/mvp/notion-phase-ids.json` (phase 번호 → page_id / url / slug)
+- **상태 옵션**: `시작 전` / `진행 중` / `완료`
+
+### 동기화 시점 (CRITICAL)
+
+1. **Phase 진입 시** (= `python scripts/execute.py {task} next` 실행 후 plan 작성 또는 구현 시작 직전):
+   - `notion-phase-ids.json`에서 phase 번호로 `page_id` 조회
+   - Notion MCP `notion-update-page` (`command: update_properties`)로 해당 페이지 `상태` → `진행 중`
+2. **Phase 완료 직전** (= adversarial-review verdict가 clean이 되어 `python scripts/execute.py {task} complete N` 호출 **직전**):
+   - 동일 `page_id`로 `상태` → `완료`
+3. **Hot-fix sweep 커밋** (= 이미 완료된 phase의 사후 리뷰 HIGH 처리 중)도 Notion 상태는 `완료` 유지 (sweep 끝나도 별도 변경 없음). 단, sweep로 새 round가 추가되면 `요약`에 `(sweep N)` 등 짧은 메모 갱신 가능
+
+### 자동화 가이드
+
+- Notion MCP 호출 실패해도 작업 자체는 계속 진행 — Notion은 보조 트래커이고 1차 SoT는 `phases/mvp/status.json` + git
+- 실패 시 사용자에게 1줄 보고 + 다음 시점에 보강 시도
+- page_id 매핑은 phase가 추가/이름 변경될 때만 `notion-phase-ids.json` 갱신 (현재 22 phase 고정, 변경 빈도 낮음)
