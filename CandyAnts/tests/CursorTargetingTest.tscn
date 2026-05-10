@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b7cursortargetingtest"]
+
+[ext_resource type="Script" path="res://tests/CursorTargetingTest.gd" id="1"]
+
+[node name="CursorTargetingTest" type="Node"]
+script = ExtResource("1")

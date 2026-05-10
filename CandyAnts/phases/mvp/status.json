@@ -75,10 +75,10 @@
       "name": "input-pad-cursor",
       "duration_estimate": 7200,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-10T15:09:03",
+      "completed_at": "2026-05-10T16:22:56",
+      "duration_seconds": 4433
     },
     {
       "id": 8,

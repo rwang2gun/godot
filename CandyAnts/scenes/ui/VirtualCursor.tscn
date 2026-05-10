@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3 uid="uid://b7virtualcursorcandyants"]
+
+[ext_resource type="Script" path="res://scripts/ui/VirtualCursor.gd" id="1"]
+
+[node name="VirtualCursor" type="CanvasLayer"]
+layer = 11
+follow_viewport_enabled = false
+
+[node name="Cursor" type="Control" parent="."]
+script = ExtResource("1")
+custom_minimum_size = Vector2(16, 16)
+offset_right = 16.0
+offset_bottom = 16.0
+mouse_filter = 2
+
+[node name="Marker" type="ColorRect" parent="Cursor"]
+offset_right = 16.0
+offset_bottom = 16.0
+color = Color(1, 1, 0.2, 0.85)
+mouse_filter = 2

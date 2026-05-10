@@ -42,6 +42,13 @@ func _physics_process(delta: float) -> void:
 func is_carrying() -> bool:
 	return state_machine != null and state_machine.current_state is CarryingState
 
+func is_alive() -> bool:
+	# Phase 7 — CursorTargeting alive 필터. SavedState/DeadState 제외, 그 외(Walker/Faller/Carrying/Worker)는 alive.
+	if state_machine == null or state_machine.current_state == null:
+		return false
+	var s: AntState = state_machine.current_state
+	return not (s is SavedState or s is DeadState)
+
 func effective_speed() -> float:
 	# 사탕 보유 = 0.78배. state가 Faller/Walker로 잠시 빠져도 속도 페널티 유지.
 	return walk_speed * (carrying_speed_multiplier if has_candy else 1.0)

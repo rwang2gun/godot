@@ -53,6 +53,14 @@ const LEGACY_NAMES: Array[StringName] = [
 	&"cursor_move_to",
 ]
 
+# === Internal InputMap actions (Phase 7+) — Input.get_vector polling only, NOT GameAction.
+# Phase 7: 패드 좌 스틱 polling용 4개. GameAction.REGISTRY에 등록하지 않으며,
+# emit/connect 경로에 들어가지도 않음. case4/case6 검증에서 whitelist 처리. ===
+const INTERNAL_INPUT_MAP_ACTIONS: Array[StringName] = [
+	&"pad_cursor_left", &"pad_cursor_right",
+	&"pad_cursor_up", &"pad_cursor_down",
+]
+
 # === GameAction 명시 const 리스트 (헬퍼/registry 제외, REGISTRY 누락 검출용) ===
 const ALL_EMITTABLE_CONSTS: Array[StringName] = [
 	GameAction.CURSOR_MOVE,
@@ -137,6 +145,9 @@ func _case4_inputmap_to_fixture() -> bool:
 	for action_name: StringName in InputMap.get_actions():
 		var s: String = String(action_name)
 		if s.begins_with("ui_"):
+			continue
+		# Phase 7 internal binding (Input.get_vector polling only) — REGISTRY 외 허용.
+		if INTERNAL_INPUT_MAP_ACTIONS.has(action_name):
 			continue
 		actual.append(action_name)
 	return _set_equal(actual, CANONICAL_PHASE5_INPUT_MAP)

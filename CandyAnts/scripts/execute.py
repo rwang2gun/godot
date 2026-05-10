@@ -106,11 +106,49 @@ def discover_phase_files(task: str) -> list[Path]:
     d = task_dir(task)
     if not d.exists():
         return []
-    return sorted(p for p in d.glob("phase*.md"))
+    # Exclude `phaseNN-deferred.md` — CLAUDE.md allows that naming for impl-review
+    # MEDIUM/LOW deferral notes; they are sibling documentation, not phases.
+    return sorted(p for p in d.glob("phase*.md") if not p.stem.endswith("-deferred"))
 
 
 def to_posix(path: str) -> str:
     return path.replace("\\", "/")
+
+
+_NOTIFY_ENABLED: bool = False  # Opt-in gate. Set by --notify CLI flag in main().
+
+
+def _notify(message: str) -> None:
+    """Best-effort Discord notification via scripts/notify.py.
+
+    Gated behind explicit `--notify` CLI flag (codex impl-review HIGH 2026-05-10):
+    do NOT auto-fire just because DISCORD_WEBHOOK_URL is set in the environment.
+    Phase task names, commit SHAs, durations, and verify command output are sent
+    to the configured webhook only when the operator opts in at the call site.
+    """
+    if not _NOTIFY_ENABLED:
+        return
+    try:
+        notify_script = ROOT / "scripts" / "notify.py"
+        if not notify_script.exists():
+            return
+        subprocess.run(
+            [sys.executable, str(notify_script), message],
+            cwd=ROOT, capture_output=True, timeout=15,
+        )
+    except Exception:
+        pass
+
+
+def _short_head() -> str:
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        )
+        return res.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "?"
 
 
 # ---------------------------------------------------------------------------
@@ -769,6 +807,12 @@ def cmd_complete(task: str, phase_id: int) -> None:
         print(f"Running verify: {verify}")
         rc = subprocess.run(verify, shell=True, cwd=ROOT)
         if rc.returncode != 0:
+            _notify(
+                f"🚧 **Phase {phase_id} verify 실패** ({task})\n"
+                f"phase: `{target['name']}`\n"
+                f"cmd: `{verify}`\n"
+                f"exit: {rc.returncode}"
+            )
             sys.exit(f"Verify failed for Phase {phase_id} (exit {rc.returncode})")
 
     # Step 4: review gate
@@ -860,6 +904,9 @@ def cmd_complete(task: str, phase_id: int) -> None:
     if commit.returncode == 0:
         print(f"✓ Phase {phase_id}: {target['name']} committed")
         print(f"  → {msg}")
+        sha = _short_head()
+        dur_s = target.get("duration_seconds") or 0
+        dur_str = f"{dur_s // 60}m {dur_s % 60}s" if dur_s else "—"
         if not pending:
             total = sum(p["duration_seconds"] or 0 for p in status["phases"])
             print()
@@ -867,6 +914,17 @@ def cmd_complete(task: str, phase_id: int) -> None:
             print(f"Task '{task}' completed!")
             print(f"Total duration: {total // 60}m {total % 60}s")
             print("=" * 60)
+            _notify(
+                f"🏁 **Task `{task}` 완료** — Phase {phase_id} (`{target['name']}`)\n"
+                f"commit: `{sha}` · phase 소요: {dur_str} · 전체: {total // 60}m {total % 60}s"
+            )
+        else:
+            nxt = pending[0]
+            _notify(
+                f"✅ **Phase {phase_id} 완료** ({task}) — `{target['name']}`\n"
+                f"commit: `{sha}` · 소요: {dur_str}\n"
+                f"다음: Phase {nxt['id']} `{nxt['name']}`"
+            )
         return
 
     # Step 19: rollback on commit failure
@@ -878,7 +936,15 @@ def cmd_complete(task: str, phase_id: int) -> None:
     status_file(task).write_text(prev_status_text, encoding="utf-8")
     if not _unstage(staged_by_us):
         print("CRITICAL: cleanup failed. Do NOT proceed to the next phase.", file=sys.stderr)
+        _notify(
+            f"🚨 **CRITICAL: Phase {phase_id} rollback 실패** ({task})\n"
+            f"commit 실패 후 index 정리 실패. 다음 phase 진행 금지, 수동 개입 필요."
+        )
         sys.exit(2)
+    _notify(
+        f"⚠️ **Phase {phase_id} commit 실패** ({task}) — `{target['name']}`\n"
+        f"index는 pre-call 상태로 롤백됨. 원인 확인 후 재시도 필요."
+    )
     sys.exit("complete failed — index rolled back to pre-call state")
 
 
@@ -909,6 +975,15 @@ def cmd_reset(task: str) -> None:
 def main() -> None:
     if len(sys.argv) < 2:
         sys.exit(__doc__.strip())
+
+    # `--notify` opt-in gate (codex impl-review HIGH 2026-05-10):
+    # External webhook side effects only when explicitly requested at the call site.
+    # Filter the flag out of argv before positional parsing.
+    global _NOTIFY_ENABLED
+    if "--notify" in sys.argv:
+        _NOTIFY_ENABLED = True
+        sys.argv = [a for a in sys.argv if a != "--notify"]
+
     task = sys.argv[1]
     if not task_dir(task).exists():
         sys.exit(f"Task directory not found: {task_dir(task)}")
