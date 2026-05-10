@@ -1,7 +1,10 @@
 ---
 name: ui-theme-assets
 duration_estimate: 7200
-verify: ""
+verify:
+large_change_ok: true
+sot: docs/UI_GUIDE.md
+sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md]
 ---
 
 # Phase 9: Theme + 폰트 + SVG 에셋 임포트

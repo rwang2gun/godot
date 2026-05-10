@@ -1,7 +1,10 @@
 ---
 name: ui-title-menu
 duration_estimate: 5400
-verify: ""
+verify:
+large_change_ok: false
+sot: docs/UI_GUIDE.md
+sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md]
 ---
 
 # Phase 13: 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData

@@ -1,6 +1,10 @@
 ---
 name: stage5-basher
 duration_estimate: 7200
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md]
 ---
 
 # Phase 15: Stage 5 + Basher (빌드 0.5)

@@ -1,6 +1,10 @@
 ---
 name: stage10-bomber-polish
 duration_estimate: 9000
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md]
 ---
 
 # Phase 20: Stage 10 + Bomber + 폴리싱 (빌드 1.0 = MVP 완료)

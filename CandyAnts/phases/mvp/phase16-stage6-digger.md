@@ -1,6 +1,10 @@
 ---
 name: stage6-digger
 duration_estimate: 5400
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md]
 ---
 
 # Phase 16: Stage 6 + Digger (빌드 0.6)

@@ -1,6 +1,10 @@
 ---
 name: game-flow-foundation
 duration_estimate: 7200
+verify:
+large_change_ok: false
+sot: docs/GAME_FLOW_PROPOSAL_V5.md
+sot_aux: [phases/mvp/REVISION_2026-05-09.md]
 ---
 
 # Phase 6: Game Flow Foundation

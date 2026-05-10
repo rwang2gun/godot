@@ -1,6 +1,10 @@
 ---
 name: stage7-miner
 duration_estimate: 5400
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md]
 ---
 
 # Phase 17: Stage 7 + Miner (빌드 0.7)

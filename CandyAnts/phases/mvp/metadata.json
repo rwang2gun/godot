@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "task": "mvp",
+  "active_revision": "phases/mvp/REVISION_2026-05-09.md",
+  "post_mvp_phase_range": [21, 23],
+  "notes": [
+    "status.json is runtime state only.",
+    "local phase files are discovered dynamically from phases/<task>/phase*.md."
+  ]
+}

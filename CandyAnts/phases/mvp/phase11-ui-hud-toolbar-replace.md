@@ -1,7 +1,10 @@
 ---
 name: ui-hud-toolbar-replace
 duration_estimate: 7200
-verify: ""
+verify:
+large_change_ok: false
+sot: docs/UI_GUIDE.md
+sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md]
 ---
 
 # Phase 11: HUD / SkillToolbar 씬 교체 (atoms 인스턴스화)

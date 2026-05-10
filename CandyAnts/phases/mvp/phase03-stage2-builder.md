@@ -1,6 +1,10 @@
 ---
 name: stage2-builder
 duration_estimate: 7200
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md, docs/ADR.md]
 ---
 
 # Phase 3: Stage 2 + Builder 스킬 (빌드 0.2)

@@ -1,6 +1,10 @@
 ---
 name: input-pause-step
 duration_estimate: 5400
+verify:
+large_change_ok: false
+sot: docs/INPUT_PLAN.md
+sot_aux: []
 ---
 
 # Phase 8: Pause / StepFrame / InputModeTracker

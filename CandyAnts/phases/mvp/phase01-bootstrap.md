@@ -1,6 +1,10 @@
 ---
 name: bootstrap
 duration_estimate: 3600
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md, docs/ADR.md]
 ---
 
 # Phase 1: 프로젝트 셋업 + Autoload 스켈레톤

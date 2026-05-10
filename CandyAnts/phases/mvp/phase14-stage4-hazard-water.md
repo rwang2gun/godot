@@ -1,6 +1,10 @@
 ---
 name: stage4-hazard-water
 duration_estimate: 7200
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md]
 ---
 
 # Phase 14: Stage 4 + Hazard 시스템 (빌드 0.4)

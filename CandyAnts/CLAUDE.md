@@ -28,7 +28,7 @@
   5. 매 codex 라운드 사이에 자체 리뷰 사이클 1회 이상 끼움. codex만 연달아 호출 금지(usage limit + 라운드 폭증 방지).
   6. **Plan stage에는 적용하지 않는다** — plan stage는 codex HIGH 발견 시 즉시 중단·사용자 결정.
 - CRITICAL: 사후(=phase 커밋 후) 리뷰에서 HIGH가 발견되면 즉시 후속 hot-fix 커밋(`fix: <요약> (phase NN sweep)`)으로 처리하고, 동일 impl-stage 루프(자체리뷰 → codex 재리뷰 → clean)까지 진행. 다음 phase 시작 금지. MEDIUM/LOW만 `phaseNN-deferred.md` 허용
-- 작업 진행은 `python scripts/execute.py {task-name}`로 상태 관리
+- 작업 진행은 `python scripts/execute.py {task-name}`로 상태 관리. 세션 시작마다 한 번 `validate` 실행, phase 추가/삭제 시 `sync-status`로 동기화. Phase 메타(`active_revision`, post-MVP 범위 등)는 `phases/{task-name}/metadata.json`이 SoT — `CLAUDE.md`에 phase 개수를 하드코딩하지 않는다
 - 헤드리스 테스트는 `python scripts/run_test.py <scene>` (예: `tests/Stage03HeadlessTest.tscn`). Godot 바이너리는 `GODOT_BIN` 환경변수 → `PATH` → 알려진 후보 순으로 자동 탐색. 새 머신/위치 사용 시 `scripts/run_test.py`의 `CANDIDATES` 갱신 또는 `GODOT_BIN` 지정
 - 커밋 메시지: `phase {N}: {요약}` 형식 (Phase 단위) 또는 conventional commits (feat:, fix:, refactor:)
 - Hook이 차단/경고하면 우회 금지, 의도 확인 후 정공법으로 처리
@@ -52,4 +52,4 @@
 
 - Notion MCP 호출 실패해도 작업 자체는 계속 진행 — Notion은 보조 트래커이고 1차 SoT는 `phases/mvp/status.json` + git
 - 실패 시 사용자에게 1줄 보고 + 다음 시점에 보강 시도
-- page_id 매핑은 phase가 추가/이름 변경될 때만 `notion-phase-ids.json` 갱신 (현재 22 phase 고정, 변경 빈도 낮음)
+- page_id 매핑은 phase가 추가/이름 변경될 때만 `notion-phase-ids.json` 갱신 (변경 빈도 낮음). 현재 phase 개수는 `phases/mvp/status.json` / `metadata.json`이 SoT — 여기엔 하드코딩하지 않는다

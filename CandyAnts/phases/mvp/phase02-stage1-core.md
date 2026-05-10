@@ -1,6 +1,10 @@
 ---
 name: stage1-core
 duration_estimate: 10800
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md, docs/ADR.md]
 ---
 
 # Phase 2: Stage 1 Vertical Slice (빌드 0.1)

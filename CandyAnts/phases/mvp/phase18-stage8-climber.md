@@ -1,6 +1,10 @@
 ---
 name: stage8-climber
 duration_estimate: 5400
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md]
 ---
 
 # Phase 18: Stage 8 + Climber (빌드 0.8)

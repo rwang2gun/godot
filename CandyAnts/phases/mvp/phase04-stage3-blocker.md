@@ -1,6 +1,10 @@
 ---
 name: stage3-blocker
 duration_estimate: 5400
+verify:
+large_change_ok: false
+sot: docs/PRD.md
+sot_aux: [docs/ARCHITECTURE.md, docs/ADR.md]
 ---
 
 # Phase 4: Stage 3 + Blocker 스킬 (빌드 0.3)

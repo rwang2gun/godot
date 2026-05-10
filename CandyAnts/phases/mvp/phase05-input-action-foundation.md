@@ -1,6 +1,10 @@
 ---
 name: input-action-foundation
 duration_estimate: 7200
+verify:
+large_change_ok: false
+sot: docs/INPUT_PLAN.md
+sot_aux: [docs/INPUT_MAPPING.md]
 ---
 
 # Phase 5: Input Action Foundation (KB+Mouse)

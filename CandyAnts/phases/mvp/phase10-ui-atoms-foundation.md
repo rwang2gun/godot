@@ -1,7 +1,10 @@
 ---
 name: ui-atoms-foundation
 duration_estimate: 7200
-verify: ""
+verify:
+large_change_ok: false
+sot: docs/UI_GUIDE.md
+sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md]
 ---
 
 # Phase 10: UI Atoms Foundation (CButton · Chip · Counter · SkillSlot · Motion)
