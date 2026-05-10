@@ -18,3 +18,7 @@ Thumbs.db
 
 # Phase 1 ephemeral — TDD bypass 토큰은 절대 staging 금지
 scripts/hooks/.tdd_bypass
+
+# 로컬 secrets — DISCORD_WEBHOOK_URL 등. scripts/notify.py가 자동 로드.
+.env
+.env.local
