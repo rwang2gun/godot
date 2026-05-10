@@ -15,7 +15,7 @@
     "3": {"slug": "stage2-builder",           "page_id": "35bb23cf-3720-81c6-972c-cccb377c0c72", "url": "https://www.notion.so/35bb23cf372081c6972ccccb377c0c72"},
     "4": {"slug": "stage3-blocker",           "page_id": "35bb23cf-3720-81d7-854b-f0e07db40242", "url": "https://www.notion.so/35bb23cf372081d7854bf0e07db40242"},
     "5": {"slug": "input-action-foundation",  "page_id": "35bb23cf-3720-8137-9043-e6576eefbb1a", "url": "https://www.notion.so/35bb23cf372081379043e6576eefbb1a"},
-    "6": {"slug": "game-flow-foundation",     "page_id": null,                                   "url": null,                                                              "_note": "신규 phase. Phase 6 진입 시 Notion DB에 새 페이지 생성 후 page_id/url 채울 것."},
+    "6": {"slug": "game-flow-foundation",     "page_id": "35cb23cf-3720-8130-8e6a-e1cce010e2c0", "url": "https://www.notion.so/35cb23cf372081308e6ae1cce010e2c0"},
     "7": {"slug": "input-pad-cursor",         "page_id": "35bb23cf-3720-81ed-a176-f1b962a4f88b", "url": "https://www.notion.so/35bb23cf372081eda176f1b962a4f88b"},
     "8": {"slug": "input-pause-step",         "page_id": "35bb23cf-3720-81c0-a4eb-ea111260ed7b", "url": "https://www.notion.so/35bb23cf372081c0a4ebea111260ed7b"},
     "9": {"slug": "ui-theme-assets",          "page_id": "35bb23cf-3720-81ef-84b3-d2e4244e85b9", "url": "https://www.notion.so/35bb23cf372081ef84b3d2e4244e85b9"},

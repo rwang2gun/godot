@@ -29,11 +29,14 @@ phases/mvp/
 - **검증 시나리오** (Godot 에디터에서 어떻게 동작 확인할지)
 
 ### 2. adversarial review 실행
-plan 파일이 working-tree에 있는 상태에서:
+plan 파일이 working-tree에 있는 상태에서, **데스크톱 플러그인의 슬래시 커맨드**로 실행:
 
-```bash
-node "C:\Users\code1412\.claude\plugins\cache\openai-codex\codex\1.0.3\scripts\codex-companion.mjs" adversarial-review --wait "phase NN plan: <한 줄 포커스>"
+```text
+/codex:adversarial-review --wait "phase NN plan: <한 줄 포커스>"
+/codex:adversarial-review --background "phase NN plan: <한 줄 포커스>"   # 변경이 클 때
 ```
+
+> CLI(`node ... codex-companion.mjs`)로 직접 실행하지 않는다. Bash subprocess 경로는 Windows sandbox 권한 문제로 read-only git/Get-Content 호출이 `CreateProcessAsUserW exit -1`로 막힐 수 있어 (2026-05-10 phase 6 plan review에서 4회 반복 실패) 사용자가 데스크톱 Claude Code의 슬래시 커맨드로 트리거하는 것이 신뢰 가능한 경로.
 
 리뷰는 working-tree 변경(plan 파일 + 그 시점 변경 파일)을 모두 본다.
 
