@@ -35,10 +35,11 @@ func _process(_delta: float) -> void:
 		print("[Phase3Test] applied Builder to ", a.name, " at x=", a.global_position.x)
 		return
 
-func _on_cleared(score: float) -> void:
+func _on_cleared(result: Dictionary) -> void:
 	if _result_emitted:
 		return
 	_result_emitted = true
+	var score: float = result["score"]
 	print("[Phase3Test] cleared score=", score)
 	if score >= PASS_SCORE:
 		print("[Phase3Test] PASS")
@@ -47,10 +48,11 @@ func _on_cleared(score: float) -> void:
 		print("[Phase3Test] FAIL low_score=", score, " < ", PASS_SCORE)
 		get_tree().quit(1)
 
-func _on_failed(reason: String) -> void:
+func _on_failed(result: Dictionary) -> void:
 	if _result_emitted:
 		return
 	_result_emitted = true
+	var reason: String = result["reason"]
 	print("[Phase3Test] failed reason=", reason)
 	print("[Phase3Test] FAIL")
 	get_tree().quit(1)

@@ -97,10 +97,11 @@ func _check_carrying_rejection_once() -> void:
 		print("[Phase4Test] PASS §D-2 carrying ant rejected by BlockerSkill")
 		return
 
-func _on_cleared(score: float) -> void:
+func _on_cleared(result: Dictionary) -> void:
 	if _result_emitted:
 		return
 	_result_emitted = true
+	var score: float = result["score"]
 	print("[Phase4Test] cleared score=", score)
 	if not _direction_check_done:
 		print("[Phase4Test] FAIL §D-1 not completed before clear")
@@ -117,10 +118,11 @@ func _on_cleared(score: float) -> void:
 		print("[Phase4Test] FAIL low_score=", score, " < ", PASS_SCORE)
 		get_tree().quit(1)
 
-func _on_failed(reason: String) -> void:
+func _on_failed(result: Dictionary) -> void:
 	if _result_emitted:
 		return
 	_result_emitted = true
+	var reason: String = result["reason"]
 	print("[Phase4Test] failed reason=", reason)
 	print("[Phase4Test] FAIL")
 	get_tree().quit(1)

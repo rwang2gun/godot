@@ -64,10 +64,10 @@
       "name": "game-flow-foundation",
       "duration_estimate": 7200,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-10T11:10:21",
+      "completed_at": "2026-05-10T14:00:21",
+      "duration_seconds": 10200
     },
     {
       "id": 7,
