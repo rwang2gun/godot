@@ -255,3 +255,36 @@ No material findings.
 
 다음: Notion phase 5 상태 → `완료`, `python scripts/execute.py mvp complete 5` 호출.
 
+---
+
+## Sweep Round 1 — 2026-05-10 (Pre-Phase 6 hot-fix)
+
+### 동기
+
+GAME_FLOW_PROPOSAL_V5 §3.1 prerequisite. Phase 6 진입 직전, ScoreSystem(RefCounted)이
+EventBus 3 signal을 connect하지만 stop/disconnect path가 없어 stage reload 시 누수가
+발생할 수 있음을 v3~v5 사이클에서 식별. Phase 6 SceneFlow는 같은 stage를 여러 번
+load_stage하므로 누적 connect가 즉시 카운트 중복으로 이어진다.
+
+### 수정
+
+- `scripts/core/ScoreSystem.gd`
+  - `start()`: 3 signal connect를 `is_connected()` 가드로 감싸 멱등화
+  - `stop()` 추가: 동일 가드로 disconnect (멱등). 이미 disconnect된 상태에서도 안전
+- `scripts/core/StageRunner.gd`
+  - `_exit_tree()` 추가: `score_system.stop()` 호출. queue_free 시점에 RefCounted instance를
+    EventBus에서 분리. StageRunner Node 자체의 EventBus 연결은 Node free 시 Godot 엔진이
+    자동 disconnect하므로 명시 처리 불필요
+- `tests/test_ScoreSystem.gd` + `.tscn` 신규: stop 후 picked emit이 in_transit을 안 늘리는지,
+  reload 시 first/second instance가 분리 카운트하는지, stop idempotent 검증
+
+### 검증
+
+- `python scripts/run_test.py tests/test_ScoreSystem.tscn` → PASS (3 sub-test)
+- `python scripts/run_test.py tests/Stage02HeadlessTest.tscn` → PASS (score=1.0)
+- `python scripts/run_test.py tests/Stage03HeadlessTest.tscn` → PASS (score=1.0)
+
+### 커밋
+
+`fix: disconnect score system signals (phase 5 sweep)` (별도 commit, phase 6 implementation 전 prerequisite).
+

@@ -92,3 +92,10 @@ func _on_stage_failed(reason: String) -> void:
 func _show_dialog(text: String) -> void:
 	if _hud != null and _hud.has_method("show_dialog"):
 		_hud.show_dialog(text)
+
+func _exit_tree() -> void:
+	# Phase 5 sweep — ScoreSystem(RefCounted) signal leak 차단. stage reload 시
+	# 이전 score_system이 EventBus에 그대로 매달려 새 instance와 동시 카운트하는
+	# 누수 방지 (GAME_FLOW_PROPOSAL_V5 §3.1 Pre-Phase 6 hot-fix).
+	if score_system != null:
+		score_system.stop()
