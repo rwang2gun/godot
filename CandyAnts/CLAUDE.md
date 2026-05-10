@@ -33,6 +33,11 @@
 - 커밋 메시지: `phase {N}: {요약}` 형식 (Phase 단위) 또는 conventional commits (feat:, fix:, refactor:)
 - Hook이 차단/경고하면 우회 금지, 의도 확인 후 정공법으로 처리
 
+## 카카오톡 노티 규칙
+
+- CRITICAL: CandyAnts 관련 카카오톡 노티(MemoChat 등 "나에게 보내기")를 보낼 때는 **메시지 첫 줄(헤드)에 반드시 `ToSSamda` 키워드를 포함**한다. 카카오톡 "나에게 보내기"는 푸시 알림이 오지 않으므로 사용자가 `ToSSamda`로 키워드 알림을 등록해 둠. 헤드 형식 예: `[ToSSamda] <요약>` 또는 `ToSSamda · <요약>`.
+- 키워드 누락 시 알림이 울리지 않으므로 어떤 메시지라도 예외 없이 포함. 본문이 길어 잘릴 가능성이 있어도 헤드 첫 줄에 위치시킨다(200자 제한 고려).
+
 ## Notion Phase DB 동기화
 
 - **Phase DB**: https://www.notion.so/35bb23cf3720804db915f35fa9f04032 (data source `35bb23cf-3720-8023-8ff1-000bc1eb0d52`)
