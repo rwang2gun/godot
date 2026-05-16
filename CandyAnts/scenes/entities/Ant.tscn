@@ -19,8 +19,8 @@ script = ExtResource("1")
 shape = SubResource("shape")
 
 [node name="Sprite" type="AnimatedSprite2D" parent="."]
-position = Vector2(0, -14)
-scale = Vector2(0.08, 0.08)
+position = Vector2(0, -29)
+scale = Vector2(0.16, 0.16)
 sprite_frames = ExtResource("3")
 animation = &"idle"
 autoplay = "idle"
