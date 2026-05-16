@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/StageRunner.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/core/AntSpawner.gd" id="2"]
@@ -7,9 +7,11 @@
 [ext_resource type="PackedScene" path="res://scenes/entities/Ant.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="6"]
 [ext_resource type="Resource" path="res://data/stages/stage01.tres" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/world/StageBackground.tscn" id="8"]
+[ext_resource type="Script" path="res://scripts/world/CookiePlatformVisual.gd" id="9"]
 
 [sub_resource type="RectangleShape2D" id="ground_shape"]
-size = Vector2(1920, 200)
+size = Vector2(1920, 12)
 
 [node name="StageRunner" type="Node"]
 script = ExtResource("1")
@@ -23,8 +25,10 @@ spawn_parent_path = NodePath("World")
 
 [node name="World" type="Node2D" parent="."]
 
+[node name="StageBackground" parent="." instance=ExtResource("8")]
+
 [node name="Ground" type="StaticBody2D" parent="World"]
-position = Vector2(960, 980)
+position = Vector2(960, 886)
 collision_layer = 1
 collision_mask = 0
 
@@ -32,14 +36,19 @@ collision_mask = 0
 shape = SubResource("ground_shape")
 
 [node name="GroundSprite" type="Polygon2D" parent="World/Ground"]
+visible = false
 polygon = PackedVector2Array(-960, -100, 960, -100, 960, 100, -960, 100)
 color = Color(0.3, 0.25, 0.2, 1)
 
+[node name="PlatformVisual" type="Node2D" parent="World/Ground"]
+script = ExtResource("9")
+platform_size = Vector2(1920, 12)
+
 [node name="Home" parent="World" instance=ExtResource("3")]
-position = Vector2(200, 880)
+position = Vector2(400, 880)
 
 [node name="Candy" parent="World" instance=ExtResource("4")]
-position = Vector2(1700, 880)
+position = Vector2(1410, 880)
 hp = 10
 
 [node name="Camera2D" type="Camera2D" parent="World"]
@@ -47,7 +56,7 @@ position = Vector2(960, 540)
 
 [node name="Spawner" type="Node" parent="."]
 script = ExtResource("2")
-spawn_position = Vector2(248, 875)
+spawn_position = Vector2(400, 875)
 total = 10
 release_rate = 50
 
