@@ -21,7 +21,7 @@ func _ready() -> void:
 
 func update_time(seconds: float) -> void:
 	if _time_label != null:
-		_time_label.text = "Time: %d" % int(ceil(seconds))
+		_time_label.text = "시간: %d" % int(ceil(seconds))
 
 func show_dialog(message: String) -> void:
 	if _dialog != null:
@@ -47,10 +47,10 @@ func _on_lost(_by_ant: Node) -> void:
 
 func _refresh() -> void:
 	if _candy_label != null:
-		_candy_label.text = "Candy HP: %d" % _candy_hp
+		_candy_label.text = "사탕: %d" % _candy_hp
 	if _out_label != null:
-		_out_label.text = "In transit: %d" % _in_transit
+		_out_label.text = "운반 중: %d" % _in_transit
 	if _saved_label != null:
-		_saved_label.text = "Saved: %d" % _saved_total
+		_saved_label.text = "귀가: %d" % _saved_total
 	if _lost_label != null:
-		_lost_label.text = "Lost: %d" % _lost
+		_lost_label.text = "잃음: %d" % _lost

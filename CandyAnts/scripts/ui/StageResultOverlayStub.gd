@@ -14,13 +14,13 @@ func _ready() -> void:
 	_menu.pressed.connect(_on_menu_pressed)
 
 func show_result(result: Dictionary, is_last_stage: bool) -> void:
-	_title.text = "Stage Cleared!" if result["cleared"] else "Stage Failed"
-	_score.text = "Score: %d%%" % int(round(result["score"] * 100.0))
+	_title.text = "스테이지 클리어!" if result["cleared"] else "스테이지 실패"
+	_score.text = "점수: %d%%" % int(round(result["score"] * 100.0))
 	if result["cleared"]:
 		_reason.visible = false
 	else:
 		_reason.visible = true
-		_reason.text = "Reason: %s" % result["reason"]
+		_reason.text = "사유: %s" % result["reason"]
 	_replay.disabled = false
 	# Next는 cleared 결과에서만 활성. last stage는 무조건 disable (codex plan-review HIGH 2026-05-10).
 	_next.disabled = is_last_stage or not result["cleared"]
