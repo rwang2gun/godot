@@ -19,4 +19,8 @@ func can_apply(ant: Ant) -> bool:
 func apply(ant: Ant) -> void:
 	if ant == null or ant.state_machine == null:
 		return
+	# 시각 전용 — Blocker는 걷던 방향 반대를 바라보고 정지. _update_sprite()가 다음 frame
+	# 에 flip_h 자동 갱신. bumped_blocker 발화는 blocker direction 무관(walker direction
+	# 만 반전)이므로 시뮬레이션 로직에 영향 없음.
+	ant.flip()
 	ant.state_machine.change_state(WorkerState.new("blocker"))
