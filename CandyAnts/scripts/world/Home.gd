@@ -1,6 +1,6 @@
 class_name Home extends Area2D
 
-@export var spawn_position_offset: Vector2 = Vector2(48, -32)
+@export var spawn_position_offset: Vector2 = Vector2(0, -5)
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
