@@ -1,21 +1,30 @@
 ---
 name: ui-theme-assets
-duration_estimate: 7200
+duration_estimate: 5400
 verify:
 large_change_ok: true
 sot: docs/UI_GUIDE.md
-sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md]
+sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md, phases/mvp/PRE_PHASE9_SPRITE_STATE.md]
+revision: v4
 ---
 
-# Phase 9: Theme + 폰트 + SVG 에셋 임포트
+# Phase 9: Theme + 폰트 + SVG 에셋 임포트 (v4)
 
 ## 목표
-디자인 토큰을 Godot Theme 리소스로 인코딩 + 폰트/SVG 에셋 임포트. **UI 씬 교체는 안 함** — 기존 placeholder UI에 Theme만 적용해 시각이 1차 적용되도록.
+디자인 토큰을 Godot Theme 리소스로 인코딩 + 폰트/SVG 에셋(UI/chrome 한정) 임포트. **UI 씬 교체는 안 함** — 기존 placeholder UI에 Theme만 적용해 시각이 1차 적용되도록.
+
+## v4 변경 사항 (vs v3)
+- **scope 축소**: 정규화 산출 SVG **27 → 13** (logo 3 + skill icons 8 + illustration 1 + home 1). Entity(Ant·Candy) 시각은 chibi PNG SpriteFrames가 SoT — pre-phase 9 hot-fix commit `6d3edc0`으로 적용 완료. `phases/mvp/PRE_PHASE9_SPRITE_STATE.md` §6 mixed-canon 정책 반영.
+- **dropped**: `assets/sprites/ant*.svg (15)` 정규화. handoff `docs/design_handoff/assets/sprites/ant*.svg`는 디자이너 reference로 남기되 production output 대상 아님.
+- **svg_color_map.json 무변경**: handoff logo SVG가 ant 캐릭터 일러스트(`hood`/`hair`/`blush`/`skin`/`head`/`mouth`/`ribbon`/`twist`/`candy`/`gloss`/`ant-eye` 클래스)를 재사용하므로 class_map 축소 거의 불가. `shoe` 하나만 sprite 전용이지만 매핑 보존이 디자이너 재handoff 대비 안전.
+- **duration_estimate**: 7200 → 5400 (scope 축소분 반영).
 
 ## 전제
 - `docs/UI_GUIDE.md` (1차 SoT, §1·§2 토큰/Theme 매핑) + `docs/design_handoff/` (시각 레퍼런스)
-- Phase 5~7(input layer) 완료 — 본 phase는 input과 무관해서 no-op 호환
+- `phases/mvp/PRE_PHASE9_SPRITE_STATE.md` (mixed-canon 정책 + entity sprite swap 완료 상태)
+- Phase 5~8(input/game-flow/pause) 완료 — 본 phase는 input/시뮬레이션과 무관해서 no-op 호환
 - Stage01~03 placeholder UI는 노드 그대로, 시각만 바뀜
+- Entity(Ant·Candy) 시각은 commit `6d3edc0`에서 chibi PNG SpriteFrames로 swap 완료 — 본 phase에서 추가 변경 없음
 
 ## 변경 대상
 
@@ -56,7 +65,7 @@ sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md]
 ```
 
 **현재 데이터 카운트 (2026-05-09 enumerate, scripts/tools/svg_color_map.json 직접 참조)**:
-- **27 class entries** in `class_map` (전수 enumerate)
+- **27 class entries** in `class_map` (전수 enumerate; v4에서도 그대로 — handoff logo가 sprite class 재사용하므로 축소 불가)
 - **6 non-token oklch** in `oklch_extras` (토큰 oklch 12개는 §1.1·§1.2 토큰 표에서 직접 resolve, 본 섹션 진입 금지 — sanity invariant)
 - **2 token+alpha** in `alpha_variants` (`peach_500/0.18`, `ink_700/0.35`)
 - **24 literal mappings** in `literal_color_map` + **1 allowed literal** (`#ffffff`)
@@ -117,15 +126,18 @@ python scripts/tools/normalize_svg.py --scan docs/design_handoff/assets/
   --strict         : 미매핑 잔여 0건 강제 (default)
 ```
 
-### 산출 SVG (정규화 결과, production SoT)
+### 산출 SVG (정규화 결과, production SoT) — v4 축소 (13장)
 - `assets/logo/{wordmark,icon,mascot}.svg` (3)
-- `assets/icons/skills/{climber,floater,bomber,blocker,builder,basher,miner,digger}.svg` (8)
-- `assets/sprites/{ant,ant_carrying,ant_climber,ant_floater,ant_bomber,ant_blocker,ant_builder,ant_basher,ant_miner,ant_digger,ant_faller,ant_dead,ant_saved,candy,home}.svg` (15)
+- `assets/icons/skills/{climber,floater,bomber,blocker,builder,basher,miner,digger}.svg` (8) — **이미 정규화·임포트 완료 상태**, 본 phase는 sanity 검증만
+- `assets/sprites/home.svg` (1) — Home entity는 정적이라 SVG 적합
 - `assets/illustrations/stage_bg.svg` (1)
 - `assets/icons/skills/_README.md` — 출처 + 라이센스 + placeholder 표기 + 정규화 절차 참조
 
+### Drop된 산출물 (v3 → v4)
+- ~~`assets/sprites/{ant,ant_carrying,ant_climber,ant_floater,ant_bomber,ant_blocker,ant_builder,ant_basher,ant_miner,ant_digger,ant_faller,ant_dead,ant_saved,candy}.svg` (14)~~ — chibi PNG SpriteFrames가 entity 시각 SoT (commit `6d3edc0`). handoff SVG는 `docs/design_handoff/assets/sprites/`에 디자이너 reference로 잔존하되 정규화·smoke test 대상 아님.
+
 ### SVG 임포트 smoke test (필수, phase 8 complete 차단 조건)
-- 신규 `tests/SvgImportSmokeTest.gd` — 27 production SVG에 대해:
+- 신규 `tests/SvgImportSmokeTest.gd` — 13 production SVG (v4 축소)에 대해:
   1. `load(path)` 성공 + `Texture2D.get_size()` > 0
   2. `get_image()` 비-blank 픽셀 비율 ≥ 5%
   3. **잔여 검사 (전 위치)**: 각 파일 텍스트에서 `oklch(`, `class="`, `<style` 0건
@@ -148,14 +160,15 @@ python scripts/tools/normalize_svg.py --scan docs/design_handoff/assets/
 ### 비-변경 (중요)
 - `scenes/ui/HUD.tscn`, `SkillToolbar.tscn` — 본 phase 미수정 (phase 10에서 교체)
 - `scripts/ui/*.gd` — 본 phase 미수정
-- 기존 Ant/Candy/Home 시각 — sprite swap은 phase 10/11에서 (본 phase는 에셋 임포트만)
+- 기존 Ant/Candy 시각 — commit `6d3edc0` (pre-phase 9 hot-fix)에서 chibi PNG SpriteFrames로 swap 완료. **본 phase에서 추가 swap 없음**. phase 10/11도 entity sprite 무변경.
+- Home 시각 — 본 phase에서 `assets/sprites/home.svg` 정규화 후 적용. phase 10/11에서 swap.
 
 ## 검증 방법
 
 ### 자동 (헤드리스)
 1. `python scripts/run_test.py tests/Stage03HeadlessTest.tscn` PASS
 2. `python scripts/run_test.py tests/BlockerOverlapTest.tscn` PASS
-3. `python scripts/run_test.py tests/SvgImportSmokeTest.gd` 신규 — 27 SVG 모두 비-blank 텍스처 PASS. **phase 8 complete 강제 조건**.
+3. `python scripts/run_test.py tests/SvgImportSmokeTest.gd` 신규 — 13 SVG 모두 비-blank 텍스처 PASS. **phase 8 complete 강제 조건**.
 4. `python scripts/tools/normalize_svg.py --check` — 정규화 결과가 멱등인지 (재실행 시 차이 없음) 검증.
 5. (모든 회귀 시나리오 — Theme 적용 후 0 회귀)
 
@@ -186,9 +199,13 @@ scripts/ui/Tokens.gd                  ← COUNTER_COLOR enum + Color() 상수 (�
 scripts/tools/normalize_svg.py        ← oklch/literal/class/rgba 변환 (멱등) — 본 phase 신규
 scripts/tools/svg_color_map.json      ← 매핑 SoT (plan revision에서 enumerate 후 작성됨)
 assets/fonts/                         ← Jua + Gaegu + LICENSE.txt
-assets/logo/ icons/skills/ sprites/ illustrations/   ← 27 SVG (정규화 결과)
+assets/logo/                          ← wordmark + icon + mascot (3)
+assets/icons/skills/                  ← 8 (이미 적용, 본 phase 검증만)
+assets/sprites/home.svg               ← 1 (정적 entity)
+assets/illustrations/stage_bg.svg     ← 1
+                                      = 총 13 SVG (정규화 결과). entity ant*/candy는 chibi PNG (commit 6d3edc0).
 project.godot                         ← gui/theme/custom 등록
-tests/SvgImportSmokeTest.gd           ← 27 SVG 비-blank + color sanity (전 위치)
+tests/SvgImportSmokeTest.gd           ← 13 SVG 비-blank + color sanity (전 위치)
 ```
 
 ## Phase 9~11과의 호환성
