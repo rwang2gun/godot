@@ -30,6 +30,14 @@ window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[gui]
+
+theme/custom="res://theme/candyants.tres"
+
+[internationalization]
+
+locale/preferred=PackedStringArray("ko")
+
 [input]
 
 skill_assign={

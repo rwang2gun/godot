@@ -314,6 +314,7 @@ WHITELIST_PATTERNS = [
     "assets/**",
     "art/**",
     "audio/**",
+    "theme/**",
     "themes/**",
     "fonts/**",
     "addons/**",

@@ -2,15 +2,16 @@
   "_about": {
     "purpose": "SVG normalization mapping SoT — drives scripts/tools/normalize_svg.py.",
     "scope": "Covers every class / oklch / literal hex / rgba value present in docs/design_handoff/assets/ as enumerated 2026-05-09 (plan revision v2).",
-    "owner": "phase 8 (ui-theme-assets). Designer updates to docs/design_handoff/assets/ require re-running normalize_svg.py --scan and patching this file before SvgImportSmokeTest can pass.",
-    "tokens_ref": "docs/UI_GUIDE.md §1.1·§1.2 (oklch column included) — token oklch values resolve via the token table FIRST. This file's `oklch_extras` MUST NOT duplicate any token oklch with a different hex (sanity-checked by SvgImportSmokeTest).",
+    "owner": "phase 9 (ui-theme-assets) — owns normalize_svg.py + smoke test gates. Designer updates to docs/design_handoff/assets/ require re-running normalize_svg.py --scan-handoff-all and patching this file before SvgImportSmokeTest can pass.",
+    "tokens_ref": "docs/UI_GUIDE.md §1.1·§1.2 (oklch column included) — alpha-absent token oklch values resolve via the token table; alpha-present token oklch REQUIRES an `alpha_variants` entry (no token-hex fallback, prevents transparency loss). This file's `oklch_extras` MUST NOT duplicate any token oklch with a different hex (sanity-checked by SvgImportSmokeTest).",
     "last_scan": "2026-05-09 (handoff snapshot at absorption)",
     "resolve_order": [
-      "1. UI_GUIDE §1.1·§1.2 token table (matches token oklch tuple) → token hex. Token table ALWAYS wins.",
-      "2. alpha_variants (matches `<L C H> / <a>` form for token oklch) → mapped rgba.",
-      "3. oklch_extras (non-token oklch) → mapped hex. Forbidden to contain token oklch.",
-      "4. white-alpha shortcut: `oklch(1 0 0 / a)` → `rgba(255,255,255,a)` directly (rgba_handling.oklch_white_alpha_to_rgba=true).",
-      "5. CSS Color 4 spec conversion (oklch → oklab → linear-sRGB → sRGB) → exit 1 if gamut fail."
+      "(0) white-alpha shortcut: `oklch(1 0 0 / a)` → `rgba(255,255,255,a)` (rgba_handling.oklch_white_alpha_to_rgba=true). Applied first when alpha is present.",
+      "(1) alpha-present + (L,C,H) ∈ TOKENS: `alpha_variants` entry REQUIRED — missing entry → exit 1 (no token-hex fallback, preserves transparency).",
+      "(1') alpha-present + (L,C,H) ∉ TOKENS: `alpha_variants` checked first; on miss, CSS Color 4 spec conversion emits `rgba(r,g,b,a)`.",
+      "(2) alpha-absent + (L,C,H) ∈ TOKENS: UI_GUIDE §1.1·§1.2 token oklch tuple → token hex.",
+      "(3) alpha-absent + (L,C,H) ∉ TOKENS + `oklch_extras` match → mapped hex. Forbidden to contain token oklch (sanity_invariants[0]).",
+      "(4) Alpha-absent fallthrough: CSS Color 4 spec conversion (oklch → oklab → linear-sRGB → sRGB) → exit 1 if gamut fail."
     ]
   },
 
@@ -25,9 +26,8 @@
   },
 
   "alpha_variants": {
-    "_comment": "Token oklch values that appear in handoff with alpha (e.g. tinted overlays). Resolved by combining token hex + alpha → rgba(). Token hex from UI_GUIDE §1.2.",
-    "0.78 0.155 28 / 0.18": "rgba(242,164,143,0.18)",
-    "0.40 0.060 50 / 0.35": "rgba(92,69,48,0.35)"
+    "_comment": "Token oklch values that appear in handoff with alpha (e.g. tinted overlays). Resolved by combining token hex + alpha → rgba(). Token hex from UI_GUIDE §1.2. Phase 9 v4 sprite drop 후 ink_700/0.35는 더 이상 handoff에 등장하지 않아 제거 (sanity_invariants[4] dead mapping 차단).",
+    "0.78 0.155 28 / 0.18": "rgba(242,164,143,0.18)"
   },
 
   "class_map": {
@@ -108,13 +108,13 @@
   },
 
   "sanity_invariants": {
-    "_comment": "Asserted by tests/SvgImportSmokeTest.gd. Failing any of these blocks phase 8 complete.",
+    "_comment": "Asserted by phase 9 split-gate model: invariants [0]/[1]/[2]/[4] enforced by tests/SvgImportSmokeTest.gd, invariant [3] enforced by scripts/tools/normalize_svg.py --scan-handoff-all. Failing any of these blocks phase 9 complete.",
     "invariants": [
       "no key in oklch_extras may equal any token oklch value listed in UI_GUIDE §1.1 or §1.2 (oklch column)",
       "every fill/stroke/stop-color/flood-color/lighting-color/color hex in normalized assets/**/*.svg must be in (UI_GUIDE token hex set ∪ oklch_extras values ∪ literal_color_map values ∪ allowed_literals.values)",
       "no production SVG may contain `oklch(`, `class=\"`, or `<style`",
       "every class in handoff SVG must have a class_map entry",
-      "every alpha_variants key MUST resolve via alpha_variants step (step 2 of resolve_order) — token+alpha values cannot fall through to generic CSS Color 4 conversion (test asserts each alpha_variants entry is hit at least once when normalizing handoff)"
+      "every alpha_variants key MUST resolve via the alpha-present branch (alpha_variants matching, see resolve_order item 1/1') — token+alpha values cannot fall through to token table or generic CSS Color 4 conversion (test asserts each alpha_variants entry is hit at least once when normalizing handoff)"
     ]
   }
 }

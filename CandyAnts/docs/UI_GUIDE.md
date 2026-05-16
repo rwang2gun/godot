@@ -1,6 +1,6 @@
 # UI Guide — Theme · Atoms · Motion · Save
 
-> CandyAnts UI 1차 SoT. Phase 8(theme-assets) ~ 12(title-menu) 구현은 본 문서 + `docs/design_handoff/`를 함께 본다.
+> CandyAnts UI 1차 SoT. Phase 9(theme-assets) ~ 13(title-menu) 구현은 본 문서 + `docs/design_handoff/`를 함께 본다.
 > 본 문서가 우선 — handoff와 충돌하면 본 문서가 결정. 핸드오프는 시각 레퍼런스(SVG/HTML/JSX) SoT.
 
 ## 0. 위치와 책임
@@ -18,6 +18,18 @@ docs/
 ```
 
 **Phase 시작 시 read 강제 대상**: `PRD.md` / `ARCHITECTURE.md` / `ADR.md` / `UI_GUIDE.md`(본 문서, UI phase에 한해).
+
+## 0.5 프로젝트 운영 모델 (2026-05-16 추가)
+
+본 프로젝트는 **1인 개발** + **AI 생성·외부 수급 자산** 운영 모델. 본 문서가 명시한 절차 중 디자이너 핸드오프 비교를 전제로 한 항목은 **보조 참고**로만 동작 (강제력 X). 본 절이 §1.1·§1.2 토큰 hex와 §2 Theme 인스펙터 값의 **엄격성은 변경하지 않음** — 토큰 SoT는 그대로, 자산이 SoT를 어떻게 따라오게 만드는가의 절차만 운영 모델에 맞춰 완화.
+
+**구체적 함의**:
+1. `docs/design_handoff/` 패키지의 SVG·preview HTML은 placeholder. 시각 비교 강제력 X.
+2. 색 매칭: handoff SVG의 oklch 중 §1.1·§1.2 토큰과 정확 일치하는 값은 토큰 hex로 resolve, 토큰 외 값은 `svg_color_map.json.oklch_extras`/`alpha_variants`/`literal_color_map`/`allowed_literals`에 명시적 매핑. 모두 strict 1:1 lookup (tolerance 도입 X). **AI 생성·외부 수급 자산 도입 시점에** tolerance 또는 추가 매핑이 필요해지면 그 phase에서 `svg_color_map.json` + 본 문서 §1을 함께 revision.
+3. §8 시각 회귀 절차는 1인 개발 기준으로 축소 (해상도 1개, handoff preview 비교는 자산이 핸드오프 출처인 경우에 한해 의미).
+4. 디자이너 후속 작업이 필요한 항목(폰트 최종 픽 등)은 §7 비-범위로 명시 — Theme/매핑 1군데 교체로 처리.
+
+**적용 범위**: phase 9~13 모든 UI phase plan은 본 절을 운영 컨텍스트로 명시 인용. 어떤 plan도 본 절과 충돌하는 절차를 신규 강제할 수 없음.
 
 ## 1. 디자인 토큰 (Godot Color() 매핑)
 
@@ -55,7 +67,7 @@ docs/
 | `sky_300`   | `#CCDFEA` | `oklch(0.92 0.05 235)` | stage 하늘 (handoff `--sky-300`, illustration 전용) |
 | `grass_300` | `#B0DCB4` | `oklch(0.88 0.07 140)` | stage 풀잎 (handoff `--grass-300`, illustration 전용) |
 
-### 1.3 카운터 색 고정 매핑 (Phase 9 atoms에서 enum 강제)
+### 1.3 카운터 색 고정 매핑 (Phase 10 atoms에서 enum 강제, Phase 9에서 Tokens.gd로 코드화)
 ```gdscript
 enum CounterKind { CANDY_HP, IN_TRANSIT, SAVED, LOST, TIME }
 const COUNTER_COLOR := {
@@ -78,7 +90,7 @@ const COUNTER_COLOR := {
 **Line-height**: tight 1.05 · snug 1.20 · body 1.45
 
 > **Substitution flag** — Jua/Gaegu는 placeholder. 팀 최종 픽 결정 시 Theme 1군데만 교체하면 끝. Cafe24 Ohsquare / Pretendard Variable / BMHanna 후보.
-> 라이센스 동봉 위치: `assets/fonts/LICENSE.txt` (각 폰트 OFL 원문 포함, phase 8에서 작성).
+> 라이센스 동봉 위치: `assets/fonts/LICENSE.txt` (각 폰트 OFL 원문 포함, phase 9에서 작성).
 
 ### 1.5 Spacing / Radii / Stroke
 - **Spacing (8 base)**: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96 + `safe_area = 32`
@@ -92,7 +104,7 @@ const COUNTER_COLOR := {
 - **card-soft** (다이얼로그/level card): offset (0,8), color ink_900 alpha 0.35, blur 0
 - **gloss inset** (filled button): inset top 4px, color white alpha 0.45
 
-> Godot 제약: `StyleBoxFlat.shadow_*`는 **항상 blur** 발생 → hard-edge 못 만듦. **Phase 8 결정**:
+> Godot 제약: `StyleBoxFlat.shadow_*`는 **항상 blur** 발생 → hard-edge 못 만듦. **Phase 9 결정**:
 > | 표면 | 그림자 구현 |
 > |---|---|
 > | Button / SkillSlot / Counter / Chip | **duplicate StyleBoxFlat 레이어** (Control 자식 BG로 4px offset ink_900 fill) |
@@ -108,7 +120,7 @@ const COUNTER_COLOR := {
 - **idle bob** (홈 해치): `scale 1.0 → 1.03 → 1.0` 1.6s loop (TRANS_SINE + EASE_IN_OUT)
 - **focus halo** (패드): 3px `mint_500` outline, 4px offset, 항상 표시 (커서 없음)
 
-## 2. Theme 결정 (Phase 8 인스펙터 입력값)
+## 2. Theme 결정 (Phase 9 인스펙터 입력값)
 
 `res://theme/candyants.tres` 한 파일에 모두 박는다. 노드별 override 금지.
 
@@ -134,15 +146,23 @@ default_color = Color("#3A2A1C")              # ink_900
 
 ### 2.4 LineEdit / SpinBox / CheckButton
 - 모두 border 3 ink_900, radius 8~12, bg `cream_100`. 상세는 `docs/design_handoff/preview/buttons.html` 참조.
+- **SpinBox**: Godot 4에서 LineEdit를 internal field로 composition. Theme에는 `LineEdit/styles/normal`만 정의 → SpinBox 내부 필드에 자동 적용. **`SpinBox/styles/normal`을 직접 정의하지 말 것** (Godot 4.6 무효 theme item — phase 9 impl review R1-H3에서 발견).
 
-### 2.5 SVG 임포트 설정 (project.godot 또는 .import)
-- `svg/scale = 1.0`
-- `compress/mode = 0` (lossless)
-- `flags/filter = true` (anti-alias on)
-- `flags/mipmaps = true` (스케일 변동 대비)
-- `process/fix_alpha_border = true`
+### 2.5 SVG 임포트 설정 (Godot 4.6 실제 키 — `.import` per-asset)
 
-### 2.6 SVG 정규화 정책 (Phase 8 강제)
+phase 9 강제 4종 (SvgImportSmokeTest 자동 검증):
+- `params/svg/scale = 1.0`
+- `params/compress/mode = 0` (lossless)
+- `params/process/fix_alpha_border = true`
+- `params/mipmaps/generate = true` (스케일 변동 대비; Godot 3의 `flags/mipmaps` 후신)
+
+텍스처 필터(`flags/filter`)는 Godot 4에서 **`.import` per-asset 키가 아님**. 다음 둘 중 하나로 제어:
+- 전역: `ProjectSettings/rendering/textures/canvas_textures/default_texture_filter` (기본 Linear — 본 프로젝트는 default 의존)
+- per-node: `CanvasItem.texture_filter` override (atom phase 10에서 필요 시)
+
+본 phase는 default Linear 의존을 허용. 5번째 키를 별도 강제하지 않음.
+
+### 2.6 SVG 정규화 정책 (Phase 9 강제)
 
 **문제**: `docs/design_handoff/assets/`의 SVG들은 다음 4가지 Godot 비호환 요소 보유:
 1. `oklch(L C H)` 색 함수 — Godot 4 SVG 임포터 미지원
@@ -150,7 +170,7 @@ default_color = Color("#3A2A1C")              # ink_900
 3. **토큰 외 literal hex** — mascot/icon에 `#2a1f18`, `#3a2418`, `#fce6d2` 등 ink/cream 변종 다수
 4. `rgba(255,255,255,...)` — gloss highlight용 (Godot OK, 그대로 통과)
 
-**해결**: phase 8에서 `scripts/tools/normalize_svg.py` + `scripts/tools/svg_color_map.json`으로 변환 후 `assets/`에 배치. 매핑 SoT는 svg_color_map.json:
+**해결**: phase 9에서 `scripts/tools/normalize_svg.py` + `scripts/tools/svg_color_map.json`으로 변환 후 `assets/`에 배치 (Option A — 5장 정규화). 매핑 SoT는 svg_color_map.json:
 - `oklch_extras`: **토큰 외** oklch 값 → hex 매핑 (토큰 oklch 등록 금지 — sanity invariant)
 - `alpha_variants`: 토큰 oklch + alpha 결합형 → rgba()
 - `class_map`: class 이름 → 인라인 fill/stroke/stroke-* 매핑
@@ -158,11 +178,22 @@ default_color = Color("#3A2A1C")              # ink_900
 - `allowed_literals.values`: 토큰 외이지만 그대로 통과시킬 literal 목록 (gloss 등 디자인 의도 보존)
 - `rgba_handling.passthrough`: rgba() 그대로 통과 (default true)
 
-**resolve_order 고정**: oklch 매칭은 (1) §1.1·§1.2 토큰 표 우선 → (2) alpha_variants → (3) oklch_extras → (4) CSS Color 4 spec 변환. 토큰 표가 항상 우선이므로 oklch_extras에 토큰 oklch가 등장하면 sanity invariant 위배 → SvgImportSmokeTest fail.
+**resolve_order 고정** (svg_color_map.json `_about.resolve_order`와 1:1):
+
+| 조건 | 처리 |
+|---|---|
+| (0) `oklch(1 0 0 / a)` (white-alpha) | → `rgba(255,255,255,a)` (rgba_handling.oklch_white_alpha_to_rgba) |
+| (1) alpha present, (L,C,H) ∈ TOKENS | alpha_variants 엔트리 **REQUIRED** — 없으면 exit 1 (token hex 폴백 금지 — 투명도 손실 방지) |
+| (1') alpha present, (L,C,H) ∉ TOKENS | alpha_variants 우선 매칭 → 미스 시 CSS Color 4 변환 (rgba 출력) |
+| (2) alpha absent, (L,C,H) ∈ TOKENS | 토큰 hex 사용 |
+| (3) alpha absent, (L,C,H) ∉ TOKENS, oklch_extras 매칭 | 매핑 hex 사용 |
+| (4) 셋 다 미스 | CSS Color 4 변환 (oklch → oklab → linear sRGB → sRGB), gamut fail 시 exit 1 |
+
+oklch_extras에 토큰 oklch가 등장하면 sanity_invariants[0] 위배 → SvgImportSmokeTest fail.
 
 미매핑 발견 시 normalize_svg.py exit 1 → svg_color_map.json 보강 강제.
 
-**정규화 후 검증** (모두 phase 8 complete 차단 조건):
+**정규화 후 검증** (모두 phase 9 complete 차단 조건):
 - `grep -RE "oklch\(|class=\"|<style" assets/**/*.svg` → 0건
 - `tests/SvgImportSmokeTest.gd` — 모든 production SVG가 (1) 비-blank 텍스처 (≥5% 픽셀) + (2) color sanity가 **모든 색 등장 위치**(fill, stroke, stop-color, flood-color, lighting-color, color, 인라인 `style="..."`의 *-color 선언)에서 hex가 토큰/extras/literal_map/allowed_literals 합집합 부분집합. fill/stroke만 검사하면 stop-color drift를 놓침.
 
@@ -173,14 +204,19 @@ default_color = Color("#3A2A1C")              # ink_900
 - **게임 런타임 SoT** = `assets/**/*.svg` (정규화 결과)
 - `docs/design_handoff/assets/`의 원본 SVG는 디자이너 갱신 입력용. 게임이 직접 로드 X.
 
-**디자이너 갱신 절차**:
-1. `docs/design_handoff/assets/`에 새 SVG 덮어쓰기
-2. `python scripts/tools/normalize_svg.py --scan docs/design_handoff/assets/` 실행
-3. 출력에서 등장한 새 oklch/class/literal/rgba 값 → svg_color_map.json에 매핑 추가
-4. `python scripts/tools/normalize_svg.py` 실행 → assets/ 갱신
-5. `tests/SvgImportSmokeTest.gd` 실행 → PASS 확인
+**디자이너 갱신 절차** (Option A — phase 9 scope):
 
-## 3. Atom 카탈로그 (Phase 9 = ui-atoms-foundation)
+normalize_svg.py는 **하드코딩된 5장**(logo×3 + sprites/home.svg + illustrations/stage_bg.svg)만 정규화. 기존 `assets/icons/skills/*.svg` 8장은 phase 8 manual 산출물 그대로 보존(재정규화 X). handoff 전체의 mapping coverage는 `--scan-handoff-all` 게이트로 별도 검증.
+
+1. `docs/design_handoff/assets/`에 새 SVG 덮어쓰기.
+2. `python scripts/tools/normalize_svg.py --scan-handoff-all` 실행 → handoff 전체에서 미매핑 class/literal/oklch/rgba 발견 시 exit 1.
+3. exit 1 시 출력 보고 `scripts/tools/svg_color_map.json`에 매핑 추가 (literal_color_map / class_map / oklch_extras / alpha_variants 중 적합한 섹션).
+4. `python scripts/tools/normalize_svg.py` 실행 → `assets/` 5장 갱신 (handoff의 5장 외 갱신은 본 스크립트로 자동화하지 않음 — skill icons 추가 정규화가 필요해지면 별도 phase에서 normalize_svg.py 입력 목록을 확장).
+5. `python scripts/tools/normalize_svg.py --check` 실행 → 5장 멱등 PASS 확인.
+6. `python scripts/tools/normalize_svg.py --self-test` 실행 → resolve_order + alpha_variants 단위 검증 PASS.
+7. `tests/SvgImportSmokeTest.gd` 실행 → 13장 sanity PASS 확인.
+
+## 3. Atom 카탈로그 (Phase 10 = ui-atoms-foundation)
 
 각 atom은 `scripts/ui/atoms/<Name>.gd` + `scenes/ui/atoms/<Name>.tscn` 1쌍. 모든 atom은 Theme의 디폴트 스타일 + atom-local override만 사용 (인스턴스별 override X).
 
@@ -246,9 +282,9 @@ default_color = Color("#3A2A1C")              # ink_900
 - 자물쇠 아이콘: design_handoff에서 Lucide CDN 권장이지만 **정적 SVG로 박는다** (오프라인 보장) — Phase 12에서 `assets/icons/ui/lock.svg` 신규 작성
 - 별점 표시: 3개 polygon star (lemon_500 fill / cream_200 dim, 18×18, 3px ink)
 
-## 4. Motion 헬퍼 (Phase 9 = ui-atoms-foundation 신설, **시그니처 freeze**)
+## 4. Motion 헬퍼 (Phase 9에서 작성·시그니처 freeze, Phase 10 atoms가 호출)
 
-`scripts/ui/Motion.gd` (Autoload 아님, 정적 클래스). atoms (CButton boop / Counter caPop)가 본 헬퍼를 호출하므로 phase 9에서 작성. **본 절의 시그니처는 phase 9 시점에 freeze** — phase 11(stage-dialog)에서 동일 시그니처 그대로 호출. 이후 시그니처 변경 = sweep commit (간단한 인자 추가 X, 옵션 인자만 미리 박음).
+`scripts/ui/Motion.gd` (Autoload 아님, 정적 클래스). atoms (CButton boop / Counter caPop)가 본 헬퍼를 호출하므로 phase 9에서 미리 작성·freeze. **본 절의 시그니처는 phase 9 완료 시 freeze** — phase 10/12(stage-dialog)에서 동일 시그니처 그대로 호출. 이후 시그니처 변경 = sweep commit (간단한 인자 추가 X, 옵션 인자만 미리 박음).
 
 ```gdscript
 class_name Motion
@@ -437,12 +473,19 @@ static func compute_stars(saved: int, original_hp: int) -> int:
 | 폰트 최종 픽 (Jua/Gaegu 교체) | 디자이너 후속 작업, Theme 1군데만 교체 |
 | 일러스트 최종 픽 (sprite/logo 교체) | 디자이너 후속, 파일명 보존 1:1 교체 |
 
-## 8. 시각 회귀 절차 (Phase 9~11)
+## 8. 시각 회귀 절차 (Phase 9~11) — 1인 개발 운영 모델
 
-각 UI phase 완료 시:
-1. Stage01 1280×720 / 1920×1080 둘 다 헤드리스 + 시각 캡처
-2. `docs/design_handoff/preview/<관련>.html` 브라우저 캡처와 비교 (스크린샷 첨부 권장)
-3. 픽셀 일치 강제 X — 토큰값(컬러/스페이싱/radii) 일치만 검증
+§0.5 운영 모델 컨텍스트: 1인 개발 + AI 생성·외부 수급 자산. 디자이너 핸드오프 비교는 자산 출처가 핸드오프인 경우에만 의미.
+
+각 UI phase 완료 시 **강제 항목**:
+1. Stage01 `project.godot` default 해상도(1280×720 또는 팀 결정값) 시각 캡처 1회 — Theme 적용 후 placeholder UI 텍스트 가독성 + layout 깨짐 0건 확인.
+2. Theme inspector hex 값이 §1.1·§1.2 토큰 표와 1:1 일치 (코드 SoT 검증). 코드 측 `scripts/ui/Tokens.gd` 상수도 동일.
+
+**보조 항목 (자산 출처가 handoff인 경우에만 의미)**:
+3. `docs/design_handoff/preview/<관련>.html` 브라우저 캡처 vs Godot Theme inspector preview — 컬러 hex 일치 확인. AI 생성·외부 수급 자산은 본 비교 N/A.
+4. 1920×1080 등 추가 해상도 캡처는 폴리싱 phase(post-MVP)로 deferral 가능.
+
+픽셀 일치 강제 X — 토큰값(컬러/스페이싱/radii) 일치만 검증.
 
 ---
 

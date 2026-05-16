@@ -97,10 +97,10 @@
       "name": "ui-theme-assets",
       "duration_estimate": 7200,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-16T18:41:11",
+      "completed_at": "2026-05-16T20:50:27",
+      "duration_seconds": 7756
     },
     {
       "id": 10,
