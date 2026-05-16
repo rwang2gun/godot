@@ -126,5 +126,11 @@ func _on_request_menu() -> void:
 func _on_action_triggered(name: StringName, _payload: Dictionary) -> void:
 	# Phase 7 — RESTART_STAGE만 소비. 그 외 액션은 SkillToolbar/InputRouter 등 다른 수신자.
 	# request_replay 경유로 단일 replay 경로 재사용 (overlay hide + unfreeze + load_stage 동일).
-	if name == GameAction.RESTART_STAGE:
-		EventBus.request_replay.emit()
+	if name != GameAction.RESTART_STAGE:
+		return
+	# Phase 8 — StepFrame await 중에 direct EventBus emit이 들어와도 stage reload를 막는다.
+	# (InputRouter gate가 1차, 본 가드는 테스트/외부 emit에 대한 2차 방어.)
+	if InputRouter != null and InputRouter.has_method("are_pause_actions_blocked") \
+			and InputRouter.are_pause_actions_blocked():
+		return
+	EventBus.request_replay.emit()

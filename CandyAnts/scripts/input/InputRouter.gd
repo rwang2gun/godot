@@ -37,6 +37,11 @@ var _b_press_time: float = 0.0
 var _last_next_emit_msec: int = -1000  # 첫 호출도 cooldown 통과하도록 음수 초기값.
 var _last_prev_emit_msec: int = -1000
 
+# Phase 8 — StepFrame await 중 pause-affecting action을 막는 gate.
+# StepFrame.acquire/release gate에서 토글, _dispatch_input_map_action / _on_pad_b /
+# _tick_b_button에서 검사. SceneFlow는 direct EventBus emit에 대해 2차 guard로 사용.
+var _pause_actions_blocked: bool = false
+
 
 func _ready() -> void:
 	# B-hold timer / stick polling은 paused 상태에서도 동작해야 함(phase 8 pause 고려).
@@ -68,6 +73,13 @@ func _dispatch_input_map_action(event: InputEvent) -> void:
 		var exact_match: bool = entry["exact_match"]
 		if not event.is_action_pressed(name, false, exact_match):
 			continue
+		# Phase 8 — StepFrame await 중 pause-affecting action은 차단 + handled 처리.
+		# emit 자체를 skip하므로 throttle/coordinate 부수효과도 발생하지 않는다.
+		if _pause_actions_blocked and _is_pause_affecting_action(name):
+			var vp_gate: Viewport = get_viewport()
+			if vp_gate != null:
+				vp_gate.set_input_as_handled()
+			return
 		# Phase 7 — throttle은 _emit_positional 내부에서 valid emit에만 적용.
 		# 이렇게 해야 invalid payload(stale cache 등)는 throttle 우회 → 회귀 contract 유지.
 		if GameAction.is_positional(name):
@@ -78,6 +90,21 @@ func _dispatch_input_map_action(event: InputEvent) -> void:
 		if vp != null:
 			vp.set_input_as_handled()
 		return  # 첫 매칭 액션만 처리
+
+
+func _is_pause_affecting_action(name: StringName) -> bool:
+	return name == GameAction.PAUSE_TOGGLE \
+		or name == GameAction.STEP_FRAME \
+		or name == GameAction.RESTART_STAGE
+
+
+func set_pause_actions_blocked(blocked: bool) -> void:
+	# Phase 8 — StepFrame이 stepping 시작/종료 시 호출.
+	_pause_actions_blocked = blocked
+
+
+func are_pause_actions_blocked() -> bool:
+	return _pause_actions_blocked
 
 
 func _emit_positional(action: StringName, event: InputEvent) -> void:
@@ -230,6 +257,9 @@ func _tick_b_button(delta: float) -> void:
 		# 홀드 만료 — restart_stage 1회 emit + release 무시 플래그.
 		_b_pressed = false
 		_b_press_time = 0.0
+		# Phase 8 — StepFrame await 중이면 emit 자체를 skip (hold 상태는 이미 위에서 정리).
+		if _pause_actions_blocked:
+			return
 		EventBus.action_triggered.emit(GameAction.RESTART_STAGE, {})
 
 

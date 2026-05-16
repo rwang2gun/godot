@@ -86,10 +86,10 @@
       "name": "input-pause-step",
       "duration_estimate": 5400,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-16T01:27:53",
+      "completed_at": "2026-05-16T09:53:25",
+      "duration_seconds": 30332
     },
     {
       "id": 9,

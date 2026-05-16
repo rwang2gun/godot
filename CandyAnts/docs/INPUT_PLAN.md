@@ -587,6 +587,12 @@ InputModeTracker._on_action  → mode = "pad" (UI 힌트 전용)
 
 ## 7. Phase 7 — input-pause-step (상세)
 
+> **2026-05-16 업데이트 (codex impl-review Round 1 LOW-2)**:
+> 본 §7은 v0.1 시점 초안이며, **실제 phase 8 구현 계약은 `phases/mvp/plans/phase08-plan.md` v2가 SoT**. 본 §의 다음 항목들이 v2와 차이가 있으므로 phase 진입 시 v2를 우선 참조한다.
+> - **StepFrame**: 본 §7.3의 `process_frame` 패턴은 catch-up race로 인해 폐기됨. v2는 `await tree.physics_frame × 2`로 정확히 1 physics tick 보장 + `_step_token` 소유권 + InputRouter pause-actions gate + SceneFlow 2차 guard 사용.
+> - **수정 대상 파일**: 본 §7.1이 명시한 `HUD.gd` / `SkillToolbar.gd` / `Ant.gd` 수정은 v2에서 모두 **변경 없음**으로 확정. process_mode 변경은 `SkillToolbar.tscn`(scene)만, paused 부여 invariant는 테스트로 잠금.
+> - **InputModeTracker** 계약: v2는 이벤트 비소비 + autoload sibling order 비의존 + 게임 로직 코드 0참조(leak guard test로 enforced)를 명시.
+
 ### 7.1 변경 대상
 
 **신규**:

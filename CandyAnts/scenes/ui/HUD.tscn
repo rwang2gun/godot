@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/InputHintLabel.gd" id="2"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1")
@@ -25,6 +26,10 @@ text = "Lost: 0"
 
 [node name="Candy" type="Label" parent="Root"]
 text = "Candy HP: --"
+
+[node name="InputHint" type="Label" parent="Root"]
+text = ""
+script = ExtResource("2")
 
 [node name="StageCompleteDialog" type="AcceptDialog" parent="."]
 title = "Stage"

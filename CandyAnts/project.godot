@@ -20,6 +20,8 @@ GameManager="*res://scripts/core/GameManager.gd"
 EventBus="*res://scripts/core/EventBus.gd"
 SkillRegistry="*res://scripts/core/SkillRegistry.gd"
 InputRouter="*res://scripts/input/InputRouter.gd"
+InputModeTracker="*res://scripts/input/InputModeTracker.gd"
+StepFrame="*res://scripts/core/StepFrame.gd"
 
 [display]
 
