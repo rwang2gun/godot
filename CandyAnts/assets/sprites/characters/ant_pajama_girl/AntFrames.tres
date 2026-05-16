@@ -1,0 +1,89 @@
+[gd_resource type="SpriteFrames" load_steps=40 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/idle/idle_00.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/idle/idle_01.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/idle/idle_02.png" id="3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/idle/idle_03.png" id="4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/walk/walk_00.png" id="5"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/walk/walk_01.png" id="6"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/walk/walk_02.png" id="7"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/walk/walk_03.png" id="8"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/walk/walk_04.png" id="9"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/walk/walk_05.png" id="10"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/carry/carry_00.png" id="11"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/carry/carry_01.png" id="12"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/carry/carry_02.png" id="13"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/carry/carry_03.png" id="14"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/carry/carry_04.png" id="15"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/carry/carry_05.png" id="16"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/fall/fall_00.png" id="17"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/fall/fall_01.png" id="18"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/fall/fall_02.png" id="19"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/fall/fall_03.png" id="20"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/blocker/blocker_00.png" id="21"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/blocker/blocker_01.png" id="22"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/climb/climb_00.png" id="23"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/climb/climb_01.png" id="24"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/dig/dig_00.png" id="25"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/dig/dig_01.png" id="26"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/dig/dig_02.png" id="27"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/dig/dig_03.png" id="28"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/dig/dig_04.png" id="29"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/build/build_00.png" id="30"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/build/build_01.png" id="31"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/build/build_02.png" id="32"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/build/build_03.png" id="33"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_00.png" id="34"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_01.png" id="35"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_02.png" id="36"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_03.png" id="37"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_04.png" id="38"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_05.png" id="39"]
+
+[resource]
+animations = [{
+"frames": [{"duration": 1.0, "texture": ExtResource("1")}, {"duration": 1.0, "texture": ExtResource("2")}, {"duration": 1.0, "texture": ExtResource("3")}, {"duration": 1.0, "texture": ExtResource("4")}],
+"loop": true,
+"name": &"idle",
+"speed": 6.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("5")}, {"duration": 1.0, "texture": ExtResource("6")}, {"duration": 1.0, "texture": ExtResource("7")}, {"duration": 1.0, "texture": ExtResource("8")}, {"duration": 1.0, "texture": ExtResource("9")}, {"duration": 1.0, "texture": ExtResource("10")}],
+"loop": true,
+"name": &"walk",
+"speed": 10.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("11")}, {"duration": 1.0, "texture": ExtResource("12")}, {"duration": 1.0, "texture": ExtResource("13")}, {"duration": 1.0, "texture": ExtResource("14")}, {"duration": 1.0, "texture": ExtResource("15")}, {"duration": 1.0, "texture": ExtResource("16")}],
+"loop": true,
+"name": &"carry",
+"speed": 10.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("17")}, {"duration": 1.0, "texture": ExtResource("18")}, {"duration": 1.0, "texture": ExtResource("19")}, {"duration": 1.0, "texture": ExtResource("20")}],
+"loop": true,
+"name": &"fall",
+"speed": 12.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("21")}, {"duration": 1.0, "texture": ExtResource("22")}],
+"loop": true,
+"name": &"blocker",
+"speed": 4.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("23")}, {"duration": 1.0, "texture": ExtResource("24")}],
+"loop": true,
+"name": &"climb",
+"speed": 8.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("25")}, {"duration": 1.0, "texture": ExtResource("26")}, {"duration": 1.0, "texture": ExtResource("27")}, {"duration": 1.0, "texture": ExtResource("28")}, {"duration": 1.0, "texture": ExtResource("29")}],
+"loop": true,
+"name": &"dig",
+"speed": 8.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("30")}, {"duration": 1.0, "texture": ExtResource("31")}, {"duration": 1.0, "texture": ExtResource("32")}, {"duration": 1.0, "texture": ExtResource("33")}],
+"loop": true,
+"name": &"build",
+"speed": 8.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("34")}, {"duration": 1.0, "texture": ExtResource("35")}, {"duration": 1.0, "texture": ExtResource("36")}, {"duration": 1.0, "texture": ExtResource("37")}, {"duration": 1.0, "texture": ExtResource("38")}, {"duration": 1.0, "texture": ExtResource("39")}],
+"loop": false,
+"name": &"victory",
+"speed": 8.0
+}]

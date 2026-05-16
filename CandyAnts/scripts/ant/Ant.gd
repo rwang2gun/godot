@@ -27,17 +27,49 @@ var _blocker_hitbox: Area2D = null
 var _active_blocker_overlaps: Dictionary = {}
 var _last_blocker_bounce_frame: int = -1
 
+# Sprite — 시각 전용. 게임 로직 무영향 (collision/state 무관).
+var _sprite: AnimatedSprite2D = null
+var _last_anim: String = ""
+
 func _ready() -> void:
 	_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
 	add_to_group("ants")
 	state_machine = $StateMachine
 	state_machine.ant = self
 	_blocker_hitbox = get_node_or_null("BlockerHitbox") as Area2D
+	_sprite = get_node_or_null("Sprite") as AnimatedSprite2D
 	state_machine.change_state(WalkerState.new())
 
 func _physics_process(delta: float) -> void:
 	if state_machine != null:
 		state_machine.update(delta)
+	_update_sprite()
+
+func _update_sprite() -> void:
+	# 시각 갱신만 — state 분기 읽어서 animation 매핑 + direction에 따른 flip_h.
+	# 게임 로직(state/collision/direction)과 무관, 본 함수 실패해도 시뮬레이션 진행.
+	if _sprite == null or state_machine == null:
+		return
+	var s: AntState = state_machine.current_state
+	var anim: String = "idle"
+	if s is CarryingState:
+		anim = "carry"
+	elif s is FallerState:
+		anim = "fall"
+	elif s is WalkerState:
+		anim = "walk"
+	elif s is WorkerState:
+		var w: String = (s as WorkerState)._work_type
+		if w == "blocker":
+			anim = "blocker"
+		elif w == "builder":
+			anim = "build"
+		else:
+			anim = "dig"
+	if anim != _last_anim:
+		_sprite.play(anim)
+		_last_anim = anim
+	_sprite.flip_h = direction < 0
 
 func is_carrying() -> bool:
 	return state_machine != null and state_machine.current_state is CarryingState
