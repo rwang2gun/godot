@@ -107,7 +107,7 @@ const COUNTER_COLOR := {
 > Godot 제약: `StyleBoxFlat.shadow_*`는 **항상 blur** 발생 → hard-edge 못 만듦. **Phase 9 결정**:
 > | 표면 | 그림자 구현 |
 > |---|---|
-> | Button (PRIMARY/SECONDARY) / SkillSlot / Counter / Chip | **duplicate StyleBoxFlat 레이어** (Control 자식 BG로 4px offset ink_900 fill). **GHOST kind는 ShadowBG hide** — §3.1 참조 (transparent fill + shadow 노출 시 텍스트 invisible) |
+> | Button / SkillSlot / Counter / Chip | **duplicate StyleBoxFlat 레이어** (Control 자식 BG로 4px offset ink_900 fill) — 모든 CButton kind 공통 (phase 12 sweep 2 결정: GHOST도 ShadowBG 유지) |
 > | StageDialog / TitleScene LogoPanel | **NinePatchRect** (4px ink offset 9-patch) |
 > | Home hatch sprite | `Sprite2D._draw()` override로 ink rect 미리 그림 |
 
@@ -225,7 +225,7 @@ normalize_svg.py는 **하드코딩된 5장**(logo×3 + sprites/home.svg + illust
 - export `kind: ButtonKind { PRIMARY, SECONDARY, GHOST }` — bg 변경
   - PRIMARY: peach_500 / hover peach_500+y-2 / pressed peach_700
   - SECONDARY: cream_100 / hover cream_100+y-2 / pressed cream_200
-  - GHOST: transparent / hover cream_100 α 0.4 / pressed cream_200 α 0.6 — **no shadow** (Phase 12 sweep: GHOST normal fill이 투명이라 4px shifted ShadowBG가 노출되면 ink_900 텍스트가 검은 그림자 위에 invisible. ghost variant 디자인 원칙 정합)
+  - GHOST: cream_100 / hover cream_100 / pressed cream_200 / disabled cream_200 — ShadowBG 유지 (sticker shadow 일관성). Phase 12 sweep 2: 원래 spec(transparent)은 ShadowBG가 본체 위로 노출되어 ink_900 텍스트 invisible 버그 유발 → cream tint로 정정. 결과적으로 SECONDARY와 fill 동일 (variant 차이 미미, 향후 진짜 ghost 디자인 필요해지면 재분리)
 - Press 시 `Motion.boop(self)` 자동 호출
 
 ### 3.2 `Chip` (정보 태그 — `귀가 8`, `잃음 2`)

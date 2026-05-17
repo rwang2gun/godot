@@ -37,23 +37,18 @@ func _on_boop_finished() -> void:
 	# _boop_base는 다음 호출에서 if _boop_tween==null 경로로 재캡처됨.
 
 func _apply_kind() -> void:
-	# Phase 12 sweep: GHOST normal fill이 transparent → ShadowBG가 그대로 보이면
-	# 4px shifted 검은 박스 위에 ink_900 텍스트가 invisible. GHOST kind는 ShadowBG hide.
-	# UI_GUIDE §3.1 "GHOST: transparent ... no shadow" 명시와 정합.
-	var shadow := get_node_or_null("ShadowBG") as CanvasItem
+	# Phase 12 sweep 2: ShadowBG는 모든 kind에서 유지 (sticker shadow 일관성).
+	# GHOST normal fill을 transparent → cream_100으로 정정.
+	# 근거: GHOST normal이 transparent면 ShadowBG가 본체 위로 노출되어 ink_900 텍스트가
+	# 검은 그림자 위에 invisible. cream fill로 본체가 ShadowBG를 가린다.
+	# spec drift: GHOST가 SECONDARY와 fill 동일해짐 (variant 차이 미미). UI_GUIDE §3.1 sync.
 	match kind:
 		ButtonKind.PRIMARY:
 			_clear_style_overrides()
-			if shadow:
-				shadow.visible = true
 		ButtonKind.SECONDARY:
 			_apply_style_set(Tokens.CREAM_100, Tokens.CREAM_100, Tokens.CREAM_200, Tokens.CREAM_200)
-			if shadow:
-				shadow.visible = true
 		ButtonKind.GHOST:
-			_apply_style_set(Color(0, 0, 0, 0), Color(Tokens.CREAM_100.r, Tokens.CREAM_100.g, Tokens.CREAM_100.b, 0.4), Color(Tokens.CREAM_200.r, Tokens.CREAM_200.g, Tokens.CREAM_200.b, 0.6), Color(0, 0, 0, 0))
-			if shadow:
-				shadow.visible = false
+			_apply_style_set(Tokens.CREAM_100, Tokens.CREAM_100, Tokens.CREAM_200, Tokens.CREAM_200)
 
 func _clear_style_overrides() -> void:
 	for state in ["normal", "hover", "pressed", "disabled"]:

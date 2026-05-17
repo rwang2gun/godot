@@ -1,9 +1,8 @@
 extends Node
 
-# Phase 12 sweep regression — GHOST kind은 ShadowBG hide.
-# 근거: GHOST normal fill이 Color(0,0,0,0) transparent.
-# ShadowBG가 4px shifted ink_900 fill로 노출되면 ink_900 텍스트가
-# 검은 ShadowBG 위에 invisible → ghost variant 자체가 망가짐.
+# Phase 12 sweep 2 regression — 모든 CButton kind는 ShadowBG 유지 (sticker shadow 일관성).
+# GHOST normal fill은 cream_100 (SECONDARY와 동일). transparent fill 회귀 차단.
+# 회귀 근거: phase 12 dialog MenuBtn(GHOST)이 transparent normal + ShadowBG → 검은 박스 + 텍스트 invisible.
 
 const _CBUTTON := preload("res://scenes/ui/atoms/CButton.tscn")
 
@@ -20,27 +19,37 @@ func _ready() -> void:
 
 	await get_tree().process_frame
 
-	_assert_visible(primary, true, "PRIMARY ShadowBG.visible")
-	_assert_visible(secondary, true, "SECONDARY ShadowBG.visible")
-	_assert_visible(ghost, false, "GHOST ShadowBG.visible=false")
+	_assert_shadow_visible(primary, "PRIMARY")
+	_assert_shadow_visible(secondary, "SECONDARY")
+	_assert_shadow_visible(ghost, "GHOST")
 
-	# Kind 토글 시 ShadowBG visibility 즉시 갱신 검증.
-	ghost.kind = CButton.ButtonKind.PRIMARY
-	await get_tree().process_frame
-	_assert_visible(ghost, true, "GHOST→PRIMARY toggle ShadowBG.visible")
-
-	ghost.kind = CButton.ButtonKind.GHOST
-	await get_tree().process_frame
-	_assert_visible(ghost, false, "PRIMARY→GHOST toggle ShadowBG.visible=false")
+	# GHOST normal fill은 cream_100 (transparent가 아닌). PRIMARY는 theme default 사용.
+	_assert_ghost_normal_opaque(ghost)
 
 	print("[CButtonGhostShadowTest] PASS")
 	get_tree().quit()
 
-func _assert_visible(btn: CButton, expected: bool, msg: String) -> void:
+func _assert_shadow_visible(btn: CButton, label: String) -> void:
 	var shadow := btn.get_node_or_null("ShadowBG") as CanvasItem
 	if shadow == null:
-		push_error("[CButtonGhostShadowTest] FAIL %s — ShadowBG node missing" % msg)
+		push_error("[CButtonGhostShadowTest] FAIL %s — ShadowBG node missing" % label)
 		get_tree().quit(1)
-	if shadow.visible != expected:
-		push_error("[CButtonGhostShadowTest] FAIL %s — expected=%s actual=%s" % [msg, expected, shadow.visible])
+		return
+	if not shadow.visible:
+		push_error("[CButtonGhostShadowTest] FAIL %s — ShadowBG.visible=false expected true" % label)
+		get_tree().quit(1)
+
+func _assert_ghost_normal_opaque(btn: CButton) -> void:
+	var box := btn.get_theme_stylebox("normal") as StyleBoxFlat
+	if box == null:
+		push_error("[CButtonGhostShadowTest] FAIL GHOST normal stylebox missing")
+		get_tree().quit(1)
+		return
+	# Transparent fill 회귀 가드 — bg_color.a > 0.9 보장.
+	if box.bg_color.a < 0.9:
+		push_error("[CButtonGhostShadowTest] FAIL GHOST normal bg_color alpha=%s (expected >= 0.9, transparent fill 회귀)" % box.bg_color.a)
+		get_tree().quit(1)
+	# bg_color가 cream_100 근사인지 확인 (RGB 비교).
+	if not box.bg_color.is_equal_approx(Tokens.CREAM_100):
+		push_error("[CButtonGhostShadowTest] FAIL GHOST normal bg_color=%s (expected CREAM_100=%s)" % [box.bg_color, Tokens.CREAM_100])
 		get_tree().quit(1)
