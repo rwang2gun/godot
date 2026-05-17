@@ -15,6 +15,10 @@ class_name StageLayoutBuilder extends Node2D
 
 var _tile_texture: Texture2D = null
 
+const TILE_SOLID := "solid"
+const TILE_SLOPE_RIGHT := "slope_right"
+const TILE_SLOPE_LEFT := "slope_left"
+
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		_rebuild_preview()
@@ -25,8 +29,8 @@ func build() -> void:
 	_clear_children()
 	if layout == null:
 		return
-	for cell: Vector2i in layout.platform_cells:
-		_add_cell(cell)
+	for key in _layout_tile_map().keys():
+		_add_cell(_cell_from_key(str(key)), str(_layout_tile_map()[key]))
 
 func _rebuild_preview() -> void:
 	if not is_inside_tree():
@@ -34,19 +38,27 @@ func _rebuild_preview() -> void:
 	_clear_children()
 	if not preview_in_editor or layout == null:
 		return
-	for cell: Vector2i in layout.platform_cells:
-		_add_cell(cell)
+	for key in _layout_tile_map().keys():
+		_add_cell(_cell_from_key(str(key)), str(_layout_tile_map()[key]))
 
-func _add_cell(cell: Vector2i) -> void:
-	var cell_size := layout.cell_size
+func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> void:
+	var cell_size: int = int(layout.cell_size)
 	var body := StaticBody2D.new()
 	body.name = "Cell_%d_%d" % [cell.x, cell.y]
-	body.position = layout.cell_to_world(cell)
+	body.position = _cell_to_world(cell, cell_size)
 	body.collision_layer = 1
 	body.collision_mask = 0
 	add_child(body)
 	body.owner = owner
 
+	if tile_type == TILE_SLOPE_RIGHT or tile_type == TILE_SLOPE_LEFT:
+		_add_slope_collision(body, cell_size, tile_type)
+		_add_slope_visual(body, cell_size, tile_type)
+	else:
+		_add_solid_collision(body, cell_size)
+		_add_solid_visual(body, cell_size)
+
+func _add_solid_collision(body: StaticBody2D, cell_size: int) -> void:
 	var shape := CollisionShape2D.new()
 	shape.name = "CollisionShape2D"
 	var rect := RectangleShape2D.new()
@@ -55,6 +67,14 @@ func _add_cell(cell: Vector2i) -> void:
 	body.add_child(shape)
 	shape.owner = owner
 
+func _add_slope_collision(body: StaticBody2D, cell_size: int, tile_type: String) -> void:
+	var polygon := CollisionPolygon2D.new()
+	polygon.name = "CollisionPolygon2D"
+	polygon.polygon = _slope_points(cell_size, tile_type)
+	body.add_child(polygon)
+	polygon.owner = owner
+
+func _add_solid_visual(body: StaticBody2D, cell_size: int) -> void:
 	var sprite := Sprite2D.new()
 	sprite.name = "Sprite"
 	sprite.texture = _get_tile_texture()
@@ -67,6 +87,28 @@ func _add_cell(cell: Vector2i) -> void:
 	body.add_child(sprite)
 	sprite.owner = owner
 
+func _add_slope_visual(body: StaticBody2D, cell_size: int, tile_type: String) -> void:
+	var polygon := Polygon2D.new()
+	polygon.name = "SlopeVisual"
+	polygon.polygon = _slope_points(cell_size, tile_type)
+	polygon.color = Color(0.92, 0.60, 0.28, 1.0)
+	body.add_child(polygon)
+	polygon.owner = owner
+
+func _slope_points(cell_size: int, tile_type: String) -> PackedVector2Array:
+	var half := float(cell_size) * 0.5
+	if tile_type == TILE_SLOPE_LEFT:
+		return PackedVector2Array([
+			Vector2(-half, -half),
+			Vector2(-half, half),
+			Vector2(half, half),
+		])
+	return PackedVector2Array([
+		Vector2(-half, half),
+		Vector2(half, half),
+		Vector2(half, -half),
+	])
+
 func _get_tile_texture() -> Texture2D:
 	if _tile_texture == null:
 		_tile_texture = load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
@@ -76,3 +118,27 @@ func _clear_children() -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
+
+func _layout_tile_map() -> Dictionary:
+	if "tile_map" in layout and not layout.tile_map.is_empty():
+		return layout.tile_map
+	var fallback := {}
+	if "platform_cells" in layout:
+		for cell: Vector2i in layout.platform_cells:
+			fallback[_cell_key(cell)] = TILE_SOLID
+	return fallback
+
+func _cell_key(cell: Vector2i) -> String:
+	return "%d,%d" % [cell.x, cell.y]
+
+func _cell_from_key(key: String) -> Vector2i:
+	var parts := key.split(",", false)
+	if parts.size() < 2:
+		return Vector2i.ZERO
+	return Vector2i(int(parts[0]), int(parts[1]))
+
+func _cell_to_world(cell: Vector2i, cell_size: int) -> Vector2:
+	return Vector2(
+		float(cell.x * cell_size + cell_size / 2),
+		float(cell.y * cell_size + cell_size / 2)
+	)

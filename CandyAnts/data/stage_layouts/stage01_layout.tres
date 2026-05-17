@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="StageLayoutData" format=3 uid="uid://c4biunfs8bbbd"]
+
+[ext_resource type="Script" uid="uid://xi30okhe70kg" path="res://scripts/core/StageLayoutData.gd" id="1_xqg42"]
+
+[resource]
+script = ExtResource("1_xqg42")
+platform_cells = Array[Vector2i]([Vector2i(18, 27), Vector2i(19, 27), Vector2i(20, 27), Vector2i(21, 27), Vector2i(22, 27), Vector2i(23, 27), Vector2i(24, 27), Vector2i(25, 27), Vector2i(26, 27), Vector2i(27, 27), Vector2i(28, 27), Vector2i(29, 27), Vector2i(30, 27), Vector2i(31, 27), Vector2i(32, 27), Vector2i(33, 27), Vector2i(34, 27), Vector2i(35, 27), Vector2i(36, 27), Vector2i(37, 27), Vector2i(38, 27), Vector2i(39, 27), Vector2i(40, 27), Vector2i(41, 27)])
+tile_map = {
+"18,27": "solid",
+"19,27": "solid",
+"20,27": "solid",
+"21,27": "solid",
+"22,27": "solid",
+"23,27": "solid",
+"24,27": "solid",
+"25,27": "solid",
+"26,27": "solid",
+"27,27": "solid",
+"28,27": "solid",
+"29,27": "solid",
+"30,27": "solid",
+"31,27": "solid",
+"32,27": "solid",
+"33,27": "solid",
+"34,27": "solid",
+"35,27": "solid",
+"36,27": "solid",
+"37,27": "solid",
+"38,27": "solid",
+"39,27": "solid",
+"40,27": "solid",
+"41,27": "solid"
+}
+home_cell = Vector2i(20, 27)
+candy_cell = Vector2i(39, 27)
