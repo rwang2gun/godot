@@ -30,6 +30,10 @@ window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/candyants_level_tool/plugin.cfg")
+
 [gui]
 
 theme/custom="res://theme/candyants.tres"

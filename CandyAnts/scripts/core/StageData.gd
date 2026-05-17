@@ -3,6 +3,7 @@ class_name StageData extends Resource
 @export var id: int = 0
 @export var display_name: String = ""
 @export var scene: PackedScene = null
+@export var layout: Resource = null
 @export var total_ants: int = 10
 @export var candy_hp: int = 10
 @export var time_limit_seconds: float = 120.0
