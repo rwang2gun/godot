@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b6cbtnghostshadow0001"]
+
+[ext_resource type="Script" path="res://tests/CButtonGhostShadowTest.gd" id="1_test"]
+
+[node name="CButtonGhostShadowTest" type="Node"]
+script = ExtResource("1_test")
