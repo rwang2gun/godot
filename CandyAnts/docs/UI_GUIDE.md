@@ -277,7 +277,7 @@ normalize_svg.py는 **하드코딩된 5장**(logo×3 + sprites/home.svg + illust
 
 > **empty vs disabled 계약 (phase 10 freeze)** — 두 state는 시각적으로 동일(α 0.55)하지만 입력 처리는 분리. **empty**(count=0)는 `Button.disabled=false` 유지 → 'out of stock' 알림 sound hook 같은 의미적 click 가능. **disabled**(stage 종료 등)는 `Button.disabled=true` → 입력 차단. phase 11 HUD wiring 작성자는 본 분리를 준수.
 - export `skill_id: StringName` (SkillRegistry ID와 1:1)
-- 메서드: `set_count(n: int)`, `set_selected(b: bool)`
+- 메서드: `set_count(n: int)`, `set_selected(b: bool)`, `set_disabled_state(b: bool)` (phase 11 freeze 확장 — atom-internal `disabled = b` 적용 후 `_update_visual()` 호출. 외부 호출자는 `Button.disabled = b` 직접 대입 금지 — visual refresh 보장 X)
 
 ### 3.5 `LogoPanel` (Phase 12 title)
 - `wordmark.svg` + `mascot.svg` 합성. 1.0 → 1.03 idle bob.

@@ -1,7 +1,7 @@
 extends Node
 
-# Phase 9 complete 차단 조건.
-# 13 production SVG sanity + svg_color_map sanity_invariants 4종 + import Godot 4.6 실제 4종 키 검증.
+# Phase 9 complete 차단 조건 (phase 11에서 ui icons 2장 추가 → 15장).
+# production SVG sanity + svg_color_map sanity_invariants 4종 + import Godot 4.6 실제 4종 키 검증.
 # invariant[3] (handoff class 매핑 entry 존재)은 normalize_svg.py --scan-handoff-all 책임.
 # (flags/filter는 Godot 4 .import key 부재, ProjectSettings default Linear 의존 — impl R1-H2 정정.)
 
@@ -19,6 +19,9 @@ const PRODUCTION_SVGS := [
 	"res://assets/icons/skills/miner.svg",
 	"res://assets/sprites/home.svg",
 	"res://assets/illustrations/stage_bg.svg",
+	# Phase 11: PauseBtn icon assets (토큰 hex #3A2A1C 1:1, normalize_svg.py 외 수동 작성).
+	"res://assets/icons/ui/pause.svg",
+	"res://assets/icons/ui/play.svg",
 ]
 
 # UI_GUIDE §1.1·§1.2 토큰 oklch 문자열 (canonical handoff form).
@@ -127,7 +130,7 @@ func _finish(failures: Array) -> void:
 			print("  ", f)
 		get_tree().quit(1)
 	else:
-		print("[SvgImportSmokeTest] PASS — 13 SVG verified, 4 sanity invariants checked, imports OK")
+		print("[SvgImportSmokeTest] PASS — %d SVG verified, 4 sanity invariants checked, imports OK" % PRODUCTION_SVGS.size())
 		print("  (invariant[3] handoff class mapping — normalize_svg.py --scan-handoff-all gate)")
 		get_tree().quit(0)
 

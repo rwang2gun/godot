@@ -1,14 +1,41 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=2 format=3 uid="uid://b6sktbphase11"]
 
-[ext_resource type="Script" path="res://scripts/ui/SkillToolbar.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/SkillToolbar.gd" id="1_toolbar"]
 
 [node name="SkillToolbar" type="CanvasLayer"]
 process_mode = 3
-layer = 5
-script = ExtResource("1")
+layer = 10
+script = ExtResource("1_toolbar")
 hbox_path = NodePath("Panel/HBox")
 
-[node name="Panel" type="PanelContainer" parent="."]
+[node name="Panel" type="Control" parent="."]
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -140.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="Background" type="ColorRect" parent="Panel"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.914, 0.875, 0.796, 1)
+mouse_filter = 2
+
+[node name="TopBorder" type="ColorRect" parent="Panel"]
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_bottom = 3.0
+grow_horizontal = 2
+color = Color(0.227, 0.165, 0.110, 1)
+mouse_filter = 2
+
+[node name="HBox" type="HBoxContainer" parent="Panel"]
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
@@ -20,6 +47,6 @@ offset_right = 400.0
 offset_bottom = -16.0
 grow_horizontal = 2
 grow_vertical = 0
-
-[node name="HBox" type="HBoxContainer" parent="Panel"]
 alignment = 1
+theme_override_constants/separation = 14
+mouse_filter = 2

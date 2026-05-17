@@ -119,10 +119,10 @@
       "name": "ui-hud-toolbar-replace",
       "duration_estimate": 7200,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-17T09:55:07",
+      "completed_at": "2026-05-17T11:18:26",
+      "duration_seconds": 4999
     },
     {
       "id": 12,

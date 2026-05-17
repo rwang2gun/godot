@@ -22,6 +22,7 @@ candy_path = NodePath("World/Candy")
 home_path = NodePath("World/Home")
 spawner_path = NodePath("Spawner")
 hud_path = NodePath("HUD")
+toolbar_path = NodePath("SkillToolbar")
 ant_scene = ExtResource("6")
 spawn_parent_path = NodePath("World")
 

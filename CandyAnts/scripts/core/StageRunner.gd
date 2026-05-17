@@ -1,10 +1,14 @@
 class_name StageRunner extends Node
 
+const GameAction := preload("res://scripts/input/GameAction.gd")
+const RR_STEP: int = 5
+
 @export var stage_data: StageData = null
 @export var candy_path: NodePath
 @export var home_path: NodePath
 @export var spawner_path: NodePath
 @export var hud_path: NodePath
+@export var toolbar_path: NodePath
 @export var ant_scene: PackedScene = null
 @export var spawn_parent_path: NodePath
 
@@ -14,6 +18,7 @@ var _candy: Candy = null
 var _home: Home = null
 var _spawner: AntSpawner = null
 var _hud: Node = null
+var _toolbar: Node = null
 var _spawn_parent: Node = null
 
 var _time_left: float = 0.0
@@ -29,6 +34,7 @@ func _ready() -> void:
 	_home = get_node_or_null(home_path) as Home
 	_spawner = get_node_or_null(spawner_path) as AntSpawner
 	_hud = get_node_or_null(hud_path)
+	_toolbar = get_node_or_null(toolbar_path)
 	_spawn_parent = get_node_or_null(spawn_parent_path)
 	if _spawn_parent == null:
 		_spawn_parent = self
@@ -56,15 +62,23 @@ func _ready() -> void:
 		if _spawner.ant_scene == null:
 			_spawner.ant_scene = ant_scene
 		_spawner.total = stage_data.total_ants
-		_spawner.release_rate = stage_data.release_rate_initial
 		if _home != null and _spawner.spawn_position == Vector2.ZERO:
 			_spawner.spawn_position = _home.get_spawn_position()
 		if not _spawner.spawn_finished.is_connected(_on_spawner_finished):
 			_spawner.spawn_finished.connect(_on_spawner_finished)
+		# codex plan-review v1 MED-2: 직접 대입 대신 set_release_rate 호출 →
+		# AntSpawner가 release_rate_changed emit → ReleaseRateStepper.Value Label 동기.
+		# .tscn 기본 Value text가 빈 문자열인 risk를 첫 frame에 채움.
+		_spawner.set_release_rate(stage_data.release_rate_initial)
 		_spawner.start(_spawn_parent)
 
 	_time_left = stage_data.time_limit_seconds
 	_completed = false
+
+	# Phase 11: HUD ReleaseRateStepper의 KB/Pad RELEASE_RATE_UP/DOWN 소비자.
+	# PAUSE_TOGGLE은 StepFrame 소비, 본 핸들러는 release_rate 만 처리.
+	if not EventBus.action_triggered.is_connected(_on_action):
+		EventBus.action_triggered.connect(_on_action)
 
 	# Phase 6: stage 결과 표시는 SceneFlow/Overlay 책임. StageRunner는 emit만 함.
 
@@ -83,6 +97,7 @@ func _process(delta: float) -> void:
 	if score_system.is_cleared(candy_hp):
 		_completed = true
 		EventBus.stage_cleared.emit(_make_result(true, ""))
+		_disable_toolbar()
 		return
 
 	if (_spawner_finished
@@ -91,11 +106,34 @@ func _process(delta: float) -> void:
 		and candy_hp > 0):
 		_completed = true
 		EventBus.stage_failed.emit(_make_result(false, "no_more_ants"))
+		_disable_toolbar()
 		return
 
 	if _time_left <= 0.0:
 		_completed = true
 		EventBus.stage_failed.emit(_make_result(false, "time_out"))
+		_disable_toolbar()
+
+func _disable_toolbar() -> void:
+	# codex plan-review v1 HIGH-2: direct ref 라우팅 — global group lookup 사용 X.
+	# Stage01은 toolbar_path 미설정 → _toolbar null → 안전한 no-op.
+	if _toolbar != null and _toolbar.has_method("set_all_disabled"):
+		_toolbar.set_all_disabled(true)
+
+func _on_action(name: StringName, _payload: Dictionary) -> void:
+	if _completed or _spawner == null:
+		return
+	# codex plan-review v2 NEW-M1: pause 중 RELEASE_RATE_UP/DOWN 차단.
+	# Stepper는 INHERIT process_mode라 mouse click이 자동 차단되지만, KB(F1/F2)/Pad(D-Pad↑↓)는
+	# InputRouter → action_triggered 경로라 본 가드가 일관성 보장.
+	# PAUSE_TOGGLE은 StepFrame이 소비 → 본 핸들러는 release_rate 만 처리하므로 blanket guard 안전.
+	var tree: SceneTree = get_tree()
+	if tree != null and tree.paused:
+		return
+	if name == GameAction.RELEASE_RATE_UP:
+		_spawner.set_release_rate(_spawner.release_rate + RR_STEP)
+	elif name == GameAction.RELEASE_RATE_DOWN:
+		_spawner.set_release_rate(_spawner.release_rate - RR_STEP)
 
 func _make_result(cleared: bool, reason: String) -> Dictionary:
 	return {
@@ -133,3 +171,5 @@ func _exit_tree() -> void:
 	# 누수 방지 (GAME_FLOW_PROPOSAL_V5 §3.1 Pre-Phase 6 hot-fix).
 	if score_system != null:
 		score_system.stop()
+	if EventBus.action_triggered.is_connected(_on_action):
+		EventBus.action_triggered.disconnect(_on_action)

@@ -1,0 +1,27 @@
+[gd_scene load_steps=3 format=3 uid="uid://b1xui0releaseratestepper"]
+
+[ext_resource type="Script" path="res://scripts/ui/ReleaseRateStepper.gd" id="1_stepper"]
+[ext_resource type="Script" path="res://scripts/ui/atoms/CButton.gd" id="2_cbutton"]
+
+[node name="ReleaseRateStepper" type="HBoxContainer"]
+theme_override_constants/separation = 6
+script = ExtResource("1_stepper")
+
+[node name="BtnMinus" type="Button" parent="."]
+custom_minimum_size = Vector2(28, 28)
+text = "−"
+script = ExtResource("2_cbutton")
+kind = 2
+
+[node name="Value" type="Label" parent="."]
+custom_minimum_size = Vector2(40, 28)
+text = ""
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BtnPlus" type="Button" parent="."]
+custom_minimum_size = Vector2(28, 28)
+text = "+"
+script = ExtResource("2_cbutton")
+kind = 2

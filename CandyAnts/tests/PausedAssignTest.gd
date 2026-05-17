@@ -80,20 +80,21 @@ func _ready() -> void:
 	if not _toolbar._pending_skill_id == "":
 		_fail("case-B baseline: _pending_skill_id != \"\" after first assign"); return
 	_toolbar._inventory["blocker"] = 1
-	var btn: Button = _toolbar._buttons.get("blocker") as Button
-	if btn == null:
-		_fail("case-B: blocker Button 미생성"); return
-	# (B-1) 엔진 readout — paused 상태에서도 Button.can_process() == true 여야 ALWAYS propagation 정상.
+	# Phase 11: SkillToolbar 내부 dict는 _buttons → _slots (SkillSlot atom). SkillSlot extends Button.
+	var slot: SkillSlot = _toolbar._slots.get("blocker") as SkillSlot
+	if slot == null:
+		_fail("case-B: blocker SkillSlot 미생성"); return
+	# (B-1) 엔진 readout — paused 상태에서도 SkillSlot.can_process() == true 여야 ALWAYS propagation 정상.
 	if not get_tree().paused:
 		_fail("case-B baseline: tree.paused != true"); return
-	if not btn.can_process():
-		_fail("case-B (process_mode propagation 회귀): Button.can_process() == false during paused"); return
+	if not slot.can_process():
+		_fail("case-B (process_mode propagation 회귀): SkillSlot.can_process() == false during paused"); return
 	if not _toolbar.can_process():
 		_fail("case-B: SkillToolbar.can_process() == false during paused (process_mode 회귀)"); return
-	# (B-2) signal 경로 — Button.pressed → SkillToolbar._on_button_pressed → pending=id
-	_toolbar.call("_refresh_button", "blocker")
-	btn.disabled = false
-	btn.pressed.emit()
+	# (B-2) signal 경로 — SkillSlot.pressed → SkillToolbar._on_slot_pressed → pending=id
+	slot.set_count(1)
+	slot.set_disabled_state(false)
+	slot.pressed.emit()
 	if _toolbar._pending_skill_id != "blocker":
 		_fail("case-B: Button.pressed 후 _pending_skill_id != 'blocker' (got '%s')" % _toolbar._pending_skill_id); return
 

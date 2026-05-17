@@ -1,37 +1,94 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3 uid="uid://b6huiphase11"]
 
-[ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/ui/InputHintLabel.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1_hud"]
+[ext_resource type="Script" path="res://scripts/ui/InputHintLabel.gd" id="2_hint"]
+[ext_resource type="PackedScene" path="res://scenes/ui/atoms/Counter.tscn" id="3_counter"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ReleaseRateStepper.tscn" id="4_stepper"]
+[ext_resource type="Script" path="res://scripts/ui/PauseBtn.gd" id="5_pausebtn"]
 
 [node name="HUD" type="CanvasLayer"]
-script = ExtResource("1")
+layer = 10
+script = ExtResource("1_hud")
 
-[node name="Root" type="VBoxContainer" parent="."]
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 320.0
-offset_bottom = 240.0
+[node name="Root" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
-[node name="Time" type="Label" parent="Root"]
-text = "시간: --"
+[node name="TopLeft" type="HBoxContainer" parent="Root"]
+offset_left = 32.0
+offset_top = 32.0
+offset_right = 532.0
+offset_bottom = 116.0
+theme_override_constants/separation = 12
+mouse_filter = 2
 
-[node name="Out" type="Label" parent="Root"]
-text = "운반 중: 0"
+[node name="CounterCandyHp" parent="Root/TopLeft" instance=ExtResource("3_counter")]
+kind = 0
+top_label_en = "CANDY HP"
+bottom_label_ko = "사탕 HP"
 
-[node name="Saved" type="Label" parent="Root"]
-text = "귀가: 0"
+[node name="CounterInTransit" parent="Root/TopLeft" instance=ExtResource("3_counter")]
+kind = 1
+top_label_en = "IN TRANSIT"
+bottom_label_ko = "운반 중"
 
-[node name="Lost" type="Label" parent="Root"]
-text = "잃음: 0"
+[node name="CounterSaved" parent="Root/TopLeft" instance=ExtResource("3_counter")]
+kind = 2
+top_label_en = "SAVED"
+bottom_label_ko = "귀가"
 
-[node name="Candy" type="Label" parent="Root"]
-text = "사탕: --"
+[node name="CounterLost" parent="Root/TopLeft" instance=ExtResource("3_counter")]
+kind = 3
+top_label_en = "LOST"
+bottom_label_ko = "잃음"
 
-[node name="InputHint" type="Label" parent="Root"]
+[node name="TopRight" type="HBoxContainer" parent="Root"]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -432.0
+offset_top = 32.0
+offset_right = -32.0
+offset_bottom = 116.0
+grow_horizontal = 0
+theme_override_constants/separation = 12
+mouse_filter = 2
+
+[node name="CounterTime" parent="Root/TopRight" instance=ExtResource("3_counter")]
+kind = 4
+top_label_en = "TIME"
+bottom_label_ko = "남은 시간"
+
+[node name="ReleaseRateStepper" parent="Root/TopRight" instance=ExtResource("4_stepper")]
+
+[node name="PauseBtn" type="Button" parent="Root/TopRight"]
+custom_minimum_size = Vector2(56, 56)
+script = ExtResource("5_pausebtn")
+kind = 2
+
+[node name="AlwaysBranch" type="Control" parent="."]
+process_mode = 3
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -200.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="InputHintLabel" type="Label" parent="AlwaysBranch"]
+anchor_left = 0.5
+anchor_top = 0.0
+anchor_right = 0.5
+anchor_bottom = 0.0
+offset_left = -240.0
+offset_top = 40.0
+offset_right = 240.0
+offset_bottom = 64.0
+horizontal_alignment = 1
 text = ""
-script = ExtResource("2")
-
-[node name="StageCompleteDialog" type="AcceptDialog" parent="."]
-title = "스테이지"
-dialog_text = ""
-size = Vector2i(400, 120)
+script = ExtResource("2_hint")

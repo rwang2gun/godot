@@ -96,6 +96,13 @@ func set_selected(b: bool) -> void:
 	if is_inside_tree():
 		_update_visual()
 
+# UI_GUIDE §3.4 freeze 확장 (phase 11). 외부 호출자는 Button.disabled 직접 대입 금지 —
+# _update_visual() 호출 보장이 없어 alpha 0.55 fade가 안 보일 수 있음.
+func set_disabled_state(b: bool) -> void:
+	disabled = b
+	if is_inside_tree():
+		_update_visual()
+
 func _clear_button_styles() -> void:
 	# Button의 Theme stylebox를 transparent로 override — MainBG/ShadowBG가 시각 담당.
 	var transparent := StyleBoxEmpty.new()
