@@ -232,6 +232,8 @@ normalize_svg.py는 **하드코딩된 5장**(logo×3 + sprites/home.svg + illust
 - HBox: 12px Jua label + 14px Jua value
 - bg: 카운터 색 tint (peach_300/grape_300/mint_300/berry_300/lemon_300 중)
 - border: 2px ink_900, radius 999 (pill), padding (6, 12)
+- **API (phase 10 freeze)**: `set_label_value(label: String, value: String) -> void` — label/value를 한 호출로 동시 갱신. atom-local 메서드 (Tween/animation 부수효과 없음, 순수 setter).
+- **export**: `label: String`, `value: String`, `tint: TintKind` (`scripts/ui/Tokens.gd` enum — PEACH/GRAPE/MINT/BERRY/LEMON).
 
 ### 3.3 `Counter` (HUD 4 + 1)
 - 사이즈: **110×84**
@@ -250,26 +252,30 @@ normalize_svg.py는 **하드코딩된 5장**(logo×3 + sprites/home.svg + illust
 
 ### 3.4 `SkillSlot` (스킬 toolbar 1칸)
 - 사이즈: **88×88**
-- 노드 트리:
+- 노드 트리 (phase 10 freeze — Icon/HotkeyPill/CountBadge/KoLabel은 MainBG의 자식이라 hover translate 시 함께 이동):
   ```
-  SkillSlot (Button + 자식 BG로 sticker shadow)
-  ├─ ShadowBG       (StyleBoxFlat 4,4 offset, ink_900)
-  ├─ MainBG         (cream_100 / peach_300 selected, 3 ink, 16 radius)
-  ├─ Icon           (TextureRect, 56×56 SVG)
-  ├─ HotkeyPill     (top-left, 10px JetBrains Mono, white α0.7 pill)
-  ├─ CountBadge     (top-right, 13px Jua, ink fill, white text, pill, 2px cream border)
-  ├─ KoLabel        (bottom, 11px Jua, "등반"/"낙하산"/...)
-  └─ FocusHalo      (3px mint_500 outline, 4px offset, visible on `gui_focus_changed`)
+  SkillSlot (Button + transparent stylebox)
+  ├─ ShadowBG       (StyleBoxFlat 4,4 offset, ink_900)  ← 첫 자식, MainBG 아래 sticker shadow
+  ├─ MainBG         (Panel — cream_100 / peach_300 selected, 3 ink, 16 radius)
+  │   ├─ Icon           (TextureRect, 56×56 SVG, 중앙)
+  │   ├─ HotkeyPill     (PanelContainer top-left, 10px Jua placeholder for JetBrains Mono, white α0.7 pill)
+  │   ├─ CountBadge     (PanelContainer top-right, 13px Jua, ink fill, white text, pill, 2px cream border)
+  │   └─ KoLabel        (Label bottom, 11px Jua, "등반"/"낙하산"/...)
+  └─ FocusHalo      (Panel — 3px mint_500 outline, 4px offset, visible on `gui_focus_changed`, 마지막 자식 → top z-order)
   ```
+- **Hover translate**: MainBG.position.y = -2 → Icon/HotkeyPill/CountBadge/KoLabel 4개 동시 이동.
+- **Pressed (selected/unselected 동일)**: bg = peach_300 + sm shadow (ShadowBG offset (2,2)).
 - 8 states (4 base × 2 hover/press):
-  | state | bg | border | filter |
-  |---|---|---|---|
-  | armed (idle, count > 0) | cream_100 | 3 ink | none |
-  | selected | peach_300 | 3 ink | none |
-  | hover (armed) | cream_100 | 3 ink | y-2 translate |
-  | pressed | peach_300 | 3 ink | sm shadow + boop |
-  | empty (count = 0) | cream_100 | 3 ink | saturate 30% + α 0.55 + disabled |
-  | disabled (stage 종료 등) | cream_100 | 3 ink | saturate 30% + α 0.55 |
+  | state | bg | border | filter | Button.disabled |
+  |---|---|---|---|---|
+  | armed (idle, count > 0) | cream_100 | 3 ink | none | false |
+  | selected | peach_300 | 3 ink | none | false |
+  | hover (armed) | cream_100 | 3 ink | y-2 translate | false |
+  | pressed | peach_300 | 3 ink | sm shadow + boop | false |
+  | empty (count = 0) | cream_100 | 3 ink | "disabled-like" 시각 (α 0.55, post-MVP에서 saturate 30%) | **false (clickable for 'out of stock' feedback hook)** |
+  | disabled (stage 종료 등) | cream_100 | 3 ink | "disabled-like" 시각 (α 0.55, post-MVP에서 saturate 30%) | **true (input ignore)** |
+
+> **empty vs disabled 계약 (phase 10 freeze)** — 두 state는 시각적으로 동일(α 0.55)하지만 입력 처리는 분리. **empty**(count=0)는 `Button.disabled=false` 유지 → 'out of stock' 알림 sound hook 같은 의미적 click 가능. **disabled**(stage 종료 등)는 `Button.disabled=true` → 입력 차단. phase 11 HUD wiring 작성자는 본 분리를 준수.
 - export `skill_id: StringName` (SkillRegistry ID와 1:1)
 - 메서드: `set_count(n: int)`, `set_selected(b: bool)`
 

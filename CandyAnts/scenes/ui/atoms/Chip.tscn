@@ -1,0 +1,40 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1xcatoms0chip"]
+
+[ext_resource type="Script" path="res://scripts/ui/atoms/Chip.gd" id="1_chip"]
+
+[node name="Chip" type="Control"]
+custom_minimum_size = Vector2(80, 28)
+size_flags_horizontal = 0
+size_flags_vertical = 0
+script = ExtResource("1_chip")
+
+[node name="ShadowBG" type="Panel" parent="."]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 2.0
+offset_bottom = 2.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainPanel" type="PanelContainer" parent="."]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBox" type="HBoxContainer" parent="MainPanel"]
+theme_override_constants/separation = 6
+
+[node name="LabelText" type="Label" parent="MainPanel/HBox"]
+text = ""
+theme_override_font_sizes/font_size = 12
+
+[node name="ValueText" type="Label" parent="MainPanel/HBox"]
+text = ""
+theme_override_font_sizes/font_size = 14

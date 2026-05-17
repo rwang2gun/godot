@@ -44,3 +44,23 @@ const COUNTER_COLOR := {
 	CounterKind.LOST:       BERRY_500,
 	CounterKind.TIME:       LEMON_700,
 }
+
+# Tint kind (UI_GUIDE §3.2) — phase 10 Chip atom용.
+# 5 tint = brand palette의 *_300 변종. border는 현 spec 기준 모두 ink_900.
+enum TintKind { PEACH, GRAPE, MINT, BERRY, LEMON }
+
+const TINT_BG := {
+	TintKind.PEACH: PEACH_300,
+	TintKind.GRAPE: GRAPE_300,
+	TintKind.MINT:  MINT_300,
+	TintKind.BERRY: BERRY_300,
+	TintKind.LEMON: LEMON_300,
+}
+
+const TINT_BORDER := {
+	TintKind.PEACH: INK_900,
+	TintKind.GRAPE: INK_900,
+	TintKind.MINT:  INK_900,
+	TintKind.BERRY: INK_900,
+	TintKind.LEMON: INK_900,
+}

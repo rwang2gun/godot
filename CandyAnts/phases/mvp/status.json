@@ -108,10 +108,10 @@
       "name": "ui-atoms-foundation",
       "duration_estimate": 7200,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-17T08:44:12",
+      "completed_at": "2026-05-17T09:49:09",
+      "duration_seconds": 3897
     },
     {
       "id": 11,

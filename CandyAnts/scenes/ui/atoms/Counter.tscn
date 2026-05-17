@@ -1,0 +1,53 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1xcatoms0counter"]
+
+[ext_resource type="Script" path="res://scripts/ui/atoms/Counter.gd" id="1_counter"]
+
+[node name="Counter" type="Control"]
+custom_minimum_size = Vector2(110, 84)
+script = ExtResource("1_counter")
+
+[node name="ShadowBG" type="Panel" parent="."]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 4.0
+offset_bottom = 4.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainPanel" type="PanelContainer" parent="."]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="MainPanel"]
+theme_override_constants/separation = 2
+
+[node name="HBox" type="HBoxContainer" parent="MainPanel/VBox"]
+theme_override_constants/separation = 6
+
+[node name="ColorDot" type="ColorRect" parent="MainPanel/VBox/HBox"]
+custom_minimum_size = Vector2(10, 10)
+size_flags_vertical = 4
+
+[node name="TopLabel" type="Label" parent="MainPanel/VBox/HBox"]
+text = ""
+theme_override_font_sizes/font_size = 12
+size_flags_vertical = 4
+
+[node name="BigNumber" type="Label" parent="MainPanel/VBox"]
+text = "0"
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+pivot_offset = Vector2(50, 20)
+
+[node name="KoLabel" type="Label" parent="MainPanel/VBox"]
+text = ""
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 1

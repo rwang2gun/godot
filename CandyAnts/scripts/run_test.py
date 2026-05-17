@@ -10,6 +10,11 @@ Usage:
 Environment:
     GODOT_BIN — 강제 지정 (없으면 PATH → 알려진 후보 순으로 탐색)
 
+Fresh clone bootstrap (한 번):
+    # 신규 class_name 등록을 위한 project import 1회 실행. 새 atom/스크립트 추가 후에도 동일.
+    "$GODOT_BIN" --headless --path . --import
+    # 이후 run_test.py 실행 시 새 class_name이 인식됨.
+
 Exit code: 테스트 씬이 get_tree().quit(N)으로 emit하는 N (0=PASS, 1=FAIL).
 타임아웃은 --quit-after 3600 (60s @ 60fps) 안전망.
 """
