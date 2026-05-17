@@ -1,7 +1,7 @@
 # Playtest Handoff — 2026-05-16 (Phase 9 완료 직후)
 
 > 다음 세션에서 실제 플레이 테스트하며 보완할 항목 정리.
-> 위치: `phases/mvp/PLAYTEST_HANDOFF_2026-05-16.md`
+> 위치: `worklog/2026-05/2026-05-16-playtest-handoff.md` (이전 위치: `phases/mvp/PLAYTEST_HANDOFF_2026-05-16.md`)
 > 작성 시점: Phase 9 (ui-theme-assets) 완료 + 사후 entity 시각 미세조정 진행 중.
 
 ---
@@ -161,11 +161,11 @@ python scripts/execute.py mvp status
 | `CLAUDE.md` | 프로젝트 헌법 — Phase 시작 전 강제 read |
 | `docs/PRD.md` / `docs/ARCHITECTURE.md` / `docs/ADR.md` | 코어 spec (UI phase에선 짧게) |
 | `docs/UI_GUIDE.md` | UI 1차 SoT — phase 10~13 진입 시 강제 read. §0.5 운영 모델, §3 atom 카탈로그가 phase 10 핵심 |
-| `phases/mvp/PRE_PHASE9_SPRITE_STATE.md` | mixed-canon 정책 (entity=PNG, UI/chrome=SVG) |
+| `worklog/2026-05/2026-05-16-pre-phase9-sprite-state.md` | mixed-canon 정책 (entity=PNG, UI/chrome=SVG) |
 | `phases/mvp/phase09-ui-theme-assets.md` v4 | Phase 9 spec final |
 | `phases/mvp/plans/phase09-plan.md` v8 | Phase 9 impl plan final |
 | `phases/mvp/reviews/phase09-impl-review.md` | 5 self + 5 codex round 사이클 기록 |
-| 본 문서 (`PLAYTEST_HANDOFF_2026-05-16.md`) | **다음 세션 시작점** — 본 문서 → playtest → 보완 → phase 10 |
+| 본 문서 (`worklog/2026-05/2026-05-16-playtest-handoff.md`) | **다음 세션 시작점** — 본 문서 → playtest → 보완 → phase 10 |
 
 ---
 

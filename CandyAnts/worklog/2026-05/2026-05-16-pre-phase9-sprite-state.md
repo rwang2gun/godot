@@ -2,7 +2,7 @@
 
 > 작성일: 2026-05-16
 > 작성 시점: Phase 8(input-pause-step) 완료 후, Phase 9(ui-theme-assets) 진입 전
-> 위치: phases/mvp/PRE_PHASE9_SPRITE_STATE.md
+> 위치: worklog/2026-05/2026-05-16-pre-phase9-sprite-state.md (이전 위치: `phases/mvp/PRE_PHASE9_SPRITE_STATE.md`)
 > 목적: chibi PNG 스프라이트가 게임에 들어가는 hot-fix가 phase 9 정식 진입 전에 처리됐고, 핸드오프 SVG와의 충돌 정리가 필요해 현재 상태를 동결 기록.
 
 ---

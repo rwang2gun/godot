@@ -16,6 +16,7 @@
 - CRITICAL: Phase 시작 전 `docs/` 3개 문서(PRD/ARCHITECTURE/ADR) 모두 읽기
 - CRITICAL: Stage N 빌드 시작 전 이전 Stage가 회귀 없이 동작하는지 확인
 - CRITICAL: 한 Phase 완료 후에만 커밋, Phase 중간 커밋 금지
+- CRITICAL: gameplay phase와 직교한 장기 codex 협업(맵 에디터·에셋 폴리싱 등 툴링/리소스 파이프라인)은 `codex-worklog/<track>/`에 기록한다. 트리거: codex가 산출물을 돌려준 직후·해당 산출물을 커밋·반영하기 전. 흐름: 트랙별 `STATUS.md`(현재 상태·다음 작업·블로커 SoT) + 세션 단위 `YYYY-MM-DD-<topic>.md` 누적. 컨벤션 세부는 `codex-worklog/README.md` 참조. `phases/mvp/`·`worklog/`와 중복 기록 금지.
 - CRITICAL: Phase 완료 직전(수동 검증 통과 후 · `execute.py complete` 직전) 반드시 `/codex:adversarial-review` 실행, 결과는 `phases/<task>/reviews/phaseNN-impl-review.md`에 보존
 - CRITICAL: adversarial-review의 stage별 정책이 다르다 (2026-05-09 정책 갱신).
   - **Plan stage (Step 2~3, plan 리뷰)**: codex 리뷰에서 **CRITICAL/HIGH가 1건이라도 나오면 작업을 즉시 중단**하고 사용자에게 보고한다. 자동 재리뷰 사이클을 돌리지 않는다. 사용자가 수정 방향·범위·취소 여부를 결정한다. 근거: plan 단계 자동 재리뷰 사이클은 라운드 폭증을 유발하며(이전 game-flow plan은 v1~v5 5라운드), 비효율적이고 usage limit을 빠르게 소진한다.
