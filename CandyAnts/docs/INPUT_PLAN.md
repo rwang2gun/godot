@@ -122,32 +122,33 @@ static func world_to_screen(world_pos: Vector2, viewport: Viewport) -> Vector2:
 
 ---
 
-## 3. Phase 분할 — input 3개 + UI 5개 신규, stage 7개 시프트
+## 3. Phase 분할 — input 4개 + UI 5개 신규, stage 7개 시프트
 
-> **2026-05-09 개정 v2**: 사용자 결정으로 phase 5~12에 **input(3) + UI(5)** 8개를 끼워넣고 기존 stage 7개를 13~19로 시프트. UI는 흡수된 design handoff(`docs/design_handoff/`)를 시각 레퍼런스로, `docs/UI_GUIDE.md`를 1차 SoT로 사용. atoms는 별도 phase로 분리(phase 9). 사운드/BGM은 post-MVP.
+> **2026-05-09 개정 v3**: v2 개정(input 3 + UI 5 신규)에 phase 6 `game-flow-foundation`이 추가되어 v2의 phase 6~22가 phase 7~23으로 시프트. UI는 흡수된 design handoff(`docs/design_handoff/`)를 시각 레퍼런스로, `docs/UI_GUIDE.md`를 1차 SoT로 사용. atoms는 별도 phase로 분리(phase 10). 사운드/BGM은 post-MVP phase 21.
 
-현 status.json 기준 phase 1~4 완료, 5~19 pending.
+현 status.json 기준 phase 1~11 완료, 12~20 pending (v3 번호 기준).
 
 | # | 신규/기존 | 이름 | 핵심 산출물 |
 |---|---|---|---|
 | 5 | **신규(input)** | input-action-foundation | InputRouter + InputMap + KB/Mouse 마이그레이션 |
-| 6 | **신규(input)** | input-pad-cursor | VirtualCursor + Pad 매핑 + 개미 스냅 |
-| 7 | **신규(input)** | input-pause-step | pause 중 부여 + StepFrame + InputModeTracker + UI 힌트 |
-| 8 | **신규(ui)** | ui-theme-assets | Theme 리소스 + 폰트(Jua/Gaegu) + SVG 에셋 임포트 + Tokens.gd |
-| 9 | **신규(ui)** | ui-atoms-foundation | CButton/Chip/Counter/SkillSlot atoms + Motion 헬퍼 (단독 검증) |
-| 10 | **신규(ui)** | ui-hud-toolbar-replace | HUD/SkillToolbar 씬 교체 (atom 인스턴스화, 스크립트는 노드 경로만) |
-| 11 | **신규(ui)** | ui-stage-dialog | StageDialog(win/loss) + 트랜지션 + 사운드 hook |
-| 12 | **신규(ui)** | ui-title-menu | 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData(`user://save.cfg`) |
-| 13 | 5→13 | stage4-hazard-water | (그대로) |
-| 14 | 6→14 | stage5-basher | (그대로 — 단, 타일 스냅 후보 추가는 본 phase에서) |
-| 15 | 7→15 | stage6-digger | (그대로) |
-| 16 | 8→16 | stage7-miner | (그대로) |
-| 17 | 9→17 | stage8-climber | (그대로) |
-| 18 | 10→18 | stage9-floater | (그대로) |
-| 19 | 11→19 | stage10-bomber-polish | (그대로 — MVP 종료) |
-| 20 | **post-MVP** | sound-bgm-sfx | 사운드/BGM 임포트 + 모달/카운터/스킬 SFX (hook 자리는 phase 11에서 `EventBus.sfx_request`로 마련) |
-| 21 | **post-MVP** | input-touch | 터치 + 드래그 앤 드롭 + 루페 |
-| 22 | **post-MVP** | input-advanced | Rewind(undo) + Preview + CommandWheel + Overlay |
+| 6 | **신규(core)** | game-flow-foundation | SceneFlow / StageRouter / StageResultOverlayStub (phase 12에서 StageDialog로 교체) |
+| 7 | **신규(input)** | input-pad-cursor | VirtualCursor + Pad 매핑 + 개미 스냅 |
+| 8 | **신규(input)** | input-pause-step | pause 중 부여 + StepFrame + InputModeTracker + UI 힌트 |
+| 9 | **신규(ui)** | ui-theme-assets | Theme 리소스 + 폰트(Jua/Gaegu) + SVG 에셋 임포트 + Tokens.gd |
+| 10 | **신규(ui)** | ui-atoms-foundation | CButton/Chip/Counter/SkillSlot atoms + Motion 헬퍼 (단독 검증) |
+| 11 | **신규(ui)** | ui-hud-toolbar-replace | HUD/SkillToolbar 씬 교체 (atom 인스턴스화, 스크립트는 노드 경로만) |
+| 12 | **신규(ui)** | ui-stage-dialog | StageDialog(win/loss) + 트랜지션 + 사운드 hook |
+| 13 | **신규(ui)** | ui-title-menu | 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData(`user://save.cfg`) |
+| 14 | 5→14 | stage4-hazard-water | (그대로) |
+| 15 | 6→15 | stage5-basher | (그대로 — 단, 타일 스냅 후보 추가는 본 phase에서) |
+| 16 | 7→16 | stage6-digger | (그대로) |
+| 17 | 8→17 | stage7-miner | (그대로) |
+| 18 | 9→18 | stage8-climber | (그대로) |
+| 19 | 10→19 | stage9-floater | (그대로) |
+| 20 | 11→20 | stage10-bomber-polish | (그대로 — MVP 종료) |
+| 21 | **post-MVP** | sound-bgm-sfx | 사운드/BGM 임포트 + 모달/카운터/스킬 SFX (hook 자리는 phase 12에서 `EventBus.sfx_request`로 마련) |
+| 22 | **post-MVP** | input-touch | 터치 + 드래그 앤 드롭 + 루페 |
+| 23 | **post-MVP** | input-advanced | Rewind(undo) + Preview + CommandWheel + Overlay |
 
 ### 왜 input → UI → stage 순서? (v2 정리)
 
@@ -155,8 +156,8 @@ static func world_to_screen(world_pos: Vector2, viewport: Viewport) -> Vector2:
 2. **현재 SkillToolbar가 stage4~10에서 매번 손댐** (인벤토리·새 스킬 추가). 액션 레이어 + 시각 레이어가 모두 안정된 후 stage 진행 → 재작업 0.
 3. **ROG Ally X 환경에서 dev-test = 패드**. stage4~10을 마우스로 dev-test하다가 후반에 패드 합치면 UX 회귀 위험.
 4. **UI를 input 다음에 두는 이유**: 디자인 적용 후 마우스/패드 양쪽으로 시각 검증해야 디자인 갭(예: VirtualCursor z-order, hover hint 위치)을 한 번에 잡음.
-5. **atoms를 별도 phase(9)로 분리한 이유**: 4 atom + Motion 헬퍼가 phase 10 HUD/Toolbar 교체 + phase 11 StageDialog + phase 12 메뉴에서 모두 재사용. 검증 단위를 atom 단독으로 쪼개면 시각/단위/회귀 검증이 가벼워지고 다음 phase의 변경 폭이 줄어듦.
-6. **타이틀/메뉴를 phase 12에 두는 이유**: StageDialog(phase 11)의 SceneFlow가 Title/Menu 진입점을 갖도록 자연스럽게 확장. 그 전에 둘 이유 없음.
+5. **atoms를 별도 phase(9)로 분리한 이유**: 4 atom + Motion 헬퍼가 phase 10 HUD/Toolbar 교체 + phase 12 StageDialog + phase 13 메뉴에서 모두 재사용. 검증 단위를 atom 단독으로 쪼개면 시각/단위/회귀 검증이 가벼워지고 다음 phase의 변경 폭이 줄어듦. (v3 renumber 후 번호 정합)
+6. **타이틀/메뉴를 phase 13에 두는 이유**: StageDialog(phase 12)의 SceneFlow가 Title/Menu 진입점을 갖도록 자연스럽게 확장. 그 전에 둘 이유 없음.
 7. **타일 스냅 후보 등록은 stage5(basher)에서 자연스럽게 합류** — phase 6에서 인터페이스만 열어두고 phase 14에서 채움.
 
 ---
@@ -180,7 +181,7 @@ InputMap에 등록할 **액션 이름은 snake_case 고정**. 디바이스별 bi
 | `skill_cycle_next` | E | RB | InputMap | 높음 | — |
 | `skill_cycle_prev` | Q | LB | InputMap | 높음 | — |
 | `skill_assign` | 좌클릭 | A | InputMap | 매우 높음 | `{screen_pos: Vector2, world_pos: Vector2}` |
-| `skill_cancel` | 우클릭 (InputMap, **phase 5**) / Esc (InputMap, **phase 12** — game state 분기와 함께) | B 단발 (game state=인게임+pending 시) | KB는 InputMap, 패드 B는 **raw** (release 시점 분기, 아래 규약) | 중간 | — |
+| `skill_cancel` | 우클릭 (InputMap, **phase 5**) / Esc (InputMap, **phase 13** — game state 분기와 함께. phase 12는 StageDialog-local `_unhandled_input` Esc만 처리, DEFER-1) | B 단발 (game state=인게임+pending 시) | KB는 InputMap, 패드 B는 **raw** (release 시점 분기, 아래 규약) | 중간 | — |
 | `target_next_ant` | Tab | D-Pad → | InputMap | 중간 | `{from_world_pos: Vector2}` |
 | `target_prev_ant` | Shift+Tab | D-Pad ← | InputMap | 중간 | `{from_world_pos: Vector2}` |
 | `pause_toggle` | Space | View | InputMap | 낮음 | — |
@@ -190,7 +191,7 @@ InputMap에 등록할 **액션 이름은 snake_case 고정**. 디바이스별 bi
 | `release_rate_up` | F2 | D-Pad ↑ | InputMap | 낮음 | — |
 | `release_rate_down` | F1 | D-Pad ↓ | InputMap | 낮음 | — |
 | `info_toggle` | H | X | InputMap | 낮음 | — |
-| `back_menu` | Esc (InputMap, **phase 12** — 메뉴 상태 / 또는 인게임에서 pending 없음) | B 단발 (game state=메뉴 또는 인게임+pending 없음) | KB는 InputMap, 패드 B는 **raw** (release 시점 분기) | 낮음 | — |
+| `back_menu` | Esc (InputMap, **phase 13** — 메뉴 상태 / 또는 인게임에서 pending 없음. phase 12는 StageDialog-local Esc만, DEFER-1) | B 단발 (game state=메뉴 또는 인게임+pending 없음) | KB는 InputMap, 패드 B는 **raw** (release 시점 분기) | 낮음 | — |
 
 #### Synthetic 액션 발화 규약 (InputRouter 내부)
 
@@ -219,7 +220,7 @@ _process(delta):
 
 #### Pad B 버튼 — 단발/홀드 분기 (raw 처리, codex review HIGH Round 4)
 
-`skill_cancel`(우클릭 phase 5 / Esc phase 12), `restart_stage`, `back_menu`(Esc phase 12)는 디바이스마다 다른 입력 방식이어서 **단일 InputMap entry로 매핑하면 안전하지 않다**. 특히 패드 B는 단발(`skill_cancel` 또는 `back_menu`)과 홀드(`restart_stage`) 둘 다를 가지는데 `event.is_action_pressed` 발화는 press 즉시이므로 단발 emit 후 1초 후 홀드 emit이 둘 다 발생 = race + destructive.
+`skill_cancel`(우클릭 phase 5 / Esc phase 13 — phase 12는 dialog-local만), `restart_stage`, `back_menu`(Esc phase 13)는 디바이스마다 다른 입력 방식이어서 **단일 InputMap entry로 매핑하면 안전하지 않다**. 특히 패드 B는 단발(`skill_cancel` 또는 `back_menu`)과 홀드(`restart_stage`) 둘 다를 가지는데 `event.is_action_pressed` 발화는 press 즉시이므로 단발 emit 후 1초 후 홀드 emit이 둘 다 발생 = race + destructive.
 
 **규약**:
 - B 버튼은 **InputMap에 등록하지 않음**. InputRouter가 raw `InputEventJoypadButton`(button_index=JOY_BUTTON_B)을 직접 잡는다.
@@ -231,9 +232,9 @@ _process(delta):
 - timer 만료 (1초 도달, 아직 press 중): `restart_stage` emit + 이후 release 무시 (timer reset).
 
 KB+Mouse 측은 별도 InputMap 액션으로 명확:
-- `skill_cancel` ← 우클릭 (phase 5 InputMap) / Esc (phase 12 InputMap — game state 분기와 함께 추가)
+- `skill_cancel` ← 우클릭 (phase 5 InputMap) / Esc (phase 13 InputMap — game state 분기와 함께. phase 12는 StageDialog-local Esc만)
 - `restart_stage` ← Ctrl+R (단발 — 단순, phase 5 InputMap)
-- `back_menu` ← Esc (phase 12 InputMap — 메뉴 상태에서만, game state가 `skill_cancel`과 분기)
+- `back_menu` ← Esc (phase 13 InputMap — 메뉴 상태에서만, game state가 `skill_cancel`과 분기. phase 12 StageDialog는 dialog-local `_unhandled_input` Esc만, DEFER-1)
 
 > 같은 raw-처리 패턴을 **post-MVP에서 다른 더블 액션이 추가되면 그대로 적용** (예: Menu 단발=minimap / 홀드 2초=nuke). InputMap 1대1이 깨지는 모든 케이스는 router에서 raw 처리.
 
@@ -449,7 +450,7 @@ InputModeTracker._on_action(...)        → mode = "mouse"|"pad" (event 종류�
 1. **마우스 클릭이 SkillToolbar UI 영역(버튼)일 때 `skill_assign`이 발화하면 안 됨** → InputRouter가 `get_viewport().is_input_handled()` 검사 후 emit. UI Control이 먼저 `accept_event()`함.
 2. **InputMap에 등록 안 된 액션 이름으로 emit 호출** → 컴파일 타임 잡기 위해 `GameAction.gd`의 const만 emit에 사용. 매직 스트링 금지.
 3. **`skill_select_3` 발화 시 stage_data.available_skills.size() < 3** → SkillToolbar에서 noop + 사운드/UI 거절 (이미 `_inventory.get(id, 0) <= 0`은 disabled 처리).
-4. **Esc가 메뉴 열기와 skill_cancel 둘 다** → **phase 12 도입 시점**의 엣지 케이스. 메뉴 미오픈 상태에서만 skill_cancel. 메뉴 오픈 상태에서는 메뉴 닫기 우선. 우선순위는 InputRouter가 game state 확인 후 분기. **Phase 5에서는 Esc가 InputMap 미등록 → 어떤 액션도 발화하지 않음** (회귀 가드: phase05-plan §검증 시나리오 case-C).
+4. **Esc가 메뉴 열기와 skill_cancel 둘 다** → **phase 13 도입 시점**의 엣지 케이스. 메뉴 미오픈 상태에서만 skill_cancel. 메뉴 오픈 상태에서는 메뉴 닫기 우선. 우선순위는 InputRouter가 game state 확인 후 분기. **Phase 5/12에서는 Esc가 InputMap 미등록 → 어떤 액션도 발화하지 않음** (phase 12 StageDialog만 dialog-local `_unhandled_input`으로 Esc → request_menu emit). 회귀 가드: phase05-plan §검증 시나리오 case-C.
 5. **`_unhandled_input` 미수신** → InputRouter는 Autoload(=루트 자식)이므로 viewport input 큐의 마지막 핸들러. UI Control 노드가 먼저 받게 보장. CanvasLayer SkillToolbar의 Button 클릭은 UI 우선이므로 `_unhandled_input`까지 안 옴 — 검증 필요.
 6. **stage1~3 마우스 회귀** — `_pending_skill_id` 상태 머신을 EventBus 액션 흐름으로 옮기되, 동작 일치. 헤드리스 테스트 추가: `tests/InputRouterTest.tscn` (skill_select → skill_assign → 인벤토리 차감).
 7. **카메라가 origin 아닐 때 좌표 변환 (codex review HIGH 후속)** — InputRouter가 매번 `viewport.get_canvas_transform()`을 다시 읽어야 함. 캐싱 금지(카메라 매 프레임 이동 가능). 회귀 테스트 §5.6에 명시.
@@ -475,7 +476,7 @@ InputModeTracker._on_action(...)        → mode = "mouse"|"pad" (event 종류�
    - 그 world_pos에 미리 배치한 Ant가 정확히 선택되는지 assert
 3. Stage01~03 마우스 회귀 — 클릭 → 부여 → 인벤토리 차감 정상 (특히 Stage03 카메라가 origin 아님)
 4. 1~8 키로 슬롯 전환 + 좌클릭으로 부여
-5. Q/E로 cycle, **우클릭으로 cancel** (Esc는 phase 5에 미바인딩 — phase 12에서 game state 분기와 함께 도입)
+5. Q/E로 cycle, **우클릭으로 cancel** (Esc는 phase 5에 미바인딩 — phase 13에서 game state 분기와 함께 InputMap 도입. phase 12 StageDialog는 dialog-local Esc만)
 6. `python scripts/run_test.py tests/Stage03HeadlessTest.tscn` PASS
 
 ---
@@ -723,5 +724,5 @@ phase 5/6/7 각 종료 시 다음이 모두 PASS:
 7. Ant.gd / Ant.tscn (stash@{0}) 처리 — 사용자 의도 확인 후 별도 commit / 폐기 / 보류
 8. phase 5(input-action-foundation) plan 작성 → adversarial-review → 구현 → impl-review → 완료
 9. phase 6(pad-cursor), 7(pause-step) 동일 절차
-10. phase 8~12(UI 5종) — `docs/UI_GUIDE.md`(1차 SoT) + `docs/design_handoff/`(시각 레퍼런스)로 plan 작성. 8 Theme/에셋 → 9 atoms+Motion → 10 HUD/Toolbar 교체 → 11 StageDialog → 12 Title/Menu 순서. 사운드는 phase 11에서 `EventBus.sfx_request` hook만 잡고 post-MVP로 분리.
+10. phase 9~13(UI 5종) — `docs/UI_GUIDE.md`(1차 SoT) + `docs/design_handoff/`(시각 레퍼런스)로 plan 작성. 9 Theme/에셋 → 10 atoms+Motion → 11 HUD/Toolbar 교체 → 12 StageDialog → 13 Title/Menu 순서 (v3 renumber 후). 사운드는 phase 12에서 `EventBus.sfx_request` hook만 잡고 post-MVP phase 21로 분리.
 11. phase 13~19(기존 stage4~10) — input/UI 양쪽 안정된 상태에서 마우스/패드 양쪽 dev-test.

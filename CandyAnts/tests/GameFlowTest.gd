@@ -13,7 +13,7 @@ const STAGE3_TRIGGER_X: float = 1750.0  # Stage03HeadlessTest와 동일
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed
 var _current_stage_root: Node = null
-var _overlay: Control = null  # StageResultOverlayStub — 동상
+var _overlay: Control = null  # StageDialog (phase 12: 구 StageResultOverlayStub 교체, 동일 API contract)
 
 var _failed: bool = false
 
@@ -25,7 +25,7 @@ func _ready() -> void:
 	_main = $Main
 	_scene_flow = _main.get_node("SceneFlow")
 	_current_stage_root = _main.get_node("CurrentStageRoot")
-	_overlay = _main.get_node("GlobalUI/StageResultOverlayStub") as Control
+	_overlay = _main.get_node("GlobalUI/StageDialog") as Control
 	if _scene_flow == null or _current_stage_root == null or _overlay == null:
 		_fail("missing nodes in Main")
 		return
@@ -122,10 +122,15 @@ func _scenario_b() -> void:
 		_fail("B.cleared expected stage_id=3 cleared=true got %s" % str(result))
 		return
 
-	if not _overlay.get_node("VBox/HBox/NextButton").disabled:
-		_fail("B.last_stage NextButton not disabled")
+	# Phase 12: Scenario B = Stage03 cleared + last-stage → visible=true + disabled=true (회색).
+	# is_next_visible/is_next_disabled 두 inspector를 모두 assert (plan v6.1 §3.9, SH-1 가드).
+	if not _overlay.is_next_visible():
+		_fail("B.last_stage NextButton not visible (expected visible=true for last+cleared)")
 		return
-	print("[GameFlowTest] B NextButton disabled OK")
+	if not _overlay.is_next_disabled():
+		_fail("B.last_stage NextButton not disabled (expected disabled=true for last+cleared)")
+		return
+	print("[GameFlowTest] B NextButton visible+disabled OK")
 
 	# 강제 emit — last stage라 cleared=true이므로 SceneFlow._on_request_next 통과 → load_next_stage → next_id=4 없음 → go_to_menu → stage1
 	EventBus.request_next.emit()
@@ -209,11 +214,12 @@ func _scenario_c() -> void:
 		return
 	print("[GameFlowTest] C no_more_ants OK")
 
-	# Next 차단 검증 (codex plan-review HIGH R2 대응)
-	if not _overlay.get_node("VBox/HBox/NextButton").disabled:
-		_fail("C.failed NextButton not disabled")
+	# Phase 12: Scenario C = stage1 loss → visible=false (hidden, loss UX).
+	# is_next_visible()==false expect (plan v6.1 §3.9, SH-1 가드 — hidden과 disabled를 다른 assertion으로 분리).
+	if _overlay.is_next_visible():
+		_fail("C.failed NextButton visible (expected visible=false for loss)")
 		return
-	print("[GameFlowTest] C NextButton disabled (overlay) OK")
+	print("[GameFlowTest] C NextButton hidden (loss) OK")
 
 	# 강제 signal emit — SceneFlow._on_request_next가 cleared 가드로 reject
 	EventBus.request_next.emit()

@@ -279,13 +279,13 @@ normalize_svg.py는 **하드코딩된 5장**(logo×3 + sprites/home.svg + illust
 - export `skill_id: StringName` (SkillRegistry ID와 1:1)
 - 메서드: `set_count(n: int)`, `set_selected(b: bool)`, `set_disabled_state(b: bool)` (phase 11 freeze 확장 — atom-internal `disabled = b` 적용 후 `_update_visual()` 호출. 외부 호출자는 `Button.disabled = b` 직접 대입 금지 — visual refresh 보장 X)
 
-### 3.5 `LogoPanel` (Phase 12 title)
+### 3.5 `LogoPanel` (Phase 13 title)
 - `wordmark.svg` + `mascot.svg` 합성. 1.0 → 1.03 idle bob.
 
-### 3.6 `StageSlotCard` (Phase 12 stage select)
+### 3.6 `StageSlotCard` (Phase 13 stage select)
 - 사이즈: 200×140
 - bg: cream_100 (잠금 시 cream_300 + α 0.6)
-- 자물쇠 아이콘: design_handoff에서 Lucide CDN 권장이지만 **정적 SVG로 박는다** (오프라인 보장) — Phase 12에서 `assets/icons/ui/lock.svg` 신규 작성
+- 자물쇠 아이콘: design_handoff에서 Lucide CDN 권장이지만 **정적 SVG로 박는다** (오프라인 보장) — Phase 13에서 `assets/icons/ui/lock.svg` 신규 작성
 - 별점 표시: 3개 polygon star (lemon_500 fill / cream_200 dim, 18×18, 3px ink)
 
 ## 4. Motion 헬퍼 (Phase 9에서 작성·시그니처 freeze, Phase 10 atoms가 호출)
@@ -362,7 +362,7 @@ static func fade_out(node: CanvasItem, duration: float = 0.3, pause_safe: bool =
 
 **Pause 호환**: 모달은 `PROCESS_MODE_ALWAYS`, 인-게임 motion은 `PROCESS_MODE_INHERIT` (pause 시 정지).
 
-## 5. SaveData 스키마 (Phase 12)
+## 5. SaveData 스키마 (Phase 13)
 
 `scripts/core/SaveData.gd` (Autoload), 저장 위치 `user://save.cfg` (ConfigFile).
 
@@ -412,7 +412,7 @@ func _migrate(cfg: ConfigFile, from_v: int, to_v: int) -> void:
 
 ### 5.3 별점 알고리즘 (v0.1) — **단일 SoT: `Scoring.compute_stars`**
 
-**owner**: `scripts/core/Scoring.gd` (RefCounted, 정적 헬퍼). Phase 11(stage-dialog)에서 신설. Phase 11 StageDialog와 Phase 12 SaveData.record_clear가 **모두 본 함수만 호출**. 두 곳에서 직접 계산 금지.
+**owner**: `scripts/core/Scoring.gd` (RefCounted, 정적 헬퍼). Phase 12(stage-dialog)에서 신설. Phase 12 StageDialog와 Phase 13 SaveData.record_clear가 **모두 본 함수만 호출**. 두 곳에서 직접 계산 금지.
 
 ```gdscript
 # scripts/core/Scoring.gd
@@ -437,7 +437,7 @@ static func compute_stars(saved: int, original_hp: int) -> int:
 | StageDialog | `scripts/ui/StageDialog.gd._on_stage_cleared` | `Scoring.compute_stars(saved, original_hp)` → 별 polygon fill 토글 |
 | SaveData    | `scripts/core/SaveData.record_clear` | `Scoring.compute_stars(saved, original_hp)` → `stage_progress[id].stars` 저장 |
 
-> **Freeze 정책**: `Scoring.compute_stars(saved, original_hp) -> int` 시그니처는 phase 11 완료 시 freeze. stage별 임계값 override는 v0.2(`data/stages/stageNN.tres.star_thresholds: PackedFloat32Array`)에서 도입 — 그때 본 함수에 옵션 인자 1개 추가(`stage_thresholds: Array = STAR_THRESHOLDS`).
+> **Freeze 정책**: `Scoring.compute_stars(saved, original_hp) -> int` 시그니처는 phase 12 완료 시 freeze. stage별 임계값 override는 v0.2(`data/stages/stageNN.tres.star_thresholds: PackedFloat32Array`)에서 도입 — 그때 본 함수에 옵션 인자 1개 추가(`stage_thresholds: Array = STAR_THRESHOLDS`).
 
 ### 5.4 손상/누락 처리
 - 파일 누락 → 신규 게임 init (warn만, error 아님)
@@ -471,9 +471,9 @@ static func compute_stars(saved: int, original_hp: int) -> int:
 
 | 항목 | 처리 |
 |---|---|
-| BGM / SFX | post-MVP phase 20 (sound-bgm-sfx). Phase 11(stage-dialog)에서 hook 시그널만 자리 마련 |
-| Settings 화면 실제 동작 | Phase 12에서 stub만 |
-| Credits 화면 | Phase 12에서 stub만 |
+| BGM / SFX | post-MVP phase 21 (sound-bgm-sfx). Phase 12(stage-dialog)에서 hook 시그널(`EventBus.sfx_request`)만 자리 마련 |
+| Settings 화면 실제 동작 | Phase 13에서 stub만 |
+| Credits 화면 | Phase 13에서 stub만 |
 | 키 리매핑 UI | post-MVP |
 | 별점 stage별 override | stage4~10 phase에서 필요 시 도입 |
 | 폰트 최종 픽 (Jua/Gaegu 교체) | 디자이너 후속 작업, Theme 1군데만 교체 |

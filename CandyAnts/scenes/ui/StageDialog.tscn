@@ -1,0 +1,152 @@
+[gd_scene load_steps=8 format=3 uid="uid://b6stagedialog0001"]
+
+[ext_resource type="Script" path="res://scripts/ui/StageDialog.gd" id="1_dlg"]
+[ext_resource type="Theme" path="res://theme/candyants.tres" id="2_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/atoms/CButton.tscn" id="3_cbutton"]
+[ext_resource type="PackedScene" path="res://scenes/ui/atoms/Chip.tscn" id="4_chip"]
+
+[sub_resource type="StyleBoxFlat" id="card_shadow"]
+bg_color = Color(0.227, 0.165, 0.110, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+
+[sub_resource type="StyleBoxFlat" id="card_panel"]
+bg_color = Color(0.961, 0.937, 0.890, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.227, 0.165, 0.110, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+
+[sub_resource type="LabelSettings" id="label_subtle"]
+font_size = 13
+font_color = Color(0.361, 0.271, 0.188, 1)
+
+[node name="StageDialog" type="Control"]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
+theme = ExtResource("2_theme")
+script = ExtResource("1_dlg")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.20, 0.13, 0.07, 0.55)
+mouse_filter = 0
+
+[node name="CardWrapper" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+
+[node name="Card" type="Control" parent="CardWrapper"]
+custom_minimum_size = Vector2(380, 440)
+mouse_filter = 1
+pivot_offset = Vector2(190, 220)
+
+[node name="ShadowBG" type="Panel" parent="CardWrapper/Card"]
+show_behind_parent = true
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 6.0
+offset_bottom = 6.0
+theme_override_styles/panel = SubResource("card_shadow")
+
+[node name="Main" type="PanelContainer" parent="CardWrapper/Card"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+theme_override_styles/panel = SubResource("card_panel")
+
+[node name="Margin" type="MarginContainer" parent="CardWrapper/Card/Main"]
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="CardWrapper/Card/Main/Margin"]
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="CardWrapper/Card/Main/Margin/VBox"]
+text = "스테이지 결과"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+
+[node name="Subtitle" type="Label" parent="CardWrapper/Card/Main/Margin/VBox"]
+text = "Result"
+horizontal_alignment = 1
+label_settings = SubResource("label_subtle")
+
+[node name="HeroScore" type="Label" parent="CardWrapper/Card/Main/Margin/VBox"]
+text = "0 / 0 조각"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 36
+
+[node name="StarRow" type="HBoxContainer" parent="CardWrapper/Card/Main/Margin/VBox"]
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="Star1" type="Control" parent="CardWrapper/Card/Main/Margin/VBox/StarRow"]
+custom_minimum_size = Vector2(44, 44)
+
+[node name="Poly" type="Polygon2D" parent="CardWrapper/Card/Main/Margin/VBox/StarRow/Star1"]
+position = Vector2(22, 22)
+color = Color(0.914, 0.875, 0.796, 1)
+
+[node name="Star2" type="Control" parent="CardWrapper/Card/Main/Margin/VBox/StarRow"]
+custom_minimum_size = Vector2(44, 44)
+
+[node name="Poly" type="Polygon2D" parent="CardWrapper/Card/Main/Margin/VBox/StarRow/Star2"]
+position = Vector2(22, 22)
+color = Color(0.914, 0.875, 0.796, 1)
+
+[node name="Star3" type="Control" parent="CardWrapper/Card/Main/Margin/VBox/StarRow"]
+custom_minimum_size = Vector2(44, 44)
+
+[node name="Poly" type="Polygon2D" parent="CardWrapper/Card/Main/Margin/VBox/StarRow/Star3"]
+position = Vector2(22, 22)
+color = Color(0.914, 0.875, 0.796, 1)
+
+[node name="StatChips" type="HBoxContainer" parent="CardWrapper/Card/Main/Margin/VBox"]
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="ChipSaved" parent="CardWrapper/Card/Main/Margin/VBox/StatChips" instance=ExtResource("4_chip")]
+tint = 2
+
+[node name="ChipLost" parent="CardWrapper/Card/Main/Margin/VBox/StatChips" instance=ExtResource("4_chip")]
+tint = 3
+
+[node name="ChipTime" parent="CardWrapper/Card/Main/Margin/VBox/StatChips" instance=ExtResource("4_chip")]
+tint = 4
+
+[node name="ButtonRow" type="HBoxContainer" parent="CardWrapper/Card/Main/Margin/VBox"]
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="ReplayBtn" parent="CardWrapper/Card/Main/Margin/VBox/ButtonRow" instance=ExtResource("3_cbutton")]
+kind = 1
+text = "다시 하기"
+
+[node name="NextBtn" parent="CardWrapper/Card/Main/Margin/VBox/ButtonRow" instance=ExtResource("3_cbutton")]
+text = "다음 단계"
+
+[node name="MenuBtn" parent="CardWrapper/Card/Main/Margin/VBox/ButtonRow" instance=ExtResource("3_cbutton")]
+kind = 2
+text = "메뉴로"

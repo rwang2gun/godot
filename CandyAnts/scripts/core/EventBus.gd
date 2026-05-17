@@ -11,6 +11,7 @@ signal request_replay
 signal request_next
 signal request_menu
 signal release_rate_changed(new_rate: int)
+signal sfx_request(id: StringName)   # phase 12 sound hook — receiver는 phase 20 산출
 
 # Phase 5 — InputRouter가 emit, SkillToolbar 등이 구독.
 # payload 형식: GameAction.is_positional(name)이 true면 {position_valid, screen_pos, world_pos}

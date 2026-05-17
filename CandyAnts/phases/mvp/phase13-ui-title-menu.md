@@ -13,7 +13,7 @@ sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md]
 게임 진입 흐름 완성: 타이틀 → 메인 메뉴 → 스테이지 셀렉트 → 스테이지 → StageDialog → (셀렉트로 복귀 또는 다음 스테이지). MVP 1회독 가능 + 진행도 저장.
 
 ## 전제
-- Phase 8~11 완료 (Theme + atoms + Motion + HUD/Toolbar + StageDialog + SceneFlow)
+- Phase 9~12 완료 (Theme + atoms + Motion + HUD/Toolbar + StageDialog + Scoring + SceneFlow). v3 renumber 후 번호 정합.
 - `docs/UI_GUIDE.md` §3.5·§3.6 (LogoPanel/StageSlotCard atom) + §5 (SaveData 스키마) + §6 (카피 가이드) 1차 SoT
 - handoff에 **타이틀/메뉴 직접 명세 없음** — Atoms + 토큰 재사용 + 신규 atom 2종으로 일관성 유지
 - 본 phase 시점 stage는 stage01~03만. 셀렉트 슬롯 10개 중 4~10은 placeholder(잠금) — stage4~10 phase에서 자연 해금
@@ -36,7 +36,7 @@ sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md]
 - `assets/icons/ui/{lock,unlock,arrow_left,arrow_right,settings,play,close}.svg` — 정적 SVG (Lucide CDN 대신 오프라인 보장)
 
 ### 수정
-- `scripts/core/SceneFlow.gd` (phase 11 산출) — Title → Menu → Select → Stage → Dialog → Select 라우팅 케이스 추가
+- `scripts/core/SceneFlow.gd` (phase 6 game-flow-foundation 산출 + phase 11/12 확장) — Title → Menu → Select → Stage → Dialog → Select 라우팅 케이스 추가
 - `scripts/core/GameManager.gd` — SaveData Autoload 사용, 클리어 시 `SaveData.record_clear(stage_id, saved, original_hp)` 호출
 - `project.godot` — main scene을 `Main.tscn` → `TitleScene.tscn`으로 변경 (또는 Main.tscn이 TitleScene을 처음 인스턴스화). Autoload에 `SaveData` 추가.
 
@@ -115,13 +115,13 @@ stage4~10 phase에서 schema bump 필요 시 본 함수에 case 1줄 추가하�
 - **save.cfg 손상/누락** — assert 대신 warn + reset. Crash 0건. SaveDataCorruptedTest로 보장.
 - **stage 클리어 도중 Quit** — 진행도 미저장 (스테이지 단위 저장 정책). `record_clear`만 저장 트리거. 진행 중 Quit은 `last_played_stage` 갱신만.
 - **패드 포커스 잃음** — 메뉴 활성 시 첫 버튼에 자동 `grab_focus()`. SceneTree 진입 후 `await get_tree().process_frame` 기다린 다음 grab.
-- **미해금 슬롯 클릭** — 무반응 + `EventBus.sfx_request(&"sfx:locked")` (phase 11 hook 재사용)
+- **미해금 슬롯 클릭** — 무반응 + `EventBus.sfx_request(&"sfx:locked")` (phase 12 sfx_request hook 재사용)
 - **타이틀 input mode 전환** — Phase 7 InputModeTracker 재사용 → 힌트 텍스트 즉시 갱신 ("Press Any Key" ↔ "Press Any Button")
 - **StageSelect 슬롯 hover/focus 동시 발생** — 마우스 hover와 패드 focus가 다른 슬롯이면 둘 다 시각 표시 OK (focus는 mint outline, hover는 y-2). 충돌 X.
 - **TitleScene 자동 진입 막기** — 첫 입력만 받음. 실수로 mouse_motion 발화 시 무시. `_input` 에서 `event is InputEventKey or InputEventMouseButton or InputEventJoypadButton`만 트리거.
 - **SaveData 저장 시점** — `record_clear` / `record_attempt` 호출 직후 즉시 `save()`. `_notification(NOTIFICATION_WM_CLOSE_REQUEST)`에서도 save (Quit 시 최종 저장).
 - **Continue 버튼 disabled** — `last_played_stage`가 0이거나 stage_progress 비어있으면 Continue disabled.
-- **별점 산출 위치 단일 SoT** — `scripts/core/Scoring.gd` (Phase 11이 owner) 의 `Scoring.compute_stars(saved, original_hp)`만 호출. SaveData.record_clear가 자체 임계값/계산식 박는 것 금지. Phase 11 StageDialog와 동일 함수 호출 → 분산 0.
+- **별점 산출 위치 단일 SoT** — `scripts/core/Scoring.gd` (Phase 12가 owner) 의 `Scoring.compute_stars(saved, original_hp)`만 호출. SaveData.record_clear가 자체 임계값/계산식 박는 것 금지. Phase 12 StageDialog와 동일 함수 호출 → 분산 0.
 
 ## StageSelect 레이아웃
 
@@ -163,7 +163,7 @@ tests/StageSelectUnlockTest.gd
 - Settings 화면 실제 동작 (키 리매핑, 음량 등) — stub만 (placeholder + "준비 중")
 - Credits 화면 — stub만
 - 별점 stage별 override — stage4~10 phase에서 필요 시 v0.2로 도입 (UI_GUIDE §5.3 비고)
-- BGM/SFX 실제 재생 — post-MVP phase 20
+- BGM/SFX 실제 재생 — post-MVP phase 21 (sound-bgm-sfx). phase 12에서 `EventBus.sfx_request` hook만 자리 마련.
 
 ## 표준 절차
 plan/review/deferred는 `phases/mvp/README.md`. 명세 SoT는 `docs/UI_GUIDE.md` §5.

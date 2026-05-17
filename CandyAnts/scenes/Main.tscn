@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=3 uid="uid://b6maincandyants"]
 
 [ext_resource type="Script" path="res://scripts/core/SceneFlow.gd" id="1"]
-[ext_resource type="PackedScene" path="res://scenes/ui/StageResultOverlayStub.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/ui/StageDialog.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/ui/VirtualCursor.tscn" id="3"]
 [ext_resource type="Script" path="res://scripts/ui/CursorTargetingResolver.gd" id="4"]
 
@@ -10,7 +10,7 @@
 [node name="SceneFlow" type="Node" parent="."]
 script = ExtResource("1")
 current_stage_root_path = NodePath("../CurrentStageRoot")
-overlay_path = NodePath("../GlobalUI/StageResultOverlayStub")
+overlay_path = NodePath("../GlobalUI/StageDialog")
 virtual_cursor_path = NodePath("../VirtualCursor/Cursor")
 cursor_targeting_resolver_path = NodePath("../CursorTargetingResolver")
 
@@ -19,7 +19,7 @@ cursor_targeting_resolver_path = NodePath("../CursorTargetingResolver")
 [node name="GlobalUI" type="CanvasLayer" parent="."]
 layer = 10
 
-[node name="StageResultOverlayStub" parent="GlobalUI" instance=ExtResource("2")]
+[node name="StageDialog" parent="GlobalUI" instance=ExtResource("2")]
 
 [node name="VirtualCursor" parent="." instance=ExtResource("3")]
 

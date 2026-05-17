@@ -4,7 +4,7 @@ duration_estimate: 5400
 verify:
 large_change_ok: true
 sot: docs/UI_GUIDE.md
-sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md, phases/mvp/PRE_PHASE9_SPRITE_STATE.md]
+sot_aux: [docs/INPUT_PLAN.md, docs/design_handoff/README.md, worklog/2026-05/2026-05-16-pre-phase9-sprite-state.md]
 revision: v4
 ---
 
@@ -234,7 +234,7 @@ tests/SvgImportSmokeTest.gd           ← 13 SVG 비-blank + color sanity (전 �
 
 - **Phase 10 (atoms)**: 본 phase의 Theme + Tokens.gd + Motion.gd가 모든 atom의 기반. atom의 override 허용 정책은 phase 10 plan에서 결정 (본 phase는 비-범위).
 - **Phase 10 (HUD/Toolbar)**: 본 phase 후에도 placeholder HUD에 Theme만 적용된 상태로 동작. 회귀 0.
-- **Phase 11 (StageDialog)**: Panel StyleBoxFlat 그대로 사용.
+- **Phase 12 (StageDialog)**: Panel StyleBoxFlat 그대로 사용 (v3 renumber 후 번호 정합).
 
 ## Substitution flag 처리
 - Jua/Gaegu가 팀 최종 픽이 아닐 시 `theme/candyants.tres`의 `default_font` 한 줄만 교체. 모든 노드 자동 반영.

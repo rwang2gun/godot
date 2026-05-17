@@ -151,7 +151,7 @@ ROG Ally X 내장 패드는 Xbox 배열. 표준 Xbox 컨트롤러와 동일.
 |---|---|---|
 | 마우스 이동 | `cursor_move` | synthetic (phase 5 emit) |
 | 좌클릭 | `skill_assign` | phase 5 InputMap |
-| 우클릭 | `skill_cancel` | phase 5 InputMap (우클릭만 — Esc는 phase 12에서 game state 분기와 함께 추가) |
+| 우클릭 | `skill_cancel` | phase 5 InputMap (우클릭만 — Esc는 phase 13에서 game state 분기와 함께 InputMap 도입. phase 12 StageDialog는 dialog-local Esc만, DEFER-1) |
 | 마우스 모서리 | `camera_pan` (자동 스크롤) | **post-MVP 옵션** (phase 22) |
 | 휠 업/다운 | `camera_zoom` | **Phase 6 도입** (CameraController 합류 시 InputMap binding 등록 — phase 5에는 미등록·미발화) |
 | 1~8 | `skill_select_n` | phase 5 InputMap (직접 선택) |
@@ -167,7 +167,7 @@ ROG Ally X 내장 패드는 Xbox 배열. 표준 Xbox 컨트롤러와 동일.
 | F12 | `nuke` | post-MVP |
 | Tab | `target_next_ant` | 패드 D-Pad →와 일관 |
 | Shift+Tab | `target_prev_ant` | 패드 D-Pad ←와 일관 |
-| Esc | `skill_cancel` (메뉴 미오픈) / `back_menu` (메뉴 오픈) | **Phase 12 도입** (game state 분기와 함께 Esc binding + dispatch routing 동시 추가). Phase 5에는 미바인딩 — `skill_cancel`은 우클릭만. |
+| Esc | `skill_cancel` (메뉴 미오픈) / `back_menu` (메뉴 오픈) | **Phase 13 도입** (game state 분기와 함께 Esc InputMap binding + dispatch routing 동시 추가). phase 12 StageDialog는 dialog-local `_unhandled_input` Esc만 처리 (DEFER-1). Phase 5에는 미바인딩 — `skill_cancel`은 우클릭만. |
 | H | `info_toggle` | |
 
 ---
@@ -350,7 +350,7 @@ ROG Ally X 환경에서 자주 발생: 패드 + 터치 동시. 둘 다 활성 �
 | `skill_cycle_next` | RB (InputMap) | 슬롯 탭 | E (InputMap) |
 | `skill_cycle_prev` | LB (InputMap) | 슬롯 탭 | Q (InputMap) |
 | `skill_select_n` (1~8) | (없음) | 슬롯 직접 탭 | 1~8 (InputMap) |
-| `skill_cancel` | B 단발(인게임+pending, raw) | 메뉴 | 우클릭 (InputMap, phase 5) — Esc는 phase 12에서 game state 분기와 함께 추가 |
+| `skill_cancel` | B 단발(인게임+pending, raw) | 메뉴 | 우클릭 (InputMap, phase 5) — Esc는 phase 13에서 game state 분기와 함께 InputMap 도입 (phase 12 StageDialog는 dialog-local Esc만) |
 | `cursor_move` | 좌 스틱 (synthetic) | (자동, synthetic) | 마우스 (synthetic) |
 | `target_next_ant` | D-Pad → (InputMap) | (자동 보정) | Tab (InputMap) |
 | `target_prev_ant` | D-Pad ← (InputMap) | (자동 보정) | Shift+Tab (InputMap) |
@@ -363,7 +363,7 @@ ROG Ally X 환경에서 자주 발생: 패드 + 터치 동시. 둘 다 활성 �
 | `nuke` (post-MVP) | Menu (홀드 2초) | 가상 버튼 (홀드) | F12 (더블) |
 | `minimap_toggle` (post-MVP) | Menu (단발) | 우상단 버튼 | M |
 | `restart_stage` | B (홀드 1초) | 메뉴 | Ctrl+R |
-| `back_menu` | B 단발(메뉴/모달) | 메뉴 | Esc (InputMap, phase 12 — 메뉴 오픈 시 game state 분기) |
+| `back_menu` | B 단발(메뉴/모달) | 메뉴 | Esc (InputMap, phase 13 — 메뉴 오픈 시 game state 분기. phase 12 StageDialog는 dialog-local Esc → request_menu emit만) |
 | `info_toggle` | X | 길게 누르기 | H |
 | `cursor_priority_toggle` (post-MVP) | Y | (모드 설정) | (미배정) |
 | `camera_focus_cursor` (post-MVP) | L3 | 미니맵 탭 | (미배정) |
