@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1xctest0sfboot"]
+
+[ext_resource type="Script" path="res://tests/SceneFlowBootBypassTest.gd" id="1_t"]
+
+[node name="SceneFlowBootBypassTest" type="Node"]
+script = ExtResource("1_t")

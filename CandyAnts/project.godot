@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 GameManager="*res://scripts/core/GameManager.gd"
 EventBus="*res://scripts/core/EventBus.gd"
 SkillRegistry="*res://scripts/core/SkillRegistry.gd"
+SaveData="*res://scripts/core/SaveData.gd"
 InputRouter="*res://scripts/input/InputRouter.gd"
 InputModeTracker="*res://scripts/input/InputModeTracker.gd"
 StepFrame="*res://scripts/core/StepFrame.gd"

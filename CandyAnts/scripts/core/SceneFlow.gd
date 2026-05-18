@@ -1,6 +1,13 @@
 class_name SceneFlow extends Node
 
+# Phase 6 + 12 + 13. plan v2 §3.5 SoT.
+# Screen state machine: TITLE / MAIN_MENU / STAGE_SELECT / STAGE.
+# 모든 screen 전이는 _swap_screen / load_stage 경유 + _unload_current_screen
+# 이 remove_child + queue_free 일괄 → stale emit 0 (plan Δ9 / codex Round 1 HIGH-1).
+
 const GameAction := preload("res://scripts/input/GameAction.gd")
+
+enum ScreenState { TITLE, MAIN_MENU, STAGE_SELECT, STAGE }
 
 const STAGE_SCENES := {
 	1: "res://scenes/stages/Stage01.tscn",
@@ -9,23 +16,31 @@ const STAGE_SCENES := {
 }
 const LAST_STAGE_ID := 3
 
+const TITLE_SCENE := "res://scenes/ui/TitleScene.tscn"
+const MAIN_MENU_SCENE := "res://scenes/ui/MainMenu.tscn"
+const STAGE_SELECT_SCENE := "res://scenes/ui/StageSelect.tscn"
+
 @export var current_stage_root_path: NodePath
 @export var overlay_path: NodePath
-@export var virtual_cursor_path: NodePath  # Phase 7 — VirtualCursor/Cursor (Control)
-@export var cursor_targeting_resolver_path: NodePath  # Phase 7 — CursorTargetingResolver
+@export var virtual_cursor_path: NodePath
+@export var cursor_targeting_resolver_path: NodePath
+# Phase 13 — SceneFlowBootBypassTest 전용 (plan Δ10). production 부트는 0 → TITLE.
+# add_child(main) 전에 export 설정해야 _ready에서 인식. 0이면 정상 title 부트.
+@export var boot_to_stage_id: int = 0
 
 var _current_stage_root: Node = null
-var _overlay: Node = null  # StageResultOverlayStub
+var _overlay: Node = null
 var _current_stage_id: int = 0
-var _current_stage_node: Node = null  # Phase 7 — active stage instance (load 시 저장, unload 시 null)
+var _current_stage_node: Node = null
 var _resolver: Node = null
-var _last_result: Dictionary = {}  # 가장 최근 stage 결과; load_stage에서 reset. Next 가드용 (codex plan-review HIGH 2026-05-10 R2)
+var _last_result: Dictionary = {}
+
+var current_screen: ScreenState = ScreenState.TITLE
 
 func _ready() -> void:
 	_current_stage_root = get_node(current_stage_root_path)
 	_overlay = get_node(overlay_path)
 
-	# Phase 7 — VirtualCursor/Resolver 주입.
 	if not virtual_cursor_path.is_empty():
 		var cursor: Control = get_node_or_null(virtual_cursor_path) as Control
 		if cursor != null:
@@ -38,46 +53,70 @@ func _ready() -> void:
 	EventBus.request_replay.connect(_on_request_replay)
 	EventBus.request_next.connect(_on_request_next)
 	EventBus.request_menu.connect(_on_request_menu)
-	# Phase 7 — RESTART_STAGE 액션 라우터(Pad B-hold / Ctrl+R 모두 합류).
+	EventBus.request_main_menu.connect(_on_request_main_menu)
+	EventBus.request_stage_select.connect(_on_request_stage_select)
+	EventBus.request_play_stage.connect(_on_request_play_stage)
+	EventBus.request_title.connect(_on_request_title)
 	EventBus.action_triggered.connect(_on_action_triggered)
 
-	start_game()
+	_boot()
 
+func _boot() -> void:
+	if boot_to_stage_id > 0 and STAGE_SCENES.has(boot_to_stage_id):
+		load_stage(boot_to_stage_id)
+	else:
+		go_to_title()
+
+# ─── screen 전이 (public) ────────────────────────────────────────
 func start_game() -> void:
-	load_stage(1)
+	# Legacy. phase 13에서 _boot()가 대체. 호환 보존.
+	go_to_title()
+
+func go_to_title() -> void:
+	_swap_screen(load(TITLE_SCENE).instantiate(), ScreenState.TITLE)
+
+func go_to_main_menu() -> void:
+	_swap_screen(load(MAIN_MENU_SCENE).instantiate(), ScreenState.MAIN_MENU)
+
+func go_to_stage_select() -> void:
+	_swap_screen(load(STAGE_SELECT_SCENE).instantiate(), ScreenState.STAGE_SELECT)
+
+func go_to_menu() -> void:
+	# phase 6 legacy 시그니처 보존 — main menu alias.
+	go_to_main_menu()
 
 func load_stage(stage_id: int) -> void:
-	_unload_current_stage()
-	_last_result = {}  # 새 stage 진입 시 이전 결과 무효화 (Next 가드 reset)
+	# Codex R6 HIGH fix: 잘못된 stage_id에 대해 _unload_current_screen()를 먼저 호출하면
+	# blank screen + 복구 경로 없음. 검증을 unload 전에 옮기고, 미존재 stage는 fallback.
 	if not STAGE_SCENES.has(stage_id):
-		push_error("[SceneFlow] unknown stage_id %d" % stage_id)
+		push_error("[SceneFlow] unknown stage_id %d — falling back to main menu" % stage_id)
+		# blank 회피 — 현재 screen이 STAGE면 main menu로, 그 외엔 그대로 유지.
+		if current_screen == ScreenState.STAGE:
+			go_to_main_menu()
 		return
+	_unload_current_screen()
+	_last_result = {}
 	var scene: PackedScene = load(STAGE_SCENES[stage_id])
 	var stage_node: Node = scene.instantiate()
 	_current_stage_root.add_child(stage_node)
 	_current_stage_node = stage_node
 	_current_stage_id = stage_id
-	# Phase 7 — resolver에 active stage 알림 (D-Pad targeting scoping).
+	current_screen = ScreenState.STAGE
 	if _resolver != null and _resolver.has_method("set_active_stage_root"):
 		_resolver.set_active_stage_root(stage_node)
 
 func load_next_stage() -> void:
 	var next_id: int = _current_stage_id + 1
 	if not STAGE_SCENES.has(next_id):
-		go_to_menu()
+		# last-stage clear → main menu 복귀 (phase 6 stage1 fallback 폐기, plan §3.5.4)
+		go_to_main_menu()
 		return
 	load_stage(next_id)
 
 func replay_stage() -> void:
 	load_stage(_current_stage_id)
 
-func go_to_menu() -> void:
-	# Phase 6: Stage01 reload fallback. Phase 13에서 실제 menu scene으로 교체.
-	load_stage(1)
-
 func get_active_stage_node() -> Node:
-	# Phase 7 — CursorTargetingResolver가 active-stage subtree를 단일 SoT로 받기 위함.
-	# unload 직후/reload 사이에는 null 반환 (resolver는 noop으로 처리).
 	if _current_stage_node == null:
 		return null
 	if not is_instance_valid(_current_stage_node):
@@ -85,20 +124,39 @@ func get_active_stage_node() -> Node:
 		return null
 	return _current_stage_node
 
-func _unload_current_stage() -> void:
-	for child in _current_stage_root.get_children():
+# ─── 내부 헬퍼 ──────────────────────────────────────────────────
+# plan Δ9 (codex HIGH-1): remove_child + queue_free 일괄.
+# queue_free 단독 사용 시 deferred deletion이라 다음 frame까지 tree에 남음 →
+# 그 사이 _process가 깨어나 stale stage_cleared/failed emit 가능.
+# remove_child로 즉시 tree에서 분리 후 queue_free → _process 중단 보장.
+# CurrentStageRoot 자체 process_mode를 INHERIT으로 복귀하면서 메뉴 진입 후 frozen
+# 잔존 차단 (frozen된 채 메뉴 _process가 안 도는 버그 차단).
+func _unload_current_screen() -> void:
+	var children: Array = _current_stage_root.get_children()
+	for child in children:
+		_current_stage_root.remove_child(child)
 		child.queue_free()
 	_current_stage_node = null
-	# Phase 7 — resolver의 stale reference 즉시 invalidate.
+	_current_stage_root.process_mode = Node.PROCESS_MODE_INHERIT
 	if _resolver != null and _resolver.has_method("set_active_stage_root"):
 		_resolver.set_active_stage_root(null)
 
+func _swap_screen(new_node: Node, new_state: ScreenState) -> void:
+	_unload_current_screen()
+	_current_stage_node = null
+	_current_stage_id = 0
+	_last_result = {}
+	_current_stage_root.add_child(new_node)
+	current_screen = new_state
+
 func _freeze_current_stage() -> void:
+	# phase 12 산출. StageDialog 표시 중 stage 정지.
 	_current_stage_root.process_mode = Node.PROCESS_MODE_DISABLED
 
 func _unfreeze_current_stage() -> void:
 	_current_stage_root.process_mode = Node.PROCESS_MODE_INHERIT
 
+# ─── EventBus 핸들러 ───────────────────────────────────────────
 func _on_stage_result(result: Dictionary) -> void:
 	_last_result = result
 	_freeze_current_stage()
@@ -106,12 +164,13 @@ func _on_stage_result(result: Dictionary) -> void:
 
 func _on_request_replay() -> void:
 	_overlay.hide_overlay()
+	if current_screen != ScreenState.STAGE or _current_stage_id <= 0:
+		return
 	_unfreeze_current_stage()
 	replay_stage()
 
 func _on_request_next() -> void:
-	# Next는 cleared 결과에서만 허용 — 실패 stage 우회 차단 (codex plan-review HIGH 2026-05-10 R2).
-	# overlay disable이 1차 방어, 여기가 직접 signal emit (테스트/추후 input router)에 대한 2차 방어.
+	# Next는 cleared 결과에서만 (phase 6 산출, plan §3.5.4)
 	if not _last_result.get("cleared", false):
 		return
 	_overlay.hide_overlay()
@@ -119,17 +178,31 @@ func _on_request_next() -> void:
 	load_next_stage()
 
 func _on_request_menu() -> void:
+	# Δ14 legacy alias — StageDialog Menu 버튼만 emit. main menu 복귀로 매핑.
+	_on_request_main_menu()
+
+func _on_request_main_menu() -> void:
 	_overlay.hide_overlay()
-	_unfreeze_current_stage()
-	go_to_menu()
+	go_to_main_menu()
+
+func _on_request_stage_select() -> void:
+	_overlay.hide_overlay()
+	go_to_stage_select()
+
+func _on_request_play_stage(stage_id: int) -> void:
+	_overlay.hide_overlay()
+	load_stage(stage_id)
+
+func _on_request_title() -> void:
+	_overlay.hide_overlay()
+	go_to_title()
 
 func _on_action_triggered(name: StringName, _payload: Dictionary) -> void:
-	# Phase 7 — RESTART_STAGE만 소비. 그 외 액션은 SkillToolbar/InputRouter 등 다른 수신자.
-	# request_replay 경유로 단일 replay 경로 재사용 (overlay hide + unfreeze + load_stage 동일).
 	if name != GameAction.RESTART_STAGE:
 		return
-	# Phase 8 — StepFrame await 중에 direct EventBus emit이 들어와도 stage reload를 막는다.
-	# (InputRouter gate가 1차, 본 가드는 테스트/외부 emit에 대한 2차 방어.)
+	# 메뉴에서 Ctrl+R/pad B-hold 무시 (plan §3.5.5)
+	if current_screen != ScreenState.STAGE:
+		return
 	if InputRouter != null and InputRouter.has_method("are_pause_actions_blocked") \
 			and InputRouter.are_pause_actions_blocked():
 		return

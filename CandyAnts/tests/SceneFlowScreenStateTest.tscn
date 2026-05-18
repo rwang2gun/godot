@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1xctest0sfscreen"]
+
+[ext_resource type="Script" path="res://tests/SceneFlowScreenStateTest.gd" id="1_t"]
+
+[node name="SceneFlowScreenStateTest" type="Node"]
+script = ExtResource("1_t")

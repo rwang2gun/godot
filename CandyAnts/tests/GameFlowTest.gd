@@ -29,7 +29,13 @@ func _ready() -> void:
 	if _scene_flow == null or _current_stage_root == null or _overlay == null:
 		_fail("missing nodes in Main")
 		return
-	await get_tree().process_frame  # SceneFlow._ready() / start_game() 완료 대기
+	await get_tree().process_frame  # SceneFlow._ready() / _boot() 완료 대기
+	# Phase 13 Δ10: 기본 부트는 TITLE → load_stage(1)로 우회. boot_to_stage_id export는
+	# SceneFlowBootBypassTest 전용 (add_child 전 설정 필요해서 본 테스트에서는 사용 X).
+	if _scene_flow.current_screen != _scene_flow.ScreenState.STAGE:
+		_scene_flow.load_stage(1)
+		await get_tree().process_frame  # remove_child + queue_free
+		await get_tree().process_frame  # Stage01 instantiation + StageRunner._ready
 	await _run_scenarios()
 	if not _failed:
 		print("[GameFlowTest] PASS")
@@ -132,22 +138,24 @@ func _scenario_b() -> void:
 		return
 	print("[GameFlowTest] B NextButton visible+disabled OK")
 
-	# 강제 emit — last stage라 cleared=true이므로 SceneFlow._on_request_next 통과 → load_next_stage → next_id=4 없음 → go_to_menu → stage1
+	# Phase 13: last-stage Next emit → load_next_stage(next_id=4 미존재) → go_to_main_menu
+	# (phase 6의 stage1 fallback 폐기, plan §3.5.4).
 	EventBus.request_next.emit()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	if not _verify_current_stage_id(1, "B.menu_fallback"):
+	if _scene_flow.current_screen != _scene_flow.ScreenState.MAIN_MENU:
+		_fail("B.menu_fallback current_screen != MAIN_MENU, got %d" % _scene_flow.current_screen)
 		return
-	print("[GameFlowTest] Scenario B PASS")
+	print("[GameFlowTest] Scenario B PASS (main menu after last-stage clear)")
 
 # -----------------------------------------------------------------------------
 # 시나리오 C: stage1 강제 fail → no_more_ants → Next 차단 → Replay
 # -----------------------------------------------------------------------------
 func _scenario_c() -> void:
 	print("[GameFlowTest] === Scenario C: stage1 forced fail → Next blocked → Replay ===")
-	# B의 menu fallback으로 이미 stage1이 막 로드됨. 추가 reload 없이 그대로 사용
-	# (중복 reload 시 spawner _ready가 동일 frame에 두 번 호출되어 timing 꼬임).
-	# 이전 stage queue_free overlap 정리를 위해 1 frame 더 await.
+	# Phase 13: B 끝에 main menu 진입 → 본 시나리오는 stage1을 직접 load.
+	_scene_flow.load_stage(1)
+	await get_tree().process_frame
 	await get_tree().process_frame
 	if not _verify_current_stage_id(1, "C.start"):
 		return

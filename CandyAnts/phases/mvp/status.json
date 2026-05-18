@@ -141,10 +141,10 @@
       "name": "ui-title-menu",
       "duration_estimate": 5400,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-18T10:30:57",
+      "completed_at": "2026-05-18T14:17:47",
+      "duration_seconds": 13610
     },
     {
       "id": 14,

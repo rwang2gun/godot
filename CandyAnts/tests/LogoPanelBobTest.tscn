@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1xctest0logobob"]
+
+[ext_resource type="Script" path="res://tests/LogoPanelBobTest.gd" id="1_t"]
+
+[node name="LogoPanelBobTest" type="Node"]
+script = ExtResource("1_t")

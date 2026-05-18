@@ -15,9 +15,13 @@ func _ready() -> void:
 	EventBus.request_replay.connect(func(): _replay_count += 1)
 	var main: Node = MainScene.instantiate()
 	add_child(main)
-	# SceneFlow._ready + start_game(1) 완료 대기.
+	# Phase 13 Δ10: Main 부트가 TITLE — stage1로 직접 우회. (이전 phase에선 stage1 자동 로드)
 	await get_tree().process_frame
-	await get_tree().process_frame
+	var sf = main.get_node("SceneFlow")
+	if sf.current_screen != sf.ScreenState.STAGE:
+		sf.load_stage(1)
+		await get_tree().process_frame
+		await get_tree().process_frame
 	var node = main.get_node_or_null("GlobalUI/StageDialog")
 	if node == null:
 		_fail("StageDialog path 'GlobalUI/StageDialog' missing under Main")

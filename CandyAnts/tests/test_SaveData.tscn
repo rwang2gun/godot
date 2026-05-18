@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1xctest0savedata"]
+
+[ext_resource type="Script" path="res://tests/test_SaveData.gd" id="1_test"]
+
+[node name="TestSaveData" type="Node"]
+script = ExtResource("1_test")

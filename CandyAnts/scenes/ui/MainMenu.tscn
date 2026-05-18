@@ -1,0 +1,75 @@
+[gd_scene load_steps=6 format=3 uid="uid://b1xcui0mainmenu"]
+
+[ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
+[ext_resource type="PackedScene" path="res://scenes/ui/atoms/LogoPanel.tscn" id="2_logo"]
+[ext_resource type="PackedScene" path="res://scenes/ui/atoms/CButton.tscn" id="3_btn"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ComingSoonOverlay.tscn" id="4_cs"]
+[ext_resource type="Texture2D" path="res://assets/illustrations/stage_bg.svg" id="5_bg"]
+
+[node name="MainMenu" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_menu")
+
+[node name="Background" type="TextureRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+modulate = Color(1, 1, 1, 0.3)
+texture = ExtResource("5_bg")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Center" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Center"]
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="LogoPanel" parent="Center/VBox" instance=ExtResource("2_logo")]
+custom_minimum_size = Vector2(360, 200)
+scale = Vector2(0.7, 0.7)
+
+[node name="Spacer" type="Control" parent="Center/VBox"]
+custom_minimum_size = Vector2(0, 32)
+
+[node name="PlayBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
+custom_minimum_size = Vector2(280, 56)
+text = "새 게임"
+
+[node name="ContinueBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
+custom_minimum_size = Vector2(280, 56)
+text = "이어 하기"
+
+[node name="StageSelectBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
+custom_minimum_size = Vector2(280, 56)
+text = "스테이지 선택"
+kind = 1
+
+[node name="SettingsBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
+custom_minimum_size = Vector2(280, 48)
+text = "설정"
+kind = 2
+
+[node name="CreditsBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
+custom_minimum_size = Vector2(280, 48)
+text = "크레딧"
+kind = 2
+
+[node name="QuitBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
+custom_minimum_size = Vector2(280, 48)
+text = "종료"
+kind = 2
+
+[node name="ComingSoonOverlay" parent="." instance=ExtResource("4_cs")]

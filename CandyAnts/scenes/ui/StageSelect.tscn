@@ -1,0 +1,74 @@
+[gd_scene load_steps=5 format=3 uid="uid://b1xcui0select"]
+
+[ext_resource type="Script" path="res://scripts/ui/StageSelect.gd" id="1_sel"]
+[ext_resource type="PackedScene" path="res://scenes/ui/atoms/CButton.tscn" id="2_btn"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ComingSoonOverlay.tscn" id="3_cs"]
+[ext_resource type="Texture2D" path="res://assets/illustrations/stage_bg.svg" id="4_bg"]
+
+[node name="StageSelect" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_sel")
+
+[node name="Background" type="TextureRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+modulate = Color(1, 1, 1, 0.3)
+texture = ExtResource("4_bg")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 32
+
+[node name="VBox" type="VBoxContainer" parent="MarginContainer"]
+theme_override_constants/separation = 24
+
+[node name="Header" type="HBoxContainer" parent="MarginContainer/VBox"]
+theme_override_constants/separation = 12
+
+[node name="BackBtn" parent="MarginContainer/VBox/Header" instance=ExtResource("2_btn")]
+custom_minimum_size = Vector2(120, 48)
+text = "← 메뉴"
+kind = 2
+
+[node name="Spacer" type="Control" parent="MarginContainer/VBox/Header"]
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="MarginContainer/VBox/Header"]
+text = "스테이지 선택"
+theme_override_font_sizes/font_size = 32
+
+[node name="Spacer2" type="Control" parent="MarginContainer/VBox/Header"]
+size_flags_horizontal = 3
+
+[node name="SlotGrid" type="GridContainer" parent="MarginContainer/VBox"]
+columns = 5
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 16
+size_flags_horizontal = 4
+size_flags_vertical = 3
+
+[node name="Footer" type="HBoxContainer" parent="MarginContainer/VBox"]
+alignment = 1
+
+[node name="TotalStarsLabel" type="Label" parent="MarginContainer/VBox/Footer"]
+text = "수확한 별 ★ 0 / 30"
+theme_override_font_sizes/font_size = 18
+
+[node name="ComingSoonOverlay" parent="." instance=ExtResource("3_cs")]

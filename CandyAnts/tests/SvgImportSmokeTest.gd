@@ -22,6 +22,13 @@ const PRODUCTION_SVGS := [
 	# Phase 11: PauseBtn icon assets (토큰 hex #3A2A1C 1:1, normalize_svg.py 외 수동 작성).
 	"res://assets/icons/ui/pause.svg",
 	"res://assets/icons/ui/play.svg",
+	# Phase 13: menu/select UI icons (hand-authored, ink_900/cream_100 only).
+	"res://assets/icons/ui/lock.svg",
+	"res://assets/icons/ui/unlock.svg",
+	"res://assets/icons/ui/arrow_left.svg",
+	"res://assets/icons/ui/arrow_right.svg",
+	"res://assets/icons/ui/settings.svg",
+	"res://assets/icons/ui/close.svg",
 ]
 
 # UI_GUIDE §1.1·§1.2 토큰 oklch 문자열 (canonical handoff form).
