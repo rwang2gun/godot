@@ -12,9 +12,15 @@ class FakeAnt extends Node2D:
 		return alive
 
 
+const MainScene := preload("res://scenes/Main.tscn")
+
 func _ready() -> void:
-	var main: Node = $Main
+	# Sweep 2 (phase 13): Main 부트가 TITLE-first로 바뀌어 $Main 직접 instance만으로는 stage 없음.
+	# SceneFlowBootBypassTest 패턴 — MainScene.instantiate() + boot_to_stage_id=1 후 add_child.
+	var main: Node = MainScene.instantiate()
 	var scene_flow: Node = main.get_node("SceneFlow")
+	scene_flow.boot_to_stage_id = 1
+	add_child(main)
 	var current_root: Node = main.get_node("CurrentStageRoot")
 	var resolver: Node = main.get_node("CursorTargetingResolver")
 	await get_tree().process_frame

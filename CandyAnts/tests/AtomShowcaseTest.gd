@@ -12,6 +12,12 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(1200, 800)
 	theme = load("res://theme/candyants.tres") as Theme
 	_build_layout()
+	# Sweep 2 (phase 13): 본 scene은 수동 시연용 (AtomShowcaseHeadless가 자동 회귀 책임).
+	# headless 실행 시 build SCRIPT ERROR 없이 완료되면 PASS — 시연 인터랙션 없이 quit.
+	if DisplayServer.get_name() == "headless":
+		await get_tree().process_frame
+		print("[AtomShowcaseTest] PASS (manual showcase scene — headless auto-exit)")
+		get_tree().quit(0)
 
 func _build_layout() -> void:
 	var root := VBoxContainer.new()
@@ -70,8 +76,9 @@ func _build_counter_row() -> Control:
 		c.kind = kinds[i]
 		c.top_label_en = top_labels[i]
 		c.bottom_label_ko = bottom_labels[i]
+		# Sweep 2 (phase 13): set_value()는 Counter.gd의 pending 패턴이 tree 진입 전 호출도
+		# 안전하게 처리 (h가 root에 add 되기 전 호출돼도 _ready에서 일괄 적용).
 		c.set_value(i * 2 + 1)
-		# 클릭(아무 자식이나)으로 값 증가 — caPop 시각 확인용. 카운터 자체는 input X.
 		var btn := Button.new()
 		btn.text = "+1"
 		btn.custom_minimum_size = Vector2(40, 28)

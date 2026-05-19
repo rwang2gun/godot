@@ -17,14 +17,15 @@ func _ready() -> void:
 		_fail("case-A: tracker 존재 시 초기 텍스트가 비어있음"); return
 
 	# case-B: input_mode_changed emit 시 텍스트 갱신.
+	# Sweep 2 (phase 13): commit 6bf5faf로 한국어 i18n 됨 — 기대값 한국어 substring으로 갱신.
 	EventBus.input_mode_changed.emit(&"pad")
-	if not String(label_a.text).contains("A: assign"):
+	if not String(label_a.text).contains("A: 적용"):
 		_fail("case-B: pad 텍스트 미적용 → %s" % label_a.text); return
 	EventBus.input_mode_changed.emit(&"touch")
-	if not String(label_a.text).contains("Tap"):
+	if not String(label_a.text).contains("탭"):
 		_fail("case-B: touch 텍스트 미적용 → %s" % label_a.text); return
 	EventBus.input_mode_changed.emit(&"mouse")
-	if not String(label_a.text).contains("Click"):
+	if not String(label_a.text).contains("클릭"):
 		_fail("case-B: mouse 텍스트 미적용 → %s" % label_a.text); return
 
 	label_a.queue_free()

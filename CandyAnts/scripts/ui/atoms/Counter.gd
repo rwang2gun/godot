@@ -37,6 +37,10 @@ const _PADDING := 8
 @onready var _ko_label: Label = $MainPanel/VBox/KoLabel
 
 var _capop_tween: Tween
+# Sweep 2 (phase 13): set_value()를 tree 진입 전 호출한 caller(AtomShowcaseTest 등)는
+# `_big_number` @onready 미평가 → null crash. pending 패턴으로 _ready 후 일괄 적용.
+var _pending_value: int = 0
+var _has_pending_value: bool = false
 
 func _ready() -> void:
 	custom_minimum_size = _SIZE
@@ -44,10 +48,20 @@ func _ready() -> void:
 	_apply_main_style()
 	_apply_kind()
 	_apply_text()
+	if _has_pending_value:
+		_apply_value(_pending_value)
+		_has_pending_value = false
 
 # H-1 fix (atom-local kill guard) — caPop의 prior tween을 죽이고 새 tween 생성.
 # pivot은 글자 변경마다 dynamic 계산 (Jua tabular 미보장 + text width 가변).
 func set_value(n: int) -> void:
+	if not is_node_ready():
+		_pending_value = n
+		_has_pending_value = true
+		return
+	_apply_value(n)
+
+func _apply_value(n: int) -> void:
 	_big_number.text = str(n)
 	var sz: Vector2 = _big_number.get_minimum_size()
 	_big_number.pivot_offset = sz * 0.5

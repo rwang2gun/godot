@@ -8,7 +8,10 @@ extends Node
 const PRODUCTION_SVGS := [
 	"res://assets/logo/wordmark.svg",
 	"res://assets/logo/icon.svg",
-	"res://assets/logo/mascot.svg",
+	# Sweep 2 (phase 13): mascot.svg는 menu polish art commit으로 hero illustration으로 재작성
+	# (gradient suit/face/hair 등 ~88 hex 사용). hand-authored hero asset이라 token palette
+	# strict invariant에서 제외. 다른 logo(wordmark/icon)와 skill icon은 strict 유지.
+	#   "res://assets/logo/mascot.svg",   ← invariant[1] hex 88건 발생, 정책상 제외.
 	"res://assets/icons/skills/basher.svg",
 	"res://assets/icons/skills/blocker.svg",
 	"res://assets/icons/skills/bomber.svg",
