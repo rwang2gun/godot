@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/ui/TitleScene.gd" id="1_title"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atoms/LogoPanel.tscn" id="2_logo"]
-[ext_resource type="Texture2D" path="res://assets/illustrations/stage_bg.svg" id="3_bg"]
+[ext_resource type="Texture2D" path="res://assets/illustrations/stage_bg_painted.png" id="3_bg"]
 
 [node name="TitleScene" type="Control"]
 anchors_preset = 15
@@ -20,7 +20,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-modulate = Color(1, 1, 1, 0.4)
+modulate = Color(1, 1, 1, 0.78)
 texture = ExtResource("3_bg")
 expand_mode = 1
 stretch_mode = 5

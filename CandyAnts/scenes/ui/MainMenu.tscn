@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/atoms/LogoPanel.tscn" id="2_logo"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atoms/CButton.tscn" id="3_btn"]
 [ext_resource type="PackedScene" path="res://scenes/ui/ComingSoonOverlay.tscn" id="4_cs"]
-[ext_resource type="Texture2D" path="res://assets/illustrations/stage_bg.svg" id="5_bg"]
+[ext_resource type="Texture2D" path="res://assets/illustrations/stage_bg_painted.png" id="5_bg"]
 
 [node name="MainMenu" type="Control"]
 anchors_preset = 15
@@ -21,7 +21,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-modulate = Color(1, 1, 1, 0.3)
+modulate = Color(1, 1, 1, 0.72)
 texture = ExtResource("5_bg")
 expand_mode = 1
 stretch_mode = 5

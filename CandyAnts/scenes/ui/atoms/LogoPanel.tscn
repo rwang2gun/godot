@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/ui/atoms/LogoPanel.gd" id="1_logo"]
 [ext_resource type="Texture2D" path="res://assets/logo/wordmark.svg" id="2_word"]
-[ext_resource type="Texture2D" path="res://assets/logo/mascot.svg" id="3_mascot"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_00.png" id="3_mascot"]
 
 [node name="LogoPanel" type="Control"]
 custom_minimum_size = Vector2(480, 280)
