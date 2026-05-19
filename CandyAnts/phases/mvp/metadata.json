@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "task": "mvp",
-  "active_revision": "phases/mvp/REVISION_2026-05-09.md",
+  "active_revision": "phases/mvp/REVISION_2026-05-18-option-b.md",
   "post_mvp_phase_range": [21, 23],
   "notes": [
     "status.json is runtime state only.",

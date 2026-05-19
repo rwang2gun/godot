@@ -160,7 +160,9 @@ python scripts/execute.py mvp next   # 다음 pending phase 정의 출력
 
 > 2026-05-09 개정 v2: phase 5~12에 input(3) + UI(5)를 신설(atoms를 별도 phase로 분리). 기존 stage4~10 phase를 13~19로 시프트.
 > 2026-05-09 개정 v3 (game-flow): phase 6에 `game-flow-foundation` 신규 삽입. 기존 6~19 → 7~20, post-MVP 20~22 → 21~23. 상세 근거: `docs/GAME_FLOW_PROPOSAL_V5.md`.
-> 상세 근거: `docs/INPUT_PLAN.md`, `docs/UI_GUIDE.md`, `docs/GAME_FLOW_PROPOSAL_V5.md`, `docs/design_handoff/` (프로젝트 안 흡수됨).
+> 2026-05-18 개정 v4 (option-B v0.2 + §5.2 17 분할): phase 14~20을 stage 기반 → 메카닉 기반 7-phase로 재구성.
+> 상세 근거: `docs/PHASE_14_OPTION_B_PROPOSAL.md` + `docs/PHASE_14_OPTION_B_MIGRATION_PLAN.md` + `phases/mvp/REVISION_2026-05-18-option-b.md`.
+> 상세 근거: `docs/INPUT_PLAN.md`, `docs/UI_GUIDE.md`, `docs/GAME_FLOW_PROPOSAL_V5.md`, `docs/design_handoff/` (프로젝트 안 흡수됨), `docs/PHASE_14_OPTION_B_PROPOSAL.md`.
 
 | # | 트랙 | 이름 | 핵심 산출물 |
 |---|------|------|-------------|
@@ -177,13 +179,13 @@ python scripts/execute.py mvp next   # 다음 pending phase 정의 출력
 | 11 | ui | ui-hud-toolbar-replace | HUD/SkillToolbar 씬 교체 (atom 인스턴스화) |
 | 12 | ui | ui-stage-dialog | StageDialog (win/loss) + 트랜지션 + 사운드 hook |
 | 13 | ui | ui-title-menu | 타이틀 / 메인 메뉴 / 스테이지 셀렉트 + SaveData |
-| 14 | stage | stage4-hazard-water | Hazard 시스템 + Water |
-| 15 | stage | stage5-basher | TileMap 동적 파괴 + Basher |
-| 16 | stage | stage6-digger | Digger (수직 굴착) |
-| 17 | stage | stage7-miner | Miner (대각선 굴착) |
-| 18 | stage | stage8-climber | 벽 감지 + Climber |
-| 19 | stage | stage9-floater | 낙하 변형 + Floater |
-| 20 | stage | stage10-bomber-polish | 원형 파괴 + Bomber + Release Rate 폴리싱 (MVP 종료) |
+| 14 | mechanic (14a) | mechanic-adaptation-traits | Climber + Floater(민들레씨 보유 트레잇) |
+| 15 | mechanic (14b) | mechanic-adaptation-settlement | Blocker + 민들레씨 분배자 + 정착 + 능력 전이 |
+| 16 | mechanic | mechanic-creation | Sand-mound(수직) + Bridge(수평) 생성 메카닉 |
+| 17 | mechanic | mechanic-hazard | Water + 끈끈이 + 사탕 손실 페일 룰 |
+| 18 | mechanic (17a) | mechanic-destruction-earth | Basher + Digger (흙 지형 동적 파괴) |
+| 19 | mechanic (17b) | mechanic-destruction-plant | Cutter + 식물 지형 신규 클래스 |
+| 20 | polish | polish | Release Rate + 별 시스템 + 정산 UI + 사운드 hook + 피날레 (MVP 종료) |
 | 21 | post-MVP | sound-bgm-sfx | 사운드 임포트 + 모달/카운터/스킬 SFX |
 | 22 | post-MVP | input-touch | 터치 + 드래그앤드롭 + 루페 |
 | 23 | post-MVP | input-advanced | Rewind + Preview + CommandWheel + Overlay |
