@@ -4,7 +4,10 @@ const OverlayScene := preload("res://scenes/ui/ComingSoonOverlay.tscn")
 
 func _ready() -> void:
 	Engine.time_scale = 4.0
-	var overlay: ComingSoonOverlay = OverlayScene.instantiate()
+	# Sweep 1 (phase 13): type annotation 제거 — class_name ComingSoonOverlay cold-parse
+	# 미해결 방지 + codex sweep 1 R1 P1 수용 (untyped → dynamic dispatch).
+	# OverlayScene preload로 ComingSoonOverlay 인스턴스 type은 보장됨.
+	var overlay = OverlayScene.instantiate()
 	add_child(overlay)
 	await get_tree().process_frame
 	if overlay.visible:

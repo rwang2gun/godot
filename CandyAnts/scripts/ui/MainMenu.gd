@@ -11,7 +11,11 @@ extends Control
 @onready var _settings_btn: CButton = $Center/VBox/SettingsBtn
 @onready var _credits_btn: CButton = $Center/VBox/CreditsBtn
 @onready var _quit_btn: CButton = $Center/VBox/QuitBtn
-@onready var _coming_soon: ComingSoonOverlay = $ComingSoonOverlay
+# Sweep 1 (phase 13): type annotation 제거 — `: ComingSoonOverlay`가 cold-parse 시점에
+# 미해결되면 본 스크립트 통째로 parse fail → MainMenu node script 미부착 → handler connect 0.
+# untyped로 두면 `show_overlay()` 호출이 dynamic dispatch + 정적 type checker가 method warning
+# 안 냄 (phase 10 lessons §2 "class_name 등록 부트스트랩" 패턴 + codex sweep 1 R1 P1 수용).
+@onready var _coming_soon = $ComingSoonOverlay
 
 func _ready() -> void:
 	_connect_buttons()

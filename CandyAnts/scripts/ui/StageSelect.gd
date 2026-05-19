@@ -13,7 +13,9 @@ const SLOT_CARD_SCENE := preload("res://scenes/ui/atoms/StageSlotCard.tscn")
 @onready var _slot_grid: GridContainer = $MarginContainer/VBox/SlotGrid
 @onready var _back_btn: CButton = $MarginContainer/VBox/Header/BackBtn
 @onready var _total_stars_label: Label = $MarginContainer/VBox/Footer/TotalStarsLabel
-@onready var _coming_soon: ComingSoonOverlay = $ComingSoonOverlay
+# Sweep 1 (phase 13): MainMenu.gd 와 동일 — class_name cold-parse 미해결 방지 +
+# codex sweep 1 R1 P1 수용 (untyped → dynamic dispatch + method warning 회피).
+@onready var _coming_soon = $ComingSoonOverlay
 
 var _slot_cards: Array[StageSlotCard] = []
 
