@@ -28,3 +28,60 @@ Findings:
 Next steps:
 - Fix the plan before starting implementation.
 - After implementation, run the new climber/floater tests plus Stage02/Stage03 regression tests.
+
+---
+
+## Round 2
+
+- **실행 시각**: 2026-05-20 (plan v2 codex 재리뷰)
+- **포커스**: phase 14 plan v2 — mantle substate MANTLE_DISTANCE=36 + TraitTest.tscn StageLayoutBuilder direct wiring + cell_size=32 corrections
+- **scope**: working-tree (plan v2 단독 변경, 구현 0)
+- **command**: `node codex-companion.mjs adversarial-review --wait --scope working-tree "phase 14 plan v2: ClimberState mantle substate ..."`
+
+# Codex Adversarial Review
+
+Target: working tree diff
+Verdict: needs-attention
+
+No-ship: the v2 plan still leaves a real mantle deadlock path, hard-codes the cell-size fix it claims to generalize, and specifies a dev scene that cannot exercise trait skills through the existing toolbar flow.
+
+Findings:
+- [high] Mantle can deadlock when horizontal collision prevents dx accumulation (CandyAnts/phases/mvp/plans/phase14-plan.md:180-190)
+  The required ClimberState skeleton only advances `_mantle_offset` by actual `global_position.x` delta and only exits when `_mantle_offset >= MANTLE_DISTANCE`. If the ant starts mantling while still blocked by the top cell/corner or by a thicker wall, `move_and_slide()` can produce `dx == 0`, leaving velocity.y at 0 and never reaching the exit condition. The plan itself acknowledges this exact E12 failure later but makes the stall guard optional, so the implementation can ship with an infinite mantling state on a corner-clearance edge case.
+  Recommendation: Make the stall guard mandatory in the §4.2 skeleton, reset it on movement, and add a headless case with blocked/thick-top geometry that proves ClimberState exits to FallerState or resumes climbing instead of hanging.
+- [medium] MANTLE_DISTANCE is described as cell_size-derived but specified as a hard-coded 36px constant (CandyAnts/phases/mvp/plans/phase14-plan.md:54-98)
+  D6 says the mantle distance is `layout.cell_size + 4`, but the concrete Ant.gd spec adds `const MANTLE_DISTANCE: float = 36.0`. That only works while every climbable layout uses 32px cells; `StageLayoutData.cell_size` is exported and therefore configurable. This preserves the cell-size mismatch risk under any non-32 dev/future layout: smaller cells over-push into the wrong tile, larger cells fail to clear the corner and can re-enter ClimberState or stall.
+  Recommendation: Either derive mantle distance from the active StageLayoutData cell_size at runtime, or make 32px a documented/enforced global invariant with validation that rejects non-32 layouts before ClimberState can run.
+- [medium] TraitTest scene spec omits SkillToolbar wiring, so the dev stage cannot manually apply climber/floater (CandyAnts/phases/mvp/plans/phase14-plan.md:396-417)
+  The dev StageData defines `available_skills` and `skill_inventory`, and the manual verification expects SkillToolbar icons and inventory decrement, but the TraitTest.tscn node skeleton only includes StageRunner, World, StageBackground, Spawner, and HUD. Existing skill stages wire `toolbar_path = NodePath("SkillToolbar")` and include a `SkillToolbar` node; Stage01 has no toolbar, so copying it exactly is insufficient for a trait-validation stage. The result is a dev scene that may build terrain correctly but cannot exercise the user-facing trait assignment flow it is supposed to validate.
+  Recommendation: Extend the TraitTest.tscn spec with the Stage02/Stage03 SkillToolbar pattern: add the SkillToolbar ext_resource, set `StageRunner.toolbar_path`, instantiate `[node "SkillToolbar"]`, and assign `stage_data = trait_test.tres`.
+
+Next steps:
+- Revise the plan before implementation: mandatory mantle stall handling, real cell_size linkage or invariant enforcement, and SkillToolbar wiring in TraitTest.tscn.
+
+---
+
+## Round 3
+
+- **실행 시각**: 2026-05-20 (plan v3 codex 재리뷰)
+- **포커스**: phase 14 plan v3 — mandatory stall guard + runtime mantle_distance via stage_layout_builder group + SkillToolbar wiring + ClimberStallTest
+- **scope**: working-tree (plan v3 단독 변경)
+- **command**: `node codex-companion.mjs adversarial-review --wait --scope working-tree "phase 14 plan v3: (1) mantle stall guard MANDATORY ... (2) mantle_distance runtime via group lookup ... (3) SkillToolbar wiring ... (4) ClimberStallTest"`
+
+# Codex Adversarial Review
+
+Target: working tree diff
+Verdict: needs-attention
+
+No-ship: the v3 fixes cover the happy-path single-builder stage, but the new runtime mantle distance channel is still structurally under-scoped and can silently use the wrong layout or fallback without tests catching it.
+
+Findings:
+- [medium] Global StageLayoutBuilder lookup can resolve the wrong layout or silently fall back (CandyAnts/phases/mvp/plans/phase14-plan.md:115-127)
+  The plan resolves `ant.mantle_distance` with `get_first_node_in_group("stage_layout_builder")` and then accepts the first builder's `layout.cell_size`, otherwise keeping fallback `36.0`. This is vulnerable because Godot groups are global to the tree, not scoped to the ant's current stage/world. The repo already has a StageRunner comment noting global group contamination during stage overlap, so a transition, headless test with multiple scenes, or an earlier builder with null layout can make a newly spawned ant read another stage's cell size or retain 36.0. The likely impact is climbers undershooting/overshooting mantle on non-32 layouts, re-entering ClimberState, falling unexpectedly, or hiding the failure because current Stage01-03 all use cell_size=32 and fallback matches them.
+  Recommendation: Do not use unscoped `get_first_node_in_group` as the source of truth. Resolve the builder within the ant's current stage subtree/ancestor chain, ignore builders with null layout, log or fail loudly when no scoped layout exists for a layout-backed stage, and add a headless test with multiple builders or a null first builder plus a non-32 cell_size layout.
+
+Next steps:
+- Revise §3.1/§3.4 to define scoped builder resolution and error behavior.
+- Add a targeted runtime-resolution test that would fail with the current global first-node lookup.
+
+Note: HIGH 0건. CLAUDE.md plan-stage policy로는 진행 가능하지만 fix가 작아 plan v4로 inline 수정 후 Round 4.
