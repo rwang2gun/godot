@@ -17,6 +17,10 @@ func update(delta: float) -> void:
 	a.move_and_slide()
 
 	if a.is_on_wall():
+		# Phase 14 — climber 보유 시 carrying 중에도 벽 등반. has_candy=true 보존.
+		if a.has_trait(&"climber"):
+			a.state_machine.change_state(ClimberState.new())
+			return
 		a.flip()
 
 	if not a.is_on_floor():

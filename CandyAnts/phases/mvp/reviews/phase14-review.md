@@ -85,3 +85,35 @@ Next steps:
 - Add a targeted runtime-resolution test that would fail with the current global first-node lookup.
 
 Note: HIGH 0건. CLAUDE.md plan-stage policy로는 진행 가능하지만 fix가 작아 plan v4로 inline 수정 후 Round 4.
+
+---
+
+## Round 4
+
+- **실행 시각**: 2026-05-20 (plan v4 codex 재리뷰)
+- **포커스**: phase 14 plan v4 — ancestor-scoped builder resolution, StageLayoutBuilder.gd 무변경
+- **scope**: branch diff vs 67b97c8 (working-tree scope는 624 untracked files / 3.5MB tools/로 codex 1MB input limit 초과)
+- **command**: `node codex-companion.mjs adversarial-review --wait --scope branch --base 67b97c8 "..."`
+
+# Codex Adversarial Review
+
+Target: branch diff against 67b97c8
+Verdict: approve
+
+Ship gate passes for plan-stage review: the v4 ancestor-chain scan removes the global group contamination risk, and I cannot support a remaining HIGH finding from the provided diff/context.
+
+No material findings.
+
+Next steps:
+- In implementation, add a targeted regression for scoped resolution with two stage subtrees and differing cell_size values so the old global lookup would fail.
+
+---
+
+## 종합 (Plan stage)
+
+- Round 1 (v1): needs-attention — HIGH(top-out 1px) + MEDIUM(layout wiring) → v2 작성
+- Round 2 (v2): needs-attention — HIGH(stall optional) + 2 MEDIUM(MANTLE_DISTANCE 하드코딩, SkillToolbar 누락) → v3 작성
+- Round 3 (v3): needs-attention — MEDIUM(group scope) → v4 inline fix
+- **Round 4 (v4): approve — plan v4 ready for impl**
+
+impl-stage에서 (Round 4 권고대로) ancestor-scoped resolution을 검증할 헤드리스 테스트 추가는 ClimberStallTest 또는 별도 MantleDistanceScopeTest로 검토 — impl 단계에서 결정.

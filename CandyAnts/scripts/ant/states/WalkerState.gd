@@ -14,6 +14,10 @@ func update(delta: float) -> void:
 	_frame += 1
 
 	if a.is_on_wall():
+		# Phase 14 — climber 보유 시 벽에서 ClimberState로 전이, 아니면 기존대로 flip.
+		if a.has_trait(&"climber"):
+			a.state_machine.change_state(ClimberState.new())
+			return
 		a.flip()
 
 	if _frame > 1 and not a.is_on_floor():

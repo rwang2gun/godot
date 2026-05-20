@@ -7,6 +7,14 @@ signal bumped_blocker(direction: int)
 @export var carrying_speed_multiplier: float = 0.78
 @export var spawn_grace_seconds: float = 0.4
 
+# Phase 14 — traits (Climber/Floater). climber 보유 시 벽 만남에서 ClimberState 전이,
+# floater 보유 시 FallerState에서 중력 0.3배. 영구 보유(해제 API 없음).
+const FLOATER_GRAVITY_SCALE: float = 0.3
+const CLIMB_SPEED: float = 40.0
+# mantle 거리는 ancestor chain의 StageLayoutBuilder.layout.cell_size + 4 로 runtime 갱신.
+# 미발견 시 36.0(=32+4) fallback. Stage01~03 모두 cell_size=32이므로 fallback 정확.
+var mantle_distance: float = 36.0
+
 var direction: int = 1
 var has_been_carrying: bool = false
 # state(CarryingState)와 무관하게 사탕 보유 여부를 추적. CarryingState.enter()에서 true,
@@ -31,6 +39,13 @@ var _last_blocker_bounce_frame: int = -1
 var _sprite: AnimatedSprite2D = null
 var _last_anim: String = ""
 
+# Phase 14 — trait 보유 dict + 시각 표식 badge 노드.
+# traits: StringName(name) → true. 빈 dict = 트레잇 없음.
+var traits: Dictionary = {}
+var _trait_badges: Node2D = null
+var _climber_badge: Sprite2D = null
+var _floater_badge: Sprite2D = null
+
 func _ready() -> void:
 	_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
 	add_to_group("ants")
@@ -38,12 +53,43 @@ func _ready() -> void:
 	state_machine.ant = self
 	_blocker_hitbox = get_node_or_null("BlockerHitbox") as Area2D
 	_sprite = get_node_or_null("Sprite") as AnimatedSprite2D
+	_trait_badges = get_node_or_null("TraitBadges") as Node2D
+	if _trait_badges != null:
+		_climber_badge = _trait_badges.get_node_or_null("ClimberBadge") as Sprite2D
+		_floater_badge = _trait_badges.get_node_or_null("FloaterBadge") as Sprite2D
+	_resolve_mantle_distance()
 	state_machine.change_state(WalkerState.new())
+
+func set_trait(name: StringName) -> void:
+	if name == &"":
+		return
+	traits[name] = true
+
+func has_trait(name: StringName) -> bool:
+	return traits.has(name)
+
+func _resolve_mantle_distance() -> void:
+	# ancestor chain 스캔 — global 그룹 lookup 미사용 (plan-stage Round 3 MEDIUM 대응, scope-safe).
+	# ant의 ancestor를 따라 올라가며 각 노드 아래 "StageLayoutBuilder" 자식이 있는지 확인.
+	# 첫 매치된 builder의 layout.cell_size 사용. layout 없거나 cell_size 부정확하면 다음 ancestor 시도.
+	# 모두 실패 시 fallback 36.0 유지.
+	var node: Node = self
+	while node != null:
+		var b: Node = node.get_node_or_null("StageLayoutBuilder")
+		if b != null:
+			var layout: Resource = b.get("layout") as Resource
+			if layout != null:
+				var cs: Variant = layout.get("cell_size")
+				if typeof(cs) == TYPE_INT and int(cs) > 0:
+					mantle_distance = float(cs) + 4.0
+					return
+		node = node.get_parent()
 
 func _physics_process(delta: float) -> void:
 	if state_machine != null:
 		state_machine.update(delta)
 	_update_sprite()
+	_update_trait_badges()
 
 func _update_sprite() -> void:
 	# 시각 갱신만 — state 분기 읽어서 animation 매핑 + direction에 따른 flip_h.
@@ -56,6 +102,8 @@ func _update_sprite() -> void:
 		anim = "carry"
 	elif s is FallerState:
 		anim = "fall"
+	elif s is ClimberState:
+		anim = "climb"
 	elif s is WalkerState:
 		anim = "walk"
 	elif s is WorkerState:
@@ -67,9 +115,21 @@ func _update_sprite() -> void:
 		else:
 			anim = "dig"
 	if anim != _last_anim:
-		_sprite.play(anim)
-		_last_anim = anim
+		# climb 애니메이션이 없는 sprite는 fallback "walk"로 재생.
+		if anim == "climb" and _sprite.sprite_frames != null and not _sprite.sprite_frames.has_animation("climb"):
+			_sprite.play("walk")
+			_last_anim = "walk"
+		else:
+			_sprite.play(anim)
+			_last_anim = anim
 	_sprite.flip_h = direction < 0
+
+func _update_trait_badges() -> void:
+	# 시각 전용 — 로직 무영향. _physics_process 끝에서 호출.
+	if _climber_badge != null:
+		_climber_badge.visible = has_trait(&"climber")
+	if _floater_badge != null:
+		_floater_badge.visible = has_trait(&"floater")
 
 func is_carrying() -> bool:
 	return state_machine != null and state_machine.current_state is CarryingState
