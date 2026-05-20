@@ -9,6 +9,10 @@ const STALL_DX_THRESHOLD: float = 0.1
 const MANTLE_STALL_LIMIT: int = 10
 var _mantle_stall_frames: int = 0
 
+# climb 방향을 enter 시점에 lock — 등반/mantle 도중 blocker bounce 등으로 ant.direction이
+# 뒤집혀도 climb 방향은 유지. (impl-stage Round 1 HIGH 대응)
+var _climb_direction: int = 1
+
 func enter() -> void:
 	var a: Ant = ant as Ant
 	if a == null:
@@ -16,6 +20,7 @@ func enter() -> void:
 	a.velocity = Vector2.ZERO
 	_mantle_offset = -1.0
 	_mantle_stall_frames = 0
+	_climb_direction = a.direction if a.direction != 0 else 1
 
 func update(delta: float) -> void:
 	var a: Ant = ant as Ant
@@ -28,9 +33,9 @@ func update(delta: float) -> void:
 		_update_mantling(a, delta)
 
 func _update_climbing(a: Ant, _delta: float) -> void:
-	# 벽 쪽으로 약한 push로 벽 접촉 유지 — move_and_slide의 collision response가
-	# ant를 벽에서 살짝 떼어내는 것을 방지. 실제 진행은 collision로 막혀서 dx≈0.
-	a.velocity.x = float(a.direction) * a.CLIMB_SPEED
+	# 벽 쪽으로 약한 push로 벽 접촉 유지 — _climb_direction (enter 시점 lock) 사용.
+	# blocker bounce 등 ant.direction 변동에 무관.
+	a.velocity.x = float(_climb_direction) * a.CLIMB_SPEED
 	a.velocity.y = -a.CLIMB_SPEED
 	a.move_and_slide()
 
@@ -38,15 +43,16 @@ func _update_climbing(a: Ant, _delta: float) -> void:
 		a.state_machine.change_state(FallerState.new())
 		return
 
-	# 벽 끝 감지 — 4px 전방 미충돌이면 mantle 진입.
-	var wall_probe: Vector2 = Vector2(float(a.direction) * 4.0, 0.0)
+	# 벽 끝 감지 — 4px 전방 미충돌이면 mantle 진입. _climb_direction 사용.
+	var wall_probe: Vector2 = Vector2(float(_climb_direction) * 4.0, 0.0)
 	if not a.test_move(a.transform, wall_probe):
 		_mantle_offset = 0.0
 		_mantle_stall_frames = 0
 
 func _update_mantling(a: Ant, _delta: float) -> void:
 	# mantle: 결정적 horizontal push. CLIMB_SPEED 고정(carrying 페널티 무관).
-	a.velocity.x = float(a.direction) * a.CLIMB_SPEED
+	# _climb_direction 사용 — blocker bounce로 ant.direction이 뒤집혀도 mantle은 진행.
+	a.velocity.x = float(_climb_direction) * a.CLIMB_SPEED
 	a.velocity.y = 0.0
 	var pre_x: float = a.global_position.x
 	a.move_and_slide()
@@ -64,6 +70,8 @@ func _update_mantling(a: Ant, _delta: float) -> void:
 
 	# mantle 완료 검사
 	if _mantle_offset >= a.mantle_distance:
+		# 등반 도중 blocker bounce로 ant.direction이 뒤집혔어도 climb 방향으로 복원.
+		a.direction = _climb_direction
 		if a.is_on_floor():
 			if a.has_candy:
 				a.state_machine.change_state(CarryingState.new())
