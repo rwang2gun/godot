@@ -114,3 +114,55 @@ Next steps:
 - HIGH (direction leak): 해소
 - MEDIUM (stall observation gating): 코드 차원에서는 정확 (is_mantling() 사용), test의 PASS 어려움은 geometry 문제 (별도 이슈)
 - 다음 codex Round는 next session에서 진행 — geometry fix 후 stall test PASS 확인 후 호출.
+
+---
+
+## Self-Review Round 3 (Round 2 NEXT SESSION 이월 완료)
+
+### Fixes applied (이번 세션)
+
+1. **MEDIUM (stall test 결정론 강화)** — Round 2 codex MEDIUM 최종 해소.
+   - **진단**: 이전 세션의 stall geometry((16,15)(17,15)(18,15) ceiling cells)는 사실은 mantle stall 을 **정확히 트리거**하고 있었음. 디버그 instrumentation 으로 확인: ant 가 mantle pos x=505.99 에서 dx=0.000 으로 stall, _mantle_stall_frames 가 1→9 증가 후 frame=761 에 FallerState 로 fall-through (mantle_offset=32.07 < mantle_distance=36.00).
+   - **실 문제**: 테스트의 `STALL_OBSERVATION_FRAMES=12` 가 guard 임계값 `MANTLE_STALL_LIMIT=10` **보다 컸음**. 테스트가 12 frame 누적을 기다리는 동안 guard 가 10 frame 에 fall-through 하여 ClimberState 가 먼저 종료 → observer 가 카운터를 12까지 못 채움. 결과: stall guard 가 실제로 발화했음에도 `_observed_stall = false`.
+   - **수정 1**: [scripts/ant/states/ClimberState.gd](../../../scripts/ant/states/ClimberState.gd) — 내부 상태 노출 getter 2개 추가:
+     - `mantle_stall_frame_count() -> int` (`_mantle_stall_frames` 반환)
+     - `mantle_offset() -> float` (`_mantle_offset` 반환)
+   - **수정 2**: [tests/ClimberStallTest.gd](../../../tests/ClimberStallTest.gd) — 결정론적 검증으로 전면 재설계.
+     - 관찰 방식을 ant.global_position dx 추적이 아니라 `ClimberState.mantle_stall_frame_count()` 직접 query 로 변경 → guard 와 동일 신호 사용.
+     - `STALL_OBSERVATION_THRESHOLD=5` (guard 임계값 10 보다 작아 guard 발화 전 관찰 보장).
+     - PASS 조건 = (is_mantling 발생) AND (max_stall_frames ≥ 5) AND (last_mantle_offset < mantle_distance) AND (exit_state = FallerState).
+     - 마지막 두 조건이 핵심: mantle 정상 완료(offset ≥ distance + WalkerState exit) 시 FAIL. stall guard 발화(offset < distance + FallerState exit) 시 PASS.
+   - **결과**: ClimberStallTest PASS. max_stall_frames=9, last_offset=32.07, exit=FallerState.gd. stall guard 가 결정론적으로 발화함이 증명됨.
+
+2. **LOW (Round 1 codex 권고 잔여)** — climber+blocker overlap 명시 regression test 추가.
+   - **신규**: [tests/ClimberBlockerOverlapTest.gd](../../../tests/ClimberBlockerOverlapTest.gd) + [.tscn](../../../tests/ClimberBlockerOverlapTest.tscn).
+   - 패턴: BlockerOverlapTest 와 동일하게 synthetic blocker (격리된 Ant instance) 의 `_on_blocker_body_entered` 를 ClimberState 도중 직접 호출 → ant.direction flip.
+   - 검증 3축:
+     - (A1) climb 진행: ant.global_position.y 가 entry_y 대비 8px 이상 감소 (벽 등반 진행 = `_climb_direction` 가 velocity 를 driving).
+     - (A2) mantle 진행: mantle phase 진입 후 ant.global_position.x 가 _climb_direction 방향으로 4px 이상 진행.
+     - (B) ClimberState exit 시점 ant.direction == _climb_direction_snapshot (= enter 시 캡쳐된 direction). exit() 가 모든 exit 경로에서 direction 을 복원함을 검증.
+   - **결과**: PASS. bounce 가 direction 을 +1→-1 flip 했음에도 climb 가 (473.93, 698.92)→(509.92, 506.92) 정상 진행, exit 시 direction=+1 로 복원.
+
+### Self-adversarial review (가혹 기준)
+
+| sev | 항목 | 분석 | 처리 |
+|---|---|---|---|
+| HIGH (검증) | 새 getter 2개가 ClimberState 내부 mutable 상태를 외부에 노출 → caller 가 변형하면 invariant 깨질 수 있음 | 둘 다 read-only getter (return only, no setter). 외부 변형 경로 없음. comment 로 "테스트가 stall guard 동작을 결정론적으로 검증할 수 있도록" 의도 명시. | OK — 노출은 read 한정, 캡슐화 깨짐 없음 |
+| HIGH (검증) | `STALL_OBSERVATION_THRESHOLD=5` 가 `MANTLE_STALL_LIMIT=10` 보다 작은 가정에 의존 — 향후 LIMIT 가 5 이하로 바뀌면 테스트가 guard 발화 직전 capture 못 함 | 현재 LIMIT=10, THRESHOLD=5. 안전 margin 5. 향후 LIMIT 가 5 이하로 변경되면 test 가 false-pass 가능 — 그러나 LIMIT 축소는 stall guard 자체의 design change 라 plan/review 흐름에서 명시될 사안. | ACCEPT — 현 시점 안전, 향후 변경 시 함께 갱신할 사안 |
+| HIGH (검증) | `_apply_synthetic_blocker_bounce` 가 ant.direction 을 -climb_direction_snapshot 으로 flip 못 했을 때 (예: snapshot=0) FAIL 처리 | snapshot 계산: `_climb_direction = a.direction if a.direction != 0 else 1`. snapshot 은 항상 ±1. `-snapshot` 도 ±1. flip 후 sanity check 가 `_ant.direction != -snapshot` 일 때 FAIL. | OK — 에지 케이스도 명시 처리 |
+| MEDIUM | ClimberBlockerOverlapTest 의 synthetic blocker (ANT_SCENE.instantiate) 는 test 종료까지 free 안 됨 → 메모리 leak | get_tree().quit 으로 프로세스 종료. 테스트 한 회 실행 단위에선 무해. | ACCEPT — 단발 헤드리스 테스트 |
+| MEDIUM | bounce 가 `_climber_entered_frame` 직후 frame 에 적용됨 — climbing phase 중 발생. mantle phase 중 bounce 시나리오는 별도 케이스 | climbing phase bounce 가 fail 하면 mantle phase bounce 도 fail 할 확률 높음 (둘 다 `_climb_direction` 사용). climbing 시점 bounce 가 더 가혹한 케이스 (climb 전 frames 동안 _climb_direction lock 이 유지되어야 함). | ACCEPT — climbing phase bounce 가 strict superset, mantle phase 별도 케이스 불필요 |
+| MEDIUM | `mantle_offset()` 가 mantle 시작 전 -1.0 반환 — caller 가 잘못 해석하면 negative offset 으로 오해 가능 | comment 명시 + test 의 사용 패턴은 `_observed_mantle_entry` 후에만 mantle_offset 사용. caller responsibility. | ACCEPT — getter contract 분명, test 측 정상 사용 |
+| LOW | ClimberStallTest 가 `ClimberState.MANTLE_STALL_LIMIT` 상수를 import 하지 않고 `5` 를 하드코딩 | 위 HIGH (margin) 와 같은 root. AntState 자식 클래스 상수 import 가능하지만 테스트 boilerplate 증가. 현 5 는 안전 margin. | ACCEPT — 단순성 우선 |
+| LOW | ClimberStallTest 의 stall geometry (16,15)(17,15)(18,15) 가 stall_geometry 책임 모듈로 분리되지 않음 | 단일 테스트 전용 geometry — 다른 테스트와 공유 가능성 낮음. 인라인 유지. | ACCEPT |
+
+### Verification
+
+- 새 tests PASS:
+  - ClimberStallTest (재설계 후): mantle entry observed, max_stall_frames=9, last_offset=32.07<36.00, exit=FallerState. PASS.
+  - ClimberBlockerOverlapTest (신규): bounce flipped to -1 mid-climb, climb_progressed (192px upward + 36px mantle in _climb_direction), exit_direction=+1 restored. PASS.
+- 회귀 PASS (모두 PASS 확인):
+  - ClimberTraitTest, FloaterTraitTest, TraitCombinedTest
+  - BlockerOverlapTest (§B-1~§B-8 전체)
+  - Stage02HeadlessTest, Stage03HeadlessTest
+- Self-review verdict: **HIGH 0건** (검증된 3개 HIGH 후보는 모두 ACCEPT/OK 처리). Codex Round 3 진행 가능.

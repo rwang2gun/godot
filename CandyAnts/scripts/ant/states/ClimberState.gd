@@ -33,6 +33,15 @@ func exit() -> void:
 func is_mantling() -> bool:
 	return _mantle_offset >= 0.0
 
+# Phase 14 impl-stage Round 3 — codex Round 2 MEDIUM 후속.
+# 테스트가 stall guard 동작을 결정론적으로 검증할 수 있도록 내부 상태 노출.
+# guard 임계값(MANTLE_STALL_LIMIT, STALL_DX_THRESHOLD)도 외부에서 그대로 참조 가능.
+func mantle_stall_frame_count() -> int:
+	return _mantle_stall_frames
+
+func mantle_offset() -> float:
+	return _mantle_offset
+
 func update(delta: float) -> void:
 	var a: Ant = ant as Ant
 	if a == null:
