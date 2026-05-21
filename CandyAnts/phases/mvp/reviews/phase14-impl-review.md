@@ -166,3 +166,56 @@ Next steps:
   - BlockerOverlapTest (§B-1~§B-8 전체)
   - Stage02HeadlessTest, Stage03HeadlessTest
 - Self-review verdict: **HIGH 0건** (검증된 3개 HIGH 후보는 모두 ACCEPT/OK 처리). Codex Round 3 진행 가능.
+
+---
+
+## Round 3
+
+- **실행 시각**: 2026-05-21
+- **scope**: branch diff vs 12c8878 (Round 1 fixes), HEAD = 20cb31e (Round 3 fixes wip)
+- **command**: `node codex-companion.mjs adversarial-review --wait --scope branch --base 12c8878 "..."`
+
+# Codex Adversarial Review
+
+Target: branch diff against 12c8878
+Verdict: needs-attention
+
+No-ship: the new blocker overlap regression does not actually enforce the mantle-path and all-exit-path guarantees it claims to cover.
+
+Findings:
+- [medium] Blocker overlap test can pass without proving mantle progression or non-happy exit paths (CandyAnts/tests/ClimberBlockerOverlapTest.gd:159-168)
+  The mantle assertion is optional: if `_mantle_entry_x` remains `NAN`, lines 159-165 skip the mantle-direction check entirely. A regression that bounces during ClimberState, moves upward more than 8px, then exits via ceiling/fall before mantling would still reach the direction check and can pass without proving mantle proceeds in `_climb_direction`. The same test only observes whichever exit this TraitTest scene naturally takes; it does not synthesize or assert the ceiling-fall and stall-guard fall exits called out in the requirement, so `ClimberState.exit()` could regress on those paths without this new test catching it.
+  Recommendation: Make mantle entry mandatory for the normal blocker-overlap scenario, then add explicit blocker-bounce cases for each exit mode: mantle-complete, ceiling-fall, and stall-guard fall. Each case should flip direction during ClimberState and assert the captured exit direction equals the climb-direction snapshot.
+
+Next steps:
+- Tighten `ClimberBlockerOverlapTest` so skipping mantle is a failure, not an untested branch.
+- Add dedicated fixtures or parameterized scenarios for ceiling-fall and stall-guard fall after a synthetic blocker bounce.
+
+---
+
+## Self-Review Round 4 (Round 3 MEDIUM 대응)
+
+### Fixes applied
+
+1. **MEDIUM (test soft-branch)** — codex Round 3 권고 #1 직접 적용.
+   - [tests/ClimberBlockerOverlapTest.gd](../../../tests/ClimberBlockerOverlapTest.gd) — `is_nan(_mantle_entry_x)` 가드를 `mantle 미진입은 FAIL` 로 전환. mantle 진입이 mandatory 가 되어 climb 진행 중단 / 조기 ceiling-fall regression 모두 catch.
+
+2. **MEDIUM (exit-path coverage)** — codex Round 3 권고 #2 일부 적용.
+   - **신규**: [tests/ClimberBlockerOverlapStallTest.gd](../../../tests/ClimberBlockerOverlapStallTest.gd) + [.tscn](../../../tests/ClimberBlockerOverlapStallTest.tscn).
+   - ClimberBlockerOverlapTest (mantle-complete exit, ClimberState.gd:90) + ClimberBlockerOverlapStallTest (stall-guard fall exit, ClimberState.gd:77) 두 별도 transition 호출 지점에서 동일한 `state_machine.change_state` → `exit()` direction 복원이 작동함을 검증.
+   - **ceiling-fall 경로 scenario 생략 근거**: `AntStateMachine.change_state` (AntStateMachine.gd:6-11) 가 항상 `current_state.exit()` 를 호출하고, ClimberState 의 모든 5개 transition 호출(climbing ceiling-fall:54 / mantle stall-guard fall:77 / mantle-complete on-floor carrying:86 / mantle-complete on-floor walker:88 / mantle-complete in-air faller:90)이 동일 `state_machine.change_state` API 만 사용. mantle-complete 경로(Test 1) + stall-guard fall 경로(Test 2) 가 함께 검증되면 exit() 메커니즘이 (a) 서로 다른 transition 지점에서, (b) 서로 다른 exit reason(정상 완료 vs 강제 fall-through) 에서 모두 작동함이 증명되므로 ceiling-fall 추가 fixture 는 redundant. 코멘트로 명시 (ClimberBlockerOverlapTest.gd verify_and_finish 참고).
+
+### Self-adversarial review
+
+| sev | 항목 | 분석 | 처리 |
+|---|---|---|---|
+| HIGH (검증) | StallTest 의 `_exit_state_name == "FallerState.gd"` 문자열 매치 — script path 변경 시 silent break | StallTest 와 ClimberStallTest 모두 동일 패턴 사용. 일관됨. FallerState 위치 변경은 별도 phase 작업. | ACCEPT |
+| MEDIUM | 두 blocker overlap 테스트가 거의 동일한 구조 — duplication | test 의 의도 차별성(mantle-complete vs stall-fall)을 위해 separate fixture 유지. 헬퍼 추출은 LOC 절감 적고 가독성 손해. | ACCEPT |
+| LOW | StallTest 의 stall geometry 코드가 ClimberStallTest 와 정확히 동일 (3 cells copy) | 두 test 모두 dev_trait_test 무대 위에서 같은 ant 경로 사용. shared helper 로 추출 가능하나 작은 중복. | ACCEPT — defer to deferred.md if codex flags |
+
+### Verification
+
+- 새/수정 tests PASS:
+  - ClimberBlockerOverlapTest (mandatory mantle 진입): PASS — bounce flipped to -1, climb progressed, mantle entered, exit_direction=+1.
+  - ClimberBlockerOverlapStallTest (신규, stall-guard fall path): PASS — bounce flipped to -1, mantle entered, stall guard fired (max_stall=9, last_offset=32.07<36.00), exit_direction=+1 restored on stall-guard fall path.
+- Self-review verdict: HIGH 0건. Codex Round 4 진행 가능.

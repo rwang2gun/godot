@@ -156,14 +156,22 @@ func _verify_and_finish() -> void:
 	if _min_y_observed >= _climb_entry_y - 8.0:
 		_fail("(A) climb did not progress upward after bounce — entry_y=%.2f min_y=%.2f (need < entry-8)" % [_climb_entry_y, _min_y_observed])
 		return
-	# (A) mantle 진입했다면 _climb_direction 방향으로 x 진행 확인.
-	if not is_nan(_mantle_entry_x):
-		var x_delta: float = _max_mantle_x_in_climb_dir - _mantle_entry_x
-		var expected_sign: int = _climb_direction_snapshot
-		if (expected_sign > 0 and x_delta < 4.0) or (expected_sign < 0 and x_delta > -4.0):
-			_fail("(A) mantle did not progress in _climb_direction=%d after bounce — entry_x=%.2f max_x=%.2f delta=%.2f" % [_climb_direction_snapshot, _mantle_entry_x, _max_mantle_x_in_climb_dir, x_delta])
-			return
+	# (A) mantle 진입 MANDATORY — TraitTest 무대는 ant 가 벽 끝까지 climb 후 반드시 mantle 진입.
+	#     mantle 미진입은 climb 진행 자체가 멈춘 회귀 신호 (codex Round 3 MEDIUM 대응).
+	if is_nan(_mantle_entry_x):
+		_fail("(A) mantle never entered — _climb_direction lock may have been broken pre-mantle (regression in climbing phase)")
+		return
+	var x_delta: float = _max_mantle_x_in_climb_dir - _mantle_entry_x
+	var expected_sign: int = _climb_direction_snapshot
+	if (expected_sign > 0 and x_delta < 4.0) or (expected_sign < 0 and x_delta > -4.0):
+		_fail("(A) mantle did not progress in _climb_direction=%d after bounce — entry_x=%.2f max_x=%.2f delta=%.2f" % [_climb_direction_snapshot, _mantle_entry_x, _max_mantle_x_in_climb_dir, x_delta])
+		return
 	# (B) exit 시점 ant.direction 이 _climb_direction 으로 복원되었는지.
+	#     ClimberState 의 모든 exit 경로(mantle 완료/ceiling-fall/stall-guard fall)는 모두
+	#     AntStateMachine.change_state(new_state) 를 호출하고, change_state 는 항상
+	#     current_state.exit() 를 먼저 호출하므로 exit() 발화는 모든 경로에서 동일하게 보장됨.
+	#     본 테스트(mantle-complete 경로) + ClimberBlockerOverlapStallTest(stall-fall 경로) 으로
+	#     동일한 exit() 메커니즘이 서로 다른 transition 호출 지점에서 모두 발화함을 검증.
 	if _exit_direction != _climb_direction_snapshot:
 		_fail("(B) ant.direction not restored at ClimberState exit — expected %d got %d (exit_state=%s)" % [_climb_direction_snapshot, _exit_direction, _exit_state_name])
 		return
