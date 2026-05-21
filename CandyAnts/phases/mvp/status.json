@@ -152,10 +152,10 @@
       "name": "mechanic-adaptation-traits",
       "duration_estimate": 5400,
       "verify": "",
-      "state": "in_progress",
+      "state": "completed",
       "started_at": "2026-05-19T23:56:20",
-      "completed_at": null,
-      "duration_seconds": null
+      "completed_at": "2026-05-21T23:12:03",
+      "duration_seconds": 170143
     },
     {
       "id": 15,

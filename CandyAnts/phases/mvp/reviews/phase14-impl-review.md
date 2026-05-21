@@ -219,3 +219,29 @@ Next steps:
   - ClimberBlockerOverlapTest (mandatory mantle 진입): PASS — bounce flipped to -1, climb progressed, mantle entered, exit_direction=+1.
   - ClimberBlockerOverlapStallTest (신규, stall-guard fall path): PASS — bounce flipped to -1, mantle entered, stall guard fired (max_stall=9, last_offset=32.07<36.00), exit_direction=+1 restored on stall-guard fall path.
 - Self-review verdict: HIGH 0건. Codex Round 4 진행 가능.
+
+---
+
+## Round 4
+
+- **실행 시각**: 2026-05-21
+- **scope**: branch diff vs 20cb31e (Round 3 wip), HEAD = 92bdf7d (Round 4 fixes wip)
+- **command**: `node codex-companion.mjs adversarial-review --wait --scope branch --base 20cb31e "..."`
+
+# Codex Adversarial Review
+
+Target: branch diff against 20cb31e
+Verdict: approve
+
+Ship: I could not support a material blocking finding. The mantle test now hard-fails on missing mantle entry, the stall test has enough predicates to prove the incomplete-mantle Faller exit is the stall-guard path, and the ceiling-fall skip rationale is defensible because all current ClimberState exits go through the same AntStateMachine.change_state() exit() call.
+
+No material findings.
+
+---
+
+## Final verdict
+
+- **Plan stage**: PASS (Round 7, commit 62c354b — see `phases/mvp/reviews/option-b-v0.2-plan-review.md`)
+- **Impl stage**: PASS — codex Round 4 = **approve** (no material findings)
+- Total: codex 4 rounds (R1 HIGH/MEDIUM → R2 HIGH/MEDIUM partial → R3 MEDIUM → R4 approve) + self-review 4 rounds
+- Ready for `python scripts/execute.py mvp complete 14`
