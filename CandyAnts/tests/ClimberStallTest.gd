@@ -106,17 +106,23 @@ func _observe() -> void:
 			_prev_x = _ant.global_position.x
 			print("[ClimberStallTest] entered ClimberState at frame=%d pos=%s" % [_frame_count, _ant.global_position])
 		else:
-			# mantle phase 진입 후 dx 정체 관찰. _prev_x 대비 변화량 < STALL_DX_THRESHOLD가
-			# 10 frame 이상 누적되면 stall 발생 증거.
-			var dx: float = absf(_ant.global_position.x - _prev_x)
-			_prev_x = _ant.global_position.x
-			if dx < STALL_DX_THRESHOLD:
-				_consecutive_low_dx_frames += 1
-				if _consecutive_low_dx_frames >= STALL_OBSERVATION_FRAMES and not _observed_stall:
-					_observed_stall = true
-					print("[ClimberStallTest] observed stall: %d consecutive low-dx frames at frame=%d pos=%s" % [_consecutive_low_dx_frames, _frame_count, _ant.global_position])
+			# stall 관찰은 mantle phase에 한정 — climbing phase는 horizontal velocity 0이라
+			# 자연스럽게 low-dx이므로 stall과 구분 안 됨. ClimberState.is_mantling()으로 gate.
+			# (impl-stage Round 2 MEDIUM 대응)
+			var climber: ClimberState = s as ClimberState
+			if climber != null and climber.is_mantling():
+				var dx: float = absf(_ant.global_position.x - _prev_x)
+				if dx < STALL_DX_THRESHOLD:
+					_consecutive_low_dx_frames += 1
+					if _consecutive_low_dx_frames >= STALL_OBSERVATION_FRAMES and not _observed_stall:
+						_observed_stall = true
+						print("[ClimberStallTest] observed mantle stall: %d consecutive low-dx frames at frame=%d pos=%s" % [_consecutive_low_dx_frames, _frame_count, _ant.global_position])
+				else:
+					_consecutive_low_dx_frames = 0
 			else:
+				# climbing phase — counter 리셋, prev_x만 갱신.
 				_consecutive_low_dx_frames = 0
+			_prev_x = _ant.global_position.x
 		# stuck check
 		var elapsed: int = _frame_count - _climber_entered_frame
 		if elapsed > CLIMBER_STATE_MAX_FRAMES:

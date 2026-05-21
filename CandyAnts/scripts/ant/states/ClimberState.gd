@@ -22,6 +22,17 @@ func enter() -> void:
 	_mantle_stall_frames = 0
 	_climb_direction = a.direction if a.direction != 0 else 1
 
+func exit() -> void:
+	# 등반 도중 blocker bounce로 ant.direction이 뒤집혔어도 climb 방향으로 복원.
+	# 모든 ClimberState 종료 경로(mantle 완료/ceiling/stall guard)에 일관 적용.
+	# (impl-stage Round 2 HIGH 대응 — Round 1에선 mantle 완료 경로에만 적용했음)
+	var a: Ant = ant as Ant
+	if a != null:
+		a.direction = _climb_direction
+
+func is_mantling() -> bool:
+	return _mantle_offset >= 0.0
+
 func update(delta: float) -> void:
 	var a: Ant = ant as Ant
 	if a == null:
@@ -68,10 +79,8 @@ func _update_mantling(a: Ant, _delta: float) -> void:
 	else:
 		_mantle_stall_frames = 0
 
-	# mantle 완료 검사
+	# mantle 완료 검사. exit()에서 ant.direction 복원되므로 여기서는 단순 전이만.
 	if _mantle_offset >= a.mantle_distance:
-		# 등반 도중 blocker bounce로 ant.direction이 뒤집혔어도 climb 방향으로 복원.
-		a.direction = _climb_direction
 		if a.is_on_floor():
 			if a.has_candy:
 				a.state_machine.change_state(CarryingState.new())
