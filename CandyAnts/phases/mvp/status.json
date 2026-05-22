@@ -163,10 +163,10 @@
       "name": "mechanic-adaptation-settlement",
       "duration_estimate": 7200,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-22T22:30:41",
+      "completed_at": "2026-05-23T00:18:34",
+      "duration_seconds": 6473
     },
     {
       "id": 16,

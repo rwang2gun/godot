@@ -1,10 +1,11 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/ant/Ant.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/ant/AntStateMachine.gd" id="2"]
 [ext_resource type="SpriteFrames" path="res://assets/sprites/characters/ant_pajama_girl/AntFrames.tres" id="3"]
 [ext_resource type="Texture2D" path="res://assets/icons/skills/climber.svg" id="4_climber_badge"]
 [ext_resource type="Texture2D" path="res://assets/icons/skills/floater.svg" id="5_floater_badge"]
+[ext_resource type="Texture2D" path="res://assets/icons/skills/distributor.svg" id="6_settle_badge"]
 
 [sub_resource type="RectangleShape2D" id="shape"]
 size = Vector2(12, 10)
@@ -54,4 +55,11 @@ visible = false
 position = Vector2(7, 0)
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("5_floater_badge")
+visible = false
+
+[node name="SettleBadge" type="Sprite2D" parent="TraitBadges"]
+position = Vector2(0, 0)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("6_settle_badge")
+z_index = 1
 visible = false

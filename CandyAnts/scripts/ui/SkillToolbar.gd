@@ -20,6 +20,7 @@ const ICONS: Dictionary = {
 	"miner": preload("res://assets/icons/skills/miner.svg"),
 	"floater": preload("res://assets/icons/skills/floater.svg"),
 	"bomber": preload("res://assets/icons/skills/bomber.svg"),
+	"distributor": preload("res://assets/icons/skills/distributor.svg"),
 }
 const KO_LABELS: Dictionary = {
 	"climber": "등반",
@@ -30,6 +31,7 @@ const KO_LABELS: Dictionary = {
 	"basher": "굴착",
 	"miner": "채굴",
 	"digger": "땅파기",
+	"distributor": "분배자",
 }
 const CURSOR_HOTSPOT: Vector2 = Vector2(32, 32)
 
@@ -165,12 +167,17 @@ func _cycle(step: int) -> void:
 	_on_slot_pressed(ids[next_idx])
 
 func _find_closest_ant(world: Vector2) -> Ant:
+	# Phase 15 impl Round 2 F-impl-R2-1 MEDIUM 대응 — terminal state(Settled/Saved/Dead) ant는
+	# is_alive()=false → 클릭 타겟팅 후보에서 제외. settled distributor가 marker 위에 visible로
+	# 남아있어도 valid follower의 skill assign을 shadow하지 않도록 보장.
 	var ants: Array = get_tree().get_nodes_in_group("ants")
 	var closest: Ant = null
 	var best: float = CLICK_RADIUS
 	for n in ants:
 		var a: Ant = n as Ant
 		if a == null:
+			continue
+		if not a.is_alive():
 			continue
 		var d: float = a.global_position.distance_to(world)
 		if d < best:
