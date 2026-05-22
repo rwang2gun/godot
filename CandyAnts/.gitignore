@@ -22,3 +22,8 @@ scripts/hooks/.tdd_bypass
 # 로컬 secrets — DISCORD_WEBHOOK_URL 등. scripts/notify.py가 자동 로드.
 .env
 .env.local
+
+# 외부 도구 (codex map-editor 트랙)
+tools/map_editor/node_modules/
+# 상위 .gitignore의 *.html 패턴 예외 — map-editor public asset
+!tools/map_editor/public/*.html

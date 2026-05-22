@@ -1,0 +1,13 @@
+{
+  "name": "candyants-map-editor",
+  "version": "1.0.0",
+  "description": "Local server-backed web map editor for CandyAnts",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

@@ -8,6 +8,7 @@ class_name StageLayoutData extends Resource
 @export var camera_cell: Vector2i = Vector2i(30, 17)
 @export var spawn_direction: int = 1
 @export var spawn_direction_alternate: bool = false
+@export var theme: String = "cookie_crust"
 
 func cell_to_world(cell: Vector2i) -> Vector2:
 	return Vector2(
