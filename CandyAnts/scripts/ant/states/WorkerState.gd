@@ -13,6 +13,15 @@ const SAND_MOUND_MAX_HEIGHT: int = 5
 const BRIDGE_TICK: float = 0.20
 const BRIDGE_MAX_LENGTH: int = 8
 
+# Phase 18 — Basher(수평 굴착) + Digger(수직 굴착) 상수.
+# DIGGER_OFF_FLOOR_LIMIT: void 무한 낙하 안전망 (D11, codex R1 H1). 3초 @ 60fps.
+# 정상 1~5 cell drop(1~60 frames)에서 trigger X. hazard도 없는 완전한 void에서만 발동.
+const BASHER_TICK: float = 0.18
+const BASHER_MAX_CELLS: int = 12
+const DIGGER_TICK: float = 0.20
+const DIGGER_MAX_CELLS: int = 12
+const DIGGER_OFF_FLOOR_LIMIT: int = 180
+
 var _work_type: String = ""
 var _remaining: int = 0
 var _tick_accum: float = 0.0
@@ -22,6 +31,10 @@ var _aborted: bool = false
 # tile placement는 항상 off-floor frame에서 차단(grace frame은 return으로 skip, abort frame은
 # placement loop 진입 전 종료). 진짜 fall은 연속 off-floor 2 frame으로 즉시 abort.
 var _bridge_floor_grace_used: bool = false
+# Phase 18 — Digger off-floor 누적 카운터. on_floor 시 0 reset, off-floor 시 +1.
+# DIGGER_OFF_FLOOR_LIMIT 초과 시 _aborted + FallerState 직접 전이 (D11 void termination).
+# basher 모드에서는 미사용 (off-floor 즉시 _aborted라 카운팅 불필요).
+var _off_floor_frames: int = 0
 
 func _init(work_type: String = "builder") -> void:
 	_work_type = work_type
@@ -39,6 +52,10 @@ func enter() -> void:
 		_enter_sand_mound(a)
 	elif _work_type == "bridge":
 		_enter_bridge(a)
+	elif _work_type == "basher":
+		_enter_basher(a)
+	elif _work_type == "digger":
+		_enter_digger(a)
 	else:
 		_aborted = true
 
@@ -66,6 +83,19 @@ func _enter_bridge(a: Ant) -> void:
 	_bridge_floor_grace_used = false
 	a.velocity = Vector2.ZERO
 
+func _enter_basher(a: Ant) -> void:
+	_remaining = BASHER_MAX_CELLS
+	_tick_accum = 0.0
+	_aborted = false
+	a.velocity = Vector2.ZERO
+
+func _enter_digger(a: Ant) -> void:
+	_remaining = DIGGER_MAX_CELLS
+	_tick_accum = 0.0
+	_aborted = false
+	_off_floor_frames = 0
+	a.velocity = Vector2.ZERO
+
 func update(delta: float) -> void:
 	var a: Ant = ant as Ant
 	if a == null:
@@ -79,6 +109,12 @@ func update(delta: float) -> void:
 		return
 	elif _work_type == "bridge":
 		_update_bridge(a, delta)
+		return
+	elif _work_type == "basher":
+		_update_basher(a, delta)
+		return
+	elif _work_type == "digger":
+		_update_digger(a, delta)
 		return
 
 	# builder 분기 (기존 로직 유지, cell_size만 dynamic)
@@ -271,3 +307,118 @@ func _find_terrain(a: Ant) -> Terrain:
 			return n as Terrain
 		n = n.get_parent()
 	return null
+
+# Phase 18 — Basher 수평 굴착. ant 진행 방향의 body row cell을 BASHER_MAX_CELLS까지 tick 단위 제거.
+# 매 제거 시 ant.x += dir*cs로 1 cell 전진. wall 끝(forward에 earth 없음) 도달 시 자연 종료.
+# off-floor 시 즉시 _aborted → Faller (절벽 끝에서 활성화한 경우).
+func _update_basher(a: Ant, delta: float) -> void:
+	if _aborted or _remaining <= 0:
+		a.state_machine.change_state(WalkerState.new())
+		return
+	a.velocity.y += a.gravity * delta
+	a.velocity.x = 0.0
+	a.move_and_slide()
+	if not a.is_on_floor():
+		_aborted = true
+		a.state_machine.change_state(FallerState.new())
+		return
+	_tick_accum += delta
+	while _tick_accum >= BASHER_TICK and _remaining > 0 and not _aborted:
+		_tick_accum -= BASHER_TICK
+		if not _basher_forward_has_earth(a):
+			_aborted = true
+			break
+		_destroy_basher_cell(a)
+	if _aborted or _remaining <= 0:
+		a.state_machine.change_state(WalkerState.new())
+
+# Phase 18 — Digger 수직 굴착. ant 바로 아래 floor row cell을 DIGGER_MAX_CELLS까지 tick 단위 제거.
+# ant 위치는 갱신 안 함 — 다음 physics tick에 is_on_floor=false → 중력으로 자연 낙하.
+# off-floor 중에도 WorkerState 유지 (vertical tunnel 연속 굴착, v4 Option A). DIGGER_OFF_FLOOR_LIMIT
+# 초과 시 _aborted + FallerState 직접 전이 (D11 void termination 안전망).
+func _update_digger(a: Ant, delta: float) -> void:
+	if _aborted or _remaining <= 0:
+		a.state_machine.change_state(WalkerState.new())
+		return
+	a.velocity.y += a.gravity * delta
+	a.velocity.x = 0.0
+	a.move_and_slide()
+	if not a.is_on_floor():
+		_off_floor_frames += 1
+		if _off_floor_frames > DIGGER_OFF_FLOOR_LIMIT:
+			# D11 void termination — Walker 우회하지 않고 FallerState 직접 전이.
+			_aborted = true
+			a.state_machine.change_state(FallerState.new())
+		return
+	# on_floor — counter reset 후 tick 소비.
+	_off_floor_frames = 0
+	_tick_accum += delta
+	while _tick_accum >= DIGGER_TICK and _remaining > 0 and not _aborted:
+		_tick_accum -= DIGGER_TICK
+		if not _digger_below_has_earth(a):
+			_aborted = true
+			break
+		_destroy_digger_cell(a)
+	if _aborted or _remaining <= 0:
+		a.state_machine.change_state(WalkerState.new())
+
+func _destroy_basher_cell(a: Ant) -> void:
+	var terrain: Terrain = _find_terrain(a)
+	if terrain == null:
+		_aborted = true
+		return
+	var cs: int = terrain.cell_size
+	# Builder 패턴 답습 — (y - 2.0)/cs로 ant 본체 cell.
+	var body_cell: Vector2i = Vector2i(
+		int(floor(a.global_position.x / cs)),
+		int(floor((a.global_position.y - 2.0) / cs))
+	)
+	var target: Vector2i = body_cell + Vector2i(a.direction, 0)
+	var ok: bool = terrain.destroy_tile_at(target, ["earth"])
+	if not ok:
+		_aborted = true
+		return
+	# 1 cell 전진. Vector2 더하기로 Builder/Bridge/Sand-mound 스타일 통일.
+	a.global_position += Vector2(float(a.direction) * cs, 0.0)
+	_remaining -= 1
+
+func _destroy_digger_cell(a: Ant) -> void:
+	var terrain: Terrain = _find_terrain(a)
+	if terrain == null:
+		_aborted = true
+		return
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(a.global_position.x / cs)),
+		int(floor((a.global_position.y - 2.0) / cs))
+	)
+	# floor row (ant 바로 아래).
+	var target: Vector2i = body_cell + Vector2i(0, 1)
+	var ok: bool = terrain.destroy_tile_at(target, ["earth"])
+	if not ok:
+		_aborted = true
+		return
+	# ant 위치는 무변경 — 다음 physics tick에 is_on_floor=false → 자연 낙하.
+	_remaining -= 1
+
+func _basher_forward_has_earth(a: Ant) -> bool:
+	var terrain: Terrain = _find_terrain(a)
+	if terrain == null:
+		return false
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(a.global_position.x / cs)),
+		int(floor((a.global_position.y - 2.0) / cs))
+	)
+	return terrain.get_cell_kind(body_cell + Vector2i(a.direction, 0)) == "earth"
+
+func _digger_below_has_earth(a: Ant) -> bool:
+	var terrain: Terrain = _find_terrain(a)
+	if terrain == null:
+		return false
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(a.global_position.x / cs)),
+		int(floor((a.global_position.y - 2.0) / cs))
+	)
+	return terrain.get_cell_kind(body_cell + Vector2i(0, 1)) == "earth"

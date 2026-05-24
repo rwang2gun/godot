@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="StageLayoutData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/StageLayoutData.gd" id="1_layout_script"]
+
+[resource]
+script = ExtResource("1_layout_script")
+cell_size = 32
+home_cell = Vector2i(10, 21)
+candy_cell = Vector2i(16, 21)
+camera_cell = Vector2i(13, 19)
+spawn_direction = 1
+spawn_direction_alternate = false
+tile_map = {
+"8,22": "solid",
+"9,22": "solid",
+"10,22": "solid",
+"11,22": "solid",
+"12,22": "solid",
+"13,22": "solid",
+"14,22": "solid",
+"15,22": "solid",
+"16,22": "solid",
+"17,22": "solid",
+"12,21": "solid",
+"13,21": "solid"
+}

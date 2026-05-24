@@ -30,10 +30,11 @@
 - **이유**: 명확히 느리지만 답답하지 않음. 속도 페널티 + 사망 위험 결합으로 후반부 긴장감. 스킬 가능성은 귀환로 확보 유연성.
 - **트레이드오프**: 운반자가 길에서 적체 가능 (Release Rate 압박 부각)
 
-### ADR-007: TileMap 기반 지형 파괴 (BitMap 보류)
-- **결정**: MVP는 TileMap 셀 단위 파괴 (16x16 px). 두 레이어로 파괴 가능/불가 분리.
+### ADR-007: 셀 단위 지형 파괴 (BitMap 보류)
+- **결정**: MVP는 cell 단위 파괴. 16~32 px cell grid 위에서 cell-keyed registry로 정적/동적 floor 동시 관리 (실제 구현은 ADR-010 참조). 파괴 가능/불가 구분은 cell kind 필드(`"earth"` 등)로 분리.
 - **이유**: 빠른 구현. Godot 표준 도구 활용. 픽셀 정밀도가 후속 단계에서 필요해질 때 BitMap으로 교체 가능 (Skill 인터페이스 유지).
 - **트레이드오프**: 지형 파괴의 픽셀 정밀도 ↓, 아트 표현력 제한
+- **이력**: 초안에서 TileMap 레이어 분리 방식 명시. phase 16 이후 StageLayoutData `tile_map` Dictionary + Terrain `_placed`/`_static_*` Dictionary 기반으로 자연 진화 → phase 18에서 destruction이 들어오며 StaticBody2D registry 방식으로 정식화 (ADR-010 참조).
 
 ### ADR-008: 빌드 누적형 개발 (Stage 1부터 플레이 가능)
 - **결정**: 각 빌드는 이전 빌드를 깨지 않은 상태에서 새 시스템만 추가. Stage 1은 스킬 0개로 풀 수 있는 튜토리얼.
@@ -44,3 +45,9 @@
 - **결정**: 마크다운 3개 파일로 프로젝트 전체를 AI에게 전달. 상세 자료는 `docs/references/`에 별도 보관.
 - **이유**: AI 컨텍스트 효율성. 핵심을 짧게, 변동 적게. 코드가 진짜 SoT.
 - **트레이드오프**: 상세 정보가 docs/와 references/로 이중화될 수 있음 (관리 부담)
+
+### ADR-010: Terrain destruction = StaticBody2D cell-keyed registry (Phase 18)
+- **결정**: phase 18 destruction 도입 시점에 ADR-007의 cell-grid 정신을 유지하면서 실제 구현은 `Terrain._static_bodies`(Vector2i → StaticBody2D, 정적 stage cell) + `Terrain._placed`(Vector2i → StaticBody2D, 동적 cell) + `Terrain._cell_kind`(Vector2i → String "earth"/"plant"/"") 3 registry로 정식화. `register_static_body(cell, body, kind)` / `get_cell_kind(cell)` / `destroy_tile_at(cell, allowed_kinds)` API 신설.
+- **이유**: phase 16 이후 StageLayoutData가 TileMap 노드 없이 Dictionary `tile_map`을 사용하고 StageLayoutBuilder가 StaticBody2D 노드를 직접 생성하는 방식으로 자연 진화함. phase 18에서 동적 파괴를 도입할 때 cell-keyed body registry가 atomic destroy(dynamic + static 둘 다 queue_free + registry 4종 erase) 와 cell kind 분리(cross-mechanic 침범 차단)에 가장 단순한 자료구조였음. TileMap layer 분리로 회귀 시 phase 16~17 dev stage 전부 마이그레이션 필요.
+- **트레이드오프**: ADR-007이 시사한 TileMap 레이어 분리 abstraction 포기. cell 종류 분류는 string 기반 kind 필드(타입 안전성 ↓)로 처리. plant kind는 phase 19 진입 시 추가.
+- **관련**: ADR-007 (cell grid 결정), ADR-003 (SkillRegistry 명시적 preload — 신규 skill BasherSkill/DiggerSkill 추가 시 1줄 등록).

@@ -10,6 +10,12 @@ var _static_occupancy: Dictionary = {}    # Vector2i → true (정적 stage cell
 # v3: Array 저장으로 same-cell overlap(Water+Sticky 등) 지원 → deactivate 시 모든 hazard 일괄 set_active(false).
 # registration 순서 무관 D8 정책 robust (codex R1-H1 대응).
 var _hazards_by_cell: Dictionary = {}     # Vector2i → Array[HazardBase]
+# Phase 18 — 정적 cell StaticBody2D registry. StageLayoutBuilder가 register_static_body로 등록.
+# destroy_tile_at 시 dynamic _placed + 정적 _static_bodies 둘 다 queue_free 대상.
+var _static_bodies: Dictionary = {}       # Vector2i → StaticBody2D
+# Phase 18 — cell 종류 분류. "earth"(default) / "plant"(phase 19) / "" (미등록).
+# destroy_tile_at의 allowed_kinds로 cross-mechanic 침범 차단.
+var _cell_kind: Dictionary = {}           # Vector2i → String
 var _bridge_tile_texture: Texture2D = null
 
 func set_cell_size(s: int) -> void:
@@ -19,6 +25,44 @@ func set_cell_size(s: int) -> void:
 func register_static_cell(cell: Vector2i) -> void:
 	# idempotent — 중복 register OK (StageLayoutBuilder가 rebuild 시 다시 부를 수 있음).
 	_static_occupancy[cell] = true
+
+# Phase 18 — 정적 cell의 StaticBody2D를 cell-keyed registry에 등록.
+# StageLayoutBuilder.build()가 cell 생성 직후 호출 → destroy_tile_at 시 body 직접 queue_free 가능.
+# Dynamic _placed와 별도 — atomic destruction에서 둘 다 검사.
+func register_static_body(cell: Vector2i, body: StaticBody2D, kind: String = "earth") -> void:
+	if body == null:
+		return
+	_static_bodies[cell] = body
+	_cell_kind[cell] = kind
+	register_static_cell(cell)   # _static_occupancy 등록 — D8 first-place wins 자연 정합
+
+# Phase 18 — cell 종류. "" = 미등록(공기 또는 hazard). "earth"/"plant" 등 명시 kind가 있을 때만 destroy 후보.
+func get_cell_kind(cell: Vector2i) -> String:
+	return _cell_kind.get(cell, "")
+
+# Phase 18 — cell 단위 파괴. dynamic + static body queue_free + 4개 registry atomic erase.
+# atomic invariant: kind 검사 전 무변경. kind 통과 후 registry 4종은 무조건 erase + body는 valid일 때만 queue_free.
+# stale body ref(이미 free된 노드)는 queue_free skip + registry는 정상 erase.
+func destroy_tile_at(cell: Vector2i, allowed_kinds: Array[String] = ["earth"]) -> bool:
+	var kind: String = get_cell_kind(cell)
+	if kind == "" or not allowed_kinds.has(kind):
+		return false
+	# dynamic 먼저 — D8 first-place wins로 같은 cell이 dynamic + static 둘 다 점유될 수 없지만,
+	# 방어적으로 둘 다 검사하여 stale ref 제거.
+	# stale(이미 free된) body ref는 Variant로 받아 is_instance_valid 검사 후 typed cast 회피.
+	if _placed.has(cell):
+		var body_dyn: Variant = _placed[cell]
+		if is_instance_valid(body_dyn):
+			(body_dyn as StaticBody2D).queue_free()
+		_placed.erase(cell)
+	if _static_bodies.has(cell):
+		var body_static: Variant = _static_bodies[cell]
+		if is_instance_valid(body_static):
+			(body_static as StaticBody2D).queue_free()
+		_static_bodies.erase(cell)
+	_static_occupancy.erase(cell)
+	_cell_kind.erase(cell)
+	return true
 
 func add_tile(cell: Vector2i) -> bool:
 	# D8 first-place wins — 동적/정적 어느 쪽이든 점유면 reject.
@@ -47,6 +91,8 @@ func add_tile(cell: Vector2i) -> bool:
 	)
 	add_child(body)
 	_placed[cell] = body
+	# Phase 18 — 동적 placement도 destructible. Basher/Digger의 destroy 대상에 포함.
+	_cell_kind[cell] = "earth"
 	return true
 
 func has_tile(cell: Vector2i) -> bool:

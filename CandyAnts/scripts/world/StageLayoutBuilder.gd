@@ -29,20 +29,22 @@ func build() -> void:
 	_clear_children()
 	if layout == null:
 		return
-	# Phase 16 v3: build 도중 생성한 cell을 모아서 끝에서 Terrain에 일괄 register (D8 정적 occupancy).
-	var generated_cells: Array[Vector2i] = []
+	# Phase 18 — _add_cell이 StaticBody2D 반환. cell+body 페어로 모아서 끝에서 register_static_body
+	# (kind="earth")로 일괄 등록. register_static_body 내부에서 register_static_cell 호출되므로
+	# 기존 _static_occupancy 등록 invariant 유지(D8 first-place wins backward compat).
+	var generated: Array[Dictionary] = []
 	for key in _layout_tile_map().keys():
 		var c: Vector2i = _cell_from_key(str(key))
-		_add_cell(c, str(_layout_tile_map()[key]))
-		generated_cells.append(c)
+		var body: StaticBody2D = _add_cell(c, str(_layout_tile_map()[key]))
+		generated.append({"cell": c, "body": body})
 	# Editor preview에서는 Terrain 없는 경우가 정상 → skip.
 	if Engine.is_editor_hint():
 		return
 	var terrain: Terrain = _find_ancestor_terrain()
 	if terrain != null:
 		terrain.set_cell_size(int(layout.cell_size))
-		for c in generated_cells:
-			terrain.register_static_cell(c)
+		for g in generated:
+			terrain.register_static_body(g["cell"], g["body"], "earth")
 	else:
 		push_warning("StageLayoutBuilder could not find Terrain; cell_size/static occupancy registration skipped")
 
@@ -65,9 +67,10 @@ func _rebuild_preview() -> void:
 	if not preview_in_editor or layout == null:
 		return
 	for key in _layout_tile_map().keys():
+		# Editor preview는 Terrain 없는 경우가 정상 → 반환값 무캡처.
 		_add_cell(_cell_from_key(str(key)), str(_layout_tile_map()[key]))
 
-func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> void:
+func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> StaticBody2D:
 	var cell_size: int = int(layout.cell_size)
 	var body := StaticBody2D.new()
 	body.name = "Cell_%d_%d" % [cell.x, cell.y]
@@ -83,6 +86,7 @@ func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> void:
 	else:
 		_add_solid_collision(body, cell_size)
 		_add_solid_visual(body, cell_size, cell)
+	return body
 
 func _add_solid_collision(body: StaticBody2D, cell_size: int) -> void:
 	var shape := CollisionShape2D.new()

@@ -10,11 +10,11 @@ sot_aux: [docs/ARCHITECTURE.md, docs/PHASE_14_OPTION_B_PROPOSAL.md, phases/mvp/R
 # Phase 18 (17a): mechanic-destruction-earth
 
 ## 목표
-흙 지형 동적 파괴 메카닉 1차 구현 — Basher(수평 굴착) + Digger(수직 굴착). TileMap 흙 셀의 실시간 제거.
+흙 지형 동적 파괴 메카닉 1차 구현 — Basher(수평 굴착) + Digger(수직 굴착). Terrain cell 단위 실시간 제거 (impl 시점 StaticBody2D registry 방식 채택 — plan v10 §3 + ADR-010).
 
 ## 변경 대상 (가이드 수준)
 - `scripts/skills/` — Basher 스킬 + Digger 스킬 등록 (`SkillRegistry.SKILL_SCRIPTS` 등록 1줄씩).
-- `scripts/world/` — TileMap 흙 셀 동적 제거 헬퍼 (셀 좌표 → tile 변경 → 충돌 갱신).
+- `scripts/world/` — Terrain cell 단위 동적 제거 헬퍼 (cell-keyed StaticBody2D registry + kind 분류 + atomic destroy API; plan §3).
 - `scenes/entities/` — Basher · Digger 동작 시각화 (파편 · 진행 indicator는 phase 20 polish 영역).
 - `scenes/stages/` — 흙 파괴 검증 stage scene (수평 흙벽 + 수직 흙기둥).
 - `data/skills/` — 신규 스킬 리소스 2종.
