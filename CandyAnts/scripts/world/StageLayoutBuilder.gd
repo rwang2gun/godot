@@ -24,11 +24,39 @@ func _ready() -> void:
 		build()
 
 func build() -> void:
+	# Phase 16 — ready-time only. 런타임 재호출 시 Terrain._static_occupancy에 stale cell이 누적된다
+	# (현재 clear API 없음). 동적 layout swap 필요 시 Terrain에 clear_static_cells() API 추가 필요.
 	_clear_children()
 	if layout == null:
 		return
+	# Phase 16 v3: build 도중 생성한 cell을 모아서 끝에서 Terrain에 일괄 register (D8 정적 occupancy).
+	var generated_cells: Array[Vector2i] = []
 	for key in _layout_tile_map().keys():
-		_add_cell(_cell_from_key(str(key)), str(_layout_tile_map()[key]))
+		var c: Vector2i = _cell_from_key(str(key))
+		_add_cell(c, str(_layout_tile_map()[key]))
+		generated_cells.append(c)
+	# Editor preview에서는 Terrain 없는 경우가 정상 → skip.
+	if Engine.is_editor_hint():
+		return
+	var terrain: Terrain = _find_ancestor_terrain()
+	if terrain != null:
+		terrain.set_cell_size(int(layout.cell_size))
+		for c in generated_cells:
+			terrain.register_static_cell(c)
+	else:
+		push_warning("StageLayoutBuilder could not find Terrain; cell_size/static occupancy registration skipped")
+
+func _find_ancestor_terrain() -> Terrain:
+	# ancestor scan — Ant._resolve_mantle_distance 패턴 답습.
+	var node: Node = self
+	while node != null:
+		var t: Terrain = node.get_node_or_null("Terrain") as Terrain
+		if t != null:
+			return t
+		if node is Terrain:
+			return node as Terrain
+		node = node.get_parent()
+	return null
 
 func _rebuild_preview() -> void:
 	if not is_inside_tree():

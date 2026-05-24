@@ -113,7 +113,7 @@ func _update_sprite() -> void:
 		var w: String = (s as WorkerState)._work_type
 		if w == "blocker":
 			anim = "blocker"
-		elif w == "builder":
+		elif w == "builder" or w == "sand_mound" or w == "bridge":
 			anim = "build"
 		else:
 			anim = "dig"
