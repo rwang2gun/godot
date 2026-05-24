@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/StageData.gd" id="1_stage_data"]
+
+[resource]
+script = ExtResource("1_stage_data")
+id = 910
+display_name = "dev-water-test"
+total_ants = 4
+candy_hp = 4
+time_limit_seconds = 60.0
+available_skills = []
+skill_inventory = {}
+release_rate_initial = 30
+release_rate_min = 1

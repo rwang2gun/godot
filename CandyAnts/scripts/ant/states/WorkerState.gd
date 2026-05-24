@@ -188,6 +188,8 @@ func _place_one_tile(a: Ant) -> void:
 	if not ok:
 		_aborted = true
 		return
+	# Phase 17 — Bridge/Water 정책 (D8). hazard 없는 stage는 no-op.
+	terrain.deactivate_hazards_for_placement(target)
 	a.global_position += Vector2(a.direction * cs, 0.0)
 	_remaining -= 1
 
@@ -209,6 +211,8 @@ func _place_sand_mound_tile(a: Ant) -> void:
 	if not ok:
 		_aborted = true
 		return
+	# Phase 17 — Bridge/Water 정책 (D8). target=body row이므로 target과 그 위(new ant body row) 모두 비활성.
+	terrain.deactivate_hazards_for_placement(target)
 	a.global_position.y -= float(cs)
 	_remaining -= 1
 
@@ -229,6 +233,8 @@ func _place_bridge_tile(a: Ant) -> void:
 	if not ok:
 		_aborted = true
 		return
+	# Phase 17 — Bridge/Water 정책 (D8). hazard 없는 stage는 no-op.
+	terrain.deactivate_hazards_for_placement(target)
 	a.global_position += Vector2(float(a.direction) * cs, 0.0)
 	_remaining -= 1
 

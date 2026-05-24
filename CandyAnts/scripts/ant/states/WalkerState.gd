@@ -8,6 +8,14 @@ func update(delta: float) -> void:
 	if a == null:
 		return
 
+	# Phase 17 — sticky stuck 시 좌우 0, 중력만 + slide. flip/climber/faller 전이 모두 skip.
+	# _frame 증가도 skip(stuck 중 grace 카운트 동결) — stuck 해방 후 첫 frame이 Walker 진입 직후와 동일하게 동작.
+	if a.is_stuck():
+		a.velocity.x = 0.0
+		a.velocity.y += a.gravity * delta
+		a.move_and_slide()
+		return
+
 	a.velocity.y += a.gravity * delta
 	a.velocity.x = float(a.direction) * a.effective_speed()
 	a.move_and_slide()

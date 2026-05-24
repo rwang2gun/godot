@@ -6,6 +6,10 @@ class_name Terrain extends Node2D
 var cell_size: int = 16
 var _placed: Dictionary = {}              # Vector2i → StaticBody2D (동적 cell)
 var _static_occupancy: Dictionary = {}    # Vector2i → true (정적 stage cell)
+# Phase 17 — hazard 노드들 cell 매핑. Bridge × hazard 통합점.
+# v3: Array 저장으로 same-cell overlap(Water+Sticky 등) 지원 → deactivate 시 모든 hazard 일괄 set_active(false).
+# registration 순서 무관 D8 정책 robust (codex R1-H1 대응).
+var _hazards_by_cell: Dictionary = {}     # Vector2i → Array[HazardBase]
 var _bridge_tile_texture: Texture2D = null
 
 func set_cell_size(s: int) -> void:
@@ -50,3 +54,28 @@ func has_tile(cell: Vector2i) -> bool:
 
 func tile_count() -> int:
 	return _placed.size()
+
+# Phase 17 — hazard 노드가 _ready에서 자체 호출. 같은 cell의 hazard들이 Array로 누적.
+func register_hazard_at_cell(cell: Vector2i, hazard: HazardBase) -> void:
+	if hazard == null:
+		return
+	var arr: Array = _hazards_by_cell.get(cell, [])
+	if arr.has(hazard):
+		return   # idempotent — 같은 instance 중복 register 무효
+	arr.append(hazard)
+	_hazards_by_cell[cell] = arr
+
+# Phase 17 — cell의 모든 hazard에 set_active(false) 일괄. registration 순서 무관 (codex R1-H1).
+func deactivate_hazards_at(cell: Vector2i) -> void:
+	var arr: Array = _hazards_by_cell.get(cell, [])
+	for h in arr:
+		var hazard: HazardBase = h as HazardBase
+		if hazard != null and is_instance_valid(hazard):
+			hazard.set_active(false)
+
+# Phase 17 — Bridge/Sand-mound/Builder의 add_tile 직후 호출 (WorkerState._place_*_tile).
+# target은 floor row(Bridge/Builder) 또는 body row(Sand-mound). hazard는 항상 body row 컨벤션.
+# 따라서 target + target-1 두 cell 모두 비활성 → floor-row placement도 body-row hazard 매칭.
+func deactivate_hazards_for_placement(target: Vector2i) -> void:
+	deactivate_hazards_at(target)
+	deactivate_hazards_at(target + Vector2i(0, -1))

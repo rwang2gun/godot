@@ -48,6 +48,11 @@ var _floater_badge: Sprite2D = null
 # Phase 15 — 정착 시각 표식. visible toggle은 _update_trait_badges()에서 state 기반.
 var _settle_badge: Sprite2D = null
 
+# Phase 17 — 끈끈이(StickyHazard) timer. apply_sticky로 설정, _physics_process에서 매 frame 감소.
+# WalkerState/CarryingState update가 is_stuck() 분기로 좌우 정지.
+var _sticky_remaining: float = 0.0
+var _sticky_badge: Sprite2D = null
+
 func _ready() -> void:
 	_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
 	add_to_group("ants")
@@ -60,6 +65,7 @@ func _ready() -> void:
 		_climber_badge = _trait_badges.get_node_or_null("ClimberBadge") as Sprite2D
 		_floater_badge = _trait_badges.get_node_or_null("FloaterBadge") as Sprite2D
 		_settle_badge = _trait_badges.get_node_or_null("SettleBadge") as Sprite2D
+		_sticky_badge = _trait_badges.get_node_or_null("StickyBadge") as Sprite2D
 	_resolve_mantle_distance()
 	state_machine.change_state(WalkerState.new())
 
@@ -89,10 +95,23 @@ func _resolve_mantle_distance() -> void:
 		node = node.get_parent()
 
 func _physics_process(delta: float) -> void:
+	# Phase 17 — sticky timer decay. state_machine.update 이전에 처리 (Walker/Carrying이
+	# is_stuck()을 같은 frame에 읽음).
+	if _sticky_remaining > 0.0:
+		_sticky_remaining = max(0.0, _sticky_remaining - delta)
 	if state_machine != null:
 		state_machine.update(delta)
 	_update_sprite()
 	_update_trait_badges()
+
+# Phase 17 — StickyHazard.body_entered가 호출. 멱등 — 더 긴 timer 우선(중복 entry 시 더 큰 값 보존).
+func apply_sticky(dur: float) -> void:
+	if dur > _sticky_remaining:
+		_sticky_remaining = dur
+
+# Phase 17 — Walker/Carrying State update가 첫 줄에서 검사하여 좌우 정지 분기.
+func is_stuck() -> bool:
+	return _sticky_remaining > 0.0
 
 func _update_sprite() -> void:
 	# 시각 갱신만 — state 분기 읽어서 animation 매핑 + direction에 따른 flip_h.
@@ -136,6 +155,9 @@ func _update_trait_badges() -> void:
 	# Phase 15 — SettledState 진입 시 표식. state 기반(분배자 trait 보유여도 정착 전엔 표식 X).
 	if _settle_badge != null:
 		_settle_badge.visible = state_machine != null and state_machine.current_state is SettledState
+	# Phase 17 — sticky stuck 표식. _sticky_remaining timer 기반 (state 무관 — Walker/Carrying 모두 stuck 가능).
+	if _sticky_badge != null:
+		_sticky_badge.visible = is_stuck()
 
 func is_carrying() -> bool:
 	return state_machine != null and state_machine.current_state is CarryingState
@@ -145,10 +167,12 @@ func is_alive() -> bool:
 	# Phase 15 (F-impl-1 HIGH 대응) — SettledState도 terminal로 분류해 alive=false. 정착 후
 	# 어떤 스킬도 적용되지 않도록 단일 진입점 차단. 후속 trait 전이는 정착 시점의 분배자
 	# trait dict만 사용 (정착 후 trait 변동 불가).
+	# Phase 17 — LostState 추가. HazardBase가 본 함수 단일 진입점으로 terminal 일괄 차단
+	# (§0.2 어휘 정합 — HazardBase에서 terminal state 식별자 직접 참조 회피).
 	if state_machine == null or state_machine.current_state == null:
 		return false
 	var s: AntState = state_machine.current_state
-	return not (s is SavedState or s is DeadState or s is SettledState)
+	return not (s is SavedState or s is DeadState or s is SettledState or s is LostState)
 
 func effective_speed() -> float:
 	# 사탕 보유 = 0.78배. state가 Faller/Walker로 잠시 빠져도 속도 페널티 유지.
