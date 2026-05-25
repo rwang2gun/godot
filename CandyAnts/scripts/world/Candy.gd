@@ -39,6 +39,8 @@ func _on_body_entered(body: Node2D) -> void:
 
 	hp -= 1
 	print("[Candy] picked by ", a.name, " hp=", hp)
+	# Phase 20 — sfx_request emit 직전 (id only). receiver는 phase 21에서 connect.
+	EventBus.sfx_request.emit(&"candy_pick")
 	EventBus.candy_piece_picked.emit(hp)
 	a.flip()
 	a.state_machine.change_state(CarryingState.new())
@@ -50,4 +52,6 @@ func _on_body_entered(body: Node2D) -> void:
 		set_deferred("monitoring", false)
 		if _sprite != null:
 			_sprite.visible = false
+		# Phase 20 — sfx_request emit 직전 (id only). receiver는 phase 21에서 connect.
+		EventBus.sfx_request.emit(&"candy_depleted")
 		EventBus.candy_depleted.emit()

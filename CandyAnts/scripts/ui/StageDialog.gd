@@ -67,8 +67,11 @@ func show_result(result: Dictionary, is_last_stage: bool) -> void:
 	var lost: int = int(result.get("lost", 0))
 	var original_hp: int = int(result.get("original_hp", 0))
 	var time_left: float = float(result.get("time_left", 0.0))
-	# Step 2: text 갱신.
-	if cleared:
+	# Step 2: text 갱신. Phase 20 — last-stage cleared variant 분기 (P-D6).
+	if cleared and is_last_stage:
+		_title.text = "마지막 단계 클리어!"
+		_subtitle.text = "Stage cleared"
+	elif cleared:
 		_title.text = "사탕을 무사히 옮겼어요!"
 		_subtitle.text = "Stage cleared"
 	else:
@@ -80,7 +83,9 @@ func show_result(result: Dictionary, is_last_stage: bool) -> void:
 	_chip_lost.set_label_value("잃음", str(lost))
 	_chip_time.set_label_value("남은 시간", "%ds" % int(time_left))
 	# Step 4: star fill + sfx_request(star_fill) per filled star.
-	var stars := Scoring.compute_stars(saved, original_hp)
+	# Phase 20 — stage별 star_thresholds override 전달. 빈 배열이면 글로벌 fall-back.
+	var thresholds: Array = result.get("star_thresholds", [])
+	var stars := Scoring.compute_stars(saved, original_hp, thresholds)
 	var star_polys := [_star1, _star2, _star3]
 	for i in star_polys.size():
 		var filled := i < stars

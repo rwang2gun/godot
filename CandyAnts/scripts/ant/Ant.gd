@@ -52,6 +52,15 @@ var _settle_badge: Sprite2D = null
 # WalkerState/CarryingState update가 is_stuck() 분기로 좌우 정지.
 var _sticky_remaining: float = 0.0
 var _sticky_badge: Sprite2D = null
+# Phase 20 (P-D4 / R1-M3) — progress bar denominator. apply_sticky fresh entry는 새 dur로 set,
+# 진행 중 재진입은 max(old, new) 보존. timer 만료(==0 도달) 시 0으로 reset해 다음 fresh entry가
+# stale 값을 denominator로 잡지 않도록 한다.
+var _sticky_max: float = 0.0
+var _sticky_bar: Sprite2D = null
+# Phase 20 (P-D5 / R1-H3) — _update_sprite의 `anim != _last_anim` 분기가 unstuck 후 동일 anim
+# (예: walk→walk)일 때 play() 미호출 → 영구 pause 위험. flag로 stuck 진입 시 pause + unstuck 시
+# 명시 play(_last_anim) 재호출 트리거.
+var _sprite_paused_for_sticky: bool = false
 
 func _ready() -> void:
 	_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
@@ -66,6 +75,8 @@ func _ready() -> void:
 		_floater_badge = _trait_badges.get_node_or_null("FloaterBadge") as Sprite2D
 		_settle_badge = _trait_badges.get_node_or_null("SettleBadge") as Sprite2D
 		_sticky_badge = _trait_badges.get_node_or_null("StickyBadge") as Sprite2D
+		# Phase 20 — StickyTimerBar (Sprite2D). 미보유 .tscn에서는 null로 안전 fall-back.
+		_sticky_bar = _trait_badges.get_node_or_null("StickyTimerBar") as Sprite2D
 	_resolve_mantle_distance()
 	state_machine.change_state(WalkerState.new())
 
@@ -99,15 +110,38 @@ func _physics_process(delta: float) -> void:
 	# is_stuck()을 같은 frame에 읽음).
 	if _sticky_remaining > 0.0:
 		_sticky_remaining = max(0.0, _sticky_remaining - delta)
+		# Phase 20 (R1-M3) — timer 만료 시 denominator 같이 reset해 다음 fresh entry가 stale 값
+		# 사용 안 하도록.
+		if _sticky_remaining == 0.0:
+			_sticky_max = 0.0
 	if state_machine != null:
 		state_machine.update(delta)
 	_update_sprite()
 	_update_trait_badges()
+	_update_sticky_bar()   # Phase 20 — bar scale + visible toggle (1 호출, 시각 전용).
 
 # Phase 17 — StickyHazard.body_entered가 호출. 멱등 — 더 긴 timer 우선(중복 entry 시 더 큰 값 보존).
+# Phase 20 (R1-M3) — `_sticky_max` lifecycle: fresh entry(== 0 도달 후)면 새 dur로 set,
+# 진행 중 재진입은 max(old, new) 보존. 단조 감소 보장 — 2회 apply_sticky(3.0 → 1.0) 시 first 만료
+# 후 second는 정확히 1.0/1.0=1.0 부터 시작.
 func apply_sticky(dur: float) -> void:
 	if dur > _sticky_remaining:
 		_sticky_remaining = dur
+	if _sticky_max == 0.0:
+		_sticky_max = dur
+	else:
+		_sticky_max = max(_sticky_max, dur)
+
+# Phase 20 — StickyTimerBar 시각 갱신. 시각 전용, 게임 로직 무영향.
+# bar.scale.x = _sticky_remaining / _sticky_max (범위 [0, 1]). visible은 stuck 중에만 true.
+func _update_sticky_bar() -> void:
+	if _sticky_bar == null:
+		return
+	if _sticky_remaining > 0.0 and _sticky_max > 0.0:
+		_sticky_bar.scale.x = clamp(_sticky_remaining / _sticky_max, 0.0, 1.0)
+		_sticky_bar.visible = true
+	else:
+		_sticky_bar.visible = false
 
 # Phase 17 — Walker/Carrying State update가 첫 줄에서 검사하여 좌우 정지 분기.
 func is_stuck() -> bool:
@@ -118,6 +152,19 @@ func _update_sprite() -> void:
 	# 게임 로직(state/collision/direction)과 무관, 본 함수 실패해도 시뮬레이션 진행.
 	if _sprite == null or state_machine == null:
 		return
+	# Phase 20 (R1-H3) — stuck 진입 시 sprite pause, unstuck 시 명시 play(_last_anim) 재호출.
+	# `anim != _last_anim` 분기가 unstuck 후 동일 anim(예: walk→walk)에서 play() 미호출 →
+	# 영구 pause 위험을 flag로 차단.
+	if is_stuck():
+		if _sprite is AnimatedSprite2D and not _sprite_paused_for_sticky:
+			(_sprite as AnimatedSprite2D).pause()
+			_sprite_paused_for_sticky = true
+		return
+	if _sprite_paused_for_sticky:
+		# unstuck 직후 명시 play() 재개. _last_anim이 비어있으면 안전 skip (다음 anim 변경에서 play() 발화).
+		if _sprite is AnimatedSprite2D and not _last_anim.is_empty():
+			(_sprite as AnimatedSprite2D).play(_last_anim)
+		_sprite_paused_for_sticky = false
 	var s: AntState = state_machine.current_state
 	var anim: String = "idle"
 	if s is CarryingState:

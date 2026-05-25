@@ -96,6 +96,8 @@ func _process(delta: float) -> void:
 
 	if score_system.is_cleared(candy_hp):
 		_completed = true
+		# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
+		EventBus.sfx_request.emit(&"stage_cleared")
 		EventBus.stage_cleared.emit(_make_result(true, ""))
 		_disable_toolbar()
 		return
@@ -105,12 +107,16 @@ func _process(delta: float) -> void:
 		and score_system.in_transit_pieces == 0
 		and candy_hp > 0):
 		_completed = true
+		# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
+		EventBus.sfx_request.emit(&"stage_failed")
 		EventBus.stage_failed.emit(_make_result(false, "no_more_ants"))
 		_disable_toolbar()
 		return
 
 	if _time_left <= 0.0:
 		_completed = true
+		# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
+		EventBus.sfx_request.emit(&"stage_failed")
 		EventBus.stage_failed.emit(_make_result(false, "time_out"))
 		_disable_toolbar()
 
@@ -145,6 +151,8 @@ func _make_result(cleared: bool, reason: String) -> Dictionary:
 		"score": score_system.score(),
 		"time_left": _time_left,
 		"reason": reason,
+		# Phase 20 — Array[float], 빈 배열이면 글로벌 Scoring.STAR_THRESHOLDS fall-back.
+		"star_thresholds": stage_data.star_thresholds,
 	}
 
 func _living_ant_count() -> int:

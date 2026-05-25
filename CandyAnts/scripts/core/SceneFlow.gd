@@ -160,7 +160,9 @@ func _unfreeze_current_stage() -> void:
 func _on_stage_result(result: Dictionary) -> void:
 	_last_result = result
 	_freeze_current_stage()
-	_overlay.show_result(result, result["stage_id"] >= LAST_STAGE_ID)
+	# Phase 20 — `>=` → `==` 등치 변경 (R1-H4). 미래 STAGE_SCENES 확장 시 last-stage 오인 회피.
+	# dev stage(910~)는 STAGE_SCENES 미등록 → SceneFlow 경유 안 함 (자연 분기 유지).
+	_overlay.show_result(result, result["stage_id"] == LAST_STAGE_ID)
 
 func _on_request_replay() -> void:
 	_overlay.hide_overlay()

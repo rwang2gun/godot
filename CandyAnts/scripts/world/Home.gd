@@ -23,5 +23,8 @@ func _on_body_entered(body: Node2D) -> void:
 	# 운반 종료 처리 — 사탕은 ant 손을 떠나 Home에 안착, has_candy 해제 후 시그널.
 	a.has_candy = false
 	print("[Home] saved ", a.name, " carrying=", carrying)
+	# Phase 20 — sfx_request emit (with_candy=true만; 빈손 회수는 분배자 정착 후 등 코어 게임플레이 핵심 아님).
+	if carrying:
+		EventBus.sfx_request.emit(&"ant_save")
 	EventBus.ant_saved.emit(a, carrying)
 	a.state_machine.change_state(SavedState.new())

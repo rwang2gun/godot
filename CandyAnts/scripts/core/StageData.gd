@@ -11,3 +11,5 @@ class_name StageData extends Resource
 @export var skill_inventory: Dictionary = {}
 @export var release_rate_initial: int = 50
 @export var release_rate_min: int = 1
+# Phase 20 — 별 산정 stage별 override. 빈 배열이면 Scoring.STAR_THRESHOLDS 글로벌 fall-back.
+@export var star_thresholds: Array[float] = []

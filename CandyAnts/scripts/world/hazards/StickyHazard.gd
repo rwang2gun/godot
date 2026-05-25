@@ -21,6 +21,9 @@ func _handle_ant_entry(ant: Ant) -> void:
 	if _recently_processed.get(aid, -1) == frame:
 		return
 	_recently_processed[aid] = frame
+	# Phase 20 — sfx_request emit 직전 (D13 idempotency 가드 통과 후, apply_sticky 직전).
+	# receiver는 phase 21에서 connect.
+	EventBus.sfx_request.emit(&"sticky_glue")
 	ant.apply_sticky(duration)
 
 func _on_body_exited(body: Node2D) -> void:

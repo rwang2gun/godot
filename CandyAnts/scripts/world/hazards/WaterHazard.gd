@@ -4,4 +4,6 @@ class_name WaterHazard extends HazardBase
 # LostState.enter()가 candy_piece_lost emit + queue_free 수행.
 
 func _handle_ant_entry(ant: Ant) -> void:
+	# Phase 20 — sfx_request emit 직전 (id only). receiver는 phase 21에서 connect.
+	EventBus.sfx_request.emit(&"water_splash")
 	ant.state_machine.change_state(LostState.new())

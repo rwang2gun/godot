@@ -9,6 +9,8 @@ func enter() -> void:
 	if a == null:
 		return
 	if a.has_candy:
+		# Phase 20 — sfx_request emit 직전 (id only). receiver는 phase 21에서 connect.
+		EventBus.sfx_request.emit(&"candy_lost")
 		EventBus.candy_piece_lost.emit(a)
 		# in_transit -1 처리는 ScoreSystem._on_lost가 수행.
 		# has_candy 즉시 clear — 멱등성 (LostState 진입 후 추가 hazard 발화 시

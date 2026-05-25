@@ -1,7 +1,7 @@
 {
   "task": "mvp",
   "started_at": "2026-05-08T00:26:05",
-  "completed_at": null,
+  "completed_at": "2026-05-25T22:24:41",
   "phases": [
     {
       "id": 1,
@@ -218,10 +218,10 @@
       "name": "polish",
       "duration_estimate": 9000,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-25T13:14:13",
+      "completed_at": "2026-05-25T22:24:41",
+      "duration_seconds": 33028
     }
   ]
 }
