@@ -22,6 +22,10 @@ const DIGGER_TICK: float = 0.20
 const DIGGER_MAX_CELLS: int = 12
 const DIGGER_OFF_FLOOR_LIMIT: int = 180
 
+# Phase 19 — Cutter 수평 절단(식물). Basher 패턴 답습, kind 검사만 "plant"로 교체.
+const CUTTER_TICK: float = 0.18
+const CUTTER_MAX_CELLS: int = 12
+
 var _work_type: String = ""
 var _remaining: int = 0
 var _tick_accum: float = 0.0
@@ -56,6 +60,8 @@ func enter() -> void:
 		_enter_basher(a)
 	elif _work_type == "digger":
 		_enter_digger(a)
+	elif _work_type == "cutter":
+		_enter_cutter(a)
 	else:
 		_aborted = true
 
@@ -96,6 +102,12 @@ func _enter_digger(a: Ant) -> void:
 	_off_floor_frames = 0
 	a.velocity = Vector2.ZERO
 
+func _enter_cutter(a: Ant) -> void:
+	_remaining = CUTTER_MAX_CELLS
+	_tick_accum = 0.0
+	_aborted = false
+	a.velocity = Vector2.ZERO
+
 func update(delta: float) -> void:
 	var a: Ant = ant as Ant
 	if a == null:
@@ -115,6 +127,9 @@ func update(delta: float) -> void:
 		return
 	elif _work_type == "digger":
 		_update_digger(a, delta)
+		return
+	elif _work_type == "cutter":
+		_update_cutter(a, delta)
 		return
 
 	# builder 분기 (기존 로직 유지, cell_size만 dynamic)
@@ -422,3 +437,55 @@ func _digger_below_has_earth(a: Ant) -> bool:
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
 	return terrain.get_cell_kind(body_cell + Vector2i(0, 1)) == "earth"
+
+# Phase 19 — Cutter 수평 절단. Basher 구조 답습. forward body row cell이 "plant" kind일 때만 destroy.
+# off-floor 시 즉시 _aborted → Faller (절벽 끝에서 활성화 안전망, Basher와 동일).
+func _update_cutter(a: Ant, delta: float) -> void:
+	if _aborted or _remaining <= 0:
+		a.state_machine.change_state(WalkerState.new())
+		return
+	a.velocity.y += a.gravity * delta
+	a.velocity.x = 0.0
+	a.move_and_slide()
+	if not a.is_on_floor():
+		_aborted = true
+		a.state_machine.change_state(FallerState.new())
+		return
+	_tick_accum += delta
+	while _tick_accum >= CUTTER_TICK and _remaining > 0 and not _aborted:
+		_tick_accum -= CUTTER_TICK
+		if not _cutter_forward_has_plant(a):
+			_aborted = true
+			break
+		_destroy_cutter_cell(a)
+	if _aborted or _remaining <= 0:
+		a.state_machine.change_state(WalkerState.new())
+
+func _destroy_cutter_cell(a: Ant) -> void:
+	var terrain: Terrain = _find_terrain(a)
+	if terrain == null:
+		_aborted = true
+		return
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(a.global_position.x / cs)),
+		int(floor((a.global_position.y - 2.0) / cs))
+	)
+	var target: Vector2i = body_cell + Vector2i(a.direction, 0)
+	var ok: bool = terrain.destroy_tile_at(target, ["plant"])
+	if not ok:
+		_aborted = true
+		return
+	a.global_position += Vector2(float(a.direction) * cs, 0.0)
+	_remaining -= 1
+
+func _cutter_forward_has_plant(a: Ant) -> bool:
+	var terrain: Terrain = _find_terrain(a)
+	if terrain == null:
+		return false
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(a.global_position.x / cs)),
+		int(floor((a.global_position.y - 2.0) / cs))
+	)
+	return terrain.get_cell_kind(body_cell + Vector2i(a.direction, 0)) == "plant"

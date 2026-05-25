@@ -207,10 +207,10 @@
       "name": "mechanic-destruction-plant",
       "duration_estimate": 5400,
       "verify": "",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-05-25T08:57:18",
+      "completed_at": "2026-05-25T12:41:29",
+      "duration_seconds": 13451
     },
     {
       "id": 20,

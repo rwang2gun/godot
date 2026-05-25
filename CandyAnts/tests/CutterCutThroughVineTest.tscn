@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/stages/dev/CutterVineTest.tscn" id="1"]
+[ext_resource type="Script" path="res://tests/CutterCutThroughVineTest.gd" id="2"]
+
+[node name="TestRoot" type="Node"]
+
+[node name="CutterStage" parent="." instance=ExtResource("1")]
+
+[node name="TestDriver" type="Node" parent="."]
+script = ExtResource("2")

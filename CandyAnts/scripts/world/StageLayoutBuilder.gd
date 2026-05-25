@@ -16,6 +16,9 @@ class_name StageLayoutBuilder extends Node2D
 const TILE_SOLID := "solid"
 const TILE_SLOPE_RIGHT := "slope_right"
 const TILE_SLOPE_LEFT := "slope_left"
+# Phase 19 — 식물 정적 cell. _add_cell이 _add_plant_visual placeholder 적용 + build()가
+# register_static_body(kind="plant") 호출 → Terrain._cell_kind = "plant"로 등록되어 Cutter 전용 destroy 대상.
+const TILE_PLANT_SOLID := "plant"
 
 func _ready() -> void:
 	if Engine.is_editor_hint():
@@ -35,8 +38,11 @@ func build() -> void:
 	var generated: Array[Dictionary] = []
 	for key in _layout_tile_map().keys():
 		var c: Vector2i = _cell_from_key(str(key))
-		var body: StaticBody2D = _add_cell(c, str(_layout_tile_map()[key]))
-		generated.append({"cell": c, "body": body})
+		var tile_type: String = str(_layout_tile_map()[key])
+		var body: StaticBody2D = _add_cell(c, tile_type)
+		# Phase 19 — TILE_PLANT_SOLID만 kind="plant"로 등록, 기존 solid/slope_*는 모두 "earth"로 backward compat.
+		var kind: String = "plant" if tile_type == TILE_PLANT_SOLID else "earth"
+		generated.append({"cell": c, "body": body, "kind": kind})
 	# Editor preview에서는 Terrain 없는 경우가 정상 → skip.
 	if Engine.is_editor_hint():
 		return
@@ -44,7 +50,7 @@ func build() -> void:
 	if terrain != null:
 		terrain.set_cell_size(int(layout.cell_size))
 		for g in generated:
-			terrain.register_static_body(g["cell"], g["body"], "earth")
+			terrain.register_static_body(g["cell"], g["body"], g["kind"])
 	else:
 		push_warning("StageLayoutBuilder could not find Terrain; cell_size/static occupancy registration skipped")
 
@@ -83,6 +89,9 @@ func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> StaticBody2D:
 	if tile_type == TILE_SLOPE_RIGHT or tile_type == TILE_SLOPE_LEFT:
 		_add_slope_collision(body, cell_size, tile_type)
 		_add_slope_visual(body, cell_size, tile_type)
+	elif tile_type == TILE_PLANT_SOLID:
+		_add_solid_collision(body, cell_size)
+		_add_plant_visual(body, cell_size)
 	else:
 		_add_solid_collision(body, cell_size)
 		_add_solid_visual(body, cell_size, cell)
@@ -116,6 +125,15 @@ func _add_solid_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> vo
 		sprite.modulate = Color(0.45, 0.28, 0.15)
 	body.add_child(sprite)
 	sprite.owner = owner
+
+func _add_plant_visual(body: StaticBody2D, cell_size: int) -> void:
+	var rect := ColorRect.new()
+	rect.name = "PlantVisual"
+	rect.size = Vector2(cell_size, cell_size)
+	rect.position = Vector2(-float(cell_size) / 2.0, -float(cell_size) / 2.0)
+	rect.color = Color(0.45, 0.78, 0.32, 0.85)
+	body.add_child(rect)
+	rect.owner = owner
 
 func _add_slope_visual(body: StaticBody2D, cell_size: int, tile_type: String) -> void:
 	var polygon := Polygon2D.new()

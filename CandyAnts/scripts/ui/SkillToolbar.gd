@@ -21,6 +21,7 @@ const ICONS: Dictionary = {
 	"floater": preload("res://assets/icons/skills/floater.svg"),
 	"bomber": preload("res://assets/icons/skills/bomber.svg"),
 	"distributor": preload("res://assets/icons/skills/distributor.svg"),
+	"cutter": preload("res://assets/icons/skills/cutter.svg"),
 }
 const KO_LABELS: Dictionary = {
 	"climber": "등반",
@@ -32,6 +33,7 @@ const KO_LABELS: Dictionary = {
 	"miner": "채굴",
 	"digger": "땅파기",
 	"distributor": "분배자",
+	"cutter": "절단",
 }
 const CURSOR_HOTSPOT: Vector2 = Vector2(32, 32)
 
