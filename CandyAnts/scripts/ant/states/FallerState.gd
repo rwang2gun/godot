@@ -14,4 +14,5 @@ func update(delta: float) -> void:
 	a.move_and_slide()
 
 	if a.is_on_floor():
-		a.state_machine.change_state(WalkerState.new())
+		# carry 모션 유지를 위해 has_candy 분기는 Ant.return_to_walking() 단일 진입점에 위임.
+		a.return_to_walking()

@@ -69,11 +69,40 @@ func _check_complete() -> void:
 	if s is WorkerState:
 		return
 	if tc == 5:
+		var visual_error: String = _sand_mound_visual_error()
+		if visual_error != "":
+			_fail(visual_error)
+			return
 		print("[SandMoundMaxHeightTest] PASS tile_count=5 state=%s" % _state_name())
 		_result_emitted = true
 		get_tree().quit(0)
 	else:
 		_fail("post-worker state but tile_count=%d (need==5) state=%s" % [tc, _state_name()])
+
+func _sand_mound_visual_error() -> String:
+	if _terrain == null:
+		return "terrain missing for sand mound visual check"
+	var expected_scale: Vector2 = Vector2.ONE * (float(_terrain.cell_size) / 32.0)
+	for body_value in _terrain._placed.values():
+		var body: StaticBody2D = body_value as StaticBody2D
+		if body == null:
+			return "sand mound placed body missing"
+		var sprite: Sprite2D = null
+		for child in body.get_children():
+			if child is Sprite2D:
+				sprite = child as Sprite2D
+				break
+		if sprite == null:
+			return "sand mound sprite missing"
+		if sprite.texture == null:
+			return "sand mound sprite texture missing"
+		if not String(sprite.texture.resource_path).ends_with("cookie_bridge_tile.png"):
+			return "sand mound texture=%s expected cookie_bridge_tile.png" % sprite.texture.resource_path
+		if not sprite.position.is_equal_approx(Vector2.ZERO):
+			return "sand mound sprite position=%s expected centered" % sprite.position
+		if not sprite.scale.is_equal_approx(expected_scale):
+			return "sand mound sprite scale=%s expected=%s" % [sprite.scale, expected_scale]
+	return ""
 
 func _tile_count() -> int:
 	if _terrain == null:

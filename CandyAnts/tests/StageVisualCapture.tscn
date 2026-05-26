@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bvisualcapturedrv"]
+
+[ext_resource type="Script" path="res://tests/StageVisualCapture.gd" id="1"]
+
+[node name="StageVisualCapture" type="Node"]
+script = ExtResource("1")

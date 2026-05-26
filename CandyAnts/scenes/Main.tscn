@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://b6maincandyants"]
+[gd_scene load_steps=6 format=3 uid="uid://b6maincandyants"]
 
 [ext_resource type="Script" path="res://scripts/core/SceneFlow.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/ui/StageDialog.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/ui/VirtualCursor.tscn" id="3"]
 [ext_resource type="Script" path="res://scripts/ui/CursorTargetingResolver.gd" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="5"]
 
 [node name="Main" type="Node"]
 
@@ -20,6 +21,10 @@ cursor_targeting_resolver_path = NodePath("../CursorTargetingResolver")
 layer = 10
 
 [node name="StageDialog" parent="GlobalUI" instance=ExtResource("2")]
+
+[node name="PauseMenu" parent="GlobalUI" instance=ExtResource("5")]
+scene_flow_path = NodePath("../../SceneFlow")
+stage_dialog_path = NodePath("../StageDialog")
 
 [node name="VirtualCursor" parent="." instance=ExtResource("3")]
 

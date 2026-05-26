@@ -6,8 +6,12 @@
 [resource]
 script = ExtResource("1")
 id = 1
-display_name = "첫 외출"
+display_name = "오르막"
 layout = ExtResource("1_d2hrw")
 total_ants = 6
-candy_hp = 6
+candy_hp = 4
 time_limit_seconds = 90.0
+available_skills = ["climber"]
+skill_inventory = { "climber": 6 }
+release_rate_initial = 30
+release_rate_min = 1

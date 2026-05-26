@@ -8,34 +8,45 @@ class_name SkillToolbar extends CanvasLayer
 
 const GameAction := preload("res://scripts/input/GameAction.gd")
 const SkillSlotScene: PackedScene = preload("res://scenes/ui/atoms/SkillSlot.tscn")
-const CLICK_RADIUS: float = 32.0
+const CLICK_RADIUS: float = 48.0
 
-# 8 스킬 아이콘 preload — SkillSlot.icon_texture + custom mouse cursor 양쪽에 재사용.
+# Registered skill PNG icons — reused by SkillSlot.icon_texture and the custom mouse cursor.
 const ICONS: Dictionary = {
-	"blocker": preload("res://assets/icons/skills/blocker.svg"),
-	"builder": preload("res://assets/icons/skills/builder.svg"),
-	"climber": preload("res://assets/icons/skills/climber.svg"),
-	"basher": preload("res://assets/icons/skills/basher.svg"),
-	"digger": preload("res://assets/icons/skills/digger.svg"),
-	"miner": preload("res://assets/icons/skills/miner.svg"),
-	"floater": preload("res://assets/icons/skills/floater.svg"),
-	"bomber": preload("res://assets/icons/skills/bomber.svg"),
-	"distributor": preload("res://assets/icons/skills/distributor.svg"),
-	"cutter": preload("res://assets/icons/skills/cutter.svg"),
+	"blocker": preload("res://assets/icons/skills/blocker.png"),
+	"builder": preload("res://assets/icons/skills/builder.png"),
+	"climber": preload("res://assets/icons/skills/climber.png"),
+	"floater": preload("res://assets/icons/skills/floater.png"),
+	"distributor": preload("res://assets/icons/skills/distributor.png"),
+	"sand_mound": preload("res://assets/icons/skills/sand_mound.png"),
+	"bridge": preload("res://assets/icons/skills/bridge.png"),
+	"basher": preload("res://assets/icons/skills/basher.png"),
+	"digger": preload("res://assets/icons/skills/digger.png"),
+	"cutter": preload("res://assets/icons/skills/cutter.png"),
+}
+const CURSOR_ICONS: Dictionary = {
+	"blocker": preload("res://assets/icons/skills/cursors/blocker.png"),
+	"builder": preload("res://assets/icons/skills/cursors/builder.png"),
+	"climber": preload("res://assets/icons/skills/cursors/climber.png"),
+	"floater": preload("res://assets/icons/skills/cursors/floater.png"),
+	"distributor": preload("res://assets/icons/skills/cursors/distributor.png"),
+	"sand_mound": preload("res://assets/icons/skills/cursors/sand_mound.png"),
+	"bridge": preload("res://assets/icons/skills/cursors/bridge.png"),
+	"basher": preload("res://assets/icons/skills/cursors/basher.png"),
+	"digger": preload("res://assets/icons/skills/cursors/digger.png"),
+	"cutter": preload("res://assets/icons/skills/cursors/cutter.png"),
 }
 const KO_LABELS: Dictionary = {
 	"climber": "등반",
 	"floater": "낙하산",
-	"bomber": "폭탄",
 	"blocker": "차단",
 	"builder": "계단",
+	"sand_mound": "모래",
+	"bridge": "다리",
 	"basher": "굴착",
-	"miner": "채굴",
 	"digger": "땅파기",
 	"distributor": "분배자",
 	"cutter": "절단",
 }
-const CURSOR_HOTSPOT: Vector2 = Vector2(32, 32)
 
 @export var stage_data: StageData = null
 @export var hbox_path: NodePath
@@ -121,9 +132,9 @@ func _select(id: String) -> void:
 	_pending_skill_id = id
 	if _slots.has(id):
 		(_slots[id] as SkillSlot).set_selected(true)
-	var icon: Texture2D = ICONS.get(id) as Texture2D
+	var icon: Texture2D = CURSOR_ICONS.get(id) as Texture2D
 	if icon != null:
-		Input.set_custom_mouse_cursor(icon, Input.CURSOR_ARROW, CURSOR_HOTSPOT)
+		Input.set_custom_mouse_cursor(icon, Input.CURSOR_ARROW, Vector2.ZERO)
 	print("[SkillToolbar] pending=", id)
 
 func _clear_selection() -> void:

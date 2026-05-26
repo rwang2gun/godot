@@ -1,15 +1,17 @@
-[gd_resource type="Resource" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://t0c36pl5a6r2"]
 
-[ext_resource type="Script" path="res://scripts/core/StageData.gd" id="1"]
+[ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="1"]
+[ext_resource type="Resource" uid="uid://b2candyants02ly" path="res://data/stage_layouts/stage02_layout.tres" id="1_layout"]
 
 [resource]
 script = ExtResource("1")
 id = 2
-display_name = "협곡"
-total_ants = 10
-candy_hp = 10
-time_limit_seconds = 180.0
-available_skills = ["builder"]
-skill_inventory = { "builder": 3 }
+display_name = "모래 다리"
+layout = ExtResource("1_layout")
+total_ants = 4
+candy_hp = 2
+time_limit_seconds = 120.0
+available_skills = ["sand_mound", "builder", "climber", "blocker"]
+skill_inventory = { "sand_mound": 4, "builder": 6, "climber": 6, "blocker": 2 }
 release_rate_initial = 30
 release_rate_min = 1

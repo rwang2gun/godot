@@ -36,6 +36,14 @@ func _exit_tree() -> void:
 	if EventBus.candy_piece_lost.is_connected(_on_lost):
 		EventBus.candy_piece_lost.disconnect(_on_lost)
 
+# StageRunner._ready가 stage 시작 시 1회 호출 — 초기 candy_hp를 카운터에 표시.
+# candy_piece_picked는 ant가 첫 piece 픽업 시점부터만 발화하므로, 본 메서드 없으면 시작
+# 직후 0으로 노출되는 회귀 (CounterCandyHp가 stage 시작 HP 표시 안 됨).
+func set_candy_hp(hp: int) -> void:
+	_candy_hp = hp
+	if _counter_candy != null:
+		_counter_candy.set_value(_candy_hp)
+
 # StageRunner._process가 매 frame 호출 — 정수 변동 시점에만 caPop 발화.
 func update_time(seconds: float) -> void:
 	var s: int = int(ceil(seconds))

@@ -2,6 +2,8 @@
 
 [ext_resource type="FontFile" uid="uid://bqthtf7fdxu48" path="res://assets/fonts/Jua-Regular.ttf" id="1_jua"]
 
+[sub_resource type="StyleBoxEmpty" id="btn_focus"]
+
 [sub_resource type="StyleBoxFlat" id="btn_disabled"]
 content_margin_left = 22.0
 content_margin_top = 10.0
@@ -100,6 +102,7 @@ default_font_size = 20
 Button/colors/font_color = Color(0.227, 0.165, 0.11, 1)
 Button/colors/font_disabled_color = Color(0.227, 0.165, 0.11, 0.6)
 Button/styles/disabled = SubResource("btn_disabled")
+Button/styles/focus = SubResource("btn_focus")
 Button/styles/hover = SubResource("btn_hover")
 Button/styles/normal = SubResource("btn_normal")
 Button/styles/pressed = SubResource("btn_pressed")

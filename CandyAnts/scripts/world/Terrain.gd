@@ -16,7 +16,11 @@ var _static_bodies: Dictionary = {}       # Vector2i → StaticBody2D
 # Phase 18 — cell 종류 분류. "earth"(default) / "plant"(phase 19) / "" (미등록).
 # destroy_tile_at의 allowed_kinds로 cross-mechanic 침범 차단.
 var _cell_kind: Dictionary = {}           # Vector2i → String
+const DYNAMIC_TILE_BRIDGE: String = "bridge"
+const DYNAMIC_TILE_SAND_MOUND: String = "sand_mound"
+
 var _bridge_tile_texture: Texture2D = null
+var _sand_mound_tile_texture: Texture2D = null
 
 func set_cell_size(s: int) -> void:
 	if s > 0:
@@ -64,7 +68,7 @@ func destroy_tile_at(cell: Vector2i, allowed_kinds: Array[String] = ["earth"]) -
 	_cell_kind.erase(cell)
 	return true
 
-func add_tile(cell: Vector2i) -> bool:
+func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE) -> bool:
 	# D8 first-place wins — 동적/정적 어느 쪽이든 점유면 reject.
 	if _placed.has(cell) or _static_occupancy.has(cell):
 		return false
@@ -77,13 +81,7 @@ func add_tile(cell: Vector2i) -> bool:
 	shape.shape = rect
 	body.add_child(shape)
 	var sprite: Sprite2D = Sprite2D.new()
-	if _bridge_tile_texture == null:
-		_bridge_tile_texture = load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
-	sprite.texture = _bridge_tile_texture
-	# v5: 16px native sprite → cell_size에 비례 scale. cs=16이면 scale_factor=1.0 (회귀 0건).
-	var scale_factor: float = float(cell_size) / 16.0
-	sprite.position = Vector2(0, -13.0 * scale_factor)
-	sprite.scale = Vector2(scale_factor, scale_factor)
+	_configure_dynamic_tile_sprite(sprite, visual_style)
 	body.add_child(sprite)
 	body.global_position = Vector2(
 		float(cell.x) * cell_size + cell_size / 2.0,
@@ -95,8 +93,31 @@ func add_tile(cell: Vector2i) -> bool:
 	_cell_kind[cell] = "earth"
 	return true
 
+func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String) -> void:
+	if visual_style == DYNAMIC_TILE_SAND_MOUND:
+		if _sand_mound_tile_texture == null:
+			_sand_mound_tile_texture = load("res://assets/sprites/terrain/cookie_bridge_tile.png") as Texture2D
+		sprite.texture = _sand_mound_tile_texture
+		# Sand-mound stacks occupy full cells, so the visual is centered on the collision cell.
+		var mound_scale: float = float(cell_size) / 32.0
+		sprite.position = Vector2.ZERO
+		sprite.scale = Vector2(mound_scale, mound_scale)
+		return
+	if _bridge_tile_texture == null:
+		_bridge_tile_texture = load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
+	sprite.texture = _bridge_tile_texture
+	# v5: 16px native sprite → cell_size에 비례 scale. cs=16이면 scale_factor=1.0 (회귀 0건).
+	var scale_factor: float = float(cell_size) / 16.0
+	sprite.position = Vector2(0, -13.0 * scale_factor)
+	sprite.scale = Vector2(scale_factor, scale_factor)
+
 func has_tile(cell: Vector2i) -> bool:
 	return _placed.has(cell)
+
+# PlacementPreview용 — dynamic + static 점유 통합 검사. add_tile reject 조건과 동일 기준을
+# 외부에 노출해 ghost 미리보기가 정확히 예측 가능.
+func is_cell_occupied(cell: Vector2i) -> bool:
+	return _placed.has(cell) or _static_occupancy.has(cell)
 
 func tile_count() -> int:
 	return _placed.size()

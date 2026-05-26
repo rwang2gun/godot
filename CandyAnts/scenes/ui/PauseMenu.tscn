@@ -1,0 +1,102 @@
+[gd_scene load_steps=6 format=3 uid="uid://b6pausemenu0001"]
+
+[ext_resource type="Script" path="res://scripts/ui/PauseMenu.gd" id="1_pm"]
+[ext_resource type="Theme" path="res://theme/candyants.tres" id="2_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/atoms/CButton.tscn" id="3_cbutton"]
+
+[sub_resource type="StyleBoxFlat" id="card_shadow"]
+bg_color = Color(0.227, 0.165, 0.110, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+
+[sub_resource type="StyleBoxFlat" id="card_panel"]
+bg_color = Color(0.961, 0.937, 0.890, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.227, 0.165, 0.110, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+
+[node name="PauseMenu" type="Control"]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
+theme = ExtResource("2_theme")
+script = ExtResource("1_pm")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.20, 0.13, 0.07, 0.55)
+mouse_filter = 0
+
+[node name="CardWrapper" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+
+[node name="Card" type="Control" parent="CardWrapper"]
+custom_minimum_size = Vector2(360, 320)
+mouse_filter = 1
+pivot_offset = Vector2(180, 160)
+
+[node name="ShadowBG" type="Panel" parent="CardWrapper/Card"]
+show_behind_parent = true
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 6.0
+offset_bottom = 6.0
+theme_override_styles/panel = SubResource("card_shadow")
+
+[node name="Main" type="PanelContainer" parent="CardWrapper/Card"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+theme_override_styles/panel = SubResource("card_panel")
+
+[node name="Margin" type="MarginContainer" parent="CardWrapper/Card/Main"]
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="VBox" type="VBoxContainer" parent="CardWrapper/Card/Main/Margin"]
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="CardWrapper/Card/Main/Margin/VBox"]
+text = "일시정지"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="Buttons" type="VBoxContainer" parent="CardWrapper/Card/Main/Margin/VBox"]
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="ContinueBtn" parent="CardWrapper/Card/Main/Margin/VBox/Buttons" instance=ExtResource("3_cbutton")]
+custom_minimum_size = Vector2(260, 56)
+text = "계속하기"
+
+[node name="RestartBtn" parent="CardWrapper/Card/Main/Margin/VBox/Buttons" instance=ExtResource("3_cbutton")]
+custom_minimum_size = Vector2(260, 56)
+kind = 1
+text = "다시하기"
+
+[node name="TitleBtn" parent="CardWrapper/Card/Main/Margin/VBox/Buttons" instance=ExtResource("3_cbutton")]
+custom_minimum_size = Vector2(260, 56)
+kind = 2
+text = "타이틀로 돌아가기"

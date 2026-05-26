@@ -134,7 +134,7 @@ func update(delta: float) -> void:
 
 	# builder 분기 (기존 로직 유지, cell_size만 dynamic)
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 		return
 
 	# 중력 + 바닥 유지 (placement 사이에 ant가 떠있는 시점에도 안정)
@@ -144,7 +144,7 @@ func update(delta: float) -> void:
 
 	if a.is_on_wall():
 		_aborted = true
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 		return
 
 	_tick_accum += delta
@@ -153,7 +153,7 @@ func update(delta: float) -> void:
 		_place_one_tile(a)
 
 	if _remaining <= 0 and not _aborted:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 
 func _update_blocker(a: Ant, delta: float) -> void:
 	# 영구 정지. 절벽 끝에서만 Faller로 자연 해제.
@@ -166,7 +166,7 @@ func _update_blocker(a: Ant, delta: float) -> void:
 
 func _update_sand_mound(a: Ant, delta: float) -> void:
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 		return
 	# 정지 — 좌우 무이동. 중력은 적용(tile 사이 떠있을 때 대비).
 	a.velocity.y += a.gravity * delta
@@ -177,11 +177,11 @@ func _update_sand_mound(a: Ant, delta: float) -> void:
 		_tick_accum -= SAND_MOUND_TICK
 		_place_sand_mound_tile(a)
 	if _remaining <= 0 and not _aborted:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 
 func _update_bridge(a: Ant, delta: float) -> void:
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 		return
 	# 정지 — velocity.x=0 유지, 중력만 적용.
 	a.velocity.y += a.gravity * delta
@@ -190,7 +190,7 @@ func _update_bridge(a: Ant, delta: float) -> void:
 	# 벽 충돌 시 abort (builder 정책 답습).
 	if a.is_on_wall():
 		_aborted = true
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 		return
 	# v7 — floor-contact guard.
 	# 첫 tile 전 off-floor는 1-frame grace만 허용하되 tile placement는 절대 수행하지 않는다.
@@ -202,7 +202,7 @@ func _update_bridge(a: Ant, delta: float) -> void:
 			_bridge_floor_grace_used = true
 			return
 		_aborted = true
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 		return
 	_bridge_floor_grace_used = false   # 안착 → grace 재충전
 	_tick_accum += delta
@@ -213,7 +213,7 @@ func _update_bridge(a: Ant, delta: float) -> void:
 			break
 		_place_bridge_tile(a)
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 
 func exit() -> void:
 	# blocker 정리 — Faller/Walker/Saved/Dead 어떤 경로든 BlockerHitbox 비활성. 멱등.
@@ -258,7 +258,7 @@ func _place_sand_mound_tile(a: Ant) -> void:
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
 	var target: Vector2i = body_cell
-	var ok: bool = terrain.add_tile(target)
+	var ok: bool = terrain.add_tile(target, Terrain.DYNAMIC_TILE_SAND_MOUND)
 	if not ok:
 		_aborted = true
 		return
@@ -328,7 +328,7 @@ func _find_terrain(a: Ant) -> Terrain:
 # off-floor 시 즉시 _aborted → Faller (절벽 끝에서 활성화한 경우).
 func _update_basher(a: Ant, delta: float) -> void:
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 		return
 	a.velocity.y += a.gravity * delta
 	a.velocity.x = 0.0
@@ -345,7 +345,7 @@ func _update_basher(a: Ant, delta: float) -> void:
 			break
 		_destroy_basher_cell(a)
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 
 # Phase 18 — Digger 수직 굴착. ant 바로 아래 floor row cell을 DIGGER_MAX_CELLS까지 tick 단위 제거.
 # ant 위치는 갱신 안 함 — 다음 physics tick에 is_on_floor=false → 중력으로 자연 낙하.
@@ -353,7 +353,7 @@ func _update_basher(a: Ant, delta: float) -> void:
 # 초과 시 _aborted + FallerState 직접 전이 (D11 void termination 안전망).
 func _update_digger(a: Ant, delta: float) -> void:
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 		return
 	a.velocity.y += a.gravity * delta
 	a.velocity.x = 0.0
@@ -375,7 +375,7 @@ func _update_digger(a: Ant, delta: float) -> void:
 			break
 		_destroy_digger_cell(a)
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 
 func _destroy_basher_cell(a: Ant) -> void:
 	var terrain: Terrain = _find_terrain(a)
@@ -442,7 +442,7 @@ func _digger_below_has_earth(a: Ant) -> bool:
 # off-floor 시 즉시 _aborted → Faller (절벽 끝에서 활성화 안전망, Basher와 동일).
 func _update_cutter(a: Ant, delta: float) -> void:
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 		return
 	a.velocity.y += a.gravity * delta
 	a.velocity.x = 0.0
@@ -459,7 +459,7 @@ func _update_cutter(a: Ant, delta: float) -> void:
 			break
 		_destroy_cutter_cell(a)
 	if _aborted or _remaining <= 0:
-		a.state_machine.change_state(WalkerState.new())
+		a.return_to_walking()
 
 func _destroy_cutter_cell(a: Ant) -> void:
 	var terrain: Terrain = _find_terrain(a)

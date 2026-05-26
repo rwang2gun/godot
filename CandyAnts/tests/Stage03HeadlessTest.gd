@@ -6,7 +6,7 @@ extends Node
 # §D-3 첫 +1 ant 우측 cliff 직전에 BlockerSkill.apply → stage_cleared score >= 0.85
 # PASS: get_tree().quit(0). FAIL: quit(1).
 
-const TRIGGER_X: float = 1750.0   # 첫 +1 ant가 도달하면 Blocker 적용 (cliff x=1820 직전 안전구간)
+const TRIGGER_X: float = 2625.0   # 첫 +1 ant가 도달하면 Blocker 적용 (cliff x=2730 직전 안전구간, cell_size=48로 ×1.5)
 const PASS_SCORE: float = 0.85
 const ALTERNATE_PATTERN: Array[int] = [1, -1, 1, -1]
 

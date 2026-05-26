@@ -14,6 +14,8 @@
 [ext_resource type="Script" uid="uid://x77gqhuulxg6" path="res://scripts/ui/HUD.gd" id="12_mcttg"]
 [ext_resource type="Script" path="res://scripts/world/StageLayoutBuilder.gd" id="13_layout_builder"]
 [ext_resource type="Resource" path="res://data/stage_layouts/stage01_layout.tres" id="14_stage_layout"]
+[ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="15_toolbar"]
+[ext_resource type="Script" path="res://scripts/world/PlacementPreview.gd" id="16_placement_preview"]
 
 [node name="StageRunner" type="Node" unique_id=1186068382]
 script = ExtResource("1")
@@ -22,6 +24,7 @@ candy_path = NodePath("World/Candy")
 home_path = NodePath("World/Home")
 spawner_path = NodePath("Spawner")
 hud_path = NodePath("HUD")
+toolbar_path = NodePath("SkillToolbar")
 ant_scene = ExtResource("5")
 spawn_parent_path = NodePath("World")
 
@@ -34,30 +37,40 @@ layout = ExtResource("14_stage_layout")
 [node name="Terrain" type="Node2D" parent="World" unique_id=372110664]
 script = ExtResource("4_mx7fg")
 
+[node name="PlacementPreview" type="Node2D" parent="World"]
+script = ExtResource("16_placement_preview")
+toolbar_path = NodePath("../../SkillToolbar")
+terrain_path = NodePath("../Terrain")
+
 [node name="Home" type="Area2D" parent="World" unique_id=417351329 instance=ExtResource("3")]
-position = Vector2(656, 880)
+position = Vector2(168, 816)
 collision_layer = 32
 collision_mask = 4
 script = ExtResource("6_hwgo4")
 
 [node name="Candy" type="Area2D" parent="World" unique_id=626248616 instance=ExtResource("4")]
-position = Vector2(1264, 880)
+position = Vector2(1224, 816)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("8_s25jr")
-hp = 6
+hp = 4
 
 [node name="Camera2D" type="Camera2D" parent="World" unique_id=1743745614]
-position = Vector2(976, 560)
+position = Vector2(744, 936)
 
 [node name="StageBackground" type="CanvasLayer" parent="." unique_id=1775082482 instance=ExtResource("8")]
 layer = -100
 
 [node name="Spawner" type="Node" parent="." unique_id=612305499]
 script = ExtResource("2")
-spawn_position = Vector2(656, 875)
+spawn_position = Vector2(168, 808.5)
 total = 6
+release_rate = 30
+spawn_direction = 1
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=899628604 instance=ExtResource("6")]
 layer = 10
 script = ExtResource("12_mcttg")
+
+[node name="SkillToolbar" parent="." instance=ExtResource("15_toolbar")]
+stage_data = ExtResource("7")

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bcarryfallstdrv"]
+
+[ext_resource type="Script" path="res://tests/CarryFallStateTest.gd" id="1"]
+
+[node name="CarryFallStateTest" type="Node"]
+script = ExtResource("1")

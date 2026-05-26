@@ -1,6 +1,6 @@
 extends Node
 
-# Phase 9 complete 차단 조건 (phase 11에서 ui icons 2장 추가 → 15장).
+# Phase 9 complete 차단 조건. Skill icons moved to PNG; this remains for production SVG UI art.
 # production SVG sanity + svg_color_map sanity_invariants 4종 + import Godot 4.6 실제 4종 키 검증.
 # invariant[3] (handoff class 매핑 entry 존재)은 normalize_svg.py --scan-handoff-all 책임.
 # (flags/filter는 Godot 4 .import key 부재, ProjectSettings default Linear 의존 — impl R1-H2 정정.)
@@ -12,14 +12,6 @@ const PRODUCTION_SVGS := [
 	# (gradient suit/face/hair 등 ~88 hex 사용). hand-authored hero asset이라 token palette
 	# strict invariant에서 제외. 다른 logo(wordmark/icon)와 skill icon은 strict 유지.
 	#   "res://assets/logo/mascot.svg",   ← invariant[1] hex 88건 발생, 정책상 제외.
-	"res://assets/icons/skills/basher.svg",
-	"res://assets/icons/skills/blocker.svg",
-	"res://assets/icons/skills/bomber.svg",
-	"res://assets/icons/skills/builder.svg",
-	"res://assets/icons/skills/climber.svg",
-	"res://assets/icons/skills/digger.svg",
-	"res://assets/icons/skills/floater.svg",
-	"res://assets/icons/skills/miner.svg",
 	"res://assets/sprites/home.svg",
 	"res://assets/illustrations/stage_bg.svg",
 	# Phase 11: PauseBtn icon assets (토큰 hex #3A2A1C 1:1, normalize_svg.py 외 수동 작성).

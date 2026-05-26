@@ -48,6 +48,11 @@ func _ready() -> void:
 	if _candy != null:
 		_candy.hp = stage_data.candy_hp
 
+	# HUD 초기 candy_hp 표시 — candy_piece_picked는 첫 픽업 시점부터만 발화하므로
+	# 본 push 없으면 stage 시작 직후 카운터가 0으로 노출됨.
+	if _hud != null and _hud.has_method("set_candy_hp"):
+		_hud.set_candy_hp(stage_data.candy_hp)
+
 	# ScoreSystem
 	score_system = ScoreSystem.new()
 	score_system.start(stage_data.candy_hp)

@@ -1,74 +1,76 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene format=3 uid="uid://b3candyantsst03"]
 
-[ext_resource type="Script" path="res://scripts/core/StageRunner.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/core/AntSpawner.gd" id="2"]
-[ext_resource type="Script" path="res://scripts/world/Terrain.gd" id="3"]
-[ext_resource type="PackedScene" path="res://scenes/entities/Home.tscn" id="4"]
-[ext_resource type="PackedScene" path="res://scenes/entities/Candy.tscn" id="5"]
-[ext_resource type="PackedScene" path="res://scenes/entities/Ant.tscn" id="6"]
-[ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="7"]
-[ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="8"]
-[ext_resource type="Resource" path="res://data/stages/stage03.tres" id="9"]
-[ext_resource type="PackedScene" path="res://scenes/world/StageBackground.tscn" id="10"]
-[ext_resource type="Script" path="res://scripts/world/CookiePlatformVisual.gd" id="11"]
-
-[sub_resource type="RectangleShape2D" id="platform_shape"]
-size = Vector2(1220, 12)
+[ext_resource type="Script" uid="uid://cwyda6pumd634" path="res://scripts/core/StageRunner.gd" id="1"]
+[ext_resource type="Script" uid="uid://dad1jc4eea6qx" path="res://scripts/core/AntSpawner.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Home.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Candy.tscn" id="4"]
+[ext_resource type="Script" uid="uid://5lh5rplnitdd" path="res://scripts/world/Terrain.gd" id="4_terrain"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Ant.tscn" id="5"]
+[ext_resource type="PackedScene" uid="uid://b6huiphase11" path="res://scenes/ui/HUD.tscn" id="6"]
+[ext_resource type="Script" uid="uid://jimgqvwcqixp" path="res://scripts/world/Home.gd" id="6_home"]
+[ext_resource type="Resource" uid="uid://t0c36pl5a6r3" path="res://data/stages/stage03.tres" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/world/StageBackground.tscn" id="8"]
+[ext_resource type="Script" uid="uid://bvuiwb8sa2bym" path="res://scripts/world/Candy.gd" id="8_candy"]
+[ext_resource type="Script" uid="uid://x77gqhuulxg6" path="res://scripts/ui/HUD.gd" id="12_hud"]
+[ext_resource type="Script" path="res://scripts/world/StageLayoutBuilder.gd" id="13_layout_builder"]
+[ext_resource type="Resource" path="res://data/stage_layouts/stage03_layout.tres" id="14_stage_layout"]
+[ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="15_toolbar"]
+[ext_resource type="Script" path="res://scripts/world/PlacementPreview.gd" id="16_placement_preview"]
 
 [node name="StageRunner" type="Node"]
 script = ExtResource("1")
-stage_data = ExtResource("9")
+stage_data = ExtResource("7")
 candy_path = NodePath("World/Candy")
 home_path = NodePath("World/Home")
 spawner_path = NodePath("Spawner")
 hud_path = NodePath("HUD")
 toolbar_path = NodePath("SkillToolbar")
-ant_scene = ExtResource("6")
+ant_scene = ExtResource("5")
 spawn_parent_path = NodePath("World")
 
 [node name="World" type="Node2D" parent="."]
 
-[node name="StageBackground" parent="." instance=ExtResource("10")]
-
-[node name="MainPlatform" type="StaticBody2D" parent="World"]
-position = Vector2(1210, 886)
-collision_layer = 1
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="World/MainPlatform"]
-shape = SubResource("platform_shape")
-
-[node name="Sprite" type="Polygon2D" parent="World/MainPlatform"]
-visible = false
-polygon = PackedVector2Array(-610, -108, 610, -108, 610, 108, -610, 108)
-color = Color(0.3, 0.25, 0.2, 1)
-
-[node name="PlatformVisual" type="Node2D" parent="World/MainPlatform"]
-script = ExtResource("11")
-platform_size = Vector2(1220, 12)
+[node name="StageLayoutBuilder" type="Node2D" parent="World"]
+script = ExtResource("13_layout_builder")
+layout = ExtResource("14_stage_layout")
 
 [node name="Terrain" type="Node2D" parent="World"]
-script = ExtResource("3")
+script = ExtResource("4_terrain")
 
-[node name="Home" parent="World" instance=ExtResource("4")]
-position = Vector2(1710, 880)
+[node name="PlacementPreview" type="Node2D" parent="World"]
+script = ExtResource("16_placement_preview")
+toolbar_path = NodePath("../../SkillToolbar")
+terrain_path = NodePath("../Terrain")
 
-[node name="Candy" parent="World" instance=ExtResource("5")]
-position = Vector2(700, 880)
-hp = 10
+[node name="Home" type="Area2D" parent="World" instance=ExtResource("3")]
+position = Vector2(264, 1056)
+collision_layer = 32
+collision_mask = 4
+script = ExtResource("6_home")
+
+[node name="Candy" type="Area2D" parent="World" instance=ExtResource("4")]
+position = Vector2(1224, 1056)
+collision_layer = 16
+collision_mask = 4
+script = ExtResource("8_candy")
+hp = 4
 
 [node name="Camera2D" type="Camera2D" parent="World"]
-position = Vector2(1210, 540)
+position = Vector2(744, 936)
+
+[node name="StageBackground" type="CanvasLayer" parent="." instance=ExtResource("8")]
+layer = -100
 
 [node name="Spawner" type="Node" parent="."]
 script = ExtResource("2")
-spawn_position = Vector2(1710, 875)
-total = 10
+spawn_position = Vector2(264, 1048.5)
+total = 6
 release_rate = 30
 spawn_direction = 1
-spawn_direction_alternate = true
 
-[node name="HUD" parent="." instance=ExtResource("7")]
+[node name="HUD" type="CanvasLayer" parent="." instance=ExtResource("6")]
+layer = 10
+script = ExtResource("12_hud")
 
-[node name="SkillToolbar" parent="." instance=ExtResource("8")]
-stage_data = ExtResource("9")
+[node name="SkillToolbar" parent="." instance=ExtResource("15_toolbar")]
+stage_data = ExtResource("7")

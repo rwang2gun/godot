@@ -1,0 +1,65 @@
+[gd_resource type="Resource" script_class="StageLayoutData" format=3 uid="uid://b3candyants03ly"]
+
+[ext_resource type="Script" uid="uid://xi30okhe70kg" path="res://scripts/core/StageLayoutData.gd" id="1_xqg42"]
+
+[resource]
+script = ExtResource("1_xqg42")
+cell_size = 48
+home_cell = Vector2i(5, 21)
+candy_cell = Vector2i(25, 21)
+camera_cell = Vector2i(15, 19)
+spawn_direction = 1
+spawn_direction_alternate = false
+tile_map = {
+"3,22": "solid",
+"4,22": "solid",
+"5,22": "solid",
+"6,22": "solid",
+"7,22": "solid",
+"8,22": "solid",
+"9,22": "solid",
+"10,22": "solid",
+"11,22": "solid",
+"12,22": "solid",
+"13,22": "solid",
+"14,22": "solid",
+"15,22": "solid",
+"16,22": "solid",
+"17,22": "solid",
+"18,22": "solid",
+"19,22": "solid",
+"20,22": "solid",
+"21,22": "solid",
+"22,22": "solid",
+"23,22": "solid",
+"24,22": "solid",
+"25,22": "solid",
+"26,22": "solid",
+"27,22": "solid",
+"28,22": "solid",
+"12,17": "solid",
+"13,17": "solid",
+"14,17": "solid",
+"15,17": "solid",
+"16,17": "solid",
+"12,18": "solid",
+"13,18": "solid",
+"14,18": "solid",
+"15,18": "solid",
+"16,18": "solid",
+"12,19": "solid",
+"13,19": "solid",
+"14,19": "solid",
+"15,19": "solid",
+"16,19": "solid",
+"12,20": "solid",
+"13,20": "solid",
+"14,20": "solid",
+"15,20": "solid",
+"16,20": "solid",
+"12,21": "solid",
+"13,21": "solid",
+"14,21": "solid",
+"15,21": "solid",
+"16,21": "solid"
+}

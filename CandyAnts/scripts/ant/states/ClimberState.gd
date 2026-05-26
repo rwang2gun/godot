@@ -91,9 +91,7 @@ func _update_mantling(a: Ant, _delta: float) -> void:
 	# mantle 완료 검사. exit()에서 ant.direction 복원되므로 여기서는 단순 전이만.
 	if _mantle_offset >= a.mantle_distance:
 		if a.is_on_floor():
-			if a.has_candy:
-				a.state_machine.change_state(CarryingState.new())
-			else:
-				a.state_machine.change_state(WalkerState.new())
+			# carry 모션 유지를 위해 has_candy 분기는 Ant.return_to_walking() 단일 진입점에 위임.
+			a.return_to_walking()
 		else:
 			a.state_machine.change_state(FallerState.new())

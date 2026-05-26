@@ -8,7 +8,7 @@ extends Node
 # PASS: get_tree().quit(0). FAIL: 즉시 print + quit(1).
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
-const STAGE3_TRIGGER_X: float = 1750.0  # Stage03HeadlessTest와 동일
+const STAGE3_TRIGGER_X: float = 2625.0  # Stage03HeadlessTest와 동일 (cell_size=48로 ×1.5)
 
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed

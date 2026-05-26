@@ -2,18 +2,18 @@ class_name Ant extends CharacterBody2D
 
 signal bumped_blocker(direction: int)
 
-@export var walk_speed: float = 60.0
-@export var gravity: float = 900.0
+@export var walk_speed: float = 90.0
+@export var gravity: float = 1350.0
 @export var carrying_speed_multiplier: float = 0.78
 @export var spawn_grace_seconds: float = 0.4
 
 # Phase 14 — traits (Climber/Floater). climber 보유 시 벽 만남에서 ClimberState 전이,
 # floater 보유 시 FallerState에서 중력 0.3배. 영구 보유(해제 API 없음).
 const FLOATER_GRAVITY_SCALE: float = 0.3
-const CLIMB_SPEED: float = 40.0
-# mantle 거리는 ancestor chain의 StageLayoutBuilder.layout.cell_size + 4 로 runtime 갱신.
-# 미발견 시 36.0(=32+4) fallback. Stage01~03 모두 cell_size=32이므로 fallback 정확.
-var mantle_distance: float = 36.0
+const CLIMB_SPEED: float = 60.0
+# mantle 거리는 ancestor chain의 StageLayoutBuilder.layout.cell_size + 6 로 runtime 갱신.
+# 미발견 시 54.0(=48+6) fallback. Stage01~03 모두 cell_size=48이므로 fallback 정확.
+var mantle_distance: float = 54.0
 
 var direction: int = 1
 var has_been_carrying: bool = false
@@ -92,7 +92,7 @@ func _resolve_mantle_distance() -> void:
 	# ancestor chain 스캔 — global 그룹 lookup 미사용 (plan-stage Round 3 MEDIUM 대응, scope-safe).
 	# ant의 ancestor를 따라 올라가며 각 노드 아래 "StageLayoutBuilder" 자식이 있는지 확인.
 	# 첫 매치된 builder의 layout.cell_size 사용. layout 없거나 cell_size 부정확하면 다음 ancestor 시도.
-	# 모두 실패 시 fallback 36.0 유지.
+	# 모두 실패 시 fallback 54.0 유지.
 	var node: Node = self
 	while node != null:
 		var b: Node = node.get_node_or_null("StageLayoutBuilder")
@@ -101,7 +101,7 @@ func _resolve_mantle_distance() -> void:
 			if layout != null:
 				var cs: Variant = layout.get("cell_size")
 				if typeof(cs) == TYPE_INT and int(cs) > 0:
-					mantle_distance = float(cs) + 4.0
+					mantle_distance = float(cs) + 6.0
 					return
 		node = node.get_parent()
 
@@ -208,6 +208,17 @@ func _update_trait_badges() -> void:
 
 func is_carrying() -> bool:
 	return state_machine != null and state_machine.current_state is CarryingState
+
+# 보행 복귀 (Worker/Faller/Climber 작업 종료 시 단일 진입점) — has_candy 검사로 carry 모션 유지.
+# Ant._update_sprite는 state class 기반 animation 매핑이라 has_candy=true인 채로 WalkerState로
+# 전이하면 sprite가 "walk"로 잘못 표시됨. 모든 종료 분기에서 본 helper로 통일.
+func return_to_walking() -> void:
+	if state_machine == null:
+		return
+	if has_candy:
+		state_machine.change_state(CarryingState.new())
+	else:
+		state_machine.change_state(WalkerState.new())
 
 func is_alive() -> bool:
 	# Phase 7 — CursorTargeting alive 필터. SavedState/DeadState 제외, 그 외(Walker/Faller/Carrying/Worker)는 alive.
