@@ -16,6 +16,10 @@ const CLIMB_SPEED: float = 60.0
 var mantle_distance: float = 54.0
 
 var direction: int = 1
+# AntSpawner._spawn_one이 add_child 전에 direction을 세팅하므로 _ready 시점의 direction이
+# per-ant 최초 스폰 방향(spawn_direction_alternate 분기 결과 포함). Home._on_respawn_timeout에서
+# 빈손 귀가 후 재등장 시 이 값으로 복원해 스폰 방향과 동일한 방향으로 다시 나오게 한다.
+var _spawn_direction: int = 1
 var has_been_carrying: bool = false
 # state(CarryingState)와 무관하게 사탕 보유 여부를 추적. CarryingState.enter()에서 true,
 # Home에 운반 성공 시 false. Faller/Walker 전이로도 잃지 않음 — Codex review HIGH 대응.
@@ -64,6 +68,7 @@ var _sprite_paused_for_sticky: bool = false
 
 func _ready() -> void:
 	_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
+	_spawn_direction = direction
 	add_to_group("ants")
 	state_machine = $StateMachine
 	state_machine.ant = self

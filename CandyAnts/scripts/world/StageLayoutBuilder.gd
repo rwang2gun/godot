@@ -127,13 +127,15 @@ func _add_solid_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> vo
 	sprite.owner = owner
 
 func _add_plant_visual(body: StaticBody2D, cell_size: int) -> void:
-	var rect := ColorRect.new()
-	rect.name = "PlantVisual"
-	rect.size = Vector2(cell_size, cell_size)
-	rect.position = Vector2(-float(cell_size) / 2.0, -float(cell_size) / 2.0)
-	rect.color = Color(0.45, 0.78, 0.32, 0.85)
-	body.add_child(rect)
-	rect.owner = owner
+	var sprite := Sprite2D.new()
+	sprite.name = "PlantVisual"
+	sprite.texture = load("res://assets/sprites/terrain/peppermint_plant.png") as Texture2D
+	if sprite.texture != null:
+		var texture_size := sprite.texture.get_size()
+		if texture_size.x > 0.0 and texture_size.y > 0.0:
+			sprite.scale = Vector2(float(cell_size) / texture_size.x, float(cell_size) / texture_size.y)
+	body.add_child(sprite)
+	sprite.owner = owner
 
 func _add_slope_visual(body: StaticBody2D, cell_size: int, tile_type: String) -> void:
 	var polygon := Polygon2D.new()

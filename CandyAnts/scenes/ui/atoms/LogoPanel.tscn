@@ -1,11 +1,11 @@
 [gd_scene load_steps=4 format=3 uid="uid://b1xcatoms0logopanel"]
 
 [ext_resource type="Script" path="res://scripts/ui/atoms/LogoPanel.gd" id="1_logo"]
-[ext_resource type="Texture2D" path="res://assets/logo/wordmark.svg" id="2_word"]
-[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_00.png" id="3_mascot"]
+[ext_resource type="Texture2D" path="res://assets/logo/logo_wordmark_premium.png" id="2_word"]
+[ext_resource type="Texture2D" path="res://assets/logo/mascot_premium.png" id="3_mascot"]
 
 [node name="LogoPanel" type="Control"]
-custom_minimum_size = Vector2(480, 280)
+custom_minimum_size = Vector2(600, 360)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_logo")
@@ -22,12 +22,12 @@ theme_override_constants/separation = 16
 alignment = 1
 
 [node name="Wordmark" type="TextureRect" parent="VBox"]
-custom_minimum_size = Vector2(360, 90)
+custom_minimum_size = Vector2(540, 135)
 expand_mode = 1
 stretch_mode = 5
 
 [node name="Mascot" type="TextureRect" parent="VBox"]
-custom_minimum_size = Vector2(160, 160)
+custom_minimum_size = Vector2(200, 200)
 expand_mode = 1
 stretch_mode = 5
-pivot_offset = Vector2(80, 80)
+pivot_offset = Vector2(100, 100)
