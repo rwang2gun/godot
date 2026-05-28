@@ -114,17 +114,48 @@ func _add_slope_collision(body: StaticBody2D, cell_size: int, tile_type: String)
 	polygon.owner = owner
 
 func _add_solid_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> void:
-	var sprite := Sprite2D.new()
-	sprite.name = "Sprite"
-	sprite.texture = _get_tile_texture_for_cell(cell)
-	if sprite.texture != null:
-		var texture_size := sprite.texture.get_size()
-		if texture_size.x > 0.0 and texture_size.y > 0.0:
-			sprite.scale = Vector2(float(cell_size) / texture_size.x, float(cell_size) / texture_size.y)
+	# 1. 베이스 지형 (정사각형 내부 타일)
+	var base_sprite := Sprite2D.new()
+	base_sprite.name = "BaseSprite"
+	base_sprite.texture = load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
+	if base_sprite.texture != null:
+		var tex_w = base_sprite.texture.get_width()
+		var tex_h = base_sprite.texture.get_height()
+		base_sprite.scale = Vector2(float(cell_size) / tex_w, float(cell_size) / tex_h)
 	else:
-		sprite.modulate = Color(0.45, 0.28, 0.15)
-	body.add_child(sprite)
-	sprite.owner = owner
+		base_sprite.modulate = Color(0.45, 0.28, 0.15)
+	body.add_child(base_sprite)
+	base_sprite.owner = owner
+
+	# 2. 표면일 경우 상단에 얇은 표면 데코레이션 레이어 오버레이 (충돌 없음)
+	var map := _layout_tile_map()
+	var above := cell + Vector2i(0, -1)
+	var above_key := "%d,%d" % [above.x, above.y]
+	var is_surface: bool = not (map.has(above_key) and map[above_key] == TILE_SOLID)
+
+	if is_surface:
+		var surface_sprite := Sprite2D.new()
+		surface_sprite.name = "SurfaceSprite"
+		var theme_name: String = "cookie_crust"
+		if layout != null and "theme" in layout:
+			theme_name = layout.theme
+		
+		var surface_tex: Texture2D = null
+		if theme_name == "cookie_crust":
+			surface_tex = load("res://assets/sprites/terrain/cookie_tile_surface.png") as Texture2D
+		elif theme_name == "cookie_segment":
+			surface_tex = load("res://assets/sprites/terrain/cookie_platform_segment.png") as Texture2D
+		elif theme_name == "thin_floor":
+			surface_tex = load("res://assets/sprites/terrain/thin_cookie_floor_segment.png") as Texture2D
+			
+		if surface_tex != null:
+			surface_sprite.texture = surface_tex
+			var scale_x = float(cell_size) / 320.0
+			var scale_y = float(cell_size) / 32.0
+			surface_sprite.scale = Vector2(scale_x, scale_y)
+			surface_sprite.position.y = -float(cell_size) * 0.125
+			body.add_child(surface_sprite)
+			surface_sprite.owner = owner
 
 func _add_plant_visual(body: StaticBody2D, cell_size: int) -> void:
 	var sprite := Sprite2D.new()
