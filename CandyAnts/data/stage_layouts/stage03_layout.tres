@@ -9,8 +9,9 @@ home_cell = Vector2i(5, 21)
 candy_cell = Vector2i(25, 21)
 camera_cell = Vector2i(15, 19)
 spawn_direction = 1
-spawn_direction_alternate = false
+spawn_direction_alternate = true
 tile_map = {
+"2,21": "solid",
 "3,22": "solid",
 "4,22": "solid",
 "5,22": "solid",

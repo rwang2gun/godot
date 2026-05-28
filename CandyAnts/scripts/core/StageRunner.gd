@@ -67,6 +67,9 @@ func _ready() -> void:
 		if _spawner.ant_scene == null:
 			_spawner.ant_scene = ant_scene
 		_spawner.total = stage_data.total_ants
+		if stage_data.layout != null:
+			_spawner.spawn_direction = stage_data.layout.spawn_direction
+			_spawner.spawn_direction_alternate = stage_data.layout.spawn_direction_alternate
 		if _home != null and _spawner.spawn_position == Vector2.ZERO:
 			_spawner.spawn_position = _home.get_spawn_position()
 		if not _spawner.spawn_finished.is_connected(_on_spawner_finished):

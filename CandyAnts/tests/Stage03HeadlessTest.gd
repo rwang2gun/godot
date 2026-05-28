@@ -6,13 +6,14 @@ extends Node
 # §D-3 첫 +1 ant 우측 cliff 직전에 BlockerSkill.apply → stage_cleared score >= 0.85
 # PASS: get_tree().quit(0). FAIL: quit(1).
 
-const TRIGGER_X: float = 2625.0   # 첫 +1 ant가 도달하면 Blocker 적용 (cliff x=2730 직전 안전구간, cell_size=48로 ×1.5)
+const TRIGGER_X: float = 1248.0   # 첫 +1 ant가 도달하면 Blocker 적용 (cliff x=1296 직전 안전구간, cell_size=48)
 const PASS_SCORE: float = 0.85
 const ALTERNATE_PATTERN: Array[int] = [1, -1, 1, -1]
 
 var _seen_ants: Array[Ant] = []
 var _captured_directions: Array[int] = []
 var _direction_check_done: bool = false
+var _basher_applied: bool = false
 var _blocker_applied: bool = false
 var _carrying_check_done: bool = false
 var _result_emitted: bool = false
@@ -27,6 +28,7 @@ func _process(_delta: float) -> void:
 		return
 	_capture_new_ants()
 	_check_alternation_once()
+	_apply_basher_if_ready()
 	_apply_blocker_if_ready()
 	_check_carrying_rejection_once()
 
@@ -56,6 +58,26 @@ func _check_alternation_once() -> void:
 		get_tree().quit(1)
 		return
 	print("[Phase4Test] PASS §D-1 alternation=", _captured_directions)
+
+func _apply_basher_if_ready() -> void:
+	if _basher_applied:
+		return
+	for a in _seen_ants:
+		if a == null or not is_instance_valid(a):
+			continue
+		if a.direction != 1:
+			continue
+		if a.has_been_carrying:
+			continue
+		# 흙 벽(x=12, 즉 576px) 진입 전 x=528~570 사이에서 Basher 적용
+		if a.global_position.x >= 528.0 and a.global_position.x < 570.0:
+			var basher: BasherSkill = BasherSkill.new()
+			if not basher.can_apply(a):
+				continue
+			basher.apply(a)
+			_basher_applied = true
+			print("[Phase4Test] applied Basher to ", a.name, " at x=", a.global_position.x)
+			return
 
 func _apply_blocker_if_ready() -> void:
 	if _blocker_applied:

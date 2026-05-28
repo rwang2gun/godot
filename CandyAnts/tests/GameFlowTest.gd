@@ -8,7 +8,7 @@ extends Node
 # PASS: get_tree().quit(0). FAIL: 즉시 print + quit(1).
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
-const STAGE3_TRIGGER_X: float = 2625.0  # Stage03HeadlessTest와 동일 (cell_size=48로 ×1.5)
+const STAGE3_TRIGGER_X: float = 1248.0  # Stage03HeadlessTest와 동일 (cell_size=48)
 
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed
@@ -16,6 +16,65 @@ var _current_stage_root: Node = null
 var _overlay: Control = null  # StageDialog (phase 12: 구 StageResultOverlayStub 교체, 동일 API contract)
 
 var _failed: bool = false
+var _basher_applied_scenario_b: bool = false
+
+func _process(_delta: float) -> void:
+	if _failed:
+		return
+	_apply_climber_if_ready()
+	_apply_basher_for_scenario_b()
+
+func _apply_climber_if_ready() -> void:
+	if _scene_flow == null or _scene_flow._current_stage_id != 1:
+		return
+	var runner: StageRunner = _find_current_stage_runner()
+	if runner == null or runner._completed:
+		return
+	for n in get_tree().get_nodes_in_group("ants"):
+		var a: Ant = n as Ant
+		if a == null or not is_instance_valid(a):
+			continue
+		if a.direction != 1:
+			continue
+		if a.has_been_carrying:
+			continue
+		if a.has_trait(&"climber"):
+			continue
+		# U자형 구덩이 바닥 (y > 900px)에서 x=900~1040 사이인 개미에게 Climber 적용
+		if a.global_position.y > 900.0 and a.global_position.x >= 900.0 and a.global_position.x < 1040.0:
+			var climber: ClimberSkill = ClimberSkill.new()
+			if not climber.can_apply(a):
+				continue
+			climber.apply(a)
+			print("[GameFlowTest] applied Climber to ", a.name, " at x=", a.global_position.x)
+
+func _apply_basher_for_scenario_b() -> void:
+	if _scene_flow == null or _scene_flow._current_stage_id != 3:
+		return
+	if _basher_applied_scenario_b:
+		return
+	var runner: StageRunner = _find_current_stage_runner()
+	if runner == null or runner._completed:
+		return
+	for n in get_tree().get_nodes_in_group("ants"):
+		var a: Ant = n as Ant
+		if a == null or not is_instance_valid(a):
+			continue
+		if a.direction != 1:
+			continue
+		if a.has_been_carrying:
+			continue
+		if a.has_trait(&"basher"):
+			continue
+		# 흙 벽(x=12, 즉 576px) 진입 전 x=528~570 사이에서 Basher 적용
+		if a.global_position.x >= 528.0 and a.global_position.x < 570.0:
+			var basher: BasherSkill = BasherSkill.new()
+			if not basher.can_apply(a):
+				continue
+			basher.apply(a)
+			_basher_applied_scenario_b = true
+			print("[GameFlowTest] Scenario B applied Basher to ", a.name, " at x=", a.global_position.x)
+			return
 
 func _ready() -> void:
 	# 헤드리스 wall clock 단축. 자연 진행은 유지하되 모든 시뮬을 8배 가속해

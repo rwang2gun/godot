@@ -19,6 +19,8 @@ func _on_body_entered(body: Node2D) -> void:
 	if Time.get_ticks_msec() / 1000.0 < a._grace_until:
 		return
 	var carrying: bool = a.has_candy
+	if not carrying and a.direction == 1:
+		return
 
 	# 운반 종료 처리 — 사탕은 ant 손을 떠나 Home에 안착, has_candy 해제 후 시그널.
 	a.has_candy = false
