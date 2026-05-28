@@ -43,13 +43,13 @@ toolbar_path = NodePath("../../SkillToolbar")
 terrain_path = NodePath("../Terrain")
 
 [node name="Home" type="Area2D" parent="World" unique_id=417351329 instance=ExtResource("3")]
-position = Vector2(168, 816)
+position = Vector2(168, 864)
 collision_layer = 32
 collision_mask = 4
 script = ExtResource("6_hwgo4")
 
 [node name="Candy" type="Area2D" parent="World" unique_id=626248616 instance=ExtResource("4")]
-position = Vector2(1224, 816)
+position = Vector2(1224, 864)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("8_s25jr")
@@ -63,7 +63,7 @@ layer = -100
 
 [node name="Spawner" type="Node" parent="." unique_id=612305499]
 script = ExtResource("2")
-spawn_position = Vector2(168, 808.5)
+spawn_position = Vector2(168, 856.5)
 total = 6
 release_rate = 30
 spawn_direction = 1

@@ -16,6 +16,8 @@ class_name StageLayoutBuilder extends Node2D
 const TILE_SOLID := "solid"
 const TILE_SLOPE_RIGHT := "slope_right"
 const TILE_SLOPE_LEFT := "slope_left"
+const TILE_BACKGROUND := "background"
+const TILE_SURFACE := "surface"
 # Phase 19 — 식물 정적 cell. _add_cell이 _add_plant_visual placeholder 적용 + build()가
 # register_static_body(kind="plant") 호출 → Terrain._cell_kind = "plant"로 등록되어 Cutter 전용 destroy 대상.
 const TILE_PLANT_SOLID := "plant"
@@ -40,6 +42,8 @@ func build() -> void:
 		var c: Vector2i = _cell_from_key(str(key))
 		var tile_type: String = str(_layout_tile_map()[key])
 		var body: StaticBody2D = _add_cell(c, tile_type)
+		if body == null:
+			continue
 		# Phase 19 — TILE_PLANT_SOLID만 kind="plant"로 등록, 기존 solid/slope_*는 모두 "earth"로 backward compat.
 		var kind: String = "plant" if tile_type == TILE_PLANT_SOLID else "earth"
 		generated.append({"cell": c, "body": body, "kind": kind})
@@ -78,6 +82,10 @@ func _rebuild_preview() -> void:
 
 func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> StaticBody2D:
 	var cell_size: int = int(layout.cell_size)
+	if tile_type == TILE_BACKGROUND or tile_type == TILE_SURFACE:
+		_add_visual_only_cell(cell, cell_size, tile_type)
+		return null
+
 	var body := StaticBody2D.new()
 	body.name = "Cell_%d_%d" % [cell.x, cell.y]
 	body.position = _cell_to_world(cell, cell_size)
@@ -96,6 +104,26 @@ func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> StaticBody2D:
 		_add_solid_collision(body, cell_size)
 		_add_solid_visual(body, cell_size, cell)
 	return body
+
+func _add_visual_only_cell(cell: Vector2i, cell_size: int, tile_type: String) -> void:
+	var visual := Node2D.new()
+	visual.name = "Visual_%d_%d" % [cell.x, cell.y]
+	visual.position = _cell_to_world(cell, cell_size)
+	add_child(visual)
+	visual.owner = owner
+
+	var sprite := Sprite2D.new()
+	sprite.name = "Sprite"
+	var texture: Texture2D = _surface_texture() if tile_type == TILE_SURFACE else load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
+	if texture != null:
+		if tile_type == TILE_SURFACE:
+			_configure_repeating_region(sprite, texture, cell, Vector2(cell_size, cell_size))
+		else:
+			_configure_repeating_region(sprite, texture, cell, Vector2(cell_size, cell_size))
+	else:
+		sprite.modulate = Color(0.45, 0.28, 0.15)
+	visual.add_child(sprite)
+	sprite.owner = owner
 
 func _add_solid_collision(body: StaticBody2D, cell_size: int) -> void:
 	var shape := CollisionShape2D.new()
@@ -117,11 +145,9 @@ func _add_solid_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> vo
 	# 1. 베이스 지형 (정사각형 내부 타일)
 	var base_sprite := Sprite2D.new()
 	base_sprite.name = "BaseSprite"
-	base_sprite.texture = load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
-	if base_sprite.texture != null:
-		var tex_w = base_sprite.texture.get_width()
-		var tex_h = base_sprite.texture.get_height()
-		base_sprite.scale = Vector2(float(cell_size) / tex_w, float(cell_size) / tex_h)
+	var base_texture := _solid_texture_for_cell(cell)
+	if base_texture != null:
+		_configure_repeating_region(base_sprite, base_texture, cell, Vector2(cell_size, cell_size))
 	else:
 		base_sprite.modulate = Color(0.45, 0.28, 0.15)
 	body.add_child(base_sprite)
@@ -131,29 +157,16 @@ func _add_solid_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> vo
 	var map := _layout_tile_map()
 	var above := cell + Vector2i(0, -1)
 	var above_key := "%d,%d" % [above.x, above.y]
-	var is_surface: bool = not (map.has(above_key) and map[above_key] == TILE_SOLID)
+	var is_surface: bool = not map.has(above_key)
 
 	if is_surface:
 		var surface_sprite := Sprite2D.new()
 		surface_sprite.name = "SurfaceSprite"
-		var theme_name: String = "cookie_crust"
-		if layout != null and "theme" in layout:
-			theme_name = layout.theme
-		
-		var surface_tex: Texture2D = null
-		if theme_name == "cookie_crust":
-			surface_tex = load("res://assets/sprites/terrain/cookie_tile_surface.png") as Texture2D
-		elif theme_name == "cookie_segment":
-			surface_tex = load("res://assets/sprites/terrain/cookie_platform_segment.png") as Texture2D
-		elif theme_name == "thin_floor":
-			surface_tex = load("res://assets/sprites/terrain/thin_cookie_floor_segment.png") as Texture2D
+		var surface_tex: Texture2D = _surface_texture()
 			
 		if surface_tex != null:
-			surface_sprite.texture = surface_tex
-			var scale_x = float(cell_size) / 320.0
-			var scale_y = float(cell_size) / 32.0
-			surface_sprite.scale = Vector2(scale_x, scale_y)
-			surface_sprite.position.y = -float(cell_size) * 0.125
+			var region_size := Vector2(cell_size, cell_size)
+			_configure_repeating_region(surface_sprite, surface_tex, cell, region_size)
 			body.add_child(surface_sprite)
 			surface_sprite.owner = owner
 
@@ -229,7 +242,7 @@ func _get_tile_texture_for_cell(cell: Vector2i) -> Texture2D:
 	var map := _layout_tile_map()
 	var above := cell + Vector2i(0, -1)
 	var above_key := "%d,%d" % [above.x, above.y]
-	var is_surface: bool = not (map.has(above_key) and map[above_key] == TILE_SOLID)
+	var is_surface: bool = not map.has(above_key)
 
 	if theme_name == "cookie_crust":
 		if not is_surface:
@@ -250,6 +263,52 @@ func _get_tile_texture_for_cell(cell: Vector2i) -> Texture2D:
 		return load("res://assets/sprites/terrain/cookie_bridge_tile.png") as Texture2D
 	else:
 		return load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
+
+func _surface_texture() -> Texture2D:
+	var theme_name: String = "cookie_crust"
+	if layout != null and "theme" in layout:
+		theme_name = layout.theme
+
+	if theme_name == "cookie_crust":
+		return load("res://assets/sprites/terrain/cookie_tile_surface.png") as Texture2D
+	elif theme_name == "cookie_segment":
+		return load("res://assets/sprites/terrain/cookie_platform_segment.png") as Texture2D
+	elif theme_name == "thin_floor":
+		return load("res://assets/sprites/terrain/thin_cookie_floor_segment.png") as Texture2D
+	elif theme_name == "cookie_bridge_tile":
+		return load("res://assets/sprites/terrain/cookie_bridge_tile.png") as Texture2D
+	return load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
+
+func _solid_texture_for_cell(cell: Vector2i) -> Texture2D:
+	var map := _layout_tile_map()
+	var above := cell + Vector2i(0, -1)
+	var above_key := "%d,%d" % [above.x, above.y]
+	if str(map.get(above_key, "")) == TILE_SURFACE:
+		return load("res://assets/sprites/terrain/cookie_tile_under_surface.png") as Texture2D
+	return load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
+
+func _configure_repeating_region(sprite: Sprite2D, texture: Texture2D, cell: Vector2i, region_size: Vector2) -> void:
+	var tex_size := texture.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
+		return
+	var source_size := Vector2(minf(region_size.x, tex_size.x), minf(region_size.y, tex_size.y))
+	var source_x := 0.0
+	if tex_size.x > source_size.x:
+		var columns := maxi(1, int(floor(tex_size.x / source_size.x)))
+		source_x = float(posmod(cell.x, columns)) * source_size.x
+	var source_y := maxf(0.0, (tex_size.y - source_size.y) * 0.5)
+	sprite.texture = texture
+	sprite.region_enabled = true
+	sprite.region_rect = Rect2(Vector2(source_x, source_y), source_size)
+	sprite.scale = Vector2(region_size.x / source_size.x, region_size.y / source_size.y)
+
+func _is_collision_tile(tile_type: String) -> bool:
+	return (
+		tile_type == TILE_SOLID
+		or tile_type == TILE_SLOPE_RIGHT
+		or tile_type == TILE_SLOPE_LEFT
+		or tile_type == TILE_PLANT_SOLID
+	)
 
 func _clear_children() -> void:
 	for child in get_children():
