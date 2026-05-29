@@ -8,6 +8,9 @@ Stage 1에서 도입된 surface / under-surface / interior 시스템을 박제�
 
 **대상**: ground terrain의 surface / under-surface / interior 3-tier 타일링과 그 painterly cookie 아트 디렉션 (현재 `cookie_crust` theme 1종).
 
+**대상에 포함** (별도 구조라 별도 섹션):
+- **모래 쌓기(Sand-Mound) 동적 스킬 타일** — §11. ground terrain과 정반대(세로 스택·1칸 폭·정사각형 3장)라 본문 §1~§10의 가로 아틀라스 규약을 적용하지 않는다.
+
 **범위 밖** (본 문서가 다루지 않음):
 - `slope_left` / `slope_right` 경사 타일 — 별도 시각 규칙.
 - `plant` 타일 (Phase 19 Cutter 대상) — 독립 sprite 파이프라인.
@@ -169,3 +172,45 @@ Stage 1에서 도입된 surface / under-surface / interior 시스템을 박제�
 - 새 theme / 새 stage 자산을 §1·§5 명시 없이 발주함.
 - `cookie_tile_*.png` live 파일만 수정하고 `_painted` 백업을 동기화하지 않음 (또는 그 반대).
 - 본 문서의 가드레일을 코드/도구가 enforce한다고 단정함 — 실제 enforce 범위는 §3과 §4 가로 seamless에 한정된다.
+- **모래 쌓기 타일을 가로 아틀라스(N-variant)나 seamless 스트립으로 발주함** — 세로 1칸 스택이라 가로 연결이 무의미하고, cell.x variant는 "쌓을 때마다 다르게" 보이는 부작용만 남긴다 (§11).
+
+## 11. 동적 스킬 타일 — 모래 쌓기 (Sand-Mound)
+
+§1~§10은 **가로로 넓게 깔리는 정적 ground terrain**(336×48 가로 아틀라스 + 가로 seamless 반복)을 전제한다.
+**모래 쌓기 스킬 타일은 정반대 구조**다 — cookie 지형 규약을 그대로 적용하면 안 된다.
+
+### 11.1 구조 — 세로로 쌓는 1칸 폭 동적 타일
+
+- 개미가 `SandMoundSkill`로 자기 발밑에 타일을 한 칸씩 **위로** 쌓아 만드는 1칸 폭 수직 더미 (최대 `SAND_MOUND_MAX_HEIGHT`=5칸).
+- 가로 인접/연결이 없다 → **가로 seamless·N-variant 아틀라스가 불필요**. cookie의 `process_new_tiles.py` / `make_seamless()` / `StageLayoutBuilder._configure_repeating_region` 파이프라인을 쓰지 않는다.
+- 정적 ground terrain과 달리 `Terrain.add_tile()`로 런타임 생성되는 동적 `StaticBody2D`다.
+
+### 11.2 자산 — 독립된 정사각형 타일 3장
+
+| Tier | 파일 | 더미 내 위치 |
+| --- | --- | --- |
+| surface | `sand_tile_surface.png` | 맨 위 칸 |
+| under-surface | `sand_tile_under_surface.png` | 위에서 2번째 칸 |
+| background | `sand_tile_background.png` | 3번째 이하 (세로 반복) |
+
+- 각 파일은 **단일 정사각형 1칸**(아틀라스 아님). 권장 규격 **48 × 48** (= cell_size).
+- **가로 variant 금지** (cookie의 7개 가로 배열과 다름). 한 tier당 그림 1장 → 모든 더미가 **어디에 쌓아도 동일하게** 보인다.
+- 위치: `assets/sprites/terrain/`. 파일명은 위 표 그대로 (코드가 이 경로를 `load`).
+
+### 11.3 렌더 동작 (코드 자동)
+
+- **그리기**: `Terrain._apply_sand_tier()`가 텍스처 **전체**를 cell_size에 맞춰 균일 scale한다 (`region_enabled = false`). 가로 슬라이스/오프셋을 쓰지 않으므로 cell_size가 달라도(32/48) 정사각형 그림이 잘리지 않고 통째로 보존된다.
+- **tier 배정**: 더미가 위로 자라 맨 위 칸이 계속 바뀌므로, 타일을 쌓을 때마다 `Terrain._reskin_sand_column()`이 column을 위→아래 surface → under_surface → background로 재배정한다 (3번째 이하는 한 번 background가 되면 불변 → 상위 3칸만 갱신해도 invariant 유지).
+- 아트 담당은 **그림 3장만** 만들면 된다. tier 배정·재스킨은 코드가 한다.
+
+### 11.4 연속성 — 세로만 중요
+
+- 가로 연속성은 무의미하다 (1칸 폭).
+- 대신 **세로로 쌓았을 때** surface 하단 → under_surface → background → background가 매끄럽게 이어져야 한다 (§5의 S→U→I→I 체인을 **세로로만** 적용).
+- background는 세로 self-repeat 시 셀 경계에 가로 능선이 보이지 않아야 한다.
+
+### 11.5 부트스트랩 + 회귀 테스트
+
+- 새 PNG 교체 후 `godot --headless --path . --import` 1회 필수 (안 하면 런타임 `load()`가 null → 타일 안 보임).
+- `tests/SandMoundMaxHeightTest.gd`가 검증: (1) tier 순서 surface→under→background (2) `region_enabled = false` (3) cell_size에 맞춘 whole-texture scale (4) 중앙 정렬.
+- `tests/SandMoundClimbOverLedgeTest.gd`는 더미가 기존 솔리드 레지를 타고 넘는 게임플레이를 검증 (시각과 별개).

@@ -19,8 +19,19 @@ var _cell_kind: Dictionary = {}           # Vector2i → String
 const DYNAMIC_TILE_BRIDGE: String = "bridge"
 const DYNAMIC_TILE_SAND_MOUND: String = "sand_mound"
 
+# 모래 쌓기 3단 렌더 — 정적 쿠키 지형(StageLayoutBuilder)과 동일하게 column을 위→아래로
+# surface / under_surface / background로 표현. 동적 column이라 타일이 위로 쌓일 때마다
+# _reskin_sand_column이 아래 칸을 surface→under_surface→background로 강등한다.
+const SAND_TIER_SURFACE: String = "surface"
+const SAND_TIER_UNDER: String = "under_surface"
+const SAND_TIER_BACKGROUND: String = "background"
+
 var _bridge_tile_texture: Texture2D = null
-var _sand_mound_tile_texture: Texture2D = null
+# 모래 동적 타일 한정 cell→Sprite2D. bridge 타일은 미포함 → 재스킨 시 cross-contamination 차단.
+var _sand_mound_sprites: Dictionary = {}
+var _sand_surface_tex: Texture2D = null
+var _sand_under_tex: Texture2D = null
+var _sand_background_tex: Texture2D = null
 
 func set_cell_size(s: int) -> void:
 	if s > 0:
@@ -66,6 +77,7 @@ func destroy_tile_at(cell: Vector2i, allowed_kinds: Array[String] = ["earth"]) -
 		_static_bodies.erase(cell)
 	_static_occupancy.erase(cell)
 	_cell_kind.erase(cell)
+	_sand_mound_sprites.erase(cell)   # 모래 타일이면 tier registry도 정리 (아니면 no-op)
 	return true
 
 func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE) -> bool:
@@ -91,17 +103,16 @@ func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE) -> boo
 	_placed[cell] = body
 	# Phase 18 — 동적 placement도 destructible. Basher/Digger의 destroy 대상에 포함.
 	_cell_kind[cell] = "earth"
+	if visual_style == DYNAMIC_TILE_SAND_MOUND:
+		# 갓 쌓은 타일은 항상 column 맨 위 → surface. _reskin이 아래 칸을 강등한다.
+		_sand_mound_sprites[cell] = sprite
+		_reskin_sand_column(cell)
 	return true
 
 func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String) -> void:
 	if visual_style == DYNAMIC_TILE_SAND_MOUND:
-		if _sand_mound_tile_texture == null:
-			_sand_mound_tile_texture = load("res://assets/sprites/terrain/cookie_bridge_tile.png") as Texture2D
-		sprite.texture = _sand_mound_tile_texture
-		# Sand-mound stacks occupy full cells, so the visual is centered on the collision cell.
-		var mound_scale: float = float(cell_size) / 32.0
-		sprite.position = Vector2.ZERO
-		sprite.scale = Vector2(mound_scale, mound_scale)
+		# 초기값 surface (방금 쌓은 = 맨 위). add_tile의 _reskin_sand_column이 아래 칸을 강등.
+		_apply_sand_tier(sprite, SAND_TIER_SURFACE)
 		return
 	if _bridge_tile_texture == null:
 		_bridge_tile_texture = load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
@@ -110,6 +121,46 @@ func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String) -> v
 	var scale_factor: float = float(cell_size) / 16.0
 	sprite.position = Vector2(0, -13.0 * scale_factor)
 	sprite.scale = Vector2(scale_factor, scale_factor)
+
+# 모래 column 재스킨 — 새 타일을 쌓을 때마다 호출(top_cell = 방금 쌓은 맨 위 칸).
+# +Y(화면상 아래)로 내려가며 surface → under_surface → background로 강등. 3번째 이하는 이미
+# background이고 다시 바뀌지 않으므로 상위 3칸만 갱신해도 invariant가 유지된다.
+func _reskin_sand_column(top_cell: Vector2i) -> void:
+	_set_sand_tier_if_present(top_cell, SAND_TIER_SURFACE)
+	_set_sand_tier_if_present(top_cell + Vector2i(0, 1), SAND_TIER_UNDER)
+	_set_sand_tier_if_present(top_cell + Vector2i(0, 2), SAND_TIER_BACKGROUND)
+
+func _set_sand_tier_if_present(cell: Vector2i, tier: String) -> void:
+	var sprite_v: Variant = _sand_mound_sprites.get(cell)
+	if sprite_v == null or not is_instance_valid(sprite_v):
+		return
+	_apply_sand_tier(sprite_v as Sprite2D, tier)
+
+func _apply_sand_tier(sprite: Sprite2D, tier: String) -> void:
+	var tex: Texture2D = _sand_tier_texture(tier)
+	if tex == null:
+		return
+	# 모래 타일은 가로 아틀라스가 아니라 독립 정사각형 1장(§TERRAIN_TILE_RULES.11). region 샘플링 없이
+	# 텍스처 전체를 cell_size에 맞춰 균일 scale → 어디에 쌓아도 동일, cell_size가 달라도 그림이 잘리지 않음.
+	sprite.region_enabled = false
+	sprite.texture = tex
+	sprite.position = Vector2.ZERO
+	var ts: Vector2 = tex.get_size()
+	if ts.x > 0.0 and ts.y > 0.0:
+		sprite.scale = Vector2(float(cell_size) / ts.x, float(cell_size) / ts.y)
+
+func _sand_tier_texture(tier: String) -> Texture2D:
+	if tier == SAND_TIER_SURFACE:
+		if _sand_surface_tex == null:
+			_sand_surface_tex = load("res://assets/sprites/terrain/sand_tile_surface.png") as Texture2D
+		return _sand_surface_tex
+	elif tier == SAND_TIER_UNDER:
+		if _sand_under_tex == null:
+			_sand_under_tex = load("res://assets/sprites/terrain/sand_tile_under_surface.png") as Texture2D
+		return _sand_under_tex
+	if _sand_background_tex == null:
+		_sand_background_tex = load("res://assets/sprites/terrain/sand_tile_background.png") as Texture2D
+	return _sand_background_tex
 
 func has_tile(cell: Vector2i) -> bool:
 	return _placed.has(cell)

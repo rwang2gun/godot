@@ -80,28 +80,49 @@ func _check_complete() -> void:
 		_fail("post-worker state but tile_count=%d (need==5) state=%s" % [tc, _state_name()])
 
 func _sand_mound_visual_error() -> String:
+	# 3단 구조 검증 — column을 위(작은 y)부터 surface → under_surface → background로 읽는다.
+	# §TERRAIN_TILE_RULES.11: 각 tier는 독립 정사각형 1장을 cell_size에 맞춰 통째로 scale (region 샘플링 없음).
 	if _terrain == null:
 		return "terrain missing for sand mound visual check"
-	var expected_scale: Vector2 = Vector2.ONE * (float(_terrain.cell_size) / 32.0)
-	for body_value in _terrain._placed.values():
-		var body: StaticBody2D = body_value as StaticBody2D
+	var cs: int = _terrain.cell_size
+	var cells: Array = _terrain._placed.keys()
+	if cells.is_empty():
+		return "sand mound has no placed tiles"
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y)
+	for i in cells.size():
+		var cell: Vector2i = cells[i]
+		var body: StaticBody2D = _terrain._placed[cell] as StaticBody2D
 		if body == null:
-			return "sand mound placed body missing"
+			return "sand mound placed body missing at %s" % cell
 		var sprite: Sprite2D = null
 		for child in body.get_children():
 			if child is Sprite2D:
 				sprite = child as Sprite2D
 				break
 		if sprite == null:
-			return "sand mound sprite missing"
+			return "sand mound sprite missing at %s" % cell
 		if sprite.texture == null:
-			return "sand mound sprite texture missing"
-		if not String(sprite.texture.resource_path).ends_with("cookie_bridge_tile.png"):
-			return "sand mound texture=%s expected cookie_bridge_tile.png" % sprite.texture.resource_path
+			return "sand mound sprite texture missing at %s" % cell
+		var expected_file: String
+		if i == 0:
+			expected_file = "sand_tile_surface.png"
+		elif i == 1:
+			expected_file = "sand_tile_under_surface.png"
+		else:
+			expected_file = "sand_tile_background.png"
+		var path: String = String(sprite.texture.resource_path)
+		if not path.ends_with(expected_file):
+			return "sand mound tier mismatch at row %d (cell=%s): texture=%s expected=%s" % [i, cell, path, expected_file]
+		# §TERRAIN_TILE_RULES.11 — 정사각형 단일 타일: 가로 아틀라스 region 샘플링 금지.
+		if sprite.region_enabled:
+			return "sand mound sprite region_enabled at %s (정사각 타일은 region 샘플링 금지)" % cell
+		# 텍스처 전체를 cell_size에 맞춰 균일 scale (어디에 쌓아도 동일, cell_size 달라도 잘림 없음).
+		var ts: Vector2 = sprite.texture.get_size()
+		var expected_scale: Vector2 = Vector2(float(cs) / ts.x, float(cs) / ts.y)
 		if not sprite.position.is_equal_approx(Vector2.ZERO):
 			return "sand mound sprite position=%s expected centered" % sprite.position
 		if not sprite.scale.is_equal_approx(expected_scale):
-			return "sand mound sprite scale=%s expected=%s" % [sprite.scale, expected_scale]
+			return "sand mound sprite scale=%s expected=%s (whole-texture scale)" % [sprite.scale, expected_scale]
 	return ""
 
 func _tile_count() -> int:
