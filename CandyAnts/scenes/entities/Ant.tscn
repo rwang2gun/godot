@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/ant/Ant.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/ant/AntStateMachine.gd" id="2"]
 [ext_resource type="SpriteFrames" path="res://assets/sprites/characters/ant_pajama_girl/AntFrames.tres" id="3"]
-[ext_resource type="Texture2D" path="res://assets/icons/traits/climber_glove.png" id="4_climber_badge"]
+[ext_resource type="Texture2D" path="res://assets/icons/skills/climber.png" id="4_climber_badge"]
 [ext_resource type="Texture2D" path="res://assets/icons/skills/floater.png" id="5_floater_badge"]
 [ext_resource type="Texture2D" path="res://assets/icons/skills/distributor.png" id="6_settle_badge"]
 [ext_resource type="Texture2D" path="res://assets/icons/skills/blocker.png" id="7_sticky_badge"]
@@ -47,18 +47,6 @@ script = ExtResource("2")
 position = Vector2(0, -66)
 z_index = 1
 
-[node name="ClimberBadge" type="Sprite2D" parent="TraitBadges"]
-position = Vector2(-10.5, 0)
-scale = Vector2(0.75, 0.75)
-texture = ExtResource("4_climber_badge")
-visible = false
-
-[node name="FloaterBadge" type="Sprite2D" parent="TraitBadges"]
-position = Vector2(10.5, 0)
-scale = Vector2(0.75, 0.75)
-texture = ExtResource("5_floater_badge")
-visible = false
-
 [node name="SettleBadge" type="Sprite2D" parent="TraitBadges"]
 position = Vector2(0, 0)
 scale = Vector2(0.75, 0.75)
@@ -79,4 +67,19 @@ scale = Vector2(1.5, 1.5)
 texture = ExtResource("8_sticky_timer_bar")
 modulate = Color(1, 0.95, 0.4, 0.9)
 z_index = 2
+visible = false
+
+[node name="TailBadges" type="Node2D" parent="."]
+position = Vector2(-26, -14)
+z_index = 1
+
+[node name="ClimberBadge" type="Sprite2D" parent="TailBadges"]
+scale = Vector2(0.22, 0.22)
+texture = ExtResource("4_climber_badge")
+visible = false
+
+[node name="FloaterBadge" type="Sprite2D" parent="TailBadges"]
+position = Vector2(0, -22)
+scale = Vector2(0.22, 0.22)
+texture = ExtResource("5_floater_badge")
 visible = false

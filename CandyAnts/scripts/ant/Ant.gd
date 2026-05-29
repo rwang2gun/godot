@@ -47,6 +47,11 @@ var _last_anim: String = ""
 # traits: StringName(name) → true. 빈 dict = 트레잇 없음.
 var traits: Dictionary = {}
 var _trait_badges: Node2D = null
+# 스킬 부여 뱃지(climber/floater)는 머리가 아니라 캐릭터 꼬리(진행 반대쪽)에 단다.
+# _tail_badges 컨테이너의 x를 direction에 따라 좌우 반전해 항상 후미에 위치시킨다.
+# (settle/sticky 표식은 _trait_badges = 머리 위 그대로 유지.)
+const TAIL_BADGE_X: float = 26.0
+var _tail_badges: Node2D = null
 var _climber_badge: Sprite2D = null
 var _floater_badge: Sprite2D = null
 # Phase 15 — 정착 시각 표식. visible toggle은 _update_trait_badges()에서 state 기반.
@@ -75,9 +80,12 @@ func _ready() -> void:
 	_blocker_hitbox = get_node_or_null("BlockerHitbox") as Area2D
 	_sprite = get_node_or_null("Sprite") as AnimatedSprite2D
 	_trait_badges = get_node_or_null("TraitBadges") as Node2D
+	# 스킬 뱃지(climber/floater)는 꼬리 컨테이너 아래. 미보유 .tscn에서는 null 안전 fall-back.
+	_tail_badges = get_node_or_null("TailBadges") as Node2D
+	if _tail_badges != null:
+		_climber_badge = _tail_badges.get_node_or_null("ClimberBadge") as Sprite2D
+		_floater_badge = _tail_badges.get_node_or_null("FloaterBadge") as Sprite2D
 	if _trait_badges != null:
-		_climber_badge = _trait_badges.get_node_or_null("ClimberBadge") as Sprite2D
-		_floater_badge = _trait_badges.get_node_or_null("FloaterBadge") as Sprite2D
 		_settle_badge = _trait_badges.get_node_or_null("SettleBadge") as Sprite2D
 		_sticky_badge = _trait_badges.get_node_or_null("StickyBadge") as Sprite2D
 		# Phase 20 — StickyTimerBar (Sprite2D). 미보유 .tscn에서는 null로 안전 fall-back.
@@ -200,6 +208,10 @@ func _update_sprite() -> void:
 
 func _update_trait_badges() -> void:
 	# 시각 전용 — 로직 무영향. _physics_process 끝에서 호출.
+	# 꼬리 뱃지 컨테이너를 진행 반대쪽(후미)에 위치 — 스프라이트 flip_h(direction<0)와 동일 추적.
+	# direction +1(우향): tail 좌측 → x=-TAIL_BADGE_X. direction -1(좌향): tail 우측 → +TAIL_BADGE_X.
+	if _tail_badges != null:
+		_tail_badges.position.x = -TAIL_BADGE_X * float(direction)
 	if _climber_badge != null:
 		_climber_badge.visible = has_trait(&"climber")
 	if _floater_badge != null:
