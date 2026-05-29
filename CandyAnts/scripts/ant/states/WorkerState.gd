@@ -9,6 +9,9 @@ const TOTAL_TILES: int = 12
 
 const SAND_MOUND_TICK: float = 0.25
 const SAND_MOUND_MAX_HEIGHT: int = 5
+# 더미가 위로 자라다 기존 솔리드 지형(윗단 레지 등)을 만나면, 솔리드 셀 안에서 멈춰 끼는 대신
+# 그 솔리드 더미를 한 번에 타고 넘어 윗단 위에 올라선다. 이보다 두꺼운 벽은 단일 더미로 못 넘음 → abort.
+const SAND_MOUND_MAX_CLIMB_OVER: int = 4
 
 const BRIDGE_TICK: float = 0.20
 const BRIDGE_MAX_LENGTH: int = 8
@@ -264,7 +267,20 @@ func _place_sand_mound_tile(a: Ant) -> void:
 		return
 	# Phase 17 — Bridge/Water 정책 (D8). target=body row이므로 target과 그 위(new ant body row) 모두 비활성.
 	terrain.deactivate_hazards_for_placement(target)
-	a.global_position.y -= float(cs)
+	# 기본 1칸 상승. 단, 바로 위가 기존 솔리드(스테이지 레지 등)면 그 솔리드 더미를 한 번에 타고 넘어
+	# 윗단 위에 올라선다 — 솔리드 셀 안에 머물러 끼는 것을 방지. add_tile은 D8 그대로(점유 셀 거부)이고
+	# 지형은 파괴하지 않는다. surface/background는 점유로 등록되지 않으므로(§TERRAIN_TILE_RULES.3) 통과 대상 아님.
+	# 기본 1칸 상승. 단, 바로 위가 기존 솔리드(스테이지 레지 등)면 그 솔리드 더미를 한 번에 타고 넘어
+	# 윗단 위에 올라선다 — 솔리드 셀 안에 머물러 끼는 것을 방지. add_tile은 D8 그대로(점유 셀 거부)이고
+	# 지형은 파괴하지 않는다. surface/background는 점유로 등록되지 않으므로(§TERRAIN_TILE_RULES.3) 통과 대상 아님.
+	var rise_cells: int = 1
+	while terrain.is_cell_occupied(target + Vector2i(0, -rise_cells)):
+		rise_cells += 1
+	if rise_cells > SAND_MOUND_MAX_CLIMB_OVER:
+		# 단일 더미로 넘기엔 너무 두꺼운 솔리드 — 방금 배치한 타일까지만 두고 종료(솔리드로 진입하지 않음).
+		_aborted = true
+		return
+	a.global_position.y -= float(cs) * rise_cells
 	_remaining -= 1
 
 func _place_bridge_tile(a: Ant) -> void:
