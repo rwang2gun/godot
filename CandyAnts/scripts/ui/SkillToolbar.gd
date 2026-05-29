@@ -9,6 +9,10 @@ class_name SkillToolbar extends CanvasLayer
 const GameAction := preload("res://scripts/input/GameAction.gd")
 const SkillSlotScene: PackedScene = preload("res://scenes/ui/atoms/SkillSlot.tscn")
 const CLICK_RADIUS: float = 48.0
+# 스킬 선택 시 커스텀 마우스 커서 배율. Input.set_custom_mouse_cursor는 노드 scale을 무시하고
+# 텍스처 원본 px를 그대로 OS 커서로 그린다(128px 원본 → 화면 128px). 그래서 다운스케일한
+# ImageTexture를 넘겨 크기를 줄인다. 0.5 = 50% 축소.
+const CURSOR_SCALE: float = 0.5
 
 # Registered skill PNG icons — reused by SkillSlot.icon_texture and the custom mouse cursor.
 const ICONS: Dictionary = {
@@ -55,6 +59,7 @@ var _pending_skill_id: String = ""
 var _inventory: Dictionary = {}     # id (String) → count (int)
 var _slots: Dictionary = {}         # id (String) → SkillSlot
 var _all_disabled: bool = false
+var _scaled_cursor_cache: Dictionary = {}   # id (String) → ImageTexture (CURSOR_SCALE 축소본, 1회 생성 캐시)
 
 func _ready() -> void:
 	if stage_data == null:
@@ -132,10 +137,29 @@ func _select(id: String) -> void:
 	_pending_skill_id = id
 	if _slots.has(id):
 		(_slots[id] as SkillSlot).set_selected(true)
-	var icon: Texture2D = CURSOR_ICONS.get(id) as Texture2D
+	var icon: Texture2D = _cursor_texture(id)
 	if icon != null:
+		# hotspot = (0,0) — 커서 아트의 화살표 tip이 좌상단. 50% 축소해도 tip이 원점이라 그대로 유효.
 		Input.set_custom_mouse_cursor(icon, Input.CURSOR_ARROW, Vector2.ZERO)
 	print("[SkillToolbar] pending=", id)
+
+# CURSOR_ICONS 원본(128px)을 CURSOR_SCALE만큼 다운스케일한 ImageTexture를 반환(1회 생성 후 캐시).
+# set_custom_mouse_cursor가 텍스처 원본 px를 그대로 쓰므로 여기서 줄여야 화면 커서가 작아진다.
+func _cursor_texture(id: String) -> Texture2D:
+	if _scaled_cursor_cache.has(id):
+		return _scaled_cursor_cache[id] as Texture2D
+	var src: Texture2D = CURSOR_ICONS.get(id) as Texture2D
+	if src == null:
+		return null
+	var img: Image = src.get_image()
+	if img == null:
+		return src   # get_image 실패 시 원본 fall-back (커서는 크게 뜨더라도 동작 유지)
+	var w: int = maxi(1, int(round(float(img.get_width()) * CURSOR_SCALE)))
+	var h: int = maxi(1, int(round(float(img.get_height()) * CURSOR_SCALE)))
+	img.resize(w, h, Image.INTERPOLATE_LANCZOS)
+	var tex: ImageTexture = ImageTexture.create_from_image(img)
+	_scaled_cursor_cache[id] = tex
+	return tex
 
 func _clear_selection() -> void:
 	if _pending_skill_id != "" and _slots.has(_pending_skill_id):
