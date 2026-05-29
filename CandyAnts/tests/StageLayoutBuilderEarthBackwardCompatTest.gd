@@ -8,7 +8,9 @@ extends Node
 #  (1) 스캔된 layout 1개 이상 (empty scan = FAIL)
 #  (2) 각 layout build 성공 (_static_occupancy.size() > 0)
 #  (3) 각 layout의 모든 generated cell kind == "earth" (plant 0건 across all)
-#  (4) 각 layout의 cell 카운트 = layout.tile_map.size()
+#  (4) 각 layout의 occupancy cell 카운트 = 충돌 타일 수 (solid/slope/plant).
+#      3-tier 도입(commit a4cc9d7) 후 surface/background는 visual-only로 occupancy에
+#      등록되지 않으므로 tile_map.size()가 아니라 _is_collision_tile 집합만 센다.
 
 const StageLayoutBuilderScript: Script = preload("res://scripts/world/StageLayoutBuilder.gd")
 const TerrainScript: Script = preload("res://scripts/world/Terrain.gd")
@@ -50,7 +52,13 @@ func _ready() -> void:
 			_fail("layout type mismatch — %s is not StageLayoutData" % path)
 			return
 		var sld: StageLayoutData = layout as StageLayoutData
-		var expected_count: int = sld.tile_map.size()
+		# 충돌 타일(StaticBody2D 생성 → occupancy 등록)만 카운트.
+		# StageLayoutBuilder._is_collision_tile 집합과 동일하게 유지.
+		var expected_count: int = 0
+		for v in sld.tile_map.values():
+			var t: String = str(v)
+			if t == "solid" or t == "slope_right" or t == "slope_left" or t == "plant":
+				expected_count += 1
 		# 매 layout마다 fresh Terrain + Builder + 일회성 World.
 		var world: Node2D = Node2D.new()
 		world.name = "World_%s" % path.get_file()

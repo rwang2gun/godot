@@ -40,7 +40,8 @@
 - 지우개, 선 긋기, 사각형 채우기
 - Save Layout과 Create Stage 분리
 - Playtest Stage 버튼
-- 기존 `Stage01~03` layout 마이그레이션
+- ~~기존 `Stage01~03` layout 마이그레이션~~ — **데이터 레벨 완료** (2026-05-29). Stage01=commit `a4cc9d7`, Stage02/03=3-tier(surface/solid/background)로 재작성 (`scripts/tools/build_stage_3tier_layout.py` 생성기 + [worklog](../../worklog/2026-05/2026-05-29-stage-3tier-layout-migration.md)). 단, **에디터에는 아직 surface/background 브러시가 없어** 위 생성기로 hand-author했다. 에디터 기반 3-tier 저작을 하려면 brush + 자동 깊이 채움 추가 필요 (아래 신규 항목).
+- **(신규)** 에디터에 `surface`/`background` tile 브러시 + 바닥 아래 자동 background 채움 추가 (3-tier 저작 지원)
 - 스테이지 선택/진행 흐름에 새 스테이지 자동 등록
 
 ## 블로커
