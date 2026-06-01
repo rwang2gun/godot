@@ -22,15 +22,19 @@
 - `docs/TERRAIN_TILE_RULES.md` — 3-tier 시각 시스템 SoT (§3 `_add_solid_visual`, §11 sand-mound `_reskin`).
 - `scripts/world/Terrain.gd` — `destroy_tile_at` / `add_tile` / `_reskin_sand_column` / `_apply_sand_tier`.
 - `scripts/world/StageLayoutBuilder.gd` — `_add_solid_visual` / `_surface_texture` / `_solid_texture_for_cell`.
-- `scripts/ant/states/WorkerState.gd` — `_update_bridge` / `_enter_builder` / `_destroy_digger_cell`.
+- `scripts/ant/states/WorkerState.gd` — `_update_bridge` / `_enter_builder` / `_destroy_digger_cell` / `_destroy_basher_cell`.
 
-## Phase 분해 (선형)
-1. **surface-skin-infra** (셋업) — Terrain에 테마-aware 3-tier 스킨 적용 인프라 일반화 +
-   빌드 타임 surface/under/background 텍스처 등록. 기존 동작 무변경, 인프라 + 테스트만.
-2. **bridge-builder-surface** — bridge·builder 생성 타일이 surface tier 윗면을 갖게.
-3. **digger-exposed-surface** — `destroy_tile_at` 직후 아래 노출 칸에 surface 캡 동적 추가.
+## Phase 분해 (선형) — 2026-06-01 개정
+초기엔 "땅파기(digger)"로 보고됐으나, Stage 3의 실제 굴착 스킬은 **basher**임이 확인됨(사용자: digger/basher
+혼동, 가로 굴착 시 걸을 수 있는 면=surface가 핵심). 그에 따라 basher를 in-scope로 올리고 우선순위 재배치:
+1. **surface-skin-infra** (셋업, 완료) — Terrain 테마-aware 3-tier 스킨 인프라 + 텍스처 등록.
+2. **digger-exposed-surface** (완료) — `destroy_tile_at(..., apply_below_surface_cap=true)` opt-in으로 digger 파낸 칸 아래 캡.
+3. **basher-exposed-surface** — basher가 뚫은 칸 아래(터널 바닥)에 동일 opt-in으로 캡. **Stage 3 실제 굴착 스킬.**
+4. **bridge-builder-surface** — bridge·builder 생성 타일이 surface tier 윗면을 갖게 (프로토타입 확인 후 시각 방향 결정).
+
+계약: 굴착 스킬(digger·basher) = `destroy_tile_at` opt-in true로 아래 칸 캡 / cutter = false 무캡.
 
 ## 범위 밖
-- 수직 dig shaft 측벽 surface.
-- basher(수평 파괴) 노출 셀 surface (별도 task 후보).
+- 수직 dig shaft / 가로 터널의 **측벽**(파낸 단면) surface — 윗면(walkable top) 캡만 다룸.
+- slope / plant / hazard 시각 (TERRAIN_TILE_RULES §0 범위 밖 유지).
 - slope / plant / hazard 시각 (TERRAIN_TILE_RULES §0 범위 밖 유지).

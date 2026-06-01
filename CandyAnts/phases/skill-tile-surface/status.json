@@ -19,7 +19,7 @@
       "file": "phase02-digger-exposed-surface.md",
       "name": "digger-exposed-surface",
       "duration_estimate": 5400,
-      "verify": "python scripts/run_test.py tests/Stage03HeadlessTest.tscn",
+      "verify": "python scripts/run_test.py tests/DiggerExposedSurfaceTest.tscn && python scripts/run_test.py tests/Stage03HeadlessTest.tscn",
       "state": "completed",
       "started_at": "2026-06-01T14:54:38",
       "completed_at": "2026-06-01T15:08:20",
@@ -27,7 +27,18 @@
     },
     {
       "id": 3,
-      "file": "phase03-bridge-builder-surface.md",
+      "file": "phase03-basher-exposed-surface.md",
+      "name": "basher-exposed-surface",
+      "duration_estimate": 3600,
+      "verify": "python scripts/run_test.py tests/BasherExposedSurfaceTest.tscn && python scripts/run_test.py tests/DiggerExposedSurfaceTest.tscn && python scripts/run_test.py tests/Stage03HeadlessTest.tscn",
+      "state": "completed",
+      "started_at": null,
+      "completed_at": "2026-06-01T16:15:35",
+      "duration_seconds": null
+    },
+    {
+      "id": 4,
+      "file": "phase04-bridge-builder-surface.md",
       "name": "bridge-builder-surface",
       "duration_estimate": 5400,
       "verify": "python scripts/run_test.py tests/Stage03HeadlessTest.tscn",

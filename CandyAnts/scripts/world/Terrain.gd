@@ -67,10 +67,12 @@ func get_cell_kind(cell: Vector2i) -> String:
 # atomic invariant: kind 검사 전 무변경. kind 통과 후 registry 4종은 무조건 erase + body는 valid일 때만 queue_free.
 # stale body ref(이미 free된 노드)는 queue_free skip + registry는 정상 erase.
 #
-# skill-tile-surface Phase 2 — apply_below_surface_cap: opt-in(기본 false). true일 때만, 파괴 성공 후
+# skill-tile-surface — apply_below_surface_cap: opt-in(기본 false). true일 때만, 파괴 성공 후
 # 바로 아래 칸(cell+(0,1))이 여전히 solid earth면 그 body에 cookie surface 캡을 멱등 추가
-# ("digger로 드러난 바닥 = 윗면 surface"). digger 경로(_destroy_digger_cell)만 true로 호출 →
-# basher/cutter 등 다른 호출처는 기본 false로 기존 동작 완전 동일(plan-stage 리뷰 HIGH 대응).
+# ("굴착으로 드러난 바닥 = 윗면 surface"). 굴착 스킬이 호출처에서 true로 켠다:
+#   - digger(_destroy_digger_cell, Phase 2): 세로 파기 → 파낸 칸 아래 바닥.
+#   - basher(_destroy_basher_cell, Phase 3): 가로 터널 → 뚫린 칸 아래 터널 바닥.
+# cutter 등 나머지 호출처는 기본 false 유지(캡 비대상). 기본값 false라 opt-in 안 한 경로는 기존 동작 동일.
 # atomic invariant 보존: false거나 파괴 실패면 시각 변경 없음. 캡 추가는 파괴 성공·erase 완료 후에만.
 func destroy_tile_at(
 	cell: Vector2i,

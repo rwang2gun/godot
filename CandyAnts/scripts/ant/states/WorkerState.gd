@@ -405,7 +405,9 @@ func _destroy_basher_cell(a: Ant) -> void:
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
 	var target: Vector2i = body_cell + Vector2i(a.direction, 0)
-	var ok: bool = terrain.destroy_tile_at(target, ["earth"])
+	# skill-tile-surface Phase 3 — basher도 surface 캡 opt-in. 뚫린 칸 아래(터널 바닥)가 새 walkable
+	# 윗면이 되면 cookie surface로 보이게 (Stage 3 실제 굴착 스킬 = basher). 측벽은 여전히 제외.
+	var ok: bool = terrain.destroy_tile_at(target, ["earth"], true)
 	if not ok:
 		_aborted = true
 		return
@@ -425,8 +427,8 @@ func _destroy_digger_cell(a: Ant) -> void:
 	)
 	# floor row (ant 바로 아래).
 	var target: Vector2i = body_cell + Vector2i(0, 1)
-	# skill-tile-surface Phase 2 — digger만 surface 캡 opt-in. 파낸 칸 아래가 새 윗면이 되면 surface로 보이게.
-	# (basher/cutter는 destroy_tile_at 기본 false 유지 → 캡 미적용.)
+	# skill-tile-surface Phase 2 — digger surface 캡 opt-in. 파낸 칸 아래가 새 윗면이 되면 surface로 보이게.
+	# (basher도 Phase 3에서 동일 opt-in 사용. cutter는 기본 false 유지 → 캡 미적용.)
 	var ok: bool = terrain.destroy_tile_at(target, ["earth"], true)
 	if not ok:
 		_aborted = true

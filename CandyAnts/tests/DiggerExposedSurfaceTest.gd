@@ -2,8 +2,9 @@ extends Node
 
 # skill-tile-surface Phase 2 — digger가 파낸 칸 아래(새 윗면)에 cookie surface 캡을 입히는지 검증.
 # 핵심:
-#   (A) digger 경로(destroy_tile_at(..., true)) → 아래 칸 solid earth면 surface 캡 1장 추가
-#   (B) basher 경로(기본 false) → 아래 칸에 캡 미추가 (plan 리뷰 HIGH 회귀 가드)
+#   (A) opt-in=true 경로(digger 등) → 아래 칸 solid earth면 surface 캡 1장 추가
+#   (B) opt-in=false 경로(cutter 등 캡 비대상 호출처) → 아래 칸에 캡 미추가
+#       (NOTE: basher는 Phase 3에서 opt-in=true로 캡함 — basher positive 계약은 BasherExposedSurfaceTest가 검증)
 #   (C) 아래가 공기/비-earth면 no-op (크래시 없음)
 #   (D) 멱등 — 같은 아래 칸에 재적용해도 캡 1장 유지
 
@@ -11,7 +12,7 @@ var _failed := false
 
 func _ready() -> void:
 	_test_digger_caps_below()
-	_test_basher_does_not_cap_below()
+	_test_no_cap_when_optin_false()
 	_test_air_below_is_noop()
 	_test_cap_idempotent()
 	_test_no_double_cap_over_existing_surface_sprite()
@@ -65,14 +66,15 @@ func _test_digger_caps_below() -> void:
 	_expect(_cap_count(below) == 1, "digger adds exactly 1 surface cap to exposed below cell")
 	terrain.get_parent().queue_free()
 
-func _test_basher_does_not_cap_below() -> void:
+# opt-in=false 경로(cutter 등 캡 비대상 호출처) → 아래 칸에 캡 미추가. (Phase 3: basher는 이제 true로 캡함 —
+# 이 케이스는 "false면 캡 안 함" 계약을 지킨다. basher positive 계약은 BasherExposedSurfaceTest가 검증.)
+func _test_no_cap_when_optin_false() -> void:
 	var terrain := _build_column_terrain()
-	# basher 경로 = 기본 false (apply_below_surface_cap 생략).
-	var ok := terrain.destroy_tile_at(Vector2i(0, 1), ["earth"])
-	_expect(ok, "basher-style destroy succeeds")
+	var ok := terrain.destroy_tile_at(Vector2i(0, 1), ["earth"])   # apply_below_surface_cap 생략 = false
+	_expect(ok, "destroy with opt-in false succeeds")
 	var below := _below_body(terrain, Vector2i(0, 2))
-	_expect(below != null, "below cell present after basher-style destroy")
-	_expect(_cap_count(below) == 0, "basher-style destroy must NOT cap below cell (HIGH guard)")
+	_expect(below != null, "below cell present after opt-in-false destroy")
+	_expect(_cap_count(below) == 0, "opt-in=false destroy must NOT cap below cell")
 	terrain.get_parent().queue_free()
 
 func _test_air_below_is_noop() -> void:
