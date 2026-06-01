@@ -30,7 +30,9 @@
 1. **surface-skin-infra** (셋업, 완료) — Terrain 테마-aware 3-tier 스킨 인프라 + 텍스처 등록.
 2. **digger-exposed-surface** (완료) — `destroy_tile_at(..., apply_below_surface_cap=true)` opt-in으로 digger 파낸 칸 아래 캡.
 3. **basher-exposed-surface** — basher가 뚫은 칸 아래(터널 바닥)에 동일 opt-in으로 캡. **Stage 3 실제 굴착 스킬.**
-4. **bridge-builder-surface** — bridge·builder 생성 타일이 surface tier 윗면을 갖게 (프로토타입 확인 후 시각 방향 결정).
+4. **basher-headroom-tier** — basher가 몸통+위 행 2칸 제거(머리공간) + 터널 바닥 2-tier(surface + 아래 under-surface).
+   (Stage 3 프로토타입 확인 후 사용자 요청 추가. digger는 이번 제외.)
+5. **bridge-builder-surface** — bridge·builder 생성 타일이 surface tier 윗면을 갖게 (프로토타입 확인 후 시각 방향 결정).
 
 계약: 굴착 스킬(digger·basher) = `destroy_tile_at` opt-in true로 아래 칸 캡 / cutter = false 무캡.
 

@@ -133,6 +133,37 @@ func _is_solid_cookie_body(body: Node2D) -> bool:
 			return false   # slope 충돌 형상
 	return body.has_node("BaseSprite")
 
+# skill-tile-surface Phase 4 — cell의 BaseSprite를 under-surface 텍스처로 재스킨(멱등, region 동일 규약).
+# basher 2칸 터널의 "바닥 아래" 칸을 surface→under-surface 전환 띠로 보이게(자연스러운 쿠키 단면).
+# 정적 사각 solid cookie 셀만 대상(slope/plant/동적 제외). null 텍스처/비대상이면 no-op.
+# CookieSurfaceCap(별개 오버레이 노드)과 무관 — 여기선 BaseSprite 텍스처 자체를 교체.
+func apply_under_surface_at(cell: Vector2i) -> void:
+	if _cookie_under_tex == null:
+		return
+	if not (_static_bodies.has(cell) and is_instance_valid(_static_bodies[cell])):
+		return   # 동적(bridge·sand) 또는 미점유 → 대상 아님
+	var body: Node2D = _static_bodies[cell]
+	if not _is_solid_cookie_body(body):
+		return   # slope/plant 제외
+	var base: Sprite2D = body.get_node_or_null("BaseSprite") as Sprite2D
+	if base == null:
+		return
+	# 이미 under-surface면 멱등 skip (resource_path 비교).
+	if base.texture != null and String(base.texture.resource_path).ends_with("cookie_tile_under_surface.png"):
+		return
+	_configure_cookie_region(base, _cookie_under_tex, cell, Vector2(cell_size, cell_size))
+
+# skill-tile-surface Phase 4 — "정적 사각 solid cookie 셀만" 제거(머리공간 가드). 동적 타일(bridge/sand,
+# `_placed`)·slope·plant·공기는 보존하고 false. basher 머리공간 제거가 플레이어 구조물/윗길을 안 부수게.
+func destroy_static_cookie_cell(cell: Vector2i) -> bool:
+	if get_cell_kind(cell) != "earth":
+		return false
+	if not (_static_bodies.has(cell) and is_instance_valid(_static_bodies[cell])):
+		return false   # 동적 또는 미점유 → 보존
+	if not _is_solid_cookie_body(_static_bodies[cell]):
+		return false   # slope/plant → 보존
+	return destroy_tile_at(cell, ["earth"])
+
 func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE) -> bool:
 	# D8 first-place wins — 동적/정적 어느 쪽이든 점유면 reject.
 	if _placed.has(cell) or _static_occupancy.has(cell):

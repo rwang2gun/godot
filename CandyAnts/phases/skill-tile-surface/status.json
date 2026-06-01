@@ -38,7 +38,18 @@
     },
     {
       "id": 4,
-      "file": "phase04-bridge-builder-surface.md",
+      "file": "phase04-basher-headroom-tier.md",
+      "name": "basher-headroom-tier",
+      "duration_estimate": 5400,
+      "verify": "python scripts/run_test.py tests/BasherHeadroomTierTest.tscn && python scripts/run_test.py tests/BasherExposedSurfaceTest.tscn && python scripts/run_test.py tests/BasherTunnelThroughWallTest.tscn && python scripts/run_test.py tests/BasherEdgeStopTest.tscn && python scripts/run_test.py tests/BasherOnPlantRejectedTest.tscn && python scripts/run_test.py tests/Stage03HeadlessTest.tscn",
+      "state": "completed",
+      "started_at": null,
+      "completed_at": "2026-06-01T16:53:29",
+      "duration_seconds": null
+    },
+    {
+      "id": 5,
+      "file": "phase05-bridge-builder-surface.md",
       "name": "bridge-builder-surface",
       "duration_estimate": 5400,
       "verify": "python scripts/run_test.py tests/Stage03HeadlessTest.tscn",

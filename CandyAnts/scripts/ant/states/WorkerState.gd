@@ -411,6 +411,11 @@ func _destroy_basher_cell(a: Ant) -> void:
 	if not ok:
 		_aborted = true
 		return
+	# skill-tile-surface Phase 4 — 2칸 높이 터널(머리공간) + 바닥 2-tier (+Y 아래).
+	#  - above(target+(0,-1)): 머리 위. 정적 쿠키 벽만 제거(동적 다리/모래·윗길·공기는 보존). 결과 무시.
+	#  - under(target+(0,2)): 바닥(target+(0,1), 위에서 surface 캡됨) 아래 → under-surface 재스킨.
+	terrain.destroy_static_cookie_cell(target + Vector2i(0, -1))
+	terrain.apply_under_surface_at(target + Vector2i(0, 2))
 	# 1 cell 전진. Vector2 더하기로 Builder/Bridge/Sand-mound 스타일 통일.
 	a.global_position += Vector2(float(a.direction) * cs, 0.0)
 	_remaining -= 1
