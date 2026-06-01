@@ -17,7 +17,6 @@ const TILE_SOLID := "solid"
 const TILE_SLOPE_RIGHT := "slope_right"
 const TILE_SLOPE_LEFT := "slope_left"
 const TILE_BACKGROUND := "background"
-const TILE_SURFACE := "surface"
 # Phase 19 — 식물 정적 cell. _add_cell이 _add_plant_visual placeholder 적용 + build()가
 # register_static_body(kind="plant") 호출 → Terrain._cell_kind = "plant"로 등록되어 Cutter 전용 destroy 대상.
 const TILE_PLANT_SOLID := "plant"
@@ -82,8 +81,8 @@ func _rebuild_preview() -> void:
 
 func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> StaticBody2D:
 	var cell_size: int = int(layout.cell_size)
-	if tile_type == TILE_BACKGROUND or tile_type == TILE_SURFACE:
-		_add_visual_only_cell(cell, cell_size, tile_type)
+	if tile_type == TILE_BACKGROUND:
+		_add_visual_only_cell(cell, cell_size)
 		return null
 
 	var body := StaticBody2D.new()
@@ -105,7 +104,9 @@ func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> StaticBody2D:
 		_add_solid_visual(body, cell_size, cell)
 	return body
 
-func _add_visual_only_cell(cell: Vector2i, cell_size: int, tile_type: String) -> void:
+func _add_visual_only_cell(cell: Vector2i, cell_size: int) -> void:
+	# terrain-tier-restructure Phase 2 — visual-only는 background(interior) 한 종류만.
+	# surface tile type은 제거됨 (under-surface가 최상단 룩).
 	var visual := Node2D.new()
 	visual.name = "Visual_%d_%d" % [cell.x, cell.y]
 	visual.position = _cell_to_world(cell, cell_size)
@@ -114,12 +115,9 @@ func _add_visual_only_cell(cell: Vector2i, cell_size: int, tile_type: String) ->
 
 	var sprite := Sprite2D.new()
 	sprite.name = "Sprite"
-	var texture: Texture2D = _surface_texture() if tile_type == TILE_SURFACE else load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
+	var texture: Texture2D = load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
 	if texture != null:
-		if tile_type == TILE_SURFACE:
-			_configure_repeating_region(sprite, texture, cell, Vector2(cell_size, cell_size))
-		else:
-			_configure_repeating_region(sprite, texture, cell, Vector2(cell_size, cell_size))
+		_configure_repeating_region(sprite, texture, cell, Vector2(cell_size, cell_size))
 	else:
 		sprite.modulate = Color(0.45, 0.28, 0.15)
 	visual.add_child(sprite)
@@ -142,7 +140,8 @@ func _add_slope_collision(body: StaticBody2D, cell_size: int, tile_type: String)
 	polygon.owner = owner
 
 func _add_solid_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> void:
-	# 1. 베이스 지형 (정사각형 내부 타일)
+	# 베이스 지형 (정사각형 내부 타일). 노출 최상단(위가 빈 칸)이면 under-surface, 아니면 interior.
+	# terrain-tier-restructure Phase 2 — surface tier/오버레이 레이어 제거. 텍스처 선택은 _solid_texture_for_cell.
 	var base_sprite := Sprite2D.new()
 	base_sprite.name = "BaseSprite"
 	var base_texture := _solid_texture_for_cell(cell)
@@ -152,23 +151,6 @@ func _add_solid_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> vo
 		base_sprite.modulate = Color(0.45, 0.28, 0.15)
 	body.add_child(base_sprite)
 	base_sprite.owner = owner
-
-	# 2. 표면일 경우 상단에 얇은 표면 데코레이션 레이어 오버레이 (충돌 없음)
-	var map := _layout_tile_map()
-	var above := cell + Vector2i(0, -1)
-	var above_key := "%d,%d" % [above.x, above.y]
-	var is_surface: bool = not map.has(above_key)
-
-	if is_surface:
-		var surface_sprite := Sprite2D.new()
-		surface_sprite.name = "SurfaceSprite"
-		var surface_tex: Texture2D = _surface_texture()
-			
-		if surface_tex != null:
-			var region_size := Vector2(cell_size, cell_size)
-			_configure_repeating_region(surface_sprite, surface_tex, cell, region_size)
-			body.add_child(surface_sprite)
-			surface_sprite.owner = owner
 
 func _add_plant_visual(body: StaticBody2D, cell_size: int) -> void:
 	var sprite := Sprite2D.new()
@@ -234,56 +216,15 @@ func _slope_points(cell_size: int, tile_type: String) -> PackedVector2Array:
 		Vector2(half, -half),
 	])
 
-func _get_tile_texture_for_cell(cell: Vector2i) -> Texture2D:
-	var theme_name: String = "cookie_crust"
-	if layout != null and "theme" in layout:
-		theme_name = layout.theme
-
-	var map := _layout_tile_map()
-	var above := cell + Vector2i(0, -1)
-	var above_key := "%d,%d" % [above.x, above.y]
-	var is_surface: bool = not map.has(above_key)
-
-	if theme_name == "cookie_crust":
-		if not is_surface:
-			return load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
-		else:
-			return load("res://assets/sprites/terrain/cookie_tile_surface.png") as Texture2D
-	elif theme_name == "cookie_segment":
-		if not is_surface:
-			return load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
-		else:
-			return load("res://assets/sprites/terrain/cookie_platform_segment.png") as Texture2D
-	elif theme_name == "thin_floor":
-		if not is_surface:
-			return load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
-		else:
-			return load("res://assets/sprites/terrain/thin_cookie_floor_segment.png") as Texture2D
-	elif theme_name == "cookie_bridge_tile":
-		return load("res://assets/sprites/terrain/cookie_bridge_tile.png") as Texture2D
-	else:
-		return load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
-
-func _surface_texture() -> Texture2D:
-	var theme_name: String = "cookie_crust"
-	if layout != null and "theme" in layout:
-		theme_name = layout.theme
-
-	if theme_name == "cookie_crust":
-		return load("res://assets/sprites/terrain/cookie_tile_surface.png") as Texture2D
-	elif theme_name == "cookie_segment":
-		return load("res://assets/sprites/terrain/cookie_platform_segment.png") as Texture2D
-	elif theme_name == "thin_floor":
-		return load("res://assets/sprites/terrain/thin_cookie_floor_segment.png") as Texture2D
-	elif theme_name == "cookie_bridge_tile":
-		return load("res://assets/sprites/terrain/cookie_bridge_tile.png") as Texture2D
-	return load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
-
+# terrain-tier-restructure Phase 2 — surface tier 제거 후 exposure 술어 반전.
+# 위 칸이 레이아웃에 "존재하지 않을 때만"(= 진짜 빈 칸/공기) 노출 최상단 → under-surface.
+# 위 칸이 존재하면(solid/slope/plant/background 무엇이든 = 가려진 셀) → interior(background).
+# `not map.has(above_key)`는 (구) _add_solid_visual 노출천장 오버레이 술어(is_surface)와 동일 SoT.
 func _solid_texture_for_cell(cell: Vector2i) -> Texture2D:
 	var map := _layout_tile_map()
 	var above := cell + Vector2i(0, -1)
 	var above_key := "%d,%d" % [above.x, above.y]
-	if str(map.get(above_key, "")) == TILE_SURFACE:
+	if not map.has(above_key):
 		return load("res://assets/sprites/terrain/cookie_tile_under_surface.png") as Texture2D
 	return load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
 
