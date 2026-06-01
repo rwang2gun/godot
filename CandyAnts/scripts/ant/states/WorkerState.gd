@@ -238,7 +238,7 @@ func _place_one_tile(a: Ant) -> void:
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
 	var target: Vector2i = cell + Vector2i(a.direction, 1)
-	var ok: bool = terrain.add_tile(target)
+	var ok: bool = terrain.add_tile(target, Terrain.DYNAMIC_TILE_STAIR, a.direction)
 	if not ok:
 		_aborted = true
 		return

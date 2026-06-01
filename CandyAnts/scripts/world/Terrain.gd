@@ -17,6 +17,7 @@ var _static_bodies: Dictionary = {}       # Vector2i → StaticBody2D
 # destroy_tile_at의 allowed_kinds로 cross-mechanic 침범 차단.
 var _cell_kind: Dictionary = {}           # Vector2i → String
 const DYNAMIC_TILE_BRIDGE: String = "bridge"
+const DYNAMIC_TILE_STAIR: String = "stair"
 const DYNAMIC_TILE_SAND_MOUND: String = "sand_mound"
 
 # 모래 쌓기 3단 렌더 — 정적 쿠키 지형(StageLayoutBuilder)과 동일하게 column을 위→아래로
@@ -27,6 +28,7 @@ const SAND_TIER_UNDER: String = "under_surface"
 const SAND_TIER_BACKGROUND: String = "background"
 
 var _bridge_tile_texture: Texture2D = null
+var _stair_tile_texture: Texture2D = null
 # 모래 동적 타일 한정 cell→Sprite2D. bridge 타일은 미포함 → 재스킨 시 cross-contamination 차단.
 var _sand_mound_sprites: Dictionary = {}
 var _sand_surface_tex: Texture2D = null
@@ -83,7 +85,7 @@ func destroy_tile_at(
 	_sand_mound_sprites.erase(cell)   # 모래 타일이면 tier registry도 정리 (아니면 no-op)
 	return true
 
-func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE) -> bool:
+func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE, visual_direction: int = 1) -> bool:
 	# D8 first-place wins — 동적/정적 어느 쪽이든 점유면 reject.
 	if _placed.has(cell) or _static_occupancy.has(cell):
 		return false
@@ -96,7 +98,7 @@ func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE) -> boo
 	shape.shape = rect
 	body.add_child(shape)
 	var sprite: Sprite2D = Sprite2D.new()
-	_configure_dynamic_tile_sprite(sprite, visual_style)
+	_configure_dynamic_tile_sprite(sprite, visual_style, visual_direction)
 	body.add_child(sprite)
 	body.global_position = Vector2(
 		float(cell.x) * cell_size + cell_size / 2.0,
@@ -112,10 +114,19 @@ func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE) -> boo
 		_reskin_sand_column(cell)
 	return true
 
-func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String) -> void:
+func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String, visual_direction: int = 1) -> void:
 	if visual_style == DYNAMIC_TILE_SAND_MOUND:
 		# 초기값 surface (방금 쌓은 = 맨 위). add_tile의 _reskin_sand_column이 아래 칸을 강등.
 		_apply_sand_tier(sprite, SAND_TIER_SURFACE)
+		return
+	if visual_style == DYNAMIC_TILE_STAIR:
+		if _stair_tile_texture == null:
+			_stair_tile_texture = load("res://assets/sprites/terrain/cookie_stair_tile.png") as Texture2D
+		sprite.texture = _stair_tile_texture
+		sprite.flip_h = visual_direction < 0
+		var stair_scale: float = float(cell_size) / 48.0
+		sprite.position = Vector2.ZERO
+		sprite.scale = Vector2(stair_scale, stair_scale)
 		return
 	if _bridge_tile_texture == null:
 		_bridge_tile_texture = load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
