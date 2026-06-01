@@ -1,7 +1,7 @@
 {
   "task": "terrain-tier-restructure",
   "started_at": "2026-06-01T22:07:42",
-  "completed_at": "2026-06-01T22:55:37",
+  "completed_at": "2026-06-02T00:32:54",
   "phases": [
     {
       "id": 1,
@@ -24,6 +24,17 @@
       "started_at": "2026-06-01T22:24:34",
       "completed_at": "2026-06-01T22:55:37",
       "duration_seconds": 1863
+    },
+    {
+      "id": 3,
+      "file": "phase03-square-tile-art-swap.md",
+      "name": "square-tile-art-swap",
+      "duration_estimate": 5400,
+      "verify": "python scripts/run_test.py --import && python scripts/run_test.py tests/test_StageLayoutBuilder.tscn && python scripts/run_test.py tests/StageLayoutBuilderEarthBackwardCompatTest.tscn && python scripts/run_test.py tests/Stage03HeadlessTest.tscn",
+      "state": "completed",
+      "started_at": "2026-06-01T23:54:01",
+      "completed_at": "2026-06-02T00:32:54",
+      "duration_seconds": 2333
     }
   ]
 }

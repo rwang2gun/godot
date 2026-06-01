@@ -21,6 +21,22 @@ const TILE_BACKGROUND := "background"
 # register_static_body(kind="plant") 호출 → Terrain._cell_kind = "plant"로 등록되어 Cutter 전용 destroy 대상.
 const TILE_PLANT_SOLID := "plant"
 
+# terrain-tier-restructure Phase 3 — ground 타일을 48×48 단일 정사각 4-variant로 교체.
+# 노출 최상단(걷는 면) = surface family, 가려진 본체 + background 시각 채움 = solid family.
+# (구) 336×48 가로 아틀라스(cookie_tile_under_surface / cookie_tile_background)는 ground에서 미사용.
+const SURFACE_TILES: Array[String] = [
+	"res://assets/sprites/terrain/usable_square/cookie_surface_square_01.png",
+	"res://assets/sprites/terrain/usable_square/cookie_surface_square_02.png",
+	"res://assets/sprites/terrain/usable_square/cookie_surface_square_03.png",
+	"res://assets/sprites/terrain/usable_square/cookie_surface_square_04.png",
+]
+const SOLID_TILES: Array[String] = [
+	"res://assets/sprites/terrain/usable_square/cookie_solid_rotatable_square_01.png",
+	"res://assets/sprites/terrain/usable_square/cookie_solid_rotatable_square_02.png",
+	"res://assets/sprites/terrain/usable_square/cookie_solid_rotatable_square_03.png",
+	"res://assets/sprites/terrain/usable_square/cookie_solid_rotatable_square_04.png",
+]
+
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		_rebuild_preview()
@@ -105,8 +121,8 @@ func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> StaticBody2D:
 	return body
 
 func _add_visual_only_cell(cell: Vector2i, cell_size: int) -> void:
-	# terrain-tier-restructure Phase 2 — visual-only는 background(interior) 한 종류만.
-	# surface tile type은 제거됨 (under-surface가 최상단 룩).
+	# terrain-tier-restructure Phase 2 — visual-only는 background(interior) 한 종류만 (surface tile type 제거).
+	# Phase 3 — interior 채움은 solid family(cookie_solid_rotatable_square) 4-variant whole-tile.
 	var visual := Node2D.new()
 	visual.name = "Visual_%d_%d" % [cell.x, cell.y]
 	visual.position = _cell_to_world(cell, cell_size)
@@ -115,9 +131,9 @@ func _add_visual_only_cell(cell: Vector2i, cell_size: int) -> void:
 
 	var sprite := Sprite2D.new()
 	sprite.name = "Sprite"
-	var texture: Texture2D = load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
+	var texture: Texture2D = load(SOLID_TILES[_variant_index(cell, SOLID_TILES.size())]) as Texture2D
 	if texture != null:
-		_configure_repeating_region(sprite, texture, cell, Vector2(cell_size, cell_size))
+		_apply_square_tile(sprite, texture, cell_size)
 	else:
 		sprite.modulate = Color(0.45, 0.28, 0.15)
 	visual.add_child(sprite)
@@ -140,13 +156,13 @@ func _add_slope_collision(body: StaticBody2D, cell_size: int, tile_type: String)
 	polygon.owner = owner
 
 func _add_solid_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> void:
-	# 베이스 지형 (정사각형 내부 타일). 노출 최상단(위가 빈 칸)이면 under-surface, 아니면 interior.
-	# terrain-tier-restructure Phase 2 — surface tier/오버레이 레이어 제거. 텍스처 선택은 _solid_texture_for_cell.
+	# 베이스 지형 (정사각형 내부 타일). 노출 최상단(위가 빈 칸)이면 surface family, 아니면 solid family.
+	# terrain-tier-restructure Phase 3 — 48×48 단일 타일 whole-tile 렌더. 텍스처 선택은 _solid_texture_for_cell.
 	var base_sprite := Sprite2D.new()
 	base_sprite.name = "BaseSprite"
 	var base_texture := _solid_texture_for_cell(cell)
 	if base_texture != null:
-		_configure_repeating_region(base_sprite, base_texture, cell, Vector2(cell_size, cell_size))
+		_apply_square_tile(base_sprite, base_texture, cell_size)
 	else:
 		base_sprite.modulate = Color(0.45, 0.28, 0.15)
 	body.add_child(base_sprite)
@@ -216,32 +232,39 @@ func _slope_points(cell_size: int, tile_type: String) -> PackedVector2Array:
 		Vector2(half, -half),
 	])
 
-# terrain-tier-restructure Phase 2 — surface tier 제거 후 exposure 술어 반전.
-# 위 칸이 레이아웃에 "존재하지 않을 때만"(= 진짜 빈 칸/공기) 노출 최상단 → under-surface.
-# 위 칸이 존재하면(solid/slope/plant/background 무엇이든 = 가려진 셀) → interior(background).
-# `not map.has(above_key)`는 (구) _add_solid_visual 노출천장 오버레이 술어(is_surface)와 동일 SoT.
+# terrain-tier-restructure Phase 2 — surface tier 제거 후 exposure 술어 반전. Phase 3 — 타일 family 교체.
+# 위 칸이 레이아웃에 "존재하지 않을 때만"(= 진짜 빈 칸/공기) 노출 최상단 → surface family(cookie_surface_square).
+# 위 칸이 존재하면(solid/slope/plant/background 무엇이든 = 가려진 셀) → solid family(cookie_solid_rotatable_square).
+# `not map.has(above_key)` 술어는 단일 SoT다 — 좁은 `== TILE_SOLID` 해석 금지.
 func _solid_texture_for_cell(cell: Vector2i) -> Texture2D:
 	var map := _layout_tile_map()
 	var above := cell + Vector2i(0, -1)
 	var above_key := "%d,%d" % [above.x, above.y]
 	if not map.has(above_key):
-		return load("res://assets/sprites/terrain/cookie_tile_under_surface.png") as Texture2D
-	return load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
+		return load(SURFACE_TILES[_variant_index(cell, SURFACE_TILES.size())]) as Texture2D
+	return load(SOLID_TILES[_variant_index(cell, SOLID_TILES.size())]) as Texture2D
 
-func _configure_repeating_region(sprite: Sprite2D, texture: Texture2D, cell: Vector2i, region_size: Vector2) -> void:
+# terrain-tier-restructure Phase 3 — 비선형 bit-mixing 정수 해시로 variant 선택.
+# 선형식(posmod(a*x+b*y, n))은 대각/줄 밴딩 + 4-bucket 주기성이 눈에 띄므로 bit-mixing으로 분산한다.
+# 결정적: 같은 cell → 항상 같은 variant (리빌드 안정). 테스트는 이 공식을 복제하지 않고 family 집합/분포만 검증.
+func _variant_index(cell: Vector2i, n: int) -> int:
+	if n <= 1:
+		return 0
+	var h: int = cell.x * 374761393 + cell.y * 668265263
+	h = (h ^ (h >> 13)) * 1274126177
+	h = h ^ (h >> 16)
+	return posmod(h, n)
+
+# terrain-tier-restructure Phase 3 — discrete 48×48 단일 타일 whole-tile 렌더 (sand-mound §11.3과 동형).
+# region 슬라이스 없이 텍스처를 통째로 cell_size에 맞춰 균일 scale → 비-48 cell_size에서도 크롭/오프셋 없이 중앙 정렬.
+func _apply_square_tile(sprite: Sprite2D, texture: Texture2D, cell_size: int) -> void:
 	var tex_size := texture.get_size()
-	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
-		return
-	var source_size := Vector2(minf(region_size.x, tex_size.x), minf(region_size.y, tex_size.y))
-	var source_x := 0.0
-	if tex_size.x > source_size.x:
-		var columns := maxi(1, int(floor(tex_size.x / source_size.x)))
-		source_x = float(posmod(cell.x, columns)) * source_size.x
-	var source_y := maxf(0.0, (tex_size.y - source_size.y) * 0.5)
 	sprite.texture = texture
-	sprite.region_enabled = true
-	sprite.region_rect = Rect2(Vector2(source_x, source_y), source_size)
-	sprite.scale = Vector2(region_size.x / source_size.x, region_size.y / source_size.y)
+	sprite.region_enabled = false
+	sprite.centered = true
+	sprite.position = Vector2.ZERO
+	if tex_size.x > 0.0 and tex_size.y > 0.0:
+		sprite.scale = Vector2(float(cell_size) / tex_size.x, float(cell_size) / tex_size.y)
 
 func _is_collision_tile(tile_type: String) -> bool:
 	return (

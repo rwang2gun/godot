@@ -6,6 +6,7 @@ Usage:
     python scripts/run_test.py <scene>                    # res:// 또는 로컬 경로
     python scripts/run_test.py tests/Stage03HeadlessTest.tscn
     python scripts/run_test.py res://tests/BlockerOverlapTest.tscn
+    python scripts/run_test.py --import                   # 에셋/class_name import 1회 (씬 실행 전 부트스트랩)
 
 Environment:
     GODOT_BIN — 강제 지정 (없으면 PATH → 알려진 후보 순으로 탐색)
@@ -72,10 +73,21 @@ def normalize_scene(arg: str) -> str:
     return "res://" + arg.replace("\\", "/")
 
 
+def run_import(godot: Path) -> int:
+    # 에셋(.png 등) + 신규 class_name을 import. gitignore된 *.import / .godot/imported 캐시를
+    # 클린 체크아웃/CI에서 재생성한다. verify가 새 리소스를 load하기 전 자가완결 부트스트랩으로 쓴다.
+    cmd = [str(godot), "--headless", "--path", str(ROOT), "--import"]
+    print(f"[run_test] godot={godot.name} action=import", flush=True)
+    return subprocess.run(cmd, cwd=str(ROOT)).returncode
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print(__doc__)
         return 64
+
+    if sys.argv[1] == "--import":
+        return run_import(find_godot())
 
     scene = normalize_scene(sys.argv[1])
     extra_args = sys.argv[2:]
