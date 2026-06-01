@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/spawners/ant_hole.png" id="2"]
 
 [sub_resource type="RectangleShape2D" id="shape"]
-size = Vector2(96, 36)
+size = Vector2(72, 24)
 
 [node name="Home" type="Area2D"]
 collision_layer = 32
@@ -13,10 +13,10 @@ monitoring = true
 script = ExtResource("1")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -18)
+position = Vector2(0, -12)
 shape = SubResource("shape")
 
 [node name="Sprite" type="Sprite2D" parent="."]
-position = Vector2(0, -22.5)
-scale = Vector2(1.5, 1.5)
+position = Vector2(0, -15)
+scale = Vector2(1, 1)
 texture = ExtResource("2")
