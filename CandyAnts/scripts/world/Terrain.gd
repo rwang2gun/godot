@@ -66,7 +66,17 @@ func get_cell_kind(cell: Vector2i) -> String:
 # Phase 18 — cell 단위 파괴. dynamic + static body queue_free + 4개 registry atomic erase.
 # atomic invariant: kind 검사 전 무변경. kind 통과 후 registry 4종은 무조건 erase + body는 valid일 때만 queue_free.
 # stale body ref(이미 free된 노드)는 queue_free skip + registry는 정상 erase.
-func destroy_tile_at(cell: Vector2i, allowed_kinds: Array[String] = ["earth"]) -> bool:
+#
+# skill-tile-surface Phase 2 — apply_below_surface_cap: opt-in(기본 false). true일 때만, 파괴 성공 후
+# 바로 아래 칸(cell+(0,1))이 여전히 solid earth면 그 body에 cookie surface 캡을 멱등 추가
+# ("digger로 드러난 바닥 = 윗면 surface"). digger 경로(_destroy_digger_cell)만 true로 호출 →
+# basher/cutter 등 다른 호출처는 기본 false로 기존 동작 완전 동일(plan-stage 리뷰 HIGH 대응).
+# atomic invariant 보존: false거나 파괴 실패면 시각 변경 없음. 캡 추가는 파괴 성공·erase 완료 후에만.
+func destroy_tile_at(
+	cell: Vector2i,
+	allowed_kinds: Array[String] = ["earth"],
+	apply_below_surface_cap: bool = false
+) -> bool:
 	var kind: String = get_cell_kind(cell)
 	if kind == "" or not allowed_kinds.has(kind):
 		return false
@@ -86,7 +96,40 @@ func destroy_tile_at(cell: Vector2i, allowed_kinds: Array[String] = ["earth"]) -
 	_static_occupancy.erase(cell)
 	_cell_kind.erase(cell)
 	_sand_mound_sprites.erase(cell)   # 모래 타일이면 tier registry도 정리 (아니면 no-op)
+	if apply_below_surface_cap:
+		_cap_exposed_below(cell)
 	return true
+
+# skill-tile-surface Phase 2 — 파괴된 cell 바로 아래 칸이 "정적 사각 solid cookie 지형"이면 surface 캡을 멱등 추가.
+# StageLayoutBuilder._add_solid_visual 2번("위가 비면 surface 오버레이")을 런타임에 재현.
+# 대상 한정(codex Phase2 MEDIUM 1·2 대응):
+#  - 정적 solid cookie 셀만 (_static_bodies). 동적(bridge·sand)은 제외 — sand는 자체 reskin SoT,
+#    bridge 시각은 별도 phase. → _placed 셀은 대상 아님.
+#  - slope/plant는 kind="earth"여도 사각 cookie 캡이 부적합(TERRAIN_TILE_RULES 범위 밖) → _is_solid_cookie_body로 배제.
+#  - 이미 surface 시각(빌드타임 SurfaceSprite 또는 런타임 CookieSurfaceCap)이 있으면 중복 오버레이 회피.
+func _cap_exposed_below(destroyed_cell: Vector2i) -> void:
+	var below: Vector2i = destroyed_cell + Vector2i(0, 1)
+	if get_cell_kind(below) != "earth":
+		return
+	if not (_static_bodies.has(below) and is_instance_valid(_static_bodies[below])):
+		return   # 동적(bridge·sand) 또는 미점유 → 대상 아님
+	var body: Node2D = _static_bodies[below]
+	if not _is_solid_cookie_body(body):
+		return   # slope/plant 등 비-사각 cookie 셀 제외
+	if body.has_node("SurfaceSprite") or body.has_node(COOKIE_SURFACE_CAP_NAME):
+		return   # 이미 surface 시각 존재 → 중복 방지
+	apply_cookie_surface_overlay(body, below)
+
+# 정적 셀 body가 "사각 solid cookie 지형"인지 판별.
+# solid: CollisionShape2D(RectangleShape2D) + BaseSprite. slope: CollisionPolygon2D + SlopeVisual. plant: PlantVisual.
+# → slope/plant는 false. cookie 사각 solid만 true.
+func _is_solid_cookie_body(body: Node2D) -> bool:
+	if body.has_node("SlopeVisual") or body.has_node("PlantVisual"):
+		return false
+	for c in body.get_children():
+		if c is CollisionPolygon2D:
+			return false   # slope 충돌 형상
+	return body.has_node("BaseSprite")
 
 func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE) -> bool:
 	# D8 first-place wins — 동적/정적 어느 쪽이든 점유면 reject.

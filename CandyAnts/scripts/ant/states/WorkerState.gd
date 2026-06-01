@@ -425,7 +425,9 @@ func _destroy_digger_cell(a: Ant) -> void:
 	)
 	# floor row (ant 바로 아래).
 	var target: Vector2i = body_cell + Vector2i(0, 1)
-	var ok: bool = terrain.destroy_tile_at(target, ["earth"])
+	# skill-tile-surface Phase 2 — digger만 surface 캡 opt-in. 파낸 칸 아래가 새 윗면이 되면 surface로 보이게.
+	# (basher/cutter는 destroy_tile_at 기본 false 유지 → 캡 미적용.)
+	var ok: bool = terrain.destroy_tile_at(target, ["earth"], true)
 	if not ok:
 		_aborted = true
 		return

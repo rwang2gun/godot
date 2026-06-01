@@ -1,7 +1,7 @@
 ---
 name: digger-exposed-surface
 duration_estimate: 5400
-verify: python scripts/run_test.py tests/Stage03HeadlessTest.tscn
+verify: python scripts/run_test.py tests/DiggerExposedSurfaceTest.tscn && python scripts/run_test.py tests/Stage03HeadlessTest.tscn
 large_change_ok: false
 sot: docs/TERRAIN_TILE_RULES.md
 sot_aux: [scripts/world/Terrain.gd, scripts/ant/states/WorkerState.gd, phases/skill-tile-surface/REVISION_2026-06-01-skill-tile-surface.md]

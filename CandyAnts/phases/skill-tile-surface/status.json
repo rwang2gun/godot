@@ -16,19 +16,19 @@
     },
     {
       "id": 2,
-      "file": "phase02-bridge-builder-surface.md",
-      "name": "bridge-builder-surface",
+      "file": "phase02-digger-exposed-surface.md",
+      "name": "digger-exposed-surface",
       "duration_estimate": 5400,
       "verify": "python scripts/run_test.py tests/Stage03HeadlessTest.tscn",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-06-01T14:54:38",
+      "completed_at": "2026-06-01T15:08:20",
+      "duration_seconds": 822
     },
     {
       "id": 3,
-      "file": "phase03-digger-exposed-surface.md",
-      "name": "digger-exposed-surface",
+      "file": "phase03-bridge-builder-surface.md",
+      "name": "bridge-builder-surface",
       "duration_estimate": 5400,
       "verify": "python scripts/run_test.py tests/Stage03HeadlessTest.tscn",
       "state": "pending",
