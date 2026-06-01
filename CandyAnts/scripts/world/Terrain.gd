@@ -33,6 +33,14 @@ var _sand_surface_tex: Texture2D = null
 var _sand_under_tex: Texture2D = null
 var _sand_background_tex: Texture2D = null
 
+# skill-tile-surface Phase 1 — cookie 3-tier 텍스처를 StageLayoutBuilder.build()이 빌드 타임에 등록.
+# Terrain은 theme chain을 모른다(StageLayoutBuilder._surface_texture 등이 SoT) → 텍스처만 주입받아
+# Phase 2(bridge narrow 캡)·Phase 3(digger 셀 캡)이 동일 헬퍼를 다른 geometry로 호출한다.
+const COOKIE_SURFACE_CAP_NAME: String = "CookieSurfaceCap"
+var _cookie_surface_tex: Texture2D = null
+var _cookie_under_tex: Texture2D = null
+var _cookie_background_tex: Texture2D = null
+
 func set_cell_size(s: int) -> void:
 	if s > 0:
 		cell_size = s
@@ -161,6 +169,71 @@ func _sand_tier_texture(tier: String) -> Texture2D:
 	if _sand_background_tex == null:
 		_sand_background_tex = load("res://assets/sprites/terrain/sand_tile_background.png") as Texture2D
 	return _sand_background_tex
+
+# skill-tile-surface Phase 1 — cookie 3-tier 텍스처 등록 (StageLayoutBuilder.build()이 1회 호출).
+# null-safe: 미등록 theme(테스트 등)에서는 cap 헬퍼가 no-op로 안전 fall-through.
+func register_cookie_tier_textures(surface: Texture2D, under: Texture2D, background: Texture2D) -> void:
+	_cookie_surface_tex = surface
+	_cookie_under_tex = under
+	_cookie_background_tex = background
+
+func get_cookie_surface_texture() -> Texture2D:
+	return _cookie_surface_tex
+
+func get_cookie_under_texture() -> Texture2D:
+	return _cookie_under_tex
+
+func get_cookie_background_texture() -> Texture2D:
+	return _cookie_background_tex
+
+# skill-tile-surface Phase 1 — body 윗면에 cookie surface 오버레이를 멱등 추가.
+# StageLayoutBuilder._add_solid_visual 2번(노출 천장 → surface 오버레이)과 동일 시각 규약을 런타임에 재현.
+# geometry 일반화: region_size/local_offset/z_index로 셀 크기 캡(digger/solid)과 narrow 캡(bridge) 둘 다 표현.
+#  - region_size: 캡이 덮을 로컬 크기. 기본 cell_size 정사각.
+#  - local_offset: body 로컬 기준 sprite 위치(기본 중앙 0). bridge는 얇은 윗면으로 올리는 데 사용.
+#  - z_index: 베이스 위로 올리기(기본 1).
+# 멱등: 같은 body에 COOKIE_SURFACE_CAP_NAME 자식이 이미 있으면 1장 유지(재생성 안 함).
+# null 텍스처(미등록 theme)면 no-op → 회귀 안전.
+func apply_cookie_surface_overlay(
+	body: Node2D,
+	cell: Vector2i,
+	region_size: Vector2 = Vector2.ZERO,
+	local_offset: Vector2 = Vector2.ZERO,
+	z_index_value: int = 1
+) -> Sprite2D:
+	if body == null or not is_instance_valid(body):
+		return null
+	if _cookie_surface_tex == null:
+		return null
+	if body.has_node(COOKIE_SURFACE_CAP_NAME):
+		return body.get_node(COOKIE_SURFACE_CAP_NAME) as Sprite2D
+	var size: Vector2 = region_size
+	if size == Vector2.ZERO:
+		size = Vector2(cell_size, cell_size)
+	var sprite: Sprite2D = Sprite2D.new()
+	sprite.name = COOKIE_SURFACE_CAP_NAME
+	_configure_cookie_region(sprite, _cookie_surface_tex, cell, size)
+	sprite.position = local_offset
+	sprite.z_index = z_index_value
+	body.add_child(sprite)
+	return sprite
+
+# StageLayoutBuilder._configure_repeating_region의 cookie 가로 아틀라스 샘플링을 Terrain 내부에 복제
+# (Terrain ↔ StageLayoutBuilder 의존 없이 동일 시각 규약 보장). cell.x로 7-variant 가로 선택 + 세로 중앙.
+func _configure_cookie_region(sprite: Sprite2D, texture: Texture2D, cell: Vector2i, region_size: Vector2) -> void:
+	var tex_size: Vector2 = texture.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
+		return
+	var source_size: Vector2 = Vector2(minf(region_size.x, tex_size.x), minf(region_size.y, tex_size.y))
+	var source_x: float = 0.0
+	if tex_size.x > source_size.x:
+		var columns: int = maxi(1, int(floor(tex_size.x / source_size.x)))
+		source_x = float(posmod(cell.x, columns)) * source_size.x
+	var source_y: float = maxf(0.0, (tex_size.y - source_size.y) * 0.5)
+	sprite.texture = texture
+	sprite.region_enabled = true
+	sprite.region_rect = Rect2(Vector2(source_x, source_y), source_size)
+	sprite.scale = Vector2(region_size.x / source_size.x, region_size.y / source_size.y)
 
 func has_tile(cell: Vector2i) -> bool:
 	return _placed.has(cell)

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "task": "skill-tile-surface",
+  "active_revision": "phases/skill-tile-surface/REVISION_2026-06-01-skill-tile-surface.md",
+  "notes": [
+    "status.json is runtime state only.",
+    "local phase files are discovered dynamically from phases/<task>/phase*.md.",
+    "Post-mvp polish task: walkable-top surface tier consistency for skill-created/destroyed tiles."
+  ]
+}
