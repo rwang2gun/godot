@@ -53,13 +53,6 @@ func build() -> void:
 	var terrain: Terrain = _find_ancestor_terrain()
 	if terrain != null:
 		terrain.set_cell_size(int(layout.cell_size))
-		# skill-tile-surface Phase 1 — 현 theme의 cookie 3-tier 텍스처를 Terrain에 1회 등록.
-		# theme chain은 여기(_surface_texture)가 SoT — Terrain은 텍스처만 주입받는다.
-		terrain.register_cookie_tier_textures(
-			_surface_texture(),
-			load("res://assets/sprites/terrain/cookie_tile_under_surface.png") as Texture2D,
-			load("res://assets/sprites/terrain/cookie_tile_background.png") as Texture2D
-		)
 		for g in generated:
 			terrain.register_static_body(g["cell"], g["body"], g["kind"])
 	else:

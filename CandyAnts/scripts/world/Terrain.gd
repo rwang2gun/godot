@@ -33,14 +33,6 @@ var _sand_surface_tex: Texture2D = null
 var _sand_under_tex: Texture2D = null
 var _sand_background_tex: Texture2D = null
 
-# skill-tile-surface Phase 1 — cookie 3-tier 텍스처를 StageLayoutBuilder.build()이 빌드 타임에 등록.
-# Terrain은 theme chain을 모른다(StageLayoutBuilder._surface_texture 등이 SoT) → 텍스처만 주입받아
-# Phase 2(bridge narrow 캡)·Phase 3(digger 셀 캡)이 동일 헬퍼를 다른 geometry로 호출한다.
-const COOKIE_SURFACE_CAP_NAME: String = "CookieSurfaceCap"
-var _cookie_surface_tex: Texture2D = null
-var _cookie_under_tex: Texture2D = null
-var _cookie_background_tex: Texture2D = null
-
 func set_cell_size(s: int) -> void:
 	if s > 0:
 		cell_size = s
@@ -66,18 +58,9 @@ func get_cell_kind(cell: Vector2i) -> String:
 # Phase 18 — cell 단위 파괴. dynamic + static body queue_free + 4개 registry atomic erase.
 # atomic invariant: kind 검사 전 무변경. kind 통과 후 registry 4종은 무조건 erase + body는 valid일 때만 queue_free.
 # stale body ref(이미 free된 노드)는 queue_free skip + registry는 정상 erase.
-#
-# skill-tile-surface — apply_below_surface_cap: opt-in(기본 false). true일 때만, 파괴 성공 후
-# 바로 아래 칸(cell+(0,1))이 여전히 solid earth면 그 body에 cookie surface 캡을 멱등 추가
-# ("굴착으로 드러난 바닥 = 윗면 surface"). 굴착 스킬이 호출처에서 true로 켠다:
-#   - digger(_destroy_digger_cell, Phase 2): 세로 파기 → 파낸 칸 아래 바닥.
-#   - basher(_destroy_basher_cell, Phase 3): 가로 터널 → 뚫린 칸 아래 터널 바닥.
-# cutter 등 나머지 호출처는 기본 false 유지(캡 비대상). 기본값 false라 opt-in 안 한 경로는 기존 동작 동일.
-# atomic invariant 보존: false거나 파괴 실패면 시각 변경 없음. 캡 추가는 파괴 성공·erase 완료 후에만.
 func destroy_tile_at(
 	cell: Vector2i,
-	allowed_kinds: Array[String] = ["earth"],
-	apply_below_surface_cap: bool = false
+	allowed_kinds: Array[String] = ["earth"]
 ) -> bool:
 	var kind: String = get_cell_kind(cell)
 	if kind == "" or not allowed_kinds.has(kind):
@@ -98,71 +81,7 @@ func destroy_tile_at(
 	_static_occupancy.erase(cell)
 	_cell_kind.erase(cell)
 	_sand_mound_sprites.erase(cell)   # 모래 타일이면 tier registry도 정리 (아니면 no-op)
-	if apply_below_surface_cap:
-		_cap_exposed_below(cell)
 	return true
-
-# skill-tile-surface Phase 2 — 파괴된 cell 바로 아래 칸이 "정적 사각 solid cookie 지형"이면 surface 캡을 멱등 추가.
-# StageLayoutBuilder._add_solid_visual 2번("위가 비면 surface 오버레이")을 런타임에 재현.
-# 대상 한정(codex Phase2 MEDIUM 1·2 대응):
-#  - 정적 solid cookie 셀만 (_static_bodies). 동적(bridge·sand)은 제외 — sand는 자체 reskin SoT,
-#    bridge 시각은 별도 phase. → _placed 셀은 대상 아님.
-#  - slope/plant는 kind="earth"여도 사각 cookie 캡이 부적합(TERRAIN_TILE_RULES 범위 밖) → _is_solid_cookie_body로 배제.
-#  - 이미 surface 시각(빌드타임 SurfaceSprite 또는 런타임 CookieSurfaceCap)이 있으면 중복 오버레이 회피.
-func _cap_exposed_below(destroyed_cell: Vector2i) -> void:
-	var below: Vector2i = destroyed_cell + Vector2i(0, 1)
-	if get_cell_kind(below) != "earth":
-		return
-	if not (_static_bodies.has(below) and is_instance_valid(_static_bodies[below])):
-		return   # 동적(bridge·sand) 또는 미점유 → 대상 아님
-	var body: Node2D = _static_bodies[below]
-	if not _is_solid_cookie_body(body):
-		return   # slope/plant 등 비-사각 cookie 셀 제외
-	if body.has_node("SurfaceSprite") or body.has_node(COOKIE_SURFACE_CAP_NAME):
-		return   # 이미 surface 시각 존재 → 중복 방지
-	apply_cookie_surface_overlay(body, below)
-
-# 정적 셀 body가 "사각 solid cookie 지형"인지 판별.
-# solid: CollisionShape2D(RectangleShape2D) + BaseSprite. slope: CollisionPolygon2D + SlopeVisual. plant: PlantVisual.
-# → slope/plant는 false. cookie 사각 solid만 true.
-func _is_solid_cookie_body(body: Node2D) -> bool:
-	if body.has_node("SlopeVisual") or body.has_node("PlantVisual"):
-		return false
-	for c in body.get_children():
-		if c is CollisionPolygon2D:
-			return false   # slope 충돌 형상
-	return body.has_node("BaseSprite")
-
-# skill-tile-surface Phase 4 — cell의 BaseSprite를 under-surface 텍스처로 재스킨(멱등, region 동일 규약).
-# basher 2칸 터널의 "바닥 아래" 칸을 surface→under-surface 전환 띠로 보이게(자연스러운 쿠키 단면).
-# 정적 사각 solid cookie 셀만 대상(slope/plant/동적 제외). null 텍스처/비대상이면 no-op.
-# CookieSurfaceCap(별개 오버레이 노드)과 무관 — 여기선 BaseSprite 텍스처 자체를 교체.
-func apply_under_surface_at(cell: Vector2i) -> void:
-	if _cookie_under_tex == null:
-		return
-	if not (_static_bodies.has(cell) and is_instance_valid(_static_bodies[cell])):
-		return   # 동적(bridge·sand) 또는 미점유 → 대상 아님
-	var body: Node2D = _static_bodies[cell]
-	if not _is_solid_cookie_body(body):
-		return   # slope/plant 제외
-	var base: Sprite2D = body.get_node_or_null("BaseSprite") as Sprite2D
-	if base == null:
-		return
-	# 이미 under-surface면 멱등 skip (resource_path 비교).
-	if base.texture != null and String(base.texture.resource_path).ends_with("cookie_tile_under_surface.png"):
-		return
-	_configure_cookie_region(base, _cookie_under_tex, cell, Vector2(cell_size, cell_size))
-
-# skill-tile-surface Phase 4 — "정적 사각 solid cookie 셀만" 제거(머리공간 가드). 동적 타일(bridge/sand,
-# `_placed`)·slope·plant·공기는 보존하고 false. basher 머리공간 제거가 플레이어 구조물/윗길을 안 부수게.
-func destroy_static_cookie_cell(cell: Vector2i) -> bool:
-	if get_cell_kind(cell) != "earth":
-		return false
-	if not (_static_bodies.has(cell) and is_instance_valid(_static_bodies[cell])):
-		return false   # 동적 또는 미점유 → 보존
-	if not _is_solid_cookie_body(_static_bodies[cell]):
-		return false   # slope/plant → 보존
-	return destroy_tile_at(cell, ["earth"])
 
 func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE) -> bool:
 	# D8 first-place wins — 동적/정적 어느 쪽이든 점유면 reject.
@@ -245,71 +164,6 @@ func _sand_tier_texture(tier: String) -> Texture2D:
 	if _sand_background_tex == null:
 		_sand_background_tex = load("res://assets/sprites/terrain/sand_tile_background.png") as Texture2D
 	return _sand_background_tex
-
-# skill-tile-surface Phase 1 — cookie 3-tier 텍스처 등록 (StageLayoutBuilder.build()이 1회 호출).
-# null-safe: 미등록 theme(테스트 등)에서는 cap 헬퍼가 no-op로 안전 fall-through.
-func register_cookie_tier_textures(surface: Texture2D, under: Texture2D, background: Texture2D) -> void:
-	_cookie_surface_tex = surface
-	_cookie_under_tex = under
-	_cookie_background_tex = background
-
-func get_cookie_surface_texture() -> Texture2D:
-	return _cookie_surface_tex
-
-func get_cookie_under_texture() -> Texture2D:
-	return _cookie_under_tex
-
-func get_cookie_background_texture() -> Texture2D:
-	return _cookie_background_tex
-
-# skill-tile-surface Phase 1 — body 윗면에 cookie surface 오버레이를 멱등 추가.
-# StageLayoutBuilder._add_solid_visual 2번(노출 천장 → surface 오버레이)과 동일 시각 규약을 런타임에 재현.
-# geometry 일반화: region_size/local_offset/z_index로 셀 크기 캡(digger/solid)과 narrow 캡(bridge) 둘 다 표현.
-#  - region_size: 캡이 덮을 로컬 크기. 기본 cell_size 정사각.
-#  - local_offset: body 로컬 기준 sprite 위치(기본 중앙 0). bridge는 얇은 윗면으로 올리는 데 사용.
-#  - z_index: 베이스 위로 올리기(기본 1).
-# 멱등: 같은 body에 COOKIE_SURFACE_CAP_NAME 자식이 이미 있으면 1장 유지(재생성 안 함).
-# null 텍스처(미등록 theme)면 no-op → 회귀 안전.
-func apply_cookie_surface_overlay(
-	body: Node2D,
-	cell: Vector2i,
-	region_size: Vector2 = Vector2.ZERO,
-	local_offset: Vector2 = Vector2.ZERO,
-	z_index_value: int = 1
-) -> Sprite2D:
-	if body == null or not is_instance_valid(body):
-		return null
-	if _cookie_surface_tex == null:
-		return null
-	if body.has_node(COOKIE_SURFACE_CAP_NAME):
-		return body.get_node(COOKIE_SURFACE_CAP_NAME) as Sprite2D
-	var size: Vector2 = region_size
-	if size == Vector2.ZERO:
-		size = Vector2(cell_size, cell_size)
-	var sprite: Sprite2D = Sprite2D.new()
-	sprite.name = COOKIE_SURFACE_CAP_NAME
-	_configure_cookie_region(sprite, _cookie_surface_tex, cell, size)
-	sprite.position = local_offset
-	sprite.z_index = z_index_value
-	body.add_child(sprite)
-	return sprite
-
-# StageLayoutBuilder._configure_repeating_region의 cookie 가로 아틀라스 샘플링을 Terrain 내부에 복제
-# (Terrain ↔ StageLayoutBuilder 의존 없이 동일 시각 규약 보장). cell.x로 7-variant 가로 선택 + 세로 중앙.
-func _configure_cookie_region(sprite: Sprite2D, texture: Texture2D, cell: Vector2i, region_size: Vector2) -> void:
-	var tex_size: Vector2 = texture.get_size()
-	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
-		return
-	var source_size: Vector2 = Vector2(minf(region_size.x, tex_size.x), minf(region_size.y, tex_size.y))
-	var source_x: float = 0.0
-	if tex_size.x > source_size.x:
-		var columns: int = maxi(1, int(floor(tex_size.x / source_size.x)))
-		source_x = float(posmod(cell.x, columns)) * source_size.x
-	var source_y: float = maxf(0.0, (tex_size.y - source_size.y) * 0.5)
-	sprite.texture = texture
-	sprite.region_enabled = true
-	sprite.region_rect = Rect2(Vector2(source_x, source_y), source_size)
-	sprite.scale = Vector2(region_size.x / source_size.x, region_size.y / source_size.y)
 
 func has_tile(cell: Vector2i) -> bool:
 	return _placed.has(cell)

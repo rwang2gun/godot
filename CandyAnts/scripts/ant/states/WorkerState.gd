@@ -405,17 +405,10 @@ func _destroy_basher_cell(a: Ant) -> void:
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
 	var target: Vector2i = body_cell + Vector2i(a.direction, 0)
-	# skill-tile-surface Phase 3 — basher도 surface 캡 opt-in. 뚫린 칸 아래(터널 바닥)가 새 walkable
-	# 윗면이 되면 cookie surface로 보이게 (Stage 3 실제 굴착 스킬 = basher). 측벽은 여전히 제외.
-	var ok: bool = terrain.destroy_tile_at(target, ["earth"], true)
+	var ok: bool = terrain.destroy_tile_at(target, ["earth"])
 	if not ok:
 		_aborted = true
 		return
-	# skill-tile-surface Phase 4 — 2칸 높이 터널(머리공간) + 바닥 2-tier (+Y 아래).
-	#  - above(target+(0,-1)): 머리 위. 정적 쿠키 벽만 제거(동적 다리/모래·윗길·공기는 보존). 결과 무시.
-	#  - under(target+(0,2)): 바닥(target+(0,1), 위에서 surface 캡됨) 아래 → under-surface 재스킨.
-	terrain.destroy_static_cookie_cell(target + Vector2i(0, -1))
-	terrain.apply_under_surface_at(target + Vector2i(0, 2))
 	# 1 cell 전진. Vector2 더하기로 Builder/Bridge/Sand-mound 스타일 통일.
 	a.global_position += Vector2(float(a.direction) * cs, 0.0)
 	_remaining -= 1
@@ -432,9 +425,7 @@ func _destroy_digger_cell(a: Ant) -> void:
 	)
 	# floor row (ant 바로 아래).
 	var target: Vector2i = body_cell + Vector2i(0, 1)
-	# skill-tile-surface Phase 2 — digger surface 캡 opt-in. 파낸 칸 아래가 새 윗면이 되면 surface로 보이게.
-	# (basher도 Phase 3에서 동일 opt-in 사용. cutter는 기본 false 유지 → 캡 미적용.)
-	var ok: bool = terrain.destroy_tile_at(target, ["earth"], true)
+	var ok: bool = terrain.destroy_tile_at(target, ["earth"])
 	if not ok:
 		_aborted = true
 		return

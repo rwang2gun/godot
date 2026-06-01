@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "task": "terrain-tier-restructure",
+  "active_revision": "phases/terrain-tier-restructure/REVISION_2026-06-01-terrain-tier-restructure.md",
+  "notes": [
+    "status.json is runtime state only.",
+    "local phase files are discovered dynamically from phases/<task>/phase*.md.",
+    "Ground terrain tier restructure: remove the `surface` tier so under-surface becomes the topmost look. Reverts skill-tile-surface (Phase 1~4) excavation surface caps (basher returns to 1-cell tunnel = Phase 18 behavior).",
+    "Out of scope (deferred to a later track): background-fill removal / solid-depth conversion, post-excavation dynamic re-tiering, vertical cross-section tiers, sand-mound (§11) surface tier."
+  ]
+}

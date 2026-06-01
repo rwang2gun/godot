@@ -1,0 +1,29 @@
+{
+  "task": "terrain-tier-restructure",
+  "started_at": "2026-06-01T22:07:42",
+  "completed_at": null,
+  "phases": [
+    {
+      "id": 1,
+      "file": "phase01-revert-excavation-surface-caps.md",
+      "name": "revert-excavation-surface-caps",
+      "duration_estimate": 5400,
+      "verify": "python scripts/run_test.py tests/BasherTunnelThroughWallTest.tscn && python scripts/run_test.py tests/BasherEdgeStopTest.tscn && python scripts/run_test.py tests/DiggerVerticalTunnelTest.tscn && python scripts/run_test.py tests/TerrainDestroyTileApiTest.tscn && python scripts/run_test.py tests/Stage03HeadlessTest.tscn",
+      "state": "completed",
+      "started_at": "2026-06-01T22:07:42",
+      "completed_at": "2026-06-01T22:18:09",
+      "duration_seconds": 627
+    },
+    {
+      "id": 2,
+      "file": "phase02-remove-surface-tier.md",
+      "name": "remove-surface-tier",
+      "duration_estimate": 7200,
+      "verify": "python scripts/run_test.py tests/test_StageLayoutBuilder.tscn && python scripts/run_test.py tests/StageLayoutBuilderEarthBackwardCompatTest.tscn && python scripts/run_test.py tests/Stage02HeadlessTest.tscn && python scripts/run_test.py tests/Stage03HeadlessTest.tscn",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    }
+  ]
+}
