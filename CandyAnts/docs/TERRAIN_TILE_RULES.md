@@ -17,8 +17,14 @@ CandyAnts ground terrain의 **painterly cookie 2-tier 시각 시스템** SoT(Sou
 > 렌더는 아틀라스 가로 슬라이스(`region_enabled=true`, cell.x 오프셋)에서 **whole-tile**(`region_enabled=false`,
 > `scale=cell_size/tex`, 중앙)로, variant 선택은 `posmod(cell.x, columns)` 선형식에서 **비선형 bit-mixing
 > 해시 `_variant_index(cell, n)`**로 바뀌었다(대각/줄 밴딩 방지·결정적). exposure 2-tier 술어(§3)는 불변.
-> 구 아틀라스 PNG는 ground에서 미사용이나 `cookie_tile_background`는 `CookiePlatformVisual`이, `cookie_tile_surface`는
-> 슬로프가 계속 사용하므로 **삭제하지 않는다**.
+> 구 아틀라스 중 `cookie_tile_under_surface`(+`_flip`/`_painted`)는 어디에서도 안 써서 제거했고(아래 2026-06-02 정리),
+> `cookie_tile_background`는 `CookiePlatformVisual`이, `cookie_tile_surface`는 슬로프가 계속 사용하므로 **삭제하지 않는다**.
+>
+> **개정 이력 — 미사용 에셋 일괄 제거 (2026-06-02)**
+> 런타임 참조 0인 legacy PNG/폰트/아이콘을 제거했다: `sand_tile_*`, `cookie_tile_under_surface*`, `cookie_tile_*_painted*` 백업,
+> `*_flip` 중복(`cookie_stair_tile_flip`·`thin_cookie_floor_segment_flip`), `terrain/concepts/*` 컨셉아트, 구 `icons/skills/*.svg`,
+> 미연결 스폰/홈/trait/캐릭터 변형, `Gaegu-Bold.ttf` 등. 사용 중인 타일·아이콘·`Jua-Regular.ttf`는 유지.
+> (구 `_painted` 백업 동기화 안티룰 §10·§4 등은 백업 제거로 무의미해졌다 — 향후 발주 시 재도입하면 그때 갱신.)
 
 ## 0. 스코프
 
@@ -234,7 +240,7 @@ CandyAnts ground terrain의 **painterly cookie 2-tier 시각 시스템** SoT(Sou
 | top | `usable_square/biscuit_ladder_top_square.png` | **위 지형 면**(닿는 레지 surface) 텍스처 교체 |
 
 - 각 파일은 **단일 정사각형 1칸**(아틀라스 아님). 규격 **48 × 48**, cell_size 기준 whole-tile scale.
-- 위치: `assets/sprites/terrain/usable_square/`. 코드가 이 경로를 `load`. (구) `sand_tile_*.png`는 미사용 보존만.
+- 위치: `assets/sprites/terrain/usable_square/`. 코드가 이 경로를 `load`. (구 `sand_tile_*.png`는 미사용으로 2026-06-02 제거됨.)
 
 ### 11.3 렌더 동작 (코드 자동)
 
