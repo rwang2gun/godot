@@ -22,8 +22,8 @@
 - **보류 스킬**: `blocker`·`distributor` — 학습 스테이지 삭제로 미배치. 스테이지 추가 작업 시 재배치.
 - **무스킬 0번 온보딩**: S1이 바로 climber 요구 → 맨 앞 무스킬 스테이지 삽입 여부 추후 검토.
 
-## 3. 이번 세션 완료 — builder 대각선화
-**변경(미커밋, branch=main, base=d6a7704):**
+## 3. 완료 — builder 대각선화 (커밋 e0f9f02)
+**변경:**
 - `scripts/ant/states/WorkerState.gd` — `_place_one_tile`: 평지 → 대각 상승(`target=body+(dir,0)`, 이동 `+=(dir·cs, −cs)`, `dest_body=body+(dir,-1)` 점유 시 중단).
 - `scripts/world/PlacementPreview.gd` — builder/bridge 분리, builder 대각 미리보기 + `_first_target_cell` 분기.
 - 신규: `tests/BuilderDiagonalTest.{gd,tscn}`, `dev_stages/builder_diagonal/{BuilderDiagonalStage.tscn, builder_diagonal_test.tres, dev_builder_diagonal_layout.tres}`.
@@ -40,9 +40,6 @@
 - **검증(run_test.py, 전부 PASS)**: CampaignS1ClearTest(saved5/5) · NoClimberTest(time_out) · CarryFallStateTest(분지 carry+fall) · HudInitialCandyHp(=5) · test_StageLayoutBuilder · GameFlowTest · SceneFlow 2종 · PadRestart · Cursor · Esc 2종 · PauseMenu.
 - **기하(cell_size=48)**: 좌 lip(row10 col0~6) → 분지(row10 col7~10 빈칸, 바닥 row11) → 우 lip(row10 col11~23). home=(2,9), candy=(18,9). 분지 진입=1칸 낙하(안전), 탈출=1칸 벽 등반(climber 필수). 양방향이라 왕복도 같은 climber로 자기완결.
 - **파라미터**: total_ants=8 / candy_hp=5 / 90s / available=climber+blocker / inventory=climber×8 + blocker×1 / star=[1.0, 0.8, 0.6] / release_rate=30. (2026-06-02 조정: climber 6→8=마리수, blocker×1 추가. blocker는 빈손 개미 가장자리 이탈 방지용 *도구* — 클리어는 조각 기반 `hp0+in_transit0` 유지, 손실-강제 규칙은 미도입(사용자 "도구만 제공" 결정).)
-- **검증(`run_test.py`, 둘 다 PASS)**:
-  - `tests/CampaignS1ClearTest.tscn` → climber 6 부여 시 사탕 5개 전부 회수·귀가 → `stage_cleared saved=5/5`(frame 1633≈27s). 여유 1마리(6 부여 중 5 왕복).
-  - `tests/CampaignS1NoClimberTest.tscn`(음성 대조) → 무스킬이면 picks=0인 채 `time_out`(frame 5400=90s) → 분지가 walker를 막고 climber가 *필수*임 입증.
 - **⚠ 옛 stage01 "오르막" 내용은 덮어써짐** — git 이력(`6771bb2` 직전 stage01.tres/layout)에서 복구 가능. rev2 §2의 **S2 "오르막"**(사탕 1칸↑ climber + 5칸 낙하 floater)은 옛 stage01을 출발점으로 재저작 권장.
 - **남은 통합 작업**: S2~S9를 같은 방식(stage02~09 슬롯 덮어쓰기/확장)으로. menu_layout는 이미 10슬롯(1~3 available, 4~10 "준비 중") + "/30" denominator 확보. SceneFlow.LAST_STAGE_ID(현 3)는 슬롯 확장 시 갱신.
 
@@ -70,9 +67,9 @@
 - [ ] **D3. FloaterTraitTest 기존 실패 조사**: dev_stages/trait 스테이지에서 floater-only 개미가 낙하 미도달 → deadline. 기절 변경 무관(FallerState revert해도 실패 확인). 별도 조사 필요.
 
 ## 5. 다음 세션 즉시 행동 (제안)
-1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴).
-2. **A1(운반자 통일)** 착수 — builder/bridge `can_apply`를 Walker/Carrying 허용으로. S3(bridge)·S4(builder) 저작 전 필요.
-3. **S2 "오르막" 저작** — 옛 stage01(git `6771bb2` 직전)을 출발점으로 stage02 슬롯에 (climber + 5칸 낙하 floater 학습). 통합 절차는 §3b S1 사례 답습(슬롯 덮어쓰기 + 테스트 repoint + 회귀).
+1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인(**HEAD = `227d146`**, 워킹트리 clean).
+2. **S2 "오르막" 저작** (다음 슬라이스 — A1 불필요, climber+floater만): 옛 stage01(git `227d146` 직전 = `6771bb2`의 stage01.tres/stage01_layout.tres)을 출발점으로 **stage02 슬롯**에 이식. 사탕 1칸↑ climber 등반 + **5칸 낙하→floater** 학습 → **이번 세션 기절(Stun) 메커니즘 연동 시연**. 절차는 §3b S1 사례 + §6 마이그레이션 패턴 답습. 같은 작업에서 `Stage02HeadlessTest`(D2 stale red)도 새 좌표로 정리.
+3. **A1(운반자 통일)** — S3(bridge)·S4(builder) 저작 *전* 필요(S2엔 불필요). builder/bridge `can_apply`를 Walker/Carrying 허용으로.
 
 ## 6. Gotchas (다음 세션 주의)
 - **검증은 `python scripts/run_test.py tests/Xxx.tscn`**(풀 프로젝트, autoload 활성). `godot --check-only --script`는 **autoload(EventBus) 부재로 의존 스크립트가 줄줄이 거짓 실패** → 단독 컴파일 체크 용도로 쓰지 말 것.
@@ -80,4 +77,4 @@
 - **stage02 통합테스트 red는 기존 stale** — builder 변경이 깬 게 아님.
 - `docs/LEVEL_DESIGN_PLAN.html`은 **gitignore(*.html)** — 커밋해도 안 올라감. 로컬 보존.
 - **stage 슬롯 마이그레이션 패턴**(S2~S9 답습): ① `stageNN_layout.tres` 내용 이식(헤더 uid 유지) ② `stageNN.tres` 파라미터 ③ `StageNN.tscn` 엔티티 좌표(Home/Candy/Camera/Spawner)+hp+total ④ 지오메트리 하드코딩 테스트(GameFlowTest climber 좌표 등) 갱신 ⑤ 회귀(Hud/LayoutBuilder/GameFlow/SceneFlow). 경로 락이라 **파일명 유지·내용만 교체**.
-- 세션 2 종료 시점: 6 분리 커밋 + S1 통합은 **미커밋**(다음 커밋 대상). 워킹트리에 stage01 슬롯 변경 + 테스트 repoint + docs.
+- **세션 2 종료 시점: 7 커밋 완료 (`e0f9f02`~`227d146`), 워킹트리 clean**. HEAD=`227d146`(S1 통합). 미push(로컬). 다음 세션은 여기서 직진.
