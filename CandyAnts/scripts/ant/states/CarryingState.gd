@@ -24,6 +24,10 @@ func update(delta: float) -> void:
 
 	a.move_and_slide()
 
+	# 무장한 다리 스킬 — 운반 중에도 낭떠러지 도달 시 자동 건설(완료 후 return_to_walking이 carry 복원).
+	if a.try_build_armed_bridge():
+		return
+
 	if a.is_on_wall():
 		# Phase 14 — climber 보유 시 carrying 중에도 벽 등반. has_candy=true 보존.
 		if a.has_trait(&"climber"):

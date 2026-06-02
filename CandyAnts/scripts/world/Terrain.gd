@@ -150,13 +150,15 @@ func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String, visu
 		sprite.position = Vector2.ZERO
 		sprite.scale = Vector2(stair_scale, stair_scale)
 		return
+	# 다리 타일 (2026-06-02) — biscuit_bridge "middle_horizontal" 48×48 whole-tile.
+	# 사다리/basher/rung과 동일한 _apply_tex_to_sprite(region 없이 셀 중앙 + cell_size 비례 scale) 후
+	# 위로 cell_size/4 올려 비스킷 윗면을 셀 상단(=지표면 보행선)에 맞춘다 — 양옆 지면과 단차 없이 이어 보이게.
+	# (지면 cookie_solid는 불투명 0행=셀 상단까지 채움, 비스킷은 불투명 12행 시작 → 중앙 배치 시
+	#  12*(cell_size/48)=cell_size/4 만큼 아래로 처져 보이므로 그만큼 보정. 콜리전·빌드 행은 불변.)
 	if _bridge_tile_texture == null:
-		_bridge_tile_texture = load("res://assets/sprites/terrain/thin_cookie_bridge_tile.png") as Texture2D
-	sprite.texture = _bridge_tile_texture
-	# v5: 16px native sprite → cell_size에 비례 scale. cs=16이면 scale_factor=1.0 (회귀 0건).
-	var scale_factor: float = float(cell_size) / 16.0
-	sprite.position = Vector2(0, -13.0 * scale_factor)
-	sprite.scale = Vector2(scale_factor, scale_factor)
+		_bridge_tile_texture = load("res://assets/sprites/terrain/biscuit_bridge_middle_horizontal_concept_01.png") as Texture2D
+	_apply_tex_to_sprite(sprite, _bridge_tile_texture)
+	sprite.position.y = -float(cell_size) / 4.0
 
 # biscuit-ladder 지형 통합 (2026-06-02): 셀의 시각 sprite 텍스처만 biscuit_ladder tier로 교체한다.
 # 충돌/점유/cell_kind 불변 — 사다리가 아래/위 기존 **일반 정적 지형 면**(earth surface)을 root/top으로 통합할 때 호출.

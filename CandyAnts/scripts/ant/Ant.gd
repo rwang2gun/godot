@@ -39,6 +39,11 @@ var has_been_carrying: bool = false
 # state(CarryingState)와 무관하게 사탕 보유 여부를 추적. CarryingState.enter()에서 true,
 # Home에 운반 성공 시 false. Faller/Walker 전이로도 잃지 않음 — Codex review HIGH 대응.
 var has_candy: bool = false
+# 다리 무장(armed bridge, 2026-06-02) — BridgeSkill.apply가 낭떠러지가 아닌 곳에서 부여되면 즉시
+# 건설하지 않고 이 플래그만 세운다(인벤토리는 부여 시점 차감 = 소비). Walker/Carrying.update가 매
+# frame try_build_armed_bridge()로 검사 → 개미가 낭떠러지(전방 바닥 없음)에 도달하면 그 자리
+# (지표면 높이)에서 자동으로 WorkerState("bridge") 진입. 이미 낭떠러지에서 부여하면 apply가 즉시 건설.
+var bridge_armed: bool = false
 var state_machine: AntStateMachine = null
 var _grace_until: float = 0.0
 var _blocker_hitbox: Area2D = null
@@ -71,6 +76,8 @@ var _climber_badge: Sprite2D = null
 var _floater_badge: Sprite2D = null
 # blocker 적용 시 꼬리 배지 최상위(y=-44)에 차단 아이콘 표시. WorkerState("blocker") 기반 토글.
 var _blocker_badge: Sprite2D = null
+# 다리 무장 시 꼬리 배지(y=0)에 다리 아이콘 표시. bridge_armed 기반 토글(climber/floater와 동일 패턴).
+var _bridge_badge: Sprite2D = null
 # Phase 15 — 정착 시각 표식. visible toggle은 _update_trait_badges()에서 state 기반.
 var _settle_badge: Sprite2D = null
 
@@ -103,6 +110,7 @@ func _ready() -> void:
 		_climber_badge = _tail_badges.get_node_or_null("ClimberBadge") as Sprite2D
 		_floater_badge = _tail_badges.get_node_or_null("FloaterBadge") as Sprite2D
 		_blocker_badge = _tail_badges.get_node_or_null("BlockerBadge") as Sprite2D
+		_bridge_badge = _tail_badges.get_node_or_null("BridgeBadge") as Sprite2D
 	if _trait_badges != null:
 		_settle_badge = _trait_badges.get_node_or_null("SettleBadge") as Sprite2D
 		_sticky_badge = _trait_badges.get_node_or_null("StickyBadge") as Sprite2D
@@ -290,6 +298,10 @@ func _update_trait_badges() -> void:
 	# blocker 시각 표식 — WorkerState("blocker")일 때 꼬리 배지 최상위(y=-44)에 차단 아이콘.
 	if _blocker_badge != null:
 		_blocker_badge.visible = _is_blocker_state()
+	# 다리 무장 표식 — bridge_armed인 동안(부여 후 낭떠러지 도달 전까지) 꼬리에 다리 아이콘.
+	# 낭떠러지 도달해 건설 진입 시 bridge_armed=false → 배지 사라지고 build 애니로 전환.
+	if _bridge_badge != null:
+		_bridge_badge.visible = bridge_armed
 	# Phase 15 — SettledState 진입 시 표식. state 기반(분배자 trait 보유여도 정착 전엔 표식 X).
 	if _settle_badge != null:
 		_settle_badge.visible = state_machine != null and state_machine.current_state is SettledState
@@ -317,6 +329,47 @@ func return_to_walking() -> void:
 		state_machine.change_state(CarryingState.new())
 	else:
 		state_machine.change_state(WalkerState.new())
+
+# 다리 무장 자동 건설 — Walker/Carrying.update가 매 frame 호출. 무장 상태 + 낭떠러지 도달 시
+# 무장 해제 후 WorkerState("bridge") 진입(지표면 높이 그대로). 전이했으면 true(호출부는 즉시 return).
+func try_build_armed_bridge() -> bool:
+	if not bridge_armed:
+		return false
+	if state_machine == null or not bridge_cliff_ahead():
+		return false
+	bridge_armed = false
+	state_machine.change_state(WorkerState.new("bridge"))
+	return true
+
+# 발판 위 + 진행 방향 전방이 낭떠러지인지 — 전방 셀이 벽이 아니고(벽이면 flip/climb/step-up이 처리)
+# 전방 아래 셀에 바닥이 없을 때(=한 칸 더 가면 추락). BridgeSkill.apply의 "즉시 건설" 분기와 공용.
+# add_tile은 target=발밑 전방 셀(body_cell+(dir,+1))에 놓으므로, 이 셀이 비어야(낭떠러지) 건설 가능.
+func bridge_cliff_ahead() -> bool:
+	if state_machine == null or direction == 0 or not is_on_floor():
+		return false
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return false
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(global_position.x / cs)),
+		int(floor((global_position.y - 2.0) / cs))
+	)
+	var forward: Vector2i = body_cell + Vector2i(direction, 0)
+	var forward_down: Vector2i = body_cell + Vector2i(direction, 1)
+	return not terrain.is_cell_occupied(forward) and not terrain.is_cell_occupied(forward_down)
+
+func _find_terrain() -> Terrain:
+	# WalkerState/WorkerState._find_terrain와 동일 — ancestor chain에서 Terrain 노드 탐색.
+	var n: Node = get_parent()
+	while n != null:
+		var t: Terrain = n.get_node_or_null("Terrain") as Terrain
+		if t != null:
+			return t
+		if n is Terrain:
+			return n as Terrain
+		n = n.get_parent()
+	return null
 
 func is_alive() -> bool:
 	# Phase 7 — CursorTargeting alive 필터. SavedState/DeadState 제외, 그 외(Walker/Faller/Carrying/Worker)는 alive.

@@ -1,7 +1,10 @@
 extends Node
 
 # Phase 16 v2 — D8 first-place wins (dynamic↔static) 검증.
-# Bridge가 인접 static cell 위에 placement 시도 → add_tile false → _aborted=true → WalkerState 즉시 복귀.
+# 다리 규칙 개편(2026-06-02): 전방 셀이 static으로 막힌 평지에서 부여하면 낭떠러지가 아니므로
+#   BridgeSkill.apply가 즉시 건설하지 않고 *무장*(bridge_armed=true)만 한 채 보행 유지(WalkerState).
+#   → 정적 cell 위에 동적 tile이 놓이지 않는다(tile_count 0). (in-build D8 reject는 add_tile이 여전히
+#   enforce — 갭 횡단 중 점유 셀을 만나면 false. SandBridgeOverlap 등이 그 경로를 커버.)
 # PASS: 25초 내 (1) tile_count == 0 (정적 cell 위 동적 tile 0건) (2) ant.state_machine.current_state is WalkerState (3) ScoreSystem invariant
 
 const DEADLINE_FRAMES: int = 1500

@@ -21,6 +21,10 @@ func update(delta: float) -> void:
 	a.move_and_slide()
 	_frame += 1
 
+	# 무장한 다리 스킬 — 낭떠러지 도달 시 그 자리(지표면 높이)에서 자동 건설. 전이 시 즉시 return.
+	if a.try_build_armed_bridge():
+		return
+
 	if a.is_on_wall():
 		# Phase 14 — climber 보유 시 벽에서 ClimberState로 전이, 아니면 기존대로 flip.
 		if a.has_trait(&"climber"):
