@@ -31,6 +31,7 @@
 5. `blocker`: 2 frames, planted stance, arms out or firm mitten pose. Draft sheet complete.
 6. `saved`: 2-4 frames, happy hop or relieved smile.
 7. `dead`: 1 frame, softened non-graphic fail pose.
+8. `stun`: 4 frames, sitting on the ground, dizzy expression with spinning stars above head. Complete.
 
 ## Godot Prep
 

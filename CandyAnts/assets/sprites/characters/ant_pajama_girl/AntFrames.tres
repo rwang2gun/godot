@@ -1,4 +1,4 @@
-[gd_resource type="SpriteFrames" load_steps=40 format=3]
+[gd_resource type="SpriteFrames" load_steps=44 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/idle/idle_00.png" id="1"]
 [ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/idle/idle_01.png" id="2"]
@@ -39,6 +39,10 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_03.png" id="37"]
 [ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_04.png" id="38"]
 [ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/victory/victory_05.png" id="39"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/stun/stun_00.png" id="40"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/stun/stun_01.png" id="41"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/stun/stun_02.png" id="42"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/ant_pajama_girl/stun/stun_03.png" id="43"]
 
 [resource]
 animations = [{
@@ -86,4 +90,10 @@ animations = [{
 "loop": false,
 "name": &"victory",
 "speed": 8.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("40")}, {"duration": 1.0, "texture": ExtResource("41")}, {"duration": 1.0, "texture": ExtResource("42")}, {"duration": 1.0, "texture": ExtResource("43")}],
+"loop": true,
+"name": &"stun",
+"speed": 6.0
 }]
+

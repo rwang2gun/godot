@@ -24,6 +24,12 @@ var _kill_y: float = INF       # 바닥 경계 — 이 아래로 떨어지면 lo
 var _kill_x_min: float = -INF  # 좌 경계 — 이 왼쪽으로 나가면 lost
 var _kill_x_max: float = INF   # 우 경계 — 이 오른쪽으로 나가면 lost
 
+# 기절(stun) — 5칸 이상 자유낙하 + floater 미보유 시 FallerState가 DeadState(기절)로 전이.
+# 임계 = STUN_FALL_CELLS * _cell_size. _cell_size는 _resolve_mantle_distance가 layout에서 갱신,
+# 미발견 시 48(메인 스테이지 표준 cell_size). floater는 높이 무관 기절 무효(레밍즈 정통).
+const STUN_FALL_CELLS: int = 5
+var _cell_size: float = 48.0
+
 var direction: int = 1
 # AntSpawner._spawn_one이 add_child 전에 direction을 세팅하므로 _ready 시점의 direction이
 # per-ant 최초 스폰 방향(spawn_direction_alternate 분기 결과 포함). Home._on_respawn_timeout에서
@@ -63,6 +69,8 @@ const TAIL_BADGE_X: float = 26.0
 var _tail_badges: Node2D = null
 var _climber_badge: Sprite2D = null
 var _floater_badge: Sprite2D = null
+# blocker 적용 시 꼬리 배지 최상위(y=-44)에 차단 아이콘 표시. WorkerState("blocker") 기반 토글.
+var _blocker_badge: Sprite2D = null
 # Phase 15 — 정착 시각 표식. visible toggle은 _update_trait_badges()에서 state 기반.
 var _settle_badge: Sprite2D = null
 
@@ -94,6 +102,7 @@ func _ready() -> void:
 	if _tail_badges != null:
 		_climber_badge = _tail_badges.get_node_or_null("ClimberBadge") as Sprite2D
 		_floater_badge = _tail_badges.get_node_or_null("FloaterBadge") as Sprite2D
+		_blocker_badge = _tail_badges.get_node_or_null("BlockerBadge") as Sprite2D
 	if _trait_badges != null:
 		_settle_badge = _trait_badges.get_node_or_null("SettleBadge") as Sprite2D
 		_sticky_badge = _trait_badges.get_node_or_null("StickyBadge") as Sprite2D
@@ -129,6 +138,8 @@ func _resolve_mantle_distance() -> void:
 		node = node.get_parent()
 
 func _resolve_kill_bounds(layout: Resource, cs: int) -> void:
+	# 기절 임계(stun_fall_threshold) 산출용 cell_size 캐시 — mantle/kill 경계와 동일 layout 스캔에서 함께 산출.
+	_cell_size = float(cs)
 	# 플레이 영역 경계 = layout.tile_map의 셀 범위. 그 밖으로 KILL_MARGIN_CELLS 칸 이상
 	# (아래·좌·우) 벗어나면 out-of-bounds. tile_map 비었거나 키 파싱 불가 시 경계 ±INF(비활성).
 	# 키는 "x,y" 문자열 (StageLayoutBuilder._cell_from_key 컨벤션 동일). 위쪽은 등반/floater가
@@ -234,7 +245,9 @@ func _update_sprite() -> void:
 		_sprite_paused_for_sticky = false
 	var s: AntState = state_machine.current_state
 	var anim: String = "idle"
-	if s is CarryingState:
+	if s is DeadState:
+		anim = "stun"   # 기절 — 5칸+ 낙하(non-floater). DeadState가 기절 스프라이트 재생 후 ~1초 뒤 queue_free.
+	elif s is CarryingState:
 		anim = "carry"
 	elif s is FallerState:
 		anim = "fall"
@@ -255,6 +268,10 @@ func _update_sprite() -> void:
 		if anim == "climb" and _sprite.sprite_frames != null and not _sprite.sprite_frames.has_animation("climb"):
 			_sprite.play("walk")
 			_last_anim = "walk"
+		elif anim == "stun" and _sprite.sprite_frames != null and not _sprite.sprite_frames.has_animation("stun"):
+			# 기절 애니메이션이 없는 sprite는 안전 fallback "idle".
+			_sprite.play("idle")
+			_last_anim = "idle"
 		else:
 			_sprite.play(anim)
 			_last_anim = anim
@@ -270,12 +287,22 @@ func _update_trait_badges() -> void:
 		_climber_badge.visible = has_trait(&"climber")
 	if _floater_badge != null:
 		_floater_badge.visible = has_trait(&"floater")
+	# blocker 시각 표식 — WorkerState("blocker")일 때 꼬리 배지 최상위(y=-44)에 차단 아이콘.
+	if _blocker_badge != null:
+		_blocker_badge.visible = _is_blocker_state()
 	# Phase 15 — SettledState 진입 시 표식. state 기반(분배자 trait 보유여도 정착 전엔 표식 X).
 	if _settle_badge != null:
 		_settle_badge.visible = state_machine != null and state_machine.current_state is SettledState
 	# Phase 17 — sticky stuck 표식. _sticky_remaining timer 기반 (state 무관 — Walker/Carrying 모두 stuck 가능).
 	if _sticky_badge != null:
 		_sticky_badge.visible = is_stuck()
+
+func _is_blocker_state() -> bool:
+	# WorkerState의 work_type이 "blocker"일 때만 true. _update_sprite의 _work_type 접근 패턴 답습.
+	if state_machine == null:
+		return false
+	var s: AntState = state_machine.current_state
+	return s is WorkerState and (s as WorkerState)._work_type == "blocker"
 
 func is_carrying() -> bool:
 	return state_machine != null and state_machine.current_state is CarryingState
@@ -306,6 +333,10 @@ func is_alive() -> bool:
 func effective_speed() -> float:
 	# 사탕 보유 = 0.78배. state가 Faller/Walker로 잠시 빠져도 속도 페널티 유지.
 	return walk_speed * (carrying_speed_multiplier if has_candy else 1.0)
+
+func stun_fall_threshold() -> float:
+	# 기절 임계 낙하 거리(px). FallerState 착지 시 (착지y − 시작y) >= 이 값 + floater 미보유 → DeadState(기절).
+	return float(STUN_FALL_CELLS) * _cell_size
 
 func flip() -> void:
 	direction = -direction

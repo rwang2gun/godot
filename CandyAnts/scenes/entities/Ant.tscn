@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/ant/Ant.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/ant/AntStateMachine.gd" id="2"]
@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" path="res://assets/icons/skills/distributor.png" id="6_settle_badge"]
 [ext_resource type="Texture2D" path="res://assets/icons/skills/blocker.png" id="7_sticky_badge"]
 [ext_resource type="Texture2D" path="res://assets/icons/sticky_timer_bar.svg" id="8_sticky_timer_bar"]
+[ext_resource type="Texture2D" path="res://assets/icons/skills/blocker.png" id="9_blocker_badge"]
 
 [sub_resource type="RectangleShape2D" id="shape"]
 size = Vector2(18, 15)
@@ -82,4 +83,11 @@ visible = false
 position = Vector2(0, -22)
 scale = Vector2(0.22, 0.22)
 texture = ExtResource("5_floater_badge")
+visible = false
+
+[node name="BlockerBadge" type="Sprite2D" parent="TailBadges"]
+position = Vector2(0, -44)
+scale = Vector2(0.22, 0.22)
+texture = ExtResource("9_blocker_badge")
+z_index = 3
 visible = false
