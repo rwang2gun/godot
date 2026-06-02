@@ -43,28 +43,28 @@ toolbar_path = NodePath("../../SkillToolbar")
 terrain_path = NodePath("../Terrain")
 
 [node name="Home" type="Area2D" parent="World" unique_id=417351329 instance=ExtResource("3")]
-position = Vector2(168, 864)
+position = Vector2(120, 480)
 collision_layer = 32
 collision_mask = 4
 script = ExtResource("6_hwgo4")
 
 [node name="Candy" type="Area2D" parent="World" unique_id=626248616 instance=ExtResource("4")]
-position = Vector2(1224, 864)
+position = Vector2(888, 480)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("8_s25jr")
-hp = 4
+hp = 5
 
 [node name="Camera2D" type="Camera2D" parent="World" unique_id=1743745614]
-position = Vector2(744, 936)
+position = Vector2(576, 300)
 
 [node name="StageBackground" type="CanvasLayer" parent="." unique_id=1775082482 instance=ExtResource("8")]
 layer = -100
 
 [node name="Spawner" type="Node" parent="." unique_id=612305499]
 script = ExtResource("2")
-spawn_position = Vector2(168, 856.5)
-total = 6
+spawn_position = Vector2(120, 472.5)
+total = 8
 release_rate = 30
 spawn_direction = 1
 

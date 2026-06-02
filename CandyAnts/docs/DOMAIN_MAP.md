@@ -87,9 +87,8 @@
 | `settle_race` | SettleRaceTest.tscn | settlement |
 | `settle_stuck` | SettleStuckTest.tscn | settlement |
 | `trait` | TraitTest.tscn | trait adaptation |
-| `campaign_s1_first_outing` | CampaignS1Stage.tscn | **캠페인 초안(rev2 S1 "첫 마실")** · climber 1칸 분지 |
 
-> `campaign_s1_first_outing`은 메커니즘 dev-test가 아니라 **레벨 재설계 캠페인 스테이지 초안**이다(미통합 — SceneFlow/StageSelect 미등록). 검증: `tests/CampaignS1ClearTest.tscn`(climber 부여 시 클리어) + `tests/CampaignS1NoClimberTest.tscn`(무스킬 시 미클리어, 음성 대조). 진척 SoT는 `docs/LEVEL_REDESIGN_STATUS.md`.
+> 레벨 재설계 rev2 **S1 "첫 마실"은 `scenes/stages/Stage01.tscn`(stage01 슬롯)으로 통합**됨(구 dev 초안 `campaign_s1_first_outing` 삭제). 검증은 `tests/CampaignS1{Clear,NoClimber}Test.tscn`(→ Stage01.tscn instance). 진척 SoT는 `docs/LEVEL_REDESIGN_STATUS.md`.
 
 > 주의: 같은 메커니즘을 여러 `tests/*.tscn` 헤드리스 테스트가 위 dev 씬을 인스턴스로 재사용한다(예: `tests/TraitCombinedTest.tscn` → `dev_stages/trait/TraitTest.tscn`). dev 씬을 옮기거나 이름 바꾸면 `tests/`의 `ext_resource` 경로도 함께 갱신해야 한다.
 

@@ -34,7 +34,4 @@ basher_wall · basher_digger_chain · digger_pillar · cutter_vine · bridge · 
 bridge_over_water · bridge_reject · bridge_too_long · sand_mound · sand_bridge_overlap · water ·
 water_after_candy · water_sticky_overlap · sticky · sticky_settle · settle · settle_race · settle_stuck · trait
 
-## 캠페인 스테이지 초안 (메커니즘 dev-test 아님, 미통합)
-레벨 재설계(rev2) 캠페인 스테이지를 SceneFlow/StageSelect에 통합하기 전 독립 초안으로 저작·검증하는 폴더.
-SoT는 `docs/LEVEL_REDESIGN_STATUS.md`.
-- `campaign_s1_first_outing` — S1 "첫 마실"(climber 1칸 분지). 검증: `tests/CampaignS1ClearTest.tscn` + `tests/CampaignS1NoClimberTest.tscn`.
+> 레벨 재설계 rev2 캠페인 스테이지는 dev 초안이 아니라 **메인 슬롯(`scenes/stages/StageNN.tscn`)에 직접 통합**한다(경로 락 — 내용만 교체). S1 "첫 마실"은 stage01 슬롯 통합 완료. 절차/진척은 `docs/LEVEL_REDESIGN_STATUS.md` §3b·§6.

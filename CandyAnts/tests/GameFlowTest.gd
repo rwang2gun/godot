@@ -40,8 +40,9 @@ func _apply_climber_if_ready() -> void:
 			continue
 		if a.has_trait(&"climber"):
 			continue
-		# U자형 구덩이 바닥 (y > 900px)에서 x=900~1040 사이인 개미에게 Climber 적용
-		if a.global_position.y > 900.0 and a.global_position.x >= 900.0 and a.global_position.x < 1040.0:
+		# stage01 재설계("첫 마실") — 분지 바닥(row11, y≈520)에서 x=336~528(분지 cols 7~10)인 개미에게 Climber 적용.
+		# 부여 후 우측 col11 1칸 벽을 등반해 사탕으로, 귀가 시 같은 trait로 좌측 벽도 등반(영구 보유).
+		if a.global_position.y > 490.0 and a.global_position.y < 560.0 and a.global_position.x >= 336.0 and a.global_position.x < 528.0:
 			var climber: ClimberSkill = ClimberSkill.new()
 			if not climber.can_apply(a):
 				continue
