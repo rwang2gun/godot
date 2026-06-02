@@ -23,7 +23,7 @@ func _ready() -> void:
 	# Codex R9 LOW fix: BackBtn / focus 연결을 layout 검증보다 먼저 — invalid layout 시에도
 	# 메뉴 복귀 가능 (BackBtn 작동, ESC 작동, 패드 포커스 살아있음).
 	_back_btn.pressed.connect(_on_back_pressed)
-	_total_stars_label.text = "수확한 별 ★ %d / 30" % SaveData.total_stars()
+	_total_stars_label.text = Strings.t("stage_select.total_stars", [SaveData.total_stars()])
 	var layout: MenuLayout = load(LAYOUT_PATH) as MenuLayout
 	if layout == null or not layout.is_valid():
 		push_error("[StageSelect] invalid menu_layout.tres — showing empty grid, BackBtn 활성")

@@ -1,7 +1,6 @@
-[gd_scene load_steps=5 format=3 uid="uid://b6huiphase11"]
+[gd_scene load_steps=4 format=3 uid="uid://b6huiphase11"]
 
 [ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1_hud"]
-[ext_resource type="Script" path="res://scripts/ui/InputHintLabel.gd" id="2_hint"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atoms/Counter.tscn" id="3_counter"]
 [ext_resource type="PackedScene" path="res://scenes/ui/ReleaseRateStepper.tscn" id="4_stepper"]
 [ext_resource type="Script" path="res://scripts/ui/PauseBtn.gd" id="5_pausebtn"]
@@ -68,27 +67,3 @@ bottom_label_ko = "남은 시간"
 custom_minimum_size = Vector2(56, 56)
 script = ExtResource("5_pausebtn")
 kind = 2
-
-[node name="AlwaysBranch" type="Control" parent="."]
-process_mode = 3
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = -200.0
-grow_horizontal = 2
-grow_vertical = 0
-mouse_filter = 2
-
-[node name="InputHintLabel" type="Label" parent="AlwaysBranch"]
-anchor_left = 0.5
-anchor_top = 0.0
-anchor_right = 0.5
-anchor_bottom = 0.0
-offset_left = -240.0
-offset_top = 40.0
-offset_right = 240.0
-offset_bottom = 64.0
-horizontal_alignment = 1
-text = ""
-script = ExtResource("2_hint")

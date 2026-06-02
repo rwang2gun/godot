@@ -69,19 +69,19 @@ func show_result(result: Dictionary, is_last_stage: bool) -> void:
 	var time_left: float = float(result.get("time_left", 0.0))
 	# Step 2: text 갱신. Phase 20 — last-stage cleared variant 분기 (P-D6).
 	if cleared and is_last_stage:
-		_title.text = "마지막 단계 클리어!"
-		_subtitle.text = "Stage cleared"
+		_title.text = Strings.t("dialog.title_last_clear")
+		_subtitle.text = Strings.t("dialog.subtitle_cleared")
 	elif cleared:
-		_title.text = "사탕을 무사히 옮겼어요!"
-		_subtitle.text = "Stage cleared"
+		_title.text = Strings.t("dialog.title_cleared")
+		_subtitle.text = Strings.t("dialog.subtitle_cleared")
 	else:
-		_title.text = "사탕이 부족했어요"
-		_subtitle.text = "Stage failed"
-	_hero_score.text = "%d / %d 조각" % [saved, original_hp]
+		_title.text = Strings.t("dialog.title_failed")
+		_subtitle.text = Strings.t("dialog.subtitle_failed")
+	_hero_score.text = Strings.t("dialog.hero_score", [saved, original_hp])
 	# Step 3: stat chips.
-	_chip_saved.set_label_value("귀가", str(saved))
-	_chip_lost.set_label_value("잃음", str(lost))
-	_chip_time.set_label_value("남은 시간", "%ds" % int(time_left))
+	_chip_saved.set_label_value(Strings.t("dialog.chip_saved"), str(saved))
+	_chip_lost.set_label_value(Strings.t("dialog.chip_lost"), str(lost))
+	_chip_time.set_label_value(Strings.t("dialog.chip_time"), Strings.t("dialog.chip_time_value", [int(time_left)]))
 	# Step 4: star fill + sfx_request(star_fill) per filled star.
 	# Phase 20 — stage별 star_thresholds override 전달. 빈 배열이면 글로벌 fall-back.
 	var thresholds: Array = result.get("star_thresholds", [])

@@ -23,6 +23,7 @@ SaveData="*res://scripts/core/SaveData.gd"
 InputRouter="*res://scripts/input/InputRouter.gd"
 InputModeTracker="*res://scripts/input/InputModeTracker.gd"
 StepFrame="*res://scripts/core/StepFrame.gd"
+Strings="*res://scripts/core/Strings.gd"
 
 [display]
 

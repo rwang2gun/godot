@@ -39,18 +39,7 @@ const CURSOR_ICONS: Dictionary = {
 	"digger": preload("res://assets/icons/skills/cursors/digger.png"),
 	"cutter": preload("res://assets/icons/skills/cursors/cutter.png"),
 }
-const KO_LABELS: Dictionary = {
-	"climber": "등반",
-	"floater": "낙하산",
-	"blocker": "차단",
-	"builder": "계단",
-	"sand_mound": "모래",
-	"bridge": "다리",
-	"basher": "굴착",
-	"digger": "땅파기",
-	"distributor": "분배자",
-	"cutter": "절단",
-}
+# 스킬 한글 라벨은 Strings 오토로드로 이관(2026-06-02). Strings.skill_label(id) 사용.
 
 @export var stage_data: StageData = null
 @export var hbox_path: NodePath
@@ -75,7 +64,7 @@ func _ready() -> void:
 		var slot: SkillSlot = SkillSlotScene.instantiate()
 		slot.skill_id = StringName(id)
 		slot.hotkey = str(i + 1)
-		slot.ko_label = KO_LABELS.get(id, id)
+		slot.ko_label = Strings.skill_label(id)
 		slot.icon_texture = ICONS.get(id) as Texture2D
 		hbox.add_child(slot)
 		slot.set_count(int(_inventory.get(id, 0)))

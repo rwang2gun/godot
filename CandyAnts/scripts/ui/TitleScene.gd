@@ -46,7 +46,7 @@ func _current_mode() -> StringName:
 func _update_hint(mode: StringName) -> void:
 	if _hint_label == null:
 		return
-	_hint_label.text = "버튼을 눌러 주세요" if mode == &"pad" else "아무 키나 눌러 주세요"
+	_hint_label.text = Strings.t("title.hint_pad") if mode == &"pad" else Strings.t("title.hint_key")
 
 func _on_mode_changed(mode: StringName) -> void:
 	_update_hint(mode)

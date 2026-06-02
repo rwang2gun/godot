@@ -63,7 +63,7 @@ func _ready() -> void:
 			failures.append("[toolbar-icon] missing " + id)
 		if SkillToolbar.CURSOR_ICONS.get(id) == null:
 			failures.append("[toolbar-cursor-icon] missing " + id)
-		if str(SkillToolbar.KO_LABELS.get(id, "")) == "":
+		if not Strings.has_skill_label(id):
 			failures.append("[toolbar-label] missing " + id)
 	if failures.size() > 0:
 		push_error("SkillIconPngSmokeTest FAIL - " + "\n".join(failures))

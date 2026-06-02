@@ -3,7 +3,7 @@ class_name HUD extends CanvasLayer
 # Phase 11 rewrite (plan v2 §3). 5 placeholder Label + AcceptDialog 제거 →
 # Counter atom 5 (CANDY_HP/IN_TRANSIT/SAVED/LOST/TIME) + ReleaseRateStepper + PauseBtn.
 # 외부 API `update_time(seconds)`만 보존. (phase 12에서 show_dialog stub 제거 — StageDialog가 EventBus.stage_cleared/failed 라우팅)
-# HUD root = INHERIT (Counter caPop이 pause 시 정지), PauseBtn/InputHintLabel만 ALWAYS 분기.
+# HUD root = INHERIT (Counter caPop이 pause 시 정지). (2026-06-02: 하단 InputHintLabel 가이드 라벨 + AlwaysBranch 제거)
 # EventBus 구독은 기존 3-시그널(candy_piece_picked / ant_saved / candy_piece_lost) 유지
 # — phase doc의 candy_hp_changed/ant_in_transit_changed 등은 미존재, 본 HUD가 4-카운터 derive.
 

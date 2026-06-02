@@ -55,7 +55,7 @@ func set_progress(entry: Dictionary) -> void:
 func _apply_text() -> void:
 	if _stage_label == null:
 		return
-	_stage_label.text = "스테이지 %d" % stage_id
+	_stage_label.text = Strings.t("stage_card.title", [stage_id])
 	var stars: int = int(_progress.get("stars", 0))
 	for i in _star_polys.size():
 		var poly: Polygon2D = _star_polys[i].get_node("Poly") as Polygon2D
@@ -64,7 +64,7 @@ func _apply_text() -> void:
 		poly.color = Tokens.LEMON_500 if i < stars else Tokens.CREAM_200
 	if _progress.get("cleared", false):
 		var saved: int = int(_progress.get("best_saved", 0))
-		_score_label.text = "최고 %d" % saved
+		_score_label.text = Strings.t("stage_card.best", [saved])
 	else:
 		_score_label.text = ""
 
