@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/stages/dev/SettleRaceTest.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://dev_stages/settle_race/SettleRaceTest.tscn" id="1"]
 [ext_resource type="Script" path="res://tests/SettlementSameFrameRaceTest.gd" id="2"]
 
 [node name="TestRoot" type="Node"]

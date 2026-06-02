@@ -10,6 +10,8 @@
 - CRITICAL: Area2D 트리거(Candy/Home/Hazard)의 `collision_mask`는 Ant Layer 3을 포함해야 함 — Ant의 mask가 아니라 Area2D 본인의 mask
 - CRITICAL: ScoreSystem은 `original_hp / saved / in_transit / lost` **4-카운터 필수**, 단일 카운터 금지
 - CRITICAL: 새 스킬 추가 시 `SkillRegistry.SKILL_SCRIPTS`에 preload 1줄 추가 (`_static_init` 자기등록 사용 금지)
+- CRITICAL: dev 테스트 레벨은 `dev_stages/<slug>/`에 **씬+stage.tres+layout.tres 한 폴더**로 작성 — `scenes/stages/dev/`·`data/stages/dev/`·`data/stage_layouts/`로 다시 흩지 말 것. 절차는 `dev_stages/README.md`. 단, 씬 없이 `tests/*.gd`가 preload만 하는 레이아웃 fixture는 `data/stage_layouts/`에 잔류. 메인 스테이지(Stage01~03)는 레벨툴 애드온 경로 락으로 `scenes/stages/`·`data/stages/`·`data/stage_layouts/` 유지
+- 객체·스킬·레벨 축으로 흩어진 파일을 찾을 땐 `docs/DOMAIN_MAP.md` 인덱스 참조
 - 자세한 설계: `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/ADR.md`
 
 ## 개발 프로세스

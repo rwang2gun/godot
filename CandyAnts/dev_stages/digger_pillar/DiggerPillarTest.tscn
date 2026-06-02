@@ -8,12 +8,12 @@
 [ext_resource type="PackedScene" path="res://scenes/entities/Ant.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="6"]
 [ext_resource type="Script" path="res://scripts/world/Home.gd" id="6_home_script"]
-[ext_resource type="Resource" path="res://data/stages/dev/sand_bridge_overlap_test.tres" id="7"]
+[ext_resource type="Resource" path="res://dev_stages/digger_pillar/digger_pillar_test.tres" id="7"]
 [ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="8_toolbar"]
 [ext_resource type="PackedScene" path="res://scenes/world/StageBackground.tscn" id="9_background"]
 [ext_resource type="Script" path="res://scripts/world/Candy.gd" id="10_candy_script"]
 [ext_resource type="Script" path="res://scripts/world/StageLayoutBuilder.gd" id="11_layout_builder"]
-[ext_resource type="Resource" path="res://data/stage_layouts/dev_sand_bridge_overlap_layout.tres" id="12_dev_layout"]
+[ext_resource type="Resource" path="res://dev_stages/digger_pillar/dev_digger_pillar_layout.tres" id="12_dev_layout"]
 
 [node name="StageRunner" type="Node"]
 script = ExtResource("1")
@@ -36,29 +36,29 @@ layout = ExtResource("12_dev_layout")
 script = ExtResource("4_terrain")
 
 [node name="Home" type="Area2D" parent="World" instance=ExtResource("3")]
-position = Vector2(80, 704)
+position = Vector2(48, 1088)
 collision_layer = 32
 collision_mask = 4
 script = ExtResource("6_home_script")
 
 [node name="Candy" type="Area2D" parent="World" instance=ExtResource("4")]
-position = Vector2(1136, 704)
+position = Vector2(496, 1088)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("10_candy_script")
-hp = 2
+hp = 4
 
 [node name="Camera2D" type="Camera2D" parent="World"]
-position = Vector2(656, 720)
+position = Vector2(336, 912)
 
 [node name="StageBackground" type="CanvasLayer" parent="." instance=ExtResource("9_background")]
 layer = -100
 
 [node name="Spawner" type="Node" parent="."]
 script = ExtResource("2")
-spawn_position = Vector2(80, 699)
-total = 2
-release_rate = 60
+spawn_position = Vector2(48, 699)
+total = 4
+release_rate = 30
 spawn_direction = 1
 
 [node name="HUD" parent="." instance=ExtResource("6")]

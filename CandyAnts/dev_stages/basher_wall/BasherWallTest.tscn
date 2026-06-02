@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/StageRunner.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/core/AntSpawner.gd" id="2"]
@@ -8,13 +8,12 @@
 [ext_resource type="PackedScene" path="res://scenes/entities/Ant.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="6"]
 [ext_resource type="Script" path="res://scripts/world/Home.gd" id="6_home_script"]
-[ext_resource type="Resource" path="res://data/stages/dev/bridge_over_water_test.tres" id="7"]
+[ext_resource type="Resource" path="res://dev_stages/basher_wall/basher_wall_test.tres" id="7"]
 [ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="8_toolbar"]
 [ext_resource type="PackedScene" path="res://scenes/world/StageBackground.tscn" id="9_background"]
 [ext_resource type="Script" path="res://scripts/world/Candy.gd" id="10_candy_script"]
 [ext_resource type="Script" path="res://scripts/world/StageLayoutBuilder.gd" id="11_layout_builder"]
-[ext_resource type="Resource" path="res://data/stage_layouts/dev_bridge_over_water_layout.tres" id="12_dev_layout"]
-[ext_resource type="PackedScene" path="res://scenes/entities/hazards/Water.tscn" id="13_water"]
+[ext_resource type="Resource" path="res://dev_stages/basher_wall/dev_basher_wall_layout.tres" id="12_dev_layout"]
 
 [node name="StageRunner" type="Node"]
 script = ExtResource("1")
@@ -48,24 +47,6 @@ collision_layer = 16
 collision_mask = 4
 script = ExtResource("10_candy_script")
 hp = 4
-
-[node name="Water12" parent="World" instance=ExtResource("13_water")]
-position = Vector2(400, 688)
-
-[node name="Water13" parent="World" instance=ExtResource("13_water")]
-position = Vector2(432, 688)
-
-[node name="Water14" parent="World" instance=ExtResource("13_water")]
-position = Vector2(464, 688)
-
-[node name="Water15" parent="World" instance=ExtResource("13_water")]
-position = Vector2(496, 688)
-
-[node name="Water16" parent="World" instance=ExtResource("13_water")]
-position = Vector2(528, 688)
-
-[node name="Water17" parent="World" instance=ExtResource("13_water")]
-position = Vector2(560, 688)
 
 [node name="Camera2D" type="Camera2D" parent="World"]
 position = Vector2(496, 624)

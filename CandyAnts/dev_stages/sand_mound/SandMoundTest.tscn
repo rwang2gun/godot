@@ -8,12 +8,12 @@
 [ext_resource type="PackedScene" path="res://scenes/entities/Ant.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="6"]
 [ext_resource type="Script" path="res://scripts/world/Home.gd" id="6_home_script"]
-[ext_resource type="Resource" path="res://data/stages/dev/bridge_reject_test.tres" id="7"]
+[ext_resource type="Resource" path="res://dev_stages/sand_mound/sand_mound_test.tres" id="7"]
 [ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="8_toolbar"]
 [ext_resource type="PackedScene" path="res://scenes/world/StageBackground.tscn" id="9_background"]
 [ext_resource type="Script" path="res://scripts/world/Candy.gd" id="10_candy_script"]
 [ext_resource type="Script" path="res://scripts/world/StageLayoutBuilder.gd" id="11_layout_builder"]
-[ext_resource type="Resource" path="res://data/stage_layouts/dev_bridge_reject_layout.tres" id="12_dev_layout"]
+[ext_resource type="Resource" path="res://dev_stages/sand_mound/dev_sand_mound_layout.tres" id="12_dev_layout"]
 
 [node name="StageRunner" type="Node"]
 script = ExtResource("1")
@@ -36,28 +36,28 @@ layout = ExtResource("12_dev_layout")
 script = ExtResource("4_terrain")
 
 [node name="Home" type="Area2D" parent="World" instance=ExtResource("3")]
-position = Vector2(80, 640)
+position = Vector2(80, 704)
 collision_layer = 32
 collision_mask = 4
 script = ExtResource("6_home_script")
 
 [node name="Candy" type="Area2D" parent="World" instance=ExtResource("4")]
-position = Vector2(1136, 640)
+position = Vector2(816, 544)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("10_candy_script")
-hp = 2
+hp = 3
 
 [node name="Camera2D" type="Camera2D" parent="World"]
-position = Vector2(656, 720)
+position = Vector2(656, 624)
 
 [node name="StageBackground" type="CanvasLayer" parent="." instance=ExtResource("9_background")]
 layer = -100
 
 [node name="Spawner" type="Node" parent="."]
 script = ExtResource("2")
-spawn_position = Vector2(80, 635)
-total = 2
+spawn_position = Vector2(80, 699)
+total = 3
 release_rate = 30
 spawn_direction = 1
 

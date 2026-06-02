@@ -18,10 +18,15 @@ CandyAnts/
 │   ├── world/       Candy.gd, Home.gd, Terrain.gd, hazards/
 │   └── ui/
 ├── data/
-│   ├── stages/      stageNN.tres (StageData), progression.tres
+│   ├── stages/      stageNN.tres (StageData) — 메인 스테이지 (레벨툴 경로 락)
+│   ├── stage_layouts/ stageNN_layout.tres + orphan dev 레이아웃
 │   └── skills/      skill_metadata.tres
-└── assets/          sprites/, tiles/, audio/
+├── dev_stages/      dev 테스트 레벨 (씬+stage.tres+layout.tres를 slug별 1폴더로 콜로케이트) — README 참조
+└── assets/          sprites/, tiles/, audio/, icons/skills/
 ```
+> **도메인별 파일 인덱스**: 객체·스킬·레벨 축으로 흩어진 파일을 모아 보려면 `docs/DOMAIN_MAP.md`.
+> dev 테스트 레벨은 `dev_stages/<slug>/`에 콜로케이트(`dev_stages/README.md`). 메인 스테이지/스크립트/엔티티 씬은
+> 경로 락·헌법 규칙으로 레이어 위치 유지(사유는 DOMAIN_MAP "이동하지 않은 것").
 
 ## 패턴
 - **Vertical Slice** — Stage 1을 최소 시스템으로 End-to-End 완성, 이후 누적 확장. 회귀 = 코어 침범 신호.

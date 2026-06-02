@@ -10,7 +10,7 @@ extends Node
 #  (4) validate_stage(임시 stage with available_skills=["unknown_xyz"]) → errors 1건 이상
 #  (5) get_skill("unknown_xyz") == null
 
-const CUTTER_STAGE: Resource = preload("res://data/stages/dev/cutter_vine_test.tres")
+const CUTTER_STAGE: Resource = preload("res://dev_stages/cutter_vine/cutter_vine_test.tres")
 
 func _ready() -> void:
 	# (1) get_skill("cutter").

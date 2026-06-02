@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/stages/dev/BridgeOverOverlapTest.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://dev_stages/bridge_over_overlap/BridgeOverOverlapTest.tscn" id="1"]
 [ext_resource type="Script" path="res://tests/BridgeOverWaterStickyOverlapTest.gd" id="2"]
 
 [node name="TestRoot" type="Node"]
