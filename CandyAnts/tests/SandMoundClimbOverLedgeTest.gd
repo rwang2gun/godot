@@ -1,14 +1,15 @@
 extends Node
 
-# Sand-mound climb-over 회귀 — 윗단 솔리드 레지(dev_sand_mound_layout: row 17 solid, x=11..40) 바로 아래에서
-# 모래 더미를 쌓을 때, 개미가 레지 솔리드 셀 안에 끼지 않고 그 위로 타고 넘어 레지 위에 올라서는지 검증한다.
-# 기존 SandMoundClimbTest는 레지 왼쪽(cell 10)에서 쌓아 이 경로를 타지 않았다 — 본 테스트가 그 공백을 메운다.
+# biscuit-ladder 지형 통합 (구 sand_mound climb-over 폐기, 2026-06-02) —
+# 윗단 솔리드 레지(dev_sand_mound_layout: row 17 solid, x=11..40) 아래에서 사다리를 세울 때,
+# 위 레지 surface를 만나면 "타고 넘어 계속 쌓기"가 아니라 그 면을 top으로 교체(cap)하고
+# 개미가 그 위로 올라선 뒤 종료하는지 검증한다.
 #
-# 수정 전(버그): row18 배치 후 개미가 row17(solid)로 올라가 끼고, 다음 tick add_tile(row17) 거부 → abort.
-#   결과: tile_count=4, 개미가 레지 아래(y > ledge_top)에 박힘.
-# 수정 후: row17을 한 번에 타고 넘어 레지 위(y <= ledge_top)에 올라섬, tile_count=5, WorkerState 종료.
-#
-# PASS: apply 후 WorkerState 종료 시 (1) on_floor (2) y <= 레지 상단(걷는 면) (3) tile_count == 5
+# PASS: apply 후 WorkerState 종료 + on_floor 시
+#   (1) y <= 레지 상단(걷는 면) — 개미가 레지 위로 올라섬
+#   (2) 시전 column의 레지 셀(row 17) 텍스처 = top (cap)
+#   (3) 동적 rung 전부 middle
+#   (4) 바닥 지형 면(최저 rung 바로 아래) = root
 
 const DEADLINE_FRAMES: int = 1800
 const TRIGGER_X: float = 420.0   # cell 13 — 레지(x>=11) 바로 아래
@@ -17,6 +18,7 @@ const LEDGE_ROW: int = 17        # dev_sand_mound_layout의 윗단 솔리드 row
 var _ant: Ant = null
 var _applied: bool = false
 var _applied_frame: int = 0
+var _cast_col_x: int = 0          # 시전 시점 ant x-cell (이후 walker가 이동해도 cap/root 셀은 이 column).
 var _frame: int = 0
 var _result_emitted: bool = false
 var _terrain: Terrain = null
@@ -48,7 +50,7 @@ func _ensure_refs() -> void:
 			return
 
 func _apply_when_ready() -> void:
-	if _applied or _ant == null or _ant.state_machine == null:
+	if _applied or _ant == null or _ant.state_machine == null or _terrain == null:
 		return
 	if not (_ant.state_machine.current_state is WalkerState):
 		return
@@ -59,40 +61,71 @@ func _apply_when_ready() -> void:
 	var skill: SandMoundSkill = SandMoundSkill.new()
 	if not skill.can_apply(_ant):
 		return
+	_cast_col_x = int(floor(_ant.global_position.x / float(_terrain.cell_size)))
 	skill.apply(_ant)
 	_applied = true
 	_applied_frame = _frame
-	print("[SandMoundClimbOverLedgeTest] applied at frame=%d pos=%s" % [_frame, _ant.global_position])
+	print("[SandMoundClimbOverLedgeTest] applied at frame=%d pos=%s col=%d" % [_frame, _ant.global_position, _cast_col_x])
 
 func _check_complete() -> void:
 	if not _applied or _ant == null or _ant.state_machine == null:
 		return
-	# 5 tile * 0.25s ≈ 75 frame 후 완료. buffer 포함 90 frame 대기.
-	if _frame - _applied_frame < 90:
+	# 빌드 종료(WorkerState 탈출) + 레지 위 안착 대기. cap은 보통 첫 tick(~15 frame) 내.
+	if _ant.state_machine.current_state is WorkerState:
 		return
-	var s: AntState = _ant.state_machine.current_state
-	if s is WorkerState:
-		return   # 아직 쌓는 중
+	if not _ant.is_on_floor():
+		return
 	if _terrain == null:
-		_fail("terrain missing for climb-over check")
+		_fail("terrain missing for cap check")
 		return
 	var cs: int = _terrain.cell_size
-	var ledge_top_y: float = float(LEDGE_ROW * cs)   # 레지 솔리드 상단 = 개미가 올라서야 할 걷는 면
-	var tc: int = _tile_count()
+	var ledge_top_y: float = float(LEDGE_ROW * cs)
 	var y: float = _ant.global_position.y
-	if not _ant.is_on_floor():
-		_fail("not on floor after build — y=%.1f state=%s tile_count=%d" % [y, _state_name(), tc])
-		return
+	# (1) 개미가 레지 위 걷는 면으로 올라섰는지.
 	if y > ledge_top_y + 8.0:
-		# 레지 아래에 박힘 = climb-over 실패(수정 전 버그 시그니처).
-		_fail("ant stuck below ledge — y=%.1f > ledge_top=%.1f tile_count=%d" % [y, ledge_top_y, tc])
+		_fail("ant did not climb onto ledge — y=%.1f > ledge_top=%.1f tile_count=%d" % [y, ledge_top_y, _tile_count()])
 		return
-	if tc != 5:
-		_fail("tile_count=%d expected 5 (climb-over는 솔리드 row를 건너뛰고 5개 배치)" % tc)
+	# (2) 시전 column의 레지 셀(row 17) 텍스처 = top (cap).
+	var ledge_sprite: Sprite2D = _terrain._cell_sprite(Vector2i(_cast_col_x, LEDGE_ROW))
+	if ledge_sprite == null or ledge_sprite.texture == null:
+		_fail("ledge tile missing at col=%d row=%d" % [_cast_col_x, LEDGE_ROW])
 		return
-	print("[SandMoundClimbOverLedgeTest] PASS y=%.1f <= ledge_top=%.1f tile_count=%d" % [y, ledge_top_y, tc])
+	if not String(ledge_sprite.texture.resource_path).ends_with("biscuit_ladder_top_square.png"):
+		_fail("ledge surface not capped to top: %s" % ledge_sprite.texture.resource_path)
+		return
+	# (3) 동적 rung 전부 middle + 최저 rung row 추적.
+	var lowest_y: int = -2147483648
+	for c in _terrain._placed.keys():
+		var cell: Vector2i = c as Vector2i
+		var sp: Sprite2D = _first_sprite(_terrain._placed[cell])
+		if sp == null or sp.texture == null or not String(sp.texture.resource_path).ends_with("biscuit_ladder_middle_square.png"):
+			_fail("dynamic rung not middle at %s" % cell)
+			return
+		if cell.y > lowest_y:
+			lowest_y = cell.y
+	if lowest_y == -2147483648:
+		_fail("no dynamic rung placed")
+		return
+	# (4) 바닥 지형 면(최저 rung 바로 아래) = root.
+	var ground_sprite: Sprite2D = _terrain._cell_sprite(Vector2i(_cast_col_x, lowest_y + 1))
+	if ground_sprite == null or ground_sprite.texture == null:
+		_fail("lower surface tile missing at col=%d row=%d" % [_cast_col_x, lowest_y + 1])
+		return
+	if not String(ground_sprite.texture.resource_path).ends_with("biscuit_ladder_root_square.png"):
+		_fail("lower surface not root: %s" % ground_sprite.texture.resource_path)
+		return
+	print("[SandMoundClimbOverLedgeTest] PASS y=%.1f <= ledge_top=%.1f ledge=top rungs=middle ground=root tile_count=%d" % [y, ledge_top_y, _tile_count()])
 	_result_emitted = true
 	get_tree().quit(0)
+
+func _first_sprite(body_v: Variant) -> Sprite2D:
+	var body: Node = body_v as Node
+	if body == null:
+		return null
+	for ch in body.get_children():
+		if ch is Sprite2D:
+			return ch as Sprite2D
+	return null
 
 func _tile_count() -> int:
 	return _terrain.tile_count() if _terrain != null else -1

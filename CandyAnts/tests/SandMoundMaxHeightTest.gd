@@ -80,8 +80,8 @@ func _check_complete() -> void:
 		_fail("post-worker state but tile_count=%d (need==5) state=%s" % [tc, _state_name()])
 
 func _sand_mound_visual_error() -> String:
-	# 3단 구조 검증 — column을 위(작은 y)부터 surface → under_surface → background로 읽는다.
-	# §TERRAIN_TILE_RULES.11: 각 tier는 독립 정사각형 1장을 cell_size에 맞춰 통째로 scale (region 샘플링 없음).
+	# biscuit-ladder 지형 통합: 동적 rung 타일은 전부 middle (whole-tile, region 없음).
+	# 아래/위 지형 면의 root/top 교체는 정적 지형 셀이라 _placed에 없음 → 여기선 rung=middle만 검증.
 	if _terrain == null:
 		return "terrain missing for sand mound visual check"
 	var cs: int = _terrain.cell_size
@@ -103,13 +103,7 @@ func _sand_mound_visual_error() -> String:
 			return "sand mound sprite missing at %s" % cell
 		if sprite.texture == null:
 			return "sand mound sprite texture missing at %s" % cell
-		var expected_file: String
-		if i == 0:
-			expected_file = "sand_tile_surface.png"
-		elif i == 1:
-			expected_file = "sand_tile_under_surface.png"
-		else:
-			expected_file = "sand_tile_background.png"
+		var expected_file: String = "biscuit_ladder_middle_square.png"
 		var path: String = String(sprite.texture.resource_path)
 		if not path.ends_with(expected_file):
 			return "sand mound tier mismatch at row %d (cell=%s): texture=%s expected=%s" % [i, cell, path, expected_file]

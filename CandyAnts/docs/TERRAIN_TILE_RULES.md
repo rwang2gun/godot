@@ -188,7 +188,7 @@ CandyAnts ground terrain의 **painterly cookie 2-tier 시각 시스템** SoT(Sou
 1. **가로·세로 연속성 (§5)** — discrete 4-variant 타일은 인접 가장자리 정합을 코드가 검사하지 않는다(variant 분포만 분산). 개선안: 단일 source painting에서 정합 세트로 잘라 발주하거나, 향후 edge-aware variant 선택(wang tile류) 도입.
 2. **Theme 확장이 builder 코드 수정을 요구** — 현재 `_solid_texture_for_cell()`이 `cookie_crust` 텍스처를 직접 `load`. 개선안: `TerrainTheme.tres` 리소스화 — 각 theme가 under/interior 텍스처 2장 + tone 메타데이터를 declared field로 보유.
 3. **굴착 단면 동적 re-tiering / 세로 단면 tier 미구현** — 굴착으로 드러난 면(특히 세로 단면)이 주변 지형과 tier 연속되지 않는다(skill-tile-surface 트랙에서 비효율로 판단·보류). 개선안: `background` 채움을 solid 깊이로 전환 + 노출 셀 tier 런타임 재계산.
-4. **sand-mound(§11)는 여전히 3-tier(surface 포함)** — ground terrain은 surface를 버렸지만 sand-mound는 자체 surface tier를 유지한다. 두 시스템의 tier 모델이 분기한 상태. 개선안: 일관화 필요 시 sand-mound도 2-tier로 전환 검토.
+4. **sand-mound(§11)는 지형 통합 사다리로 전환됨** (biscuit-ladder, 2026-06-02) — 구 3-tier(surface/under/background) 강등 + climb-over 폐기. 이제 아래/위 기존 지형 면을 root/top 텍스처로 통합하고 동적 rung은 middle. ground 2-tier 추론과는 독립.
 5. **slope / plant / hazard 시각 규약 미박제** — 각자 별도 경로로 그려지며 본 문서의 디렉션을 따른다는 보장이 없다. 슬로프 대각면은 `cookie_tile_surface.png`(폐기된 ground surface 텍스처)를 계속 쓴다.
 
 위가 해소되기 전까지 본 문서는 "ground terrain 2-tier 시스템에 한해서만" 가드레일로 작동한다.
@@ -214,41 +214,43 @@ CandyAnts ground terrain의 **painterly cookie 2-tier 시각 시스템** SoT(Sou
 ## 11. 동적 스킬 타일 — 모래 쌓기 (Sand-Mound)
 
 §1~§10은 **가로로 넓게 깔리는 정적 ground terrain**(Phase 3 이후 48×48 discrete 4-variant whole-tile + 노출 2-tier 자동 추론)을 전제한다.
-**모래 쌓기 스킬 타일은 세로 1칸 스택 구조**다 — ground의 노출 2-tier 자동 추론을 적용하지 않는다.
-또한 모래 쌓기는 **자체 surface/under/background 3-tier를 유지**한다 (ground terrain의 surface 제거와 독립 — §9-4).
+**`SandMoundSkill`(id `sand_mound`, 표시명 "막대과자 사다리")은 세로 1칸 폭 동적 사다리**다 — ground 2-tier 추론을 쓰지 않는다.
 
-### 11.1 구조 — 세로로 쌓는 1칸 폭 동적 타일
+> **biscuit-ladder 지형 통합 (2026-06-02)**: 구 sand_mound의 3-tier(surface/under/background) 강등 + climb-over는 **폐기**. 새 모델 = 아래/위 **기존 지형 면**을 root/top으로 통합하고 그 사이 빈 칸을 middle rung으로 잇는 사다리. (스킬 id는 `sand_mound` 유지.)
 
-- 개미가 `SandMoundSkill`로 자기 발밑에 타일을 한 칸씩 **위로** 쌓아 만드는 1칸 폭 수직 더미 (최대 `SAND_MOUND_MAX_HEIGHT`=5칸).
-- 가로 인접/연결이 없다 → **가로 variant·아틀라스가 불필요**. Phase 3 이후 ground도 whole-tile(`_apply_square_tile`)로 수렴해 렌더 방식은 같지만, sand-mound는 tier당 **1장**(가로 variant 0)이고 ground는 tier당 **4-variant**(`_variant_index`)라는 점이 다르다. (구) cookie 가로 아틀라스 파이프라인(`process_new_tiles.py` / `make_seamless`)은 양쪽 다 쓰지 않는다.
-- 정적 ground terrain과 달리 `Terrain.add_tile()`로 런타임 생성되는 동적 `StaticBody2D`다.
+### 11.1 구조 — 지형 통합 세로 사다리
 
-### 11.2 자산 — 독립된 정사각형 타일 3장
+- 시전 → 발밑 지형 면(아래 surface)을 **root**로 표시 + 위로 빈 칸마다 **middle** rung 동적 타일을 쌓으며 1칸씩 ascend (최대 `SAND_MOUND_MAX_HEIGHT`=5 rung).
+- 위로 가다 **기존 지형 면**(노출 walkable top = 그 위 칸이 빈 셀 + 그 면이 reskin 가능한 일반 earth 정적 지형 surface)을 만나면 그 면을 **top**으로 표시(cap)하고 개미가 그 위로 올라선 뒤 종료. cap은 **atomic** — (a)레지 점유 (b)위 빈칸 (c)body_cell 비어 rung 배치 가능 (d)레지가 cap 가능한 earth 면, 4조건을 부작용 없이 먼저 검사하고 전부 통과할 때만 rung 배치·top reskin·개미 이동을 한 묶음으로 수행한다. **솔리드**(위도 막힌 벽/내부)이거나 **cap 불가**(body_cell 점유·plant kind·슬로프 Polygon2D·동적 타일·미등록 셀)면 **아무것도 바꾸지 않고 즉시 종료**(rung 미배치·top 없음·개미 이동 없음 = 반쪽 cap 차단). climb-over(타고 넘어 계속 쌓기)는 폐기.
+- 위 면 없이 허공이면 middle 최대 5칸 쌓고 종료(top 없음).
+- middle rung은 `Terrain.add_tile(DYNAMIC_TILE_SAND_MOUND)`로 런타임 생성되는 동적 솔리드 `StaticBody2D`(개미가 타고 오름). root/top은 **기존 정적 지형 셀의 텍스처만** 교체(충돌/점유 불변).
 
-| Tier | 파일 | 더미 내 위치 |
+### 11.2 자산 — 정사각형 타일 3장 (root / middle / top)
+
+| 역할 | 파일 | 적용 대상 |
 | --- | --- | --- |
-| surface | `sand_tile_surface.png` | 맨 위 칸 |
-| under-surface | `sand_tile_under_surface.png` | 위에서 2번째 칸 |
-| background | `sand_tile_background.png` | 3번째 이하 (세로 반복) |
+| root | `usable_square/biscuit_ladder_root_square.png` | **아래 지형 면**(발밑 surface) 텍스처 교체 |
+| middle | `usable_square/biscuit_ladder_middle_square.png` | **동적 rung**(빈 칸에 쌓는 사다리 칸) |
+| top | `usable_square/biscuit_ladder_top_square.png` | **위 지형 면**(닿는 레지 surface) 텍스처 교체 |
 
-- 각 파일은 **단일 정사각형 1칸**(아틀라스 아님). 권장 규격 **48 × 48** (= cell_size).
-- **가로 variant 금지** (cookie ground의 tier당 4-variant와 다름). 한 tier당 그림 1장 → 모든 더미가 **어디에 쌓아도 동일하게** 보인다.
-- 위치: `assets/sprites/terrain/`. 파일명은 위 표 그대로 (코드가 이 경로를 `load`).
+- 각 파일은 **단일 정사각형 1칸**(아틀라스 아님). 규격 **48 × 48**, cell_size 기준 whole-tile scale.
+- 위치: `assets/sprites/terrain/usable_square/`. 코드가 이 경로를 `load`. (구) `sand_tile_*.png`는 미사용 보존만.
 
 ### 11.3 렌더 동작 (코드 자동)
 
-- **그리기**: `Terrain._apply_sand_tier()`가 텍스처 **전체**를 cell_size에 맞춰 균일 scale한다 (`region_enabled = false`). 가로 슬라이스/오프셋을 쓰지 않으므로 cell_size가 달라도(32/48) 정사각형 그림이 잘리지 않고 통째로 보존된다.
-- **tier 배정**: 더미가 위로 자라 맨 위 칸이 계속 바뀌므로, 타일을 쌓을 때마다 `Terrain._reskin_sand_column()`이 column을 위→아래 surface → under_surface → background로 재배정한다 (3번째 이하는 한 번 background가 되면 불변 → 상위 3칸만 갱신해도 invariant 유지).
-- 아트 담당은 **그림 3장만** 만들면 된다. tier 배정·재스킨은 코드가 한다.
+- **동적 rung**: `Terrain._configure_dynamic_tile_sprite`가 `DYNAMIC_TILE_SAND_MOUND` 타일을 `_apply_ladder_tex(sprite, LADDER_TIER_MIDDLE)`로 그린다 — region 없이 텍스처 전체를 cell_size에 맞춰 균일 scale, 중앙. cell_size가 달라도(16/32/48) 잘리지 않는다. rung은 **전부 middle**(구 3-tier 강등 reskin 폐기). `add_tile`은 SAND_MOUND인데 MIDDLE 텍스처가 미가용이면 **상태를 만들기 전에 false 반환** — 보이지 않는 solid rung을 어떤 경로(empty-growth·cap)에서도 만들지 않는다(codex 2026-06-02 R7). bridge/stair는 무관.
+- **지형 면 통합**: `Terrain.reskin_cell_to_ladder(cell, tier)`는 **kind=="earth" + 정적 `_static_bodies` 등록 + 직접 Sprite2D 자식**을 모두 만족하는 셀의 텍스처만 root/top으로 교체한다 — **충돌/점유/cell_kind 불변, 시각만**. cross-mechanic 스프라이트 오염 방지(codex 2026-06-02 HIGH ×2): 동적 `_placed` 타일(bridge/stair/rung)은 static-only로 제외, `plant` 셀(kind 게이트)·슬로프(Sprite2D 없음)는 `false` 반환 → 호출부가 cap 불가로 처리.
+- 빌드 로직: `WorkerState._place_sand_mound_tile` (아래 root 1회 → 빈 칸 middle + ascend → 위 면 surface면 top cap+올라섬 / solid·cap불가면 종료 / 허공 5칸). cap 진입 판정은 부작용 없는 `WorkerState._can_cap_ledge(terrain, body_cell)` (셀 적격 `Terrain.can_reskin_cell_to_ladder` + cap이 입히는 시각 자산 **middle+top** 텍스처 가용 `Terrain.has_ladder_texture`)로 atomic 검사 — 하나라도 누락이면 진입 차단(invisible rung/거짓 top 반쪽 commit 방지). root는 best-effort라 게이트 제외. `reskin_cell_to_ladder`/`_apply_ladder_tex`는 tier 텍스처 load 실패 시 **false**를 반환(스프라이트 무변경) — asset 누락 시 cap이 거짓 성공하지 않는다. tier 텍스처는 `ResourceLoader.exists` 선검사 후 load+cache.
 
 ### 11.4 연속성 — 세로만 중요
 
 - 가로 연속성은 무의미하다 (1칸 폭).
-- 대신 **세로로 쌓았을 때** surface 하단 → under_surface → background → background가 매끄럽게 이어져야 한다 (S→U→I→I 체인을 **세로로만** 적용).
-- background는 세로 self-repeat 시 셀 경계에 가로 능선이 보이지 않아야 한다.
+- 세로로 **root(아래 지형 면) → middle(rung, 반복) → top(위 지형 면)**이 매끄럽게 이어져야 한다.
+- middle은 세로 self-repeat 시 셀 경계에 가로 능선이 보이지 않아야 한다. root/top은 인접 지형 면 텍스처를 덮으므로 주변 지형과 톤이 이어져야 한다.
 
 ### 11.5 부트스트랩 + 회귀 테스트
 
-- 새 PNG 교체 후 `godot --headless --path . --import` 1회 필수 (안 하면 런타임 `load()`가 null → 타일 안 보임).
-- `tests/SandMoundMaxHeightTest.gd`가 검증: (1) tier 순서 surface→under→background (2) `region_enabled = false` (3) cell_size에 맞춘 whole-texture scale (4) 중앙 정렬.
-- `tests/SandMoundClimbOverLedgeTest.gd`는 더미가 기존 솔리드 레지를 타고 넘는 게임플레이를 검증 (시각과 별개).
+- 새 PNG 교체 후 `python scripts/run_test.py --import` 1회 필수 (안 하면 런타임 `load()`가 null).
+- `tests/SandMoundMaxHeightTest.gd`: 허공 빌드 시 동적 rung 5칸 전부 **middle** + `region_enabled=false` + whole-tile scale + 중앙.
+- `tests/SandMoundClimbOverLedgeTest.gd`: 위 레지 아래에서 시전 → 레지 surface가 **top으로 cap** + 개미가 레지 위로 올라섬 + rung=middle + 바닥 지형 면=root.
+- `tests/SandMoundReskinGuardTest.gd`: reskin/cap 계약 — 동적 bridge·`plant`·슬로프(Sprite2D 없음) 셀 오염/cap 금지(false) · `earth`+Sprite2D 정적 셀만 reskin=top 성공 · `can_reskin_cell_to_ladder` 무부작용 · `_can_cap_ledge` atomicity 4종(적격 / body_cell 점유 / solid 벽 / plant 레지) · **실패한 cast(cap 불가 레지 아래 시전)는 발밑 floor를 root로 남기지 않음**(실제 Ant 구동) · 누락 tier 텍스처는 `has_ladder_texture` false + `reskin` honest false(무변경) · MIDDLE 누락 시 `add_tile(SAND_MOUND)` 거부(상태 무생성)·bridge 무관·cap preflight false, TOP 누락 시 cap false(test seam `_ladder_tex_forced_missing`로 결정적 검증). (codex 2026-06-02 HIGH×2/MEDIUM×6 회귀.)

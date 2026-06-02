@@ -20,20 +20,21 @@ const DYNAMIC_TILE_BRIDGE: String = "bridge"
 const DYNAMIC_TILE_STAIR: String = "stair"
 const DYNAMIC_TILE_SAND_MOUND: String = "sand_mound"
 
-# 모래 쌓기 3단 렌더 — 정적 쿠키 지형(StageLayoutBuilder)과 동일하게 column을 위→아래로
-# surface / under_surface / background로 표현. 동적 column이라 타일이 위로 쌓일 때마다
-# _reskin_sand_column이 아래 칸을 surface→under_surface→background로 강등한다.
-const SAND_TIER_SURFACE: String = "surface"
-const SAND_TIER_UNDER: String = "under_surface"
-const SAND_TIER_BACKGROUND: String = "background"
+# biscuit-ladder reskin (2026-06-02): 막대과자 사다리(구 sand_mound)는 "지형 통합" 모델.
+# 동적 rung 타일은 전부 middle. 아래/위 지형 면(walkable surface)은 reskin_cell_to_ladder로
+# root/top 텍스처만 교체(충돌/점유 불변). tier 3단 강등(구 surface/under/background) 시스템은 폐기.
+const LADDER_TIER_ROOT: String = "root"
+const LADDER_TIER_MIDDLE: String = "middle"
+const LADDER_TIER_TOP: String = "top"
 
 var _bridge_tile_texture: Texture2D = null
 var _stair_tile_texture: Texture2D = null
-# 모래 동적 타일 한정 cell→Sprite2D. bridge 타일은 미포함 → 재스킨 시 cross-contamination 차단.
+# 모래 동적 타일 한정 cell→Sprite2D (destroy 시 정리용).
 var _sand_mound_sprites: Dictionary = {}
-var _sand_surface_tex: Texture2D = null
-var _sand_under_tex: Texture2D = null
-var _sand_background_tex: Texture2D = null
+var _ladder_tex_cache: Dictionary = {}   # tier(String) → Texture2D
+# 테스트 전용 — tier(String)→true면 _ladder_texture가 그 tier를 null로 취급(asset 누락 시뮬). 평상시 빈 dict라 무영향.
+# (codex 2026-06-02 R7) missing-texture atomic 거부를 결정적으로 회귀 테스트하기 위한 seam.
+var _ladder_tex_forced_missing: Dictionary = {}
 
 func set_cell_size(s: int) -> void:
 	if s > 0:
@@ -89,6 +90,11 @@ func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE, visual
 	# D8 first-place wins — 동적/정적 어느 쪽이든 점유면 reject.
 	if _placed.has(cell) or _static_occupancy.has(cell):
 		return false
+	# (codex 2026-06-02 R7) sand-mound rung은 MIDDLE 텍스처 없이 "보이지 않는 solid"가 되면 안 된다.
+	# 텍스처 미가용(asset 누락/미import/export 누락)이면 **어떤 상태도 만들기 전에** 거부 — empty-growth/cap
+	# 양쪽에서 invisible-solid rung을 원천 차단(상태 변경 전 preflight라 rollback 불필요). bridge/stair는 무관.
+	if visual_style == DYNAMIC_TILE_SAND_MOUND and not has_ladder_texture(LADDER_TIER_MIDDLE):
+		return false
 	var body: StaticBody2D = StaticBody2D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
@@ -109,15 +115,14 @@ func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE, visual
 	# Phase 18 — 동적 placement도 destructible. Basher/Digger의 destroy 대상에 포함.
 	_cell_kind[cell] = "earth"
 	if visual_style == DYNAMIC_TILE_SAND_MOUND:
-		# 갓 쌓은 타일은 항상 column 맨 위 → surface. _reskin이 아래 칸을 강등한다.
+		# biscuit-ladder: 동적 rung은 전부 middle. (아래/위 지형 면의 root/top은 reskin_cell_to_ladder가 담당.)
 		_sand_mound_sprites[cell] = sprite
-		_reskin_sand_column(cell)
 	return true
 
 func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String, visual_direction: int = 1) -> void:
 	if visual_style == DYNAMIC_TILE_SAND_MOUND:
-		# 초기값 surface (방금 쌓은 = 맨 위). add_tile의 _reskin_sand_column이 아래 칸을 강등.
-		_apply_sand_tier(sprite, SAND_TIER_SURFACE)
+		# biscuit-ladder: 동적 rung 타일은 전부 middle. root/top은 지형 면 reskin이 담당.
+		_apply_ladder_tex(sprite, LADDER_TIER_MIDDLE)
 		return
 	if visual_style == DYNAMIC_TILE_STAIR:
 		if _stair_tile_texture == null:
@@ -136,45 +141,71 @@ func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String, visu
 	sprite.position = Vector2(0, -13.0 * scale_factor)
 	sprite.scale = Vector2(scale_factor, scale_factor)
 
-# 모래 column 재스킨 — 새 타일을 쌓을 때마다 호출(top_cell = 방금 쌓은 맨 위 칸).
-# +Y(화면상 아래)로 내려가며 surface → under_surface → background로 강등. 3번째 이하는 이미
-# background이고 다시 바뀌지 않으므로 상위 3칸만 갱신해도 invariant가 유지된다.
-func _reskin_sand_column(top_cell: Vector2i) -> void:
-	_set_sand_tier_if_present(top_cell, SAND_TIER_SURFACE)
-	_set_sand_tier_if_present(top_cell + Vector2i(0, 1), SAND_TIER_UNDER)
-	_set_sand_tier_if_present(top_cell + Vector2i(0, 2), SAND_TIER_BACKGROUND)
+# biscuit-ladder 지형 통합 (2026-06-02): 셀의 시각 sprite 텍스처만 biscuit_ladder tier로 교체한다.
+# 충돌/점유/cell_kind 불변 — 사다리가 아래/위 기존 **일반 정적 지형 면**(earth surface)을 root/top으로 통합할 때 호출.
+# 적격 조건(전부 만족해야 reskin): (1) kind == "earth" (2) 정적 _static_bodies 등록 셀 (3) 직접 Sprite2D 자식 보유.
+# 하나라도 불충족이면 no-op(false) → 호출부는 cap 불가로 처리.
+# (codex 2026-06-02 HIGH ×2) cross-mechanic 스프라이트 오염 차단:
+#   - 동적 _placed 타일(bridge/stair/rung)은 _cell_sprite가 static-only라 제외.
+#   - plant 정적 셀(kind="plant", PlantVisual Sprite2D 보유)은 kind 게이트로 제외.
+#   - 슬로프(kind="earth"이나 Polygon2D 비주얼·Sprite2D 없음)는 _cell_sprite null로 제외.
+func reskin_cell_to_ladder(cell: Vector2i, tier: String) -> bool:
+	if not can_reskin_cell_to_ladder(cell):
+		return false
+	# 텍스처 적용 성공 여부를 정직하게 반환 — tier 텍스처 load 실패 시 false (codex 2026-06-02 R5).
+	return _apply_ladder_tex(_cell_sprite(cell), tier)
 
-func _set_sand_tier_if_present(cell: Vector2i, tier: String) -> void:
-	var sprite_v: Variant = _sand_mound_sprites.get(cell)
-	if sprite_v == null or not is_instance_valid(sprite_v):
-		return
-	_apply_sand_tier(sprite_v as Sprite2D, tier)
+# reskin_cell_to_ladder가 성공할 셀인지 **부작용 없이** 미리 검사한다 — cap atomic preflight용.
+# 적격 조건은 reskin과 동일: kind=="earth" + 정적 등록 + 직접 Sprite2D 자식.
+# (텍스처 가용성은 tier별이므로 별도 has_ladder_texture로 검사 — cap preflight가 함께 사용.)
+func can_reskin_cell_to_ladder(cell: Vector2i) -> bool:
+	return get_cell_kind(cell) == "earth" and _cell_sprite(cell) != null
 
-func _apply_sand_tier(sprite: Sprite2D, tier: String) -> void:
-	var tex: Texture2D = _sand_tier_texture(tier)
+# tier 텍스처가 실제 load 가능한지 — cap atomic preflight가 사용(없으면 capped가 거짓 성공이 되는 것 차단).
+# (codex 2026-06-02 R5) game-state 부작용 없음(텍스처 캐시 memoization만).
+func has_ladder_texture(tier: String) -> bool:
+	return _ladder_texture(tier) != null
+
+# biscuit_ladder tier 텍스처 load+cache. asset 누락/미import/export 누락이면 null(에러 스팸 없이 exists 선검사).
+func _ladder_texture(tier: String) -> Texture2D:
+	if _ladder_tex_forced_missing.has(tier):
+		return null   # 테스트 seam — asset 누락 시뮬 (평상시 미사용)
+	var cached: Texture2D = _ladder_tex_cache.get(tier)
+	if cached != null:
+		return cached
+	var path: String = "res://assets/sprites/terrain/usable_square/biscuit_ladder_%s_square.png" % tier
+	if not ResourceLoader.exists(path):
+		return null
+	var tex: Texture2D = load(path) as Texture2D
 	if tex == null:
-		return
-	# 모래 타일은 가로 아틀라스가 아니라 독립 정사각형 1장(§TERRAIN_TILE_RULES.11). region 샘플링 없이
-	# 텍스처 전체를 cell_size에 맞춰 균일 scale → 어디에 쌓아도 동일, cell_size가 달라도 그림이 잘리지 않음.
+		return null
+	_ladder_tex_cache[tier] = tex
+	return tex
+
+# 정적 지형 셀(_static_bodies)의 직접 Sprite2D 자식만 반환. 동적 _placed는 의도적으로 제외(위 reskin 주석 참조).
+func _cell_sprite(cell: Vector2i) -> Sprite2D:
+	var body: Object = _static_bodies.get(cell)
+	if not is_instance_valid(body):
+		return null
+	for ch in (body as Node).get_children():
+		if ch is Sprite2D:
+			return ch as Sprite2D
+	return null
+
+# biscuit_ladder 타일(root/middle/top) whole-tile 렌더 — region 없이 cell_size에 맞춰 균일 scale, 중앙.
+# 48×48 단일 정사각이라 cell_size가 달라도(16/32/48) 잘리지 않는다.
+# 반환: 텍스처를 실제 적용했으면 true, tier 텍스처 load 실패면 false(스프라이트 무변경) — reskin atomic 보장용.
+func _apply_ladder_tex(sprite: Sprite2D, tier: String) -> bool:
+	var tex: Texture2D = _ladder_texture(tier)
+	if tex == null:
+		return false
 	sprite.region_enabled = false
 	sprite.texture = tex
 	sprite.position = Vector2.ZERO
 	var ts: Vector2 = tex.get_size()
 	if ts.x > 0.0 and ts.y > 0.0:
 		sprite.scale = Vector2(float(cell_size) / ts.x, float(cell_size) / ts.y)
-
-func _sand_tier_texture(tier: String) -> Texture2D:
-	if tier == SAND_TIER_SURFACE:
-		if _sand_surface_tex == null:
-			_sand_surface_tex = load("res://assets/sprites/terrain/sand_tile_surface.png") as Texture2D
-		return _sand_surface_tex
-	elif tier == SAND_TIER_UNDER:
-		if _sand_under_tex == null:
-			_sand_under_tex = load("res://assets/sprites/terrain/sand_tile_under_surface.png") as Texture2D
-		return _sand_under_tex
-	if _sand_background_tex == null:
-		_sand_background_tex = load("res://assets/sprites/terrain/sand_tile_background.png") as Texture2D
-	return _sand_background_tex
+	return true
 
 func has_tile(cell: Vector2i) -> bool:
 	return _placed.has(cell)

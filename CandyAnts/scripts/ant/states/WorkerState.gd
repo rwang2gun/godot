@@ -9,9 +9,6 @@ const TOTAL_TILES: int = 12
 
 const SAND_MOUND_TICK: float = 0.25
 const SAND_MOUND_MAX_HEIGHT: int = 5
-# 더미가 위로 자라다 기존 솔리드 지형(윗단 레지 등)을 만나면, 솔리드 셀 안에서 멈춰 끼는 대신
-# 그 솔리드 더미를 한 번에 타고 넘어 윗단 위에 올라선다. 이보다 두꺼운 벽은 단일 더미로 못 넘음 → abort.
-const SAND_MOUND_MAX_CLIMB_OVER: int = 4
 
 const BRIDGE_TICK: float = 0.20
 const BRIDGE_MAX_LENGTH: int = 8
@@ -33,6 +30,8 @@ var _work_type: String = ""
 var _remaining: int = 0
 var _tick_accum: float = 0.0
 var _aborted: bool = false
+# biscuit-ladder(구 sand_mound): 시전 1회 아래 면 root 교체 완료 플래그.
+var _ladder_root_done: bool = false
 # Phase 16 v7 — bridge floor-contact guard: 첫 tile 전 off-floor는 1-frame grace.
 # ant가 다시 floor 위로 안착하면 reset되어 다음 off-floor cycle에 또 grace 1회 사용 가능.
 # tile placement는 항상 off-floor frame에서 차단(grace frame은 return으로 skip, abort frame은
@@ -83,6 +82,7 @@ func _enter_sand_mound(a: Ant) -> void:
 	_remaining = SAND_MOUND_MAX_HEIGHT
 	_tick_accum = 0.0
 	_aborted = false
+	_ladder_root_done = false
 	a.velocity = Vector2.ZERO
 
 func _enter_bridge(a: Ant) -> void:
@@ -247,41 +247,81 @@ func _place_one_tile(a: Ant) -> void:
 	a.global_position += Vector2(a.direction * cs, 0.0)
 	_remaining -= 1
 
+# biscuit-ladder 지형 통합 빌드 (2026-06-02, 구 sand_mound climb-over 폐기):
+# - 위 칸이 비면: middle rung 배치 + 1칸 상승.
+# - 위 칸이 채워짐:
+#     · surface(노출 walkable top = 그 위 칸이 빈 셀 + 그 면이 reskin 가능한 정적 지형 Sprite)
+#       → 갭 middle 메움 + 위 면 텍스처 top + 개미 그 위로 올라서고 종료.
+#     · solid(위도 막힘) 또는 cap 불가(body_cell 점유·slope·plant·동적·미등록) → 아무 변경 없이 즉시 종료.
+# - 빈 칸으로만 최대 SAND_MOUND_MAX_HEIGHT(5)칸 쌓고 종료(허공 캡 없음).
+# - 발밑 지형 면 → root는 **최초 성공 commit(첫 rung/cap) 직후 1회**(_apply_ladder_root_once). 실패/즉시
+#   abort 시도는 root를 남기지 않는다(모든 reskin/placement가 commit 경계 안).
 func _place_sand_mound_tile(a: Ant) -> void:
 	var terrain: Terrain = _find_terrain(a)
 	if terrain == null:
 		_aborted = true
 		return
 	var cs: int = terrain.cell_size
-	# Builder 패턴 답습 — (y - 2.0)/cs로 ant 본체 cell 계산. 그 cell에 직접 tile 추가하면 ant가
-	# 새 floor 위로 1 cell 끌어올려진다. Builder는 target = cell + (dir, 1) (floor row),
-	# Sand-mound는 target = cell (ant 본체 cell)로 ant를 그 floor 위로 끌어올림.
 	var body_cell: Vector2i = Vector2i(
 		int(floor(a.global_position.x / cs)),
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
-	var target: Vector2i = body_cell
-	var ok: bool = terrain.add_tile(target, Terrain.DYNAMIC_TILE_SAND_MOUND)
+	var above: Vector2i = body_cell + Vector2i(0, -1)
+	if terrain.is_cell_occupied(above):
+		# 위 칸 점유 → cap 또는 solid 종료. cap은 **atomic**: 모든 사전조건(노출 walkable top + body_cell
+		# 비어 rung 배치 가능 + above가 cap 가능한 earth 면)을 부작용 없이 먼저 검사하고, 전부 통과할 때만
+		# rung 배치·top reskin·root reskin·hazard 비활성·개미 이동을 한 묶음으로 수행한다. 하나라도 불충족이면
+		# solid로 취급해 **아무것도 바꾸지 않고** 종료 — 반쪽 cap(개미만 텔레포트)·실패 시 root 잔존을 원천 차단.
+		if _can_cap_ledge(terrain, body_cell):
+			# 사전검사로 둘 다 성공이 보장됨(동기 tick 내 재진입 없음). 방어적으로 결과도 확인.
+			var placed: bool = terrain.add_tile(body_cell, Terrain.DYNAMIC_TILE_SAND_MOUND)
+			var capped: bool = terrain.reskin_cell_to_ladder(above, Terrain.LADDER_TIER_TOP)
+			if placed and capped:
+				terrain.deactivate_hazards_for_placement(body_cell)
+				_apply_ladder_root_once(terrain, body_cell)
+				a.global_position.y -= float(cs) * 2.0
+		# solid(위도 막힘) 또는 cap 불가(body_cell 점유·slope·plant·동적·미등록) → 종료(아무 변경 없음).
+		_aborted = true
+		return
+	# 빈 칸 → middle rung 배치 + 1칸 상승.
+	var ok: bool = terrain.add_tile(body_cell, Terrain.DYNAMIC_TILE_SAND_MOUND)
 	if not ok:
 		_aborted = true
 		return
-	# Phase 17 — Bridge/Water 정책 (D8). target=body row이므로 target과 그 위(new ant body row) 모두 비활성.
-	terrain.deactivate_hazards_for_placement(target)
-	# 기본 1칸 상승. 단, 바로 위가 기존 솔리드(스테이지 레지 등)면 그 솔리드 더미를 한 번에 타고 넘어
-	# 윗단 위에 올라선다 — 솔리드 셀 안에 머물러 끼는 것을 방지. add_tile은 D8 그대로(점유 셀 거부)이고
-	# 지형은 파괴하지 않는다. surface/background는 점유로 등록되지 않으므로(§TERRAIN_TILE_RULES.3) 통과 대상 아님.
-	# 기본 1칸 상승. 단, 바로 위가 기존 솔리드(스테이지 레지 등)면 그 솔리드 더미를 한 번에 타고 넘어
-	# 윗단 위에 올라선다 — 솔리드 셀 안에 머물러 끼는 것을 방지. add_tile은 D8 그대로(점유 셀 거부)이고
-	# 지형은 파괴하지 않는다. surface/background는 점유로 등록되지 않으므로(§TERRAIN_TILE_RULES.3) 통과 대상 아님.
-	var rise_cells: int = 1
-	while terrain.is_cell_occupied(target + Vector2i(0, -rise_cells)):
-		rise_cells += 1
-	if rise_cells > SAND_MOUND_MAX_CLIMB_OVER:
-		# 단일 더미로 넘기엔 너무 두꺼운 솔리드 — 방금 배치한 타일까지만 두고 종료(솔리드로 진입하지 않음).
-		_aborted = true
-		return
-	a.global_position.y -= float(cs) * rise_cells
+	terrain.deactivate_hazards_for_placement(body_cell)
+	_apply_ladder_root_once(terrain, body_cell)
+	a.global_position.y -= float(cs)
 	_remaining -= 1
+
+# 사다리 최초 성공 commit(첫 rung 또는 cap) 직후 1회만, 그 시점 발밑(body_cell+(0,1)) 지형 면을 root로 reskin.
+# (codex 2026-06-02 R4 MEDIUM) 즉시 abort한 실패 시도는 root를 남기지 않는다 — root reskin이 commit 경계 안에 있다.
+# best-effort cosmetic: 발밑이 earth 정적 지형 면이 아니면 no-op(false)이지만 플래그는 세워 재시도하지 않는다.
+func _apply_ladder_root_once(terrain: Terrain, body_cell: Vector2i) -> void:
+	if _ladder_root_done:
+		return
+	terrain.reskin_cell_to_ladder(body_cell + Vector2i(0, 1), Terrain.LADDER_TIER_ROOT)
+	_ladder_root_done = true
+
+# biscuit-ladder cap(surface) 진입 가능 여부 — **부작용 없는** atomic 사전검사.
+# true면 add_tile(body_cell)·reskin(above,TOP)이 모두 성공함이 보장되므로 cap을 한 묶음으로 commit할 수 있다.
+# 조건: (1) above 점유(레지) (2) above 위는 빈 칸(노출 walkable top) (3) body_cell 비어 rung 배치 가능
+#       (is_cell_occupied == add_tile reject 조건과 동일) (4) above가 cap 가능한 earth 정적 Sprite 면.
+static func _can_cap_ledge(terrain: Terrain, body_cell: Vector2i) -> bool:
+	var above: Vector2i = body_cell + Vector2i(0, -1)
+	if not terrain.is_cell_occupied(above):
+		return false
+	if terrain.is_cell_occupied(above + Vector2i(0, -1)):
+		return false   # 위도 막힘 = solid 벽
+	if terrain.is_cell_occupied(body_cell):
+		return false   # rung 놓을 자리 없음 → 반쪽 cap 방지
+	# (codex 2026-06-02 R5/R6) cap commit이 입히는 시각 자산(rung MIDDLE + 레지 TOP) 텍스처가 둘 다
+	# load 가능해야 atomic. 하나라도 누락이면 cap이 invisible rung/거짓 top으로 반쪽 commit되므로 진입 차단.
+	# (root는 best-effort cosmetic이라 게이트 제외 — _apply_ladder_root_once 참조.)
+	if not terrain.has_ladder_texture(Terrain.LADDER_TIER_MIDDLE):
+		return false
+	if not terrain.has_ladder_texture(Terrain.LADDER_TIER_TOP):
+		return false
+	return terrain.can_reskin_cell_to_ladder(above)
 
 func _place_bridge_tile(a: Ant) -> void:
 	var terrain: Terrain = _find_terrain(a)
