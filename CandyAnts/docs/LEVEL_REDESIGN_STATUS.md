@@ -5,7 +5,7 @@
 ## 0. 한 줄 요약
 캠페인 레벨을 처음부터 재설계 중. **스킬 정합성 "선행 정리"를 먼저** 하고 그 위에 9스테이지 캠페인을 저작하는 흐름.
 **2026-06-02 세션 2 완료**: 미커밋 5+ 스레드(builder 대각·Strings 중앙화·Home retire·blocker 배지·기절) **분리 커밋**(e0f9f02~6771bb2) → **A2 기절(Stun) 구현·검증**(commit 1f2a162) → **S1 "첫 마실"을 stage01 락 슬롯에 통합 완료**(dev 초안 폴더 삭제, promotion).
-**2026-06-02 세션 3**: ① **S2 "오르막" stage02 저작 — 커밋 `c8611e6`** (§3c). distributor floater 분배(사용자 결정 — rev2 §2 distributor 보류 철회, S2=3개념). 저작 중 버그 2건 수정: 기절 경계값(정확히 5칸≈239.x<240 → **6칸 교정**) + star_thresholds **내림차순→오름차순 교정**(S1·S2, S1 선재버그). ② **A1 운반자 통일 완료**(§4 A1) + **S3 "사탕 호수" stage03 저작**(§3d) — **미커밋**. 다음: **S4 "계단 공사"(builder)** → S5~S9.
+**2026-06-02 세션 3**: ① **S2 "오르막" stage02 저작 — 커밋 `c8611e6`** (§3c). distributor floater 분배(사용자 결정 — rev2 §2 distributor 보류 철회, S2=3개념). 저작 중 버그 2건 수정: 기절 경계값(정확히 5칸≈239.x<240 → **6칸 교정**) + star_thresholds **내림차순→오름차순 교정**(S1·S2, S1 선재버그). ② **A1 운반자 통일 완료**(§4 A1) + **S3 "사탕 호수" stage03 저작**(§3d) — **커밋 `2546212`**. 다음: **S4 "계단 공사"(builder)** → S5~S9.
 
 ## 1. 관련 문서
 - **설계 시안**: `docs/LEVEL_DESIGN_PLAN.html` (rev2, 9스테이지, 그리드 시안 포함).
@@ -55,7 +55,7 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - **배선**: SceneFlow slot2=Stage02.tscn 그대로, LAST_STAGE_ID=3 유지(S3=옛 MVP stage03). menu_layout 10슬롯·SaveData 언락 기존 유지.
 - **⚠ 옛 stage02 "모래 다리"(sand_mound/builder) 내용은 덮어써짐** — git 이력(`58b0fbb` 직전 stage02.tres/layout/tscn)에서 복구 가능.
 
-## 3d. 완료 — A1 운반자 통일 + S3 "사탕 호수" → stage03 락 슬롯 저작 (세션 3, 미커밋)
+## 3d. 완료 — A1 운반자 통일 + S3 "사탕 호수" → stage03 락 슬롯 저작 (세션 3, 커밋 `2546212`)
 **A1 (선행 정리)**: `BridgeSkill.can_apply`를 builder처럼 **Walker/Carrying 허용** + `has_candy` 거부 제거. `WorkerState`는 has_candy 불변(주석 가드)이고 `return_to_walking()`이 has_candy면 CarryingState로 복원 → 운반 개미가 다리 놓고 운반 재개(데드락 無). `test_BridgeSkill.gd`는 빈 스텁이라 무영향. **검증**: bridge 8종(BridgeGapCross·OverWater·OverWaterStickyOverlap·RejectStageCell·FallAbort·FirstTickOffFloorAbort·GapTooLong·SandBridgeOverlap) 전부 PASS.
 
 **S3 "사탕 호수" 저작** (HTML rev2 id:3 — bridge 평지 횡단 + water 즉사):
@@ -70,7 +70,7 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 ## 4. 남은 작업 (권장 순서)
 
 ### A. 선행 정리 — 코드/에셋 (캠페인 저작 전 필수)
-- [x] **A1. builder/bridge 운반자 허용 통일** — **완료(세션 3, 미커밋)**. `BridgeSkill.can_apply` Walker/Carrying 허용 + has_candy 거부 제거. 상세 §3d. bridge 8종 회귀 PASS.
+- [x] **A1. builder/bridge 운반자 허용 통일** — **완료(세션 3, 커밋 `2546212`)**. `BridgeSkill.can_apply` Walker/Carrying 허용 + has_candy 거부 제거. 상세 §3d. bridge 8종 회귀 PASS.
 - [x] **A2. 기절(Stun) 메커니즘** — **완료(commit 1f2a162)**. `FallerState.enter()` 낙하 시작 y 기록 → 착지 시 `(착지y−시작y) >= 5×cell_size` & floater 미보유 → `DeadState`(신설 대신 **DeadState 재활용**). DeadState가 stun 애니 ~1초 재생 후 queue_free + 운반 시 candy_piece_lost(LostState 동일 회계). `Ant._cell_size`는 `_resolve_kill_bounds`에서 캐시, `stun_fall_threshold()`. `ant_stun` sfx id(P21 대기). floater 높이 무관 무효. 검증: `tests/StunFallTest`(5칸→기절+lost / 4칸→생존 / floater→생존 PASS).
 - [x] **A3. 기절 스프라이트** — **완료(commit 1f2a162)**. `assets/sprites/characters/ant_pajama_girl/stun/`(PNG4) + AntFrames `stun` 애니(loop, speed6).
 - [ ] **A4. (아트) stair 스프라이트 검토**: `cookie_stair_tile.png`가 대각 상승으로 잘 읽히는지. 충돌/로직은 정상.
@@ -92,7 +92,7 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [ ] **D4. (세션 3 신설) blocker/alternate-spawn 커버리지 보강**: `Stage03HeadlessTest` 폐기로 **D-1(AntSpawner spawn_direction_alternate) / D-2(BlockerSkill carrying 거부) / D-3(blocker clear) 통합 커버리지 소멸**. 둘 다 재설계 캠페인 미사용(blocker 보류·alternate 미사용)이라 defer. blocker/alternate 재도입 시 standalone unit test 신설.
 
 ## 5. 다음 세션 즉시 행동 (제안)
-1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 3: S2 커밋 `c8611e6`, 그 위에 A1+S3 미커밋 워킹트리**(커밋 시 §3d 변경 묶음). climb 애니 2→8프레임 아트는 별도 트랙(섞지 말 것).
+1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 3 종료: HEAD=`2546212`(S3+A1) · 그 아래 `c8611e6`(S2). 추적 파일 워킹트리 clean, 미push(로컬)**. ⚠ **단 `git status`에 climb 애니 아트(`AntFrames.tres` + `climb/climb_*.png` + `docs/climb_4pose_limb_color_reference.svg`)가 미커밋으로 뜸 — 병렬 아트 트랙 산출물이라 정상이며 내 작업 아님. 스테이지 커밋에 섞지 말 것**(아트 트랙이 별도 커밋). S4부터 직진.
 2. **S4 "계단 공사" 저작** (builder 대각 상승). HTML rev2 id:4 grid: 좌 지면 + 우측 높은 단 + 그 앞 빈틈 → builder로 대각 계단 쌓아 등반(계단 양방향 보행 → 귀가 동일). stage04 슬롯 **신규**(현 stage04~ 슬롯 존재 확인 — 없으면 scenes/stages/Stage04.tscn + data 신규 + **SceneFlow.STAGE_SCENES[4] 추가 + LAST_STAGE_ID=4**). §3d 마이그레이션 패턴 답습. builder는 이미 대각화 완료(§3 commit e0f9f02). A1로 운반자도 builder 가능.
 3. **S5~S9** 순차 (S5 사다리 / S6 digger / S7 basher / S8 cutter / S9 종합). S6+ 파괴계는 layout에 earth/plant 태그(B1) + water/sticky 해저드(B2) 저작 필요.
 4. (선택) **기절 5칸 경계 결함 근본수정 여부 결정**(§6 gotcha) — 현재는 스테이지를 6칸으로 우회. 디자인 "5칸=기절" 의미를 살리려면 FallerState/WalkerState 측정 수정(코어 변경, 별도 테스트·리뷰).
@@ -106,4 +106,4 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - `docs/LEVEL_DESIGN_PLAN.html`은 **gitignore(*.html)** — 커밋해도 안 올라감. 로컬 보존.
 - **stage 슬롯 마이그레이션 패턴**(S2~S9 답습): ① `stageNN_layout.tres` 내용 이식(헤더 uid 유지) ② `stageNN.tres` 파라미터 ③ `StageNN.tscn` 엔티티 좌표(Home/Candy/Camera/Spawner)+hp+total ④ 지오메트리 하드코딩 테스트(GameFlowTest climber 좌표 등) 갱신 ⑤ 회귀(Hud/LayoutBuilder/GameFlow/SceneFlow). 경로 락이라 **파일명 유지·내용만 교체**.
 - **세션 2 종료**: 8 커밋(`e0f9f02`~`58b0fbb`), HEAD=`58b0fbb`, 워킹트리 clean, 미push(로컬).
-- **세션 3 진행**: ① S2 stage02 저작 + 버그2 → **커밋 `c8611e6`**. ② 그 위 **미커밋 워킹트리** = A1(BridgeSkill) + S3 stage03 저작(stage03.tres/layout/Stage03.tscn + Water8) + 신규 테스트(CampaignS3Clear/NoBridge) + stale 폐기(Stage03HeadlessTest 3파일) + GameFlowTest Scenario B bridge 재작성 + 본 문서. 커밋 시 `feat(level): S3 "사탕 호수" stage03 저작 + A1 운반자 통일` 권장. **climb 애니 2→8프레임 아트(AntFrames/climb_*.png/svg)는 병렬 트랙 — S3 커밋에 섞지 말 것**.
+- **세션 3 종료**: ① S2 stage02 저작 + 버그2 → **커밋 `c8611e6`**. ② A1(BridgeSkill) + S3 stage03 저작(stage03.tres/layout/Stage03.tscn + Water8) + 신규 테스트(CampaignS3Clear/NoBridge) + Stage03HeadlessTest 폐기 + GameFlowTest Scenario B bridge 재작성 + 본 문서 → **커밋 `2546212`**. ③ 본 핸드오프 정정 docs 커밋. **HEAD 이후 추적 워킹트리 clean**. ⚠ climb 애니 2→8프레임 아트(AntFrames/climb_*.png/svg)는 **미커밋 병렬 트랙** — 스테이지 커밋에 섞지 말 것.
