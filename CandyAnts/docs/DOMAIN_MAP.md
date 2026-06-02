@@ -16,7 +16,7 @@
 |---|---|---|---|
 | **Ant(개미)** | `scripts/ant/Ant.gd`, `AntState.gd`, `AntStateMachine.gd`, `scripts/ant/states/*.gd` | `scenes/entities/Ant.tscn` | `assets/sprites/characters/ant_pajama_girl/` (`AntFrames.tres` + idle/walk/carry/climb/dig/build/blocker/fall/victory) |
 | **Candy(사탕)** | `scripts/world/Candy.gd` | `scenes/entities/Candy.tscn` | `assets/sprites/candy/` (`CandyFrames.tres` + candy_00~05.png) |
-| **Home(집)** | `scripts/world/Home.gd` | `scenes/entities/Home.tscn` | `assets/sprites/home.svg`, `assets/sprites/spawners/ant_hole.png` |
+| **Home(집)** | `scripts/world/Home.gd` | `scenes/entities/Home.tscn` | `assets/sprites/spawners/ant_hole.png` (집/배달 목표 스프라이트 — `Home.tscn` 직접 참조). ⚠️ `home.svg`는 **미사용 orphan**(import 스모크 테스트만 참조) |
 | **Terrain(지형)** | `scripts/world/Terrain.gd`, `CookiePlatformVisual.gd`, `StageLayoutBuilder.gd` | (씬 내 노드) | `assets/sprites/terrain/`, `assets/sprites/terrain/usable_square/` · 규칙: `docs/TERRAIN_TILE_RULES.md` |
 | **Hazard: Water(소다물)** | `scripts/world/hazards/WaterHazard.gd`, `HazardBase.gd` | `scenes/entities/hazards/Water.tscn` | `assets/sprites/terrain/soda_water.png` |
 | **Hazard: Sticky(캐러멜)** | `scripts/world/hazards/StickyHazard.gd`, `HazardBase.gd` | `scenes/entities/hazards/Sticky.tscn` | `assets/sprites/terrain/sticky_caramel.png` |
@@ -87,6 +87,9 @@
 | `settle_race` | SettleRaceTest.tscn | settlement |
 | `settle_stuck` | SettleStuckTest.tscn | settlement |
 | `trait` | TraitTest.tscn | trait adaptation |
+| `campaign_s1_first_outing` | CampaignS1Stage.tscn | **캠페인 초안(rev2 S1 "첫 마실")** · climber 1칸 분지 |
+
+> `campaign_s1_first_outing`은 메커니즘 dev-test가 아니라 **레벨 재설계 캠페인 스테이지 초안**이다(미통합 — SceneFlow/StageSelect 미등록). 검증: `tests/CampaignS1ClearTest.tscn`(climber 부여 시 클리어) + `tests/CampaignS1NoClimberTest.tscn`(무스킬 시 미클리어, 음성 대조). 진척 SoT는 `docs/LEVEL_REDESIGN_STATUS.md`.
 
 > 주의: 같은 메커니즘을 여러 `tests/*.tscn` 헤드리스 테스트가 위 dev 씬을 인스턴스로 재사용한다(예: `tests/TraitCombinedTest.tscn` → `dev_stages/trait/TraitTest.tscn`). dev 씬을 옮기거나 이름 바꾸면 `tests/`의 `ext_resource` 경로도 함께 갱신해야 한다.
 

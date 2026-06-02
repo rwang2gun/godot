@@ -29,7 +29,12 @@ python scripts/run_test.py dev_stages/<slug>/<Scene>Test.tscn
 - 씬 없이 `tests/*.gd`가 `preload`로만 쓰는 레이아웃(basher_edge_stop / cutter_edge_stop / cutter_over_hazard / earth_plant_separation)은 클러스터가 아니라 `data/stage_layouts/`에 남겨 둔다.
 - 메인 스테이지(Stage01~03)는 레벨툴 애드온 경로 락 때문에 여기로 옮기지 않는다(`docs/DOMAIN_MAP.md` §3.1).
 
-## 현재 클러스터 (20)
+## 현재 클러스터 (20, 메커니즘 dev-test)
 basher_wall · basher_digger_chain · digger_pillar · cutter_vine · bridge · bridge_over_overlap ·
 bridge_over_water · bridge_reject · bridge_too_long · sand_mound · sand_bridge_overlap · water ·
 water_after_candy · water_sticky_overlap · sticky · sticky_settle · settle · settle_race · settle_stuck · trait
+
+## 캠페인 스테이지 초안 (메커니즘 dev-test 아님, 미통합)
+레벨 재설계(rev2) 캠페인 스테이지를 SceneFlow/StageSelect에 통합하기 전 독립 초안으로 저작·검증하는 폴더.
+SoT는 `docs/LEVEL_REDESIGN_STATUS.md`.
+- `campaign_s1_first_outing` — S1 "첫 마실"(climber 1칸 분지). 검증: `tests/CampaignS1ClearTest.tscn` + `tests/CampaignS1NoClimberTest.tscn`.
