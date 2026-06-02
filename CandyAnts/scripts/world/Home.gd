@@ -3,8 +3,23 @@ class_name Home extends Area2D
 @export var spawn_position_offset: Vector2 = Vector2(0, -5)
 const RESPAWN_DELAY_SECONDS: float = 3.0
 
+# 사탕 소진(candy_depleted) 후엔 빈손 귀가 개미를 재생성하지 않고 집에서 은퇴시킨다.
+# 무의미한 respawn 루프를 끊어 movable 개미를 소진시키고 → 스테이지 종료(클리어)를 유도.
+var _candy_depleted: bool = false
+
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
+	# Candy가 hp 0 도달 시 1회 emit. 소진 후 빈손 귀가는 retire(아래 _on_body_entered).
+	if not EventBus.candy_depleted.is_connected(_on_candy_depleted):
+		EventBus.candy_depleted.connect(_on_candy_depleted)
+
+func _exit_tree() -> void:
+	# stage reload 시 EventBus(autoload) 연결 누수 차단 (멱등).
+	if EventBus.candy_depleted.is_connected(_on_candy_depleted):
+		EventBus.candy_depleted.disconnect(_on_candy_depleted)
+
+func _on_candy_depleted() -> void:
+	_candy_depleted = true
 
 func get_spawn_position() -> Vector2:
 	return global_position + spawn_position_offset
@@ -31,8 +46,13 @@ func _on_body_entered(body: Node2D) -> void:
 	EventBus.ant_saved.emit(a, carrying)
 	if carrying:
 		a.state_machine.change_state(SavedState.new())
+	elif _candy_depleted:
+		# 사탕 소진 후 빈손 귀가 → 재생성하지 않고 집에서 은퇴(SavedState=queue_free).
+		# ant_saved(carrying=false)는 위에서 이미 emit(saved 카운트 무영향)이므로 회계 변동 없음.
+		# 효과: movable 개미가 집으로 소진 → in_transit==0 + candy_hp==0 클리어로 스테이지 종료.
+		a.state_machine.change_state(SavedState.new())
 	else:
-		# 빈손 귀가는 SavedState(queue_free) 대신 3초 대기 후 spawn 위치에서 재등장.
+		# 사탕이 남아 있는 동안의 빈손 귀가는 SavedState(queue_free) 대신 3초 대기 후 재등장.
 		# 같은 인스턴스를 재활용해 trait 보존 + AntSpawner.total cap 무영향 +
 		# _living_ant_count(노드 존재 기준)도 그대로 유지 → no_more_ants 가드 안전.
 		_begin_respawn(a)
