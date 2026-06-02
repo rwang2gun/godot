@@ -6,12 +6,13 @@
 [resource]
 script = ExtResource("1")
 id = 3
-display_name = "흙을 깎다"
+display_name = "사탕 호수"
 layout = ExtResource("1_layout")
 total_ants = 6
 candy_hp = 4
-time_limit_seconds = 120.0
-available_skills = ["basher"]
-skill_inventory = { "basher": 3 }
+time_limit_seconds = 110.0
+available_skills = ["bridge"]
+skill_inventory = { "bridge": 5 }
 release_rate_initial = 30
 release_rate_min = 1
+star_thresholds = Array[float]([0.5, 0.75, 1.0])

@@ -16,6 +16,7 @@
 [ext_resource type="Resource" path="res://data/stage_layouts/stage03_layout.tres" id="14_stage_layout"]
 [ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="15_toolbar"]
 [ext_resource type="Script" path="res://scripts/world/PlacementPreview.gd" id="16_placement_preview"]
+[ext_resource type="PackedScene" path="res://scenes/entities/hazards/Water.tscn" id="17_water"]
 
 [node name="StageRunner" type="Node"]
 script = ExtResource("1")
@@ -43,27 +44,51 @@ toolbar_path = NodePath("../../SkillToolbar")
 terrain_path = NodePath("../Terrain")
 
 [node name="Home" type="Area2D" parent="World" instance=ExtResource("3")]
-position = Vector2(264, 1056)
+position = Vector2(120, 480)
 collision_layer = 32
 collision_mask = 4
 script = ExtResource("6_home")
 
 [node name="Candy" type="Area2D" parent="World" instance=ExtResource("4")]
-position = Vector2(1224, 1056)
+position = Vector2(1032, 480)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("8_candy")
 hp = 4
 
+[node name="Water9" parent="World" instance=ExtResource("17_water")]
+position = Vector2(456, 504)
+
+[node name="Water10" parent="World" instance=ExtResource("17_water")]
+position = Vector2(504, 504)
+
+[node name="Water11" parent="World" instance=ExtResource("17_water")]
+position = Vector2(552, 504)
+
+[node name="Water12" parent="World" instance=ExtResource("17_water")]
+position = Vector2(600, 504)
+
+[node name="Water13" parent="World" instance=ExtResource("17_water")]
+position = Vector2(648, 504)
+
+[node name="Water14" parent="World" instance=ExtResource("17_water")]
+position = Vector2(696, 504)
+
+[node name="Water15" parent="World" instance=ExtResource("17_water")]
+position = Vector2(744, 504)
+
+[node name="Water16" parent="World" instance=ExtResource("17_water")]
+position = Vector2(792, 504)
+
 [node name="Camera2D" type="Camera2D" parent="World"]
-position = Vector2(744, 936)
+position = Vector2(576, 360)
 
 [node name="StageBackground" type="CanvasLayer" parent="." instance=ExtResource("8")]
 layer = -100
 
 [node name="Spawner" type="Node" parent="."]
 script = ExtResource("2")
-spawn_position = Vector2(264, 1048.5)
+spawn_position = Vector2(120, 472.5)
 total = 6
 release_rate = 30
 spawn_direction = 1

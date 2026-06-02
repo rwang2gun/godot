@@ -8,7 +8,10 @@ extends Node
 # PASS: get_tree().quit(0). FAIL: 즉시 print + quit(1).
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
-const STAGE3_TRIGGER_X: float = 1248.0  # Stage03HeadlessTest와 동일 (cell_size=48)
+# S3 "사탕 호수"(bridge+water) — 첫 ant가 갭 직전 마지막 지면 cell(col8, x∈[384,432))에 있을 때 bridge 적용 →
+# target=(col9, row10) gap 첫 셀부터 8칸 다리 → 우측 지면(col17) 도달. (구 stage03 basher/blocker 트리거 폐기)
+const STAGE3_BRIDGE_X_MIN: float = 384.0
+const STAGE3_BRIDGE_X_MAX: float = 432.0
 
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed
@@ -16,13 +19,11 @@ var _current_stage_root: Node = null
 var _overlay: Control = null  # StageDialog (phase 12: 구 StageResultOverlayStub 교체, 동일 API contract)
 
 var _failed: bool = false
-var _basher_applied_scenario_b: bool = false
 
 func _process(_delta: float) -> void:
 	if _failed:
 		return
 	_apply_climber_if_ready()
-	_apply_basher_for_scenario_b()
 
 func _apply_climber_if_ready() -> void:
 	if _scene_flow == null or _scene_flow._current_stage_id != 1:
@@ -48,34 +49,6 @@ func _apply_climber_if_ready() -> void:
 				continue
 			climber.apply(a)
 			print("[GameFlowTest] applied Climber to ", a.name, " at x=", a.global_position.x)
-
-func _apply_basher_for_scenario_b() -> void:
-	if _scene_flow == null or _scene_flow._current_stage_id != 3:
-		return
-	if _basher_applied_scenario_b:
-		return
-	var runner: StageRunner = _find_current_stage_runner()
-	if runner == null or runner._completed:
-		return
-	for n in get_tree().get_nodes_in_group("ants"):
-		var a: Ant = n as Ant
-		if a == null or not is_instance_valid(a):
-			continue
-		if a.direction != 1:
-			continue
-		if a.has_been_carrying:
-			continue
-		if a.has_trait(&"basher"):
-			continue
-		# 흙 벽(x=12, 즉 576px) 진입 전 x=528~570 사이에서 Basher 적용
-		if a.global_position.x >= 528.0 and a.global_position.x < 570.0:
-			var basher: BasherSkill = BasherSkill.new()
-			if not basher.can_apply(a):
-				continue
-			basher.apply(a)
-			_basher_applied_scenario_b = true
-			print("[GameFlowTest] Scenario B applied Basher to ", a.name, " at x=", a.global_position.x)
-			return
 
 func _ready() -> void:
 	# 헤드리스 wall clock 단축. 자연 진행은 유지하되 모든 시뮬을 8배 가속해
@@ -156,30 +129,31 @@ func _scenario_b() -> void:
 	if not _verify_current_stage_id(3, "B.start"):
 		return
 
-	# Stage03HeadlessTest와 동일: 첫 +1 ant에 BlockerSkill apply
-	var blocker_applied: bool = false
+	# S3 "사탕 호수": 첫 +1 ant가 갭 직전 col8(x∈[384,432))에 도달하면 BridgeSkill 적용 → 8칸 다리로 호수 횡단.
+	# 다리는 영구라 후속 ant도 같은 다리로 왕복 → candy 회수 → clear (구 blocker@cliff 폐기).
+	var bridge_applied: bool = false
 	var elapsed: float = 0.0
-	while not blocker_applied and elapsed < SCENARIO_TIMEOUT_SECONDS:
+	while not bridge_applied and elapsed < SCENARIO_TIMEOUT_SECONDS:
 		for n in get_tree().get_nodes_in_group("ants"):
 			var a: Ant = n as Ant
 			if a == null or not is_instance_valid(a):
 				continue
 			if a.direction != 1 or a.has_been_carrying:
 				continue
-			if a.global_position.x < STAGE3_TRIGGER_X:
+			if a.global_position.x < STAGE3_BRIDGE_X_MIN or a.global_position.x >= STAGE3_BRIDGE_X_MAX:
 				continue
-			var blocker: BlockerSkill = BlockerSkill.new()
-			if not blocker.can_apply(a):
+			var bridge: BridgeSkill = BridgeSkill.new()
+			if not bridge.can_apply(a):
 				continue
-			blocker.apply(a)
-			blocker_applied = true
-			print("[GameFlowTest] B applied Blocker at x=", a.global_position.x)
+			bridge.apply(a)
+			bridge_applied = true
+			print("[GameFlowTest] B applied Bridge at x=", a.global_position.x)
 			break
-		if not blocker_applied:
+		if not bridge_applied:
 			await get_tree().process_frame
 			elapsed += get_process_delta_time()
-	if not blocker_applied:
-		_fail("B blocker apply timeout")
+	if not bridge_applied:
+		_fail("B bridge apply timeout")
 		return
 
 	var result: Dictionary = await _await_signal(EventBus.stage_cleared)
