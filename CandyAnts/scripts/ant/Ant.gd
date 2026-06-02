@@ -15,6 +15,15 @@ const CLIMB_SPEED: float = 60.0
 # 미발견 시 54.0(=48+6) fallback. Stage01~03 모두 cell_size=48이므로 fallback 정확.
 var mantle_distance: float = 54.0
 
+# Out-of-bounds 탈락 — 개미가 플레이 영역(layout.tile_map 범위) 밖(아래·좌·우)으로 벗어나면 LostState로 처리.
+# 경계 = (최저 행 + KILL_MARGIN_CELLS) * cell_size. layout 미발견/파싱 실패 시 _kill_y=INF로
+# 비활성(false-trigger 방지). _resolve_mantle_distance가 동일 layout 스캔에서 함께 산출.
+# 마진은 layout 최심 셀 기준이라 "바닥 타일 위에 선 개미"는 안 걸리고 실제 낙하만 포착.
+const KILL_MARGIN_CELLS: int = 3
+var _kill_y: float = INF       # 바닥 경계 — 이 아래로 떨어지면 lost
+var _kill_x_min: float = -INF  # 좌 경계 — 이 왼쪽으로 나가면 lost
+var _kill_x_max: float = INF   # 우 경계 — 이 오른쪽으로 나가면 lost
+
 var direction: int = 1
 # AntSpawner._spawn_one이 add_child 전에 direction을 세팅하므로 _ready 시점의 direction이
 # per-ant 최초 스폰 방향(spawn_direction_alternate 분기 결과 포함). Home._on_respawn_timeout에서
@@ -115,8 +124,52 @@ func _resolve_mantle_distance() -> void:
 				var cs: Variant = layout.get("cell_size")
 				if typeof(cs) == TYPE_INT and int(cs) > 0:
 					mantle_distance = float(cs) + 6.0
+					_resolve_kill_bounds(layout, int(cs))
 					return
 		node = node.get_parent()
+
+func _resolve_kill_bounds(layout: Resource, cs: int) -> void:
+	# 플레이 영역 경계 = layout.tile_map의 셀 범위. 그 밖으로 KILL_MARGIN_CELLS 칸 이상
+	# (아래·좌·우) 벗어나면 out-of-bounds. tile_map 비었거나 키 파싱 불가 시 경계 ±INF(비활성).
+	# 키는 "x,y" 문자열 (StageLayoutBuilder._cell_from_key 컨벤션 동일). 위쪽은 등반/floater가
+	# 정상 상승하므로 경계 없음.
+	var tm: Variant = layout.get("tile_map")
+	if typeof(tm) != TYPE_DICTIONARY:
+		return
+	var min_col: int = 0
+	var max_col: int = 0
+	var max_row: int = 0
+	var found: bool = false
+	for key in (tm as Dictionary).keys():
+		var parts: PackedStringArray = str(key).split(",")
+		if parts.size() != 2:
+			continue
+		var col: int = int(parts[0])
+		var row: int = int(parts[1])
+		if not found:
+			min_col = col
+			max_col = col
+			max_row = row
+			found = true
+		else:
+			min_col = min(min_col, col)
+			max_col = max(max_col, col)
+			max_row = max(max_row, row)
+	if not found:
+		return
+	_kill_x_min = float((min_col - KILL_MARGIN_CELLS) * cs)
+	_kill_x_max = float((max_col + 1 + KILL_MARGIN_CELLS) * cs)
+	_kill_y = float((max_row + 1 + KILL_MARGIN_CELLS) * cs)
+
+func _check_out_of_bounds() -> void:
+	# 플레이 영역 밖(아래·좌·우)으로 벗어난 개미 → LostState (보유 사탕 candy_piece_lost 정산 + queue_free).
+	# is_alive() 가드로 terminal state 멱등 차단. 경계 ±INF(layout 미발견)면 항상 no-op.
+	var p: Vector2 = global_position
+	if p.y <= _kill_y and p.x >= _kill_x_min and p.x <= _kill_x_max:
+		return
+	if state_machine == null or not is_alive():
+		return
+	state_machine.change_state(LostState.new())
 
 func _physics_process(delta: float) -> void:
 	# Phase 17 — sticky timer decay. state_machine.update 이전에 처리 (Walker/Carrying이
@@ -129,6 +182,7 @@ func _physics_process(delta: float) -> void:
 			_sticky_max = 0.0
 	if state_machine != null:
 		state_machine.update(delta)
+	_check_out_of_bounds()   # 플레이 영역 밑 낙하 → LostState (state.update 이후, 시각 갱신 이전).
 	_update_sprite()
 	_update_trait_badges()
 	_update_sticky_bar()   # Phase 20 — bar scale + visible toggle (1 호출, 시각 전용).
