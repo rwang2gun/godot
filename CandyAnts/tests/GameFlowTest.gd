@@ -2,16 +2,16 @@ extends Node
 
 # Phase 6 통합 회귀 테스트.
 # 시나리오 A: Stage01 자연 clear → Next → Stage02 도달 (+ Result Dictionary 8키 검증, freeze/unfreeze)
-# 시나리오 B: SceneFlow.load_stage(3) → Stage03 clear → Next 비활성(last) + 강제 emit 시 go_to_menu fallback (stage1 reload)
+# 시나리오 B: SceneFlow.load_stage(4) → Stage04 clear(builder 계단) → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
 # 시나리오 C: load_stage(1) → 강제 fail(no_more_ants) → Next 차단(disabled + signal reject) → Replay → stage1 reload
 # 시나리오 D: A에서 freeze/unfreeze 인라인 확인.
 # PASS: get_tree().quit(0). FAIL: 즉시 print + quit(1).
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
-# S3 "사탕 호수"(bridge+water) — 첫 ant가 갭 직전 마지막 지면 cell(col8, x∈[384,432))에 있을 때 bridge 적용 →
-# target=(col9, row10) gap 첫 셀부터 8칸 다리 → 우측 지면(col17) 도달. (구 stage03 basher/blocker 트리거 폐기)
-const STAGE3_BRIDGE_X_MIN: float = 384.0
-const STAGE3_BRIDGE_X_MAX: float = 432.0
+# S4 "계단 공사"(builder 대각 계단) — 첫 ant가 갭 직전 마지막 지면 cell(col8, x∈[384,432))에 있을 때 builder 적용 →
+# 대각 계단(9,9)(10,8)(11,7)을 쌓아 우측 높은 단(표면 row6)에 올라섬. 계단은 영구라 후속 ant도 보행 등반(step-up).
+const STAGE4_BUILDER_X_MIN: float = 384.0
+const STAGE4_BUILDER_X_MAX: float = 432.0
 
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed
@@ -122,47 +122,47 @@ func _scenario_a() -> void:
 # 시나리오 B: load_stage(3) → clear → Next disabled → 강제 emit → go_to_menu fallback
 # -----------------------------------------------------------------------------
 func _scenario_b() -> void:
-	print("[GameFlowTest] === Scenario B: Stage03 → clear → Next disabled → menu fallback ===")
-	_scene_flow.load_stage(3)
+	print("[GameFlowTest] === Scenario B: Stage04 → clear → Next disabled → menu fallback ===")
+	_scene_flow.load_stage(4)
 	await get_tree().process_frame
 	await get_tree().process_frame  # stage instantiation + StageRunner._ready
-	if not _verify_current_stage_id(3, "B.start"):
+	if not _verify_current_stage_id(4, "B.start"):
 		return
 
-	# S3 "사탕 호수": 첫 +1 ant가 갭 직전 col8(x∈[384,432))에 도달하면 BridgeSkill 적용 → 8칸 다리로 호수 횡단.
-	# 다리는 영구라 후속 ant도 같은 다리로 왕복 → candy 회수 → clear (구 blocker@cliff 폐기).
-	var bridge_applied: bool = false
+	# S4 "계단 공사": 첫 +1 ant가 갭 직전 col8(x∈[384,432))에 도달하면 BuilderSkill 적용 → 대각 계단으로 단 등반.
+	# 계단은 영구라 후속 ant도 보행 등반(WalkerState gated step-up) → candy 회수 → clear (구 bridge@호수 폐기).
+	var builder_applied: bool = false
 	var elapsed: float = 0.0
-	while not bridge_applied and elapsed < SCENARIO_TIMEOUT_SECONDS:
+	while not builder_applied and elapsed < SCENARIO_TIMEOUT_SECONDS:
 		for n in get_tree().get_nodes_in_group("ants"):
 			var a: Ant = n as Ant
 			if a == null or not is_instance_valid(a):
 				continue
 			if a.direction != 1 or a.has_been_carrying:
 				continue
-			if a.global_position.x < STAGE3_BRIDGE_X_MIN or a.global_position.x >= STAGE3_BRIDGE_X_MAX:
+			if a.global_position.x < STAGE4_BUILDER_X_MIN or a.global_position.x >= STAGE4_BUILDER_X_MAX:
 				continue
-			var bridge: BridgeSkill = BridgeSkill.new()
-			if not bridge.can_apply(a):
+			var builder: BuilderSkill = BuilderSkill.new()
+			if not builder.can_apply(a):
 				continue
-			bridge.apply(a)
-			bridge_applied = true
-			print("[GameFlowTest] B applied Bridge at x=", a.global_position.x)
+			builder.apply(a)
+			builder_applied = true
+			print("[GameFlowTest] B applied Builder at x=", a.global_position.x)
 			break
-		if not bridge_applied:
+		if not builder_applied:
 			await get_tree().process_frame
 			elapsed += get_process_delta_time()
-	if not bridge_applied:
-		_fail("B bridge apply timeout")
+	if not builder_applied:
+		_fail("B builder apply timeout")
 		return
 
 	var result: Dictionary = await _await_signal(EventBus.stage_cleared)
 	if _failed: return
-	if result["stage_id"] != 3 or not result["cleared"]:
-		_fail("B.cleared expected stage_id=3 cleared=true got %s" % str(result))
+	if result["stage_id"] != 4 or not result["cleared"]:
+		_fail("B.cleared expected stage_id=4 cleared=true got %s" % str(result))
 		return
 
-	# Phase 12: Scenario B = Stage03 cleared + last-stage → visible=true + disabled=true (회색).
+	# Phase 12: Scenario B = Stage04 cleared + last-stage → visible=true + disabled=true (회색).
 	# is_next_visible/is_next_disabled 두 inspector를 모두 assert (plan v6.1 §3.9, SH-1 가드).
 	if not _overlay.is_next_visible():
 		_fail("B.last_stage NextButton not visible (expected visible=true for last+cleared)")
@@ -172,7 +172,7 @@ func _scenario_b() -> void:
 		return
 	print("[GameFlowTest] B NextButton visible+disabled OK")
 
-	# Phase 13: last-stage Next emit → load_next_stage(next_id=4 미존재) → go_to_main_menu
+	# Phase 13: last-stage Next emit → load_next_stage(next_id=5 미존재) → go_to_main_menu
 	# (phase 6의 stage1 fallback 폐기, plan §3.5.4).
 	EventBus.request_next.emit()
 	await get_tree().process_frame

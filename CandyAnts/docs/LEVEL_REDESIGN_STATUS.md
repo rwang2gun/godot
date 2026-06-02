@@ -5,7 +5,8 @@
 ## 0. 한 줄 요약
 캠페인 레벨을 처음부터 재설계 중. **스킬 정합성 "선행 정리"를 먼저** 하고 그 위에 9스테이지 캠페인을 저작하는 흐름.
 **2026-06-02 세션 2 완료**: 미커밋 5+ 스레드(builder 대각·Strings 중앙화·Home retire·blocker 배지·기절) **분리 커밋**(e0f9f02~6771bb2) → **A2 기절(Stun) 구현·검증**(commit 1f2a162) → **S1 "첫 마실"을 stage01 락 슬롯에 통합 완료**(dev 초안 폴더 삭제, promotion).
-**2026-06-02 세션 3**: ① **S2 "오르막" stage02 저작 — 커밋 `c8611e6`** (§3c). distributor floater 분배(사용자 결정 — rev2 §2 distributor 보류 철회, S2=3개념). 저작 중 버그 2건 수정: 기절 경계값(정확히 5칸≈239.x<240 → **6칸 교정**) + star_thresholds **내림차순→오름차순 교정**(S1·S2, S1 선재버그). ② **A1 운반자 통일 완료**(§4 A1) + **S3 "사탕 호수" stage03 저작**(§3d) — **커밋 `2546212`**. 다음: **S4 "계단 공사"(builder)** → S5~S9.
+**2026-06-02 세션 3**: ① **S2 "오르막" stage02 저작 — 커밋 `c8611e6`** (§3c). distributor floater 분배(사용자 결정 — rev2 §2 distributor 보류 철회, S2=3개념). 저작 중 버그 2건 수정: 기절 경계값(정확히 5칸≈239.x<240 → **6칸 교정**) + star_thresholds **내림차순→오름차순 교정**(S1·S2, S1 선재버그). ② **A1 운반자 통일 완료**(§4 A1) + **S3 "사탕 호수" stage03 저작**(§3d) — **커밋 `2546212`**.
+**2026-06-02 세션 4**: **A5 builder 계단 보행 등반(코어 gated step-up) + S4 "계단 공사" stage04 저작**(§3e). builder 정사각 계단을 walker가 못 오르던 코어 갭을 실증 발견 → 사용자 "코어 수정 후 S4 재개" 결정 → WalkerState gated step-up + Terrain `_stair_cells`. CampaignS4Clear/NoBuilder + GameFlow Scenario B(Stage04 last) 재작성. 전체 141 회귀 내 변경 0 회귀(선재 실패 5건은 §6). 다음: **S5 "막대과자 탑"(sand_mound 사다리)** → S6~S9.
 
 ## 1. 관련 문서
 - **설계 시안**: `docs/LEVEL_DESIGN_PLAN.html` (rev2, 9스테이지, 그리드 시안 포함).
@@ -67,6 +68,21 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - **⚠ 폐기 부수효과**: Stage03HeadlessTest가 제공하던 **D-1(AntSpawner alternate spawn) / D-2(BlockerSkill carrying 거부) / D-3(blocker clear) 통합 커버리지 소멸**. 재설계 캠페인이 안 쓰는 기능(alternate spawn·blocker 보류)이라 deferred — blocker/alternate 재도입 시 standalone unit test 신설 권장(§4 D4).
 - **⚠ 옛 stage03 "흙을 깎다"(basher) 내용 덮어써짐** — git 이력에서 복구 가능.
 
+## 3e. 완료 — A5 builder 계단 보행 등반(코어) + S4 "계단 공사" stage04 저작 (세션 4)
+**⚠ 저작 중 발견한 코어 갭(실증)**: builder 대각 계단은 `Terrain.add_tile`이 **풀 정사각(48×48 Rect) 블록**을 깔고, `WalkerState`엔 **스텝업 로직이 없어**(벽 닿으면 climber면 등반·아니면 flip), 일반 walker가 계단을 **위로 못 오른다**. 게다가 builder는 시전 개미를 단 표면보다 **항상 1칸 아래**에 남겨(target이 단 표면 타일에 막혀 abort) 시전 개미조차 단 진입 불가. candy 운반 귀가는 `SavedState`(=queue_free, 제거)라 hp N엔 N마리 등반 필요 → **현재 코어로 S4는 어떤 파라미터로도 클리어 불가**(CampaignS4ClearTest 초안: `saved=0 picks=0 time_out`로 실증). BuilderDiagonalTest가 *"라운드트립/사탕 도달은 검증 범위 밖 — 캠페인 저작 시 별도 검증"*으로 명시 연기한 의존성이 터진 것. (sand_mound S5 사다리도 "빌드 구조물 후속 개미 보행 통행" 미구현 = 유사 갭이나 별개 = S5에서 처리.)
+
+**A5 해결 — gated step-up** (사용자 결정: "코어 수정 후 S4 재개"). 방법 후보 슬로프 타일(정적 `slope_*` 존재하나 45°=floor_max_angle 경계 epsilon 리스크+미검증) vs **게이트 스텝업** 비교 후 후자 채택(결정적·blast radius 좁음·정사각 계단 재사용).
+- `Terrain.gd`: `_stair_cells` 집합(DYNAMIC_TILE_STAIR cell만 등록, add_tile/destroy 정합) + `is_stair_cell(cell)` 술어. bridge(평지)·sand_mound(rung)는 제외.
+- `WalkerState.gd`: `is_on_wall` 시 climber 분기 다음에 `_try_stair_step_up`. **게이트**: 전방 벽 셀이 STAIR이거나 발밑이 STAIR일 때만 + 올라설 자리(전방+위) 비었을 때만 → `(dir*cs, -cs)` 텔레포트(builder와 동일 델타)로 1칸 등반. 정적 벽(S1 분지)은 게이트 불충족 → flip 유지(**climber 필수 퍼즐 보존**, CampaignS1NoClimber PASS로 실증). 하강은 계단 가장자리 1칸 낙하(기존 Faller)로 자연 처리.
+- **한계(노트)**: step-up은 시각적 텔레포트(builder/bridge/sandmound 텔레포트와 일관). CarryingState 미적용(S4는 하강만 운반이라 불필요 — 운반 상승 stage 필요 시 추가).
+
+**S4 "계단 공사" 저작** (HTML rev2 id:4 — builder ↗ 대각 상승, S3 bridge 평지와 대비):
+- **기하(cell 48)**: 좌 지면 cols0~8(표면 row10, solid 10~13) + **갭 cols9~11**(바닥 없음→추락) + 우 **높은 단** cols12~23(표면 row6, solid 6~13). bg 14~16. Home(1,9)·Candy(20,5 단 위, pos 984,288)·Camera(576,384)·Spawner(72,472.5) total6.
+- **메커니즘**: 첫 ant가 갭 직전 col8(x∈[384,432))서 builder → 계단 타일 `(9,9)(10,8)(11,7)` 3개(build-텔레포트로 시전 개미 body(11,6) 도달) → return walk → 발밑 stair 게이트로 단(col12 row6) 보행 진입. 계단 영구 → **후속 개미도 step-up으로 등반**(빌드 1회로 충분). 하강=1칸 낙하 왕복.
+- **파라미터** (`stage04.tres`): id=4 "계단 공사" / total 6 / hp 4 / 110s / available=[builder] / inventory={builder:6} / ★=[0.5,0.75,1.0] / release 30.
+- **테스트**: `CampaignS4ClearTest`(builder→**4마리** 계단 등반 회수 saved=4/4 lost=0 PASS) + `CampaignS4NoBuilderTest`(무빌더→전원 갭 추락 picks=0 no_more_ants PASS, builder 필수성). **`GameFlowTest` Scenario B를 Stage03 bridge→Stage04 builder로 재작성**(LAST_STAGE_ID=4라 S4가 새 마지막 스테이지 = Next-disabled+menu fallback 검증).
+- **배선**: `SceneFlow.STAGE_SCENES[4]=Stage04.tscn` + `LAST_STAGE_ID=3→4`. **menu_layout는 미수정**(슬롯4 "준비 중" 유지) — S4는 S3 클리어→Next로 도달. menu_layout 슬롯명/가용성 동기화(슬롯1~3도 구 캠페인명 stale)는 별도 follow-up(§4 C2 note).
+
 ## 4. 남은 작업 (권장 순서)
 
 ### A. 선행 정리 — 코드/에셋 (캠페인 저작 전 필수)
@@ -74,6 +90,7 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [x] **A2. 기절(Stun) 메커니즘** — **완료(commit 1f2a162)**. `FallerState.enter()` 낙하 시작 y 기록 → 착지 시 `(착지y−시작y) >= 5×cell_size` & floater 미보유 → `DeadState`(신설 대신 **DeadState 재활용**). DeadState가 stun 애니 ~1초 재생 후 queue_free + 운반 시 candy_piece_lost(LostState 동일 회계). `Ant._cell_size`는 `_resolve_kill_bounds`에서 캐시, `stun_fall_threshold()`. `ant_stun` sfx id(P21 대기). floater 높이 무관 무효. 검증: `tests/StunFallTest`(5칸→기절+lost / 4칸→생존 / floater→생존 PASS).
 - [x] **A3. 기절 스프라이트** — **완료(commit 1f2a162)**. `assets/sprites/characters/ant_pajama_girl/stun/`(PNG4) + AntFrames `stun` 애니(loop, speed6).
 - [ ] **A4. (아트) stair 스프라이트 검토**: `cookie_stair_tile.png`가 대각 상승으로 잘 읽히는지. 충돌/로직은 정상.
+- [x] **A5. builder 계단 보행 등반(코어 gated step-up)** — **완료(세션 4)**. WalkerState `_try_stair_step_up`(전방/발밑 STAIR 게이트) + Terrain `_stair_cells`/`is_stair_cell`. 상세 §3e. S4 클리어 가능화의 전제. S1 분지(정적 벽) 보존 실증. **S5 sand_mound 사다리의 후속-개미 보행 통행은 별개 갭(수직)이라 미해결 — S5 저작 시 결정**(floater 하강 귀가는 설계됨, 등반은 시전 개미만 = candy_hp>1 다중 등반 필요 시 sand_mound도 통행 메커니즘 필요).
 
 ### B. 에디터 / 데이터 (map-editor 트랙)
 - [ ] **B1. 파괴 종류 브러시**: 레이아웃에 `earth`(digger·basher)/`plant`(cutter) 태그 저작. 현재 에디터는 solid/slope만.
@@ -81,8 +98,8 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [ ] **B3. 흙 vs 쿠키(불괴) 시각 구분 확인**.
 
 ### C. 캠페인 저작
-- [~] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반), 스테이지별 플레이테스트로 인벤토리·시간·기하 튜닝. 특히 S3/S7/S10류 **복귀 경로**(왕복 제약) 정밀화. — **S1 stage01**(§3b), **S2 "오르막" stage02**(§3c), **S3 "사탕 호수" stage03**(§3d) 완료. **S4~S9 미착수**.
-- [~] **C2. 진행 흐름 등록**: menu_layout 10슬롯·SaveData 언락(N-1 클리어)·"/30" denominator는 **이미 확보**. SceneFlow.STAGE_SCENES[1~3]·LAST_STAGE_ID=3 — 현재 캠페인 3스테이지(S1~S3) 완결 데모. **S4 저작 시 STAGE_SCENES[4] 추가 + LAST_STAGE_ID=4** 갱신 필요.
+- [~] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반), 스테이지별 플레이테스트로 인벤토리·시간·기하 튜닝. 특히 S3/S7/S10류 **복귀 경로**(왕복 제약) 정밀화. — **S1 stage01**(§3b), **S2 "오르막" stage02**(§3c), **S3 "사탕 호수" stage03**(§3d), **S4 "계단 공사" stage04**(§3e) 완료. **S5~S9 미착수**.
+- [~] **C2. 진행 흐름 등록**: menu_layout 10슬롯·SaveData 언락(N-1 클리어)·"/30" denominator는 **이미 확보**. SceneFlow.STAGE_SCENES[1~4]·**LAST_STAGE_ID=4**(세션 4 갱신) — 현재 캠페인 4스테이지(S1~S4) 완결 데모. **S5 저작 시 STAGE_SCENES[5] + LAST_STAGE_ID=5** 갱신 필요. **⚠ menu_layout follow-up**: 슬롯1~3 display_name이 **구 캠페인명**("햇살 정원/다리 공사/차단 미로")으로 stale(재설계 S1~S4 = "첫 마실/오르막/사탕 호수/계단 공사"), 슬롯4~10 "준비 중"(available=false). 캠페인 Next-flow는 정상 동작하나 stage-select 메뉴 직접 선택은 슬롯명/available 미동기. menu_layout 마이그레이션(슬롯명 교체 + 클리어된 stage available flip + `MenuLayoutResourceTest`의 `i<3` 갱신)은 별도 정리 항목.
 - [ ] **C3. blocker·distributor 재배치** + 무스킬 0번 온보딩 결정.
 
 ### D. 하우스키핑
@@ -92,10 +109,11 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [ ] **D4. (세션 3 신설) blocker/alternate-spawn 커버리지 보강**: `Stage03HeadlessTest` 폐기로 **D-1(AntSpawner spawn_direction_alternate) / D-2(BlockerSkill carrying 거부) / D-3(blocker clear) 통합 커버리지 소멸**. 둘 다 재설계 캠페인 미사용(blocker 보류·alternate 미사용)이라 defer. blocker/alternate 재도입 시 standalone unit test 신설.
 
 ## 5. 다음 세션 즉시 행동 (제안)
-1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 3 종료: HEAD=`2546212`(S3+A1) · 그 아래 `c8611e6`(S2). 추적 파일 워킹트리 clean, 미push(로컬)**. ⚠ **단 `git status`에 climb 애니 아트(`AntFrames.tres` + `climb/climb_*.png` + `docs/climb_4pose_limb_color_reference.svg`)가 미커밋으로 뜸 — 병렬 아트 트랙 산출물이라 정상이며 내 작업 아님. 스테이지 커밋에 섞지 말 것**(아트 트랙이 별도 커밋). S4부터 직진.
-2. **S4 "계단 공사" 저작** (builder 대각 상승). HTML rev2 id:4 grid: 좌 지면 + 우측 높은 단 + 그 앞 빈틈 → builder로 대각 계단 쌓아 등반(계단 양방향 보행 → 귀가 동일). stage04 슬롯 **신규**(현 stage04~ 슬롯 존재 확인 — 없으면 scenes/stages/Stage04.tscn + data 신규 + **SceneFlow.STAGE_SCENES[4] 추가 + LAST_STAGE_ID=4**). §3d 마이그레이션 패턴 답습. builder는 이미 대각화 완료(§3 commit e0f9f02). A1로 운반자도 builder 가능.
-3. **S5~S9** 순차 (S5 사다리 / S6 digger / S7 basher / S8 cutter / S9 종합). S6+ 파괴계는 layout에 earth/plant 태그(B1) + water/sticky 해저드(B2) 저작 필요.
-4. (선택) **기절 5칸 경계 결함 근본수정 여부 결정**(§6 gotcha) — 현재는 스테이지를 6칸으로 우회. 디자인 "5칸=기절" 의미를 살리려면 FallerState/WalkerState 측정 수정(코어 변경, 별도 테스트·리뷰).
+1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 4 종료: HEAD=`<세션4 커밋>`(A5 step-up + S4). 추적 파일 워킹트리 clean, 미push(로컬)**. ⚠ **단 `git status`에 climb 애니 아트(`AntFrames.tres` + `climb/climb_*.png` + `docs/climb_4pose_limb_color_reference.*`)가 미커밋으로 뜸 — 병렬 아트 트랙 산출물이라 정상이며 내 작업 아님. 스테이지 커밋에 섞지 말 것**(아트 트랙이 별도 커밋). S5부터 직진.
+2. **S5 "막대과자 탑" 저작** (sand_mound 수직 사다리 + floater 귀가). HTML rev2 id:5 grid: 높은 외딴 단 위 candy → 좁은 수직 기둥(sand_mound)으로 등반, 귀가는 floater 안전 낙하(왕복 제약). stage05 슬롯 **신규** + **SceneFlow.STAGE_SCENES[5] + LAST_STAGE_ID=5**. §3d/§3e 마이그레이션 패턴 답습. **⚠ 선결정 필요**: sand_mound도 builder처럼 "시전 개미만 등반"(빌드-텔레포트) = candy_hp>1 다중 등반 시 후속-개미 사다리 보행 통행 미구현(§3e). S5는 **사다리 수직**이라 builder의 대각 step-up(A5)이 안 통함 → ① floater로 *내려오기*만 하고 *올라가기*는 각 개미가 sand_mound 시전(인벤토리 충분) 패턴인지, ② 사다리 climb 메커니즘 신설인지 결정. SandMoundClimbTest는 saved>=1(1마리)만 검증 = 다중 등반 미검증.
+3. **S6~S9** 순차 (S6 digger / S7 basher / S8 cutter / S9 종합). S6+ 파괴계는 layout에 earth/plant 태그(B1) + water/sticky 해저드(B2) 저작 필요. **S7 basher·S8 cutter는 수평 통로라 등반 불필요 = 현 코어로 동작**.
+4. **(선재 실패 정리)** §6의 pristine-HEAD 실패 4건(Climber/Digger/Distributor/Floater Trait류) — 내 변경과 무관하나 main이 full-suite green 아님. 조사·수정은 별도 항목.
+5. (선택) **기절 5칸 경계 결함 근본수정 여부 결정**(§6 gotcha) — 현재는 스테이지를 6칸으로 우회.
 
 ## 6. Gotchas (다음 세션 주의)
 - **⚠ 기절 5칸 경계 결함 (세션 3 발견)**: 기절 임계는 `fall_dist >= 5×cell_size`(=240px)인데, **기하학적 정확히 5칸 낙하는 기절을 발동 못 함**. 원인: `WalkerState.update`가 매 프레임 `velocity.y += gravity*delta` + `move_and_slide` 적용 → 개미가 ledge 이탈 후 같은 프레임에 off-floor가 되어 즉시 Faller 전이하는데, `FallerState.enter()`가 기록하는 `_fall_start_y`가 이미 중력 1프레임만큼 내려간 값 → 측정 fall_dist ≈ 239.x < 240 → 미발동. **실증**: 정확히 5칸 메사에서 floater 없는 개미 전원 생존(CampaignS2NoFloaterTest가 saved=5로 FAIL). **6칸(288px)으로 올리니 전원 기절(lost=5)**. → **레벨 저작 규칙: 기절을 의도한 낙하는 ≥6칸으로**. 디자인 "5칸=기절"을 살리려면 측정 로직 근본수정 필요(§5.4, 코어 변경이라 별도 작업).
@@ -107,3 +125,6 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - **stage 슬롯 마이그레이션 패턴**(S2~S9 답습): ① `stageNN_layout.tres` 내용 이식(헤더 uid 유지) ② `stageNN.tres` 파라미터 ③ `StageNN.tscn` 엔티티 좌표(Home/Candy/Camera/Spawner)+hp+total ④ 지오메트리 하드코딩 테스트(GameFlowTest climber 좌표 등) 갱신 ⑤ 회귀(Hud/LayoutBuilder/GameFlow/SceneFlow). 경로 락이라 **파일명 유지·내용만 교체**.
 - **세션 2 종료**: 8 커밋(`e0f9f02`~`58b0fbb`), HEAD=`58b0fbb`, 워킹트리 clean, 미push(로컬).
 - **세션 3 종료**: ① S2 stage02 저작 + 버그2 → **커밋 `c8611e6`**. ② A1(BridgeSkill) + S3 stage03 저작(stage03.tres/layout/Stage03.tscn + Water8) + 신규 테스트(CampaignS3Clear/NoBridge) + Stage03HeadlessTest 폐기 + GameFlowTest Scenario B bridge 재작성 + 본 문서 → **커밋 `2546212`**. ③ 본 핸드오프 정정 docs 커밋. **HEAD 이후 추적 워킹트리 clean**. ⚠ climb 애니 2→8프레임 아트(AntFrames/climb_*.png/svg)는 **미커밋 병렬 트랙** — 스테이지 커밋에 섞지 말 것.
+- **⚠ builder 계단 = 시각적 텔레포트 step-up (세션 4)**: walker가 builder STAIR(정사각)를 오를 때 `WalkerState._try_stair_step_up`이 `(dir*cs,-cs)`로 **순간 1칸 텔레포트**(builder/bridge/sandmound 텔레포트와 일관). 부드러운 보행 애니 아님. 게이트(전방/발밑 STAIR + 목적 셀 빈칸)라 **계단 없는 stage엔 미발동**(비계단 보행 바이트 동일). 정적 벽은 절대 step-up 안 함 = **climber 퍼즐 보존**(S1). CarryingState는 미적용(S4는 하강만 운반). 새 stair stage 저작 시 이 전제 활용 — builder는 단 표면보다 1칸 아래서 abort하지만 step-up이 마지막 1칸을 메운다.
+- **⚠ full-suite 선재 실패 4건 (세션 4 발견, pristine HEAD `40cafc9`)**: `ClimberTraitTest`(mantle dx 37.93<38.00 0.07px 경계), `DiggerFallThroughUpperAntTest`, `DistributorSettleTest`, `FloaterTraitTest`(D3 기존)는 **내 변경 없이도 실패** = main이 141-full green 아님. 핸드오프의 "회귀 green"은 **큐레이트 세트**(S1~S3·GameFlow·Stun·Hud·Layout·Scoring·SaveData·SceneFlow) 기준이었음. + `SkillDropAssignTest`는 pristine HEAD엔 PASS·미커밋 아트(AntFrames) 존재 시 FAIL = **아트 트랙 회귀(또는 flaky)**. 모두 A5/S4 무관. 회귀 검증은 큐레이트 세트 + 변경 인접 테스트로 하되, full-suite 4건 선재 실패를 baseline으로 인지.
+- **세션 4 종료**: A5 gated step-up(WalkerState+Terrain) + S4 stage04 저작(layout/tres/scene + CampaignS4Clear/NoBuilder) + SceneFlow(STAGE_SCENES[4]+LAST_STAGE_ID=4) + GameFlow Scenario B 재작성 + 본 문서 → **커밋 `<세션4>`**. 전체 141 회귀: 내 변경 0 회귀(선재 5건 제외 전부 PASS). ⚠ climb 아트는 여전히 미커밋 병렬 트랙 — 커밋에 섞지 말 것.

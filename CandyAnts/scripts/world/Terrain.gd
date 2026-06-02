@@ -37,6 +37,10 @@ var _bridge_tile_texture: Texture2D = null
 var _stair_tile_texture: Texture2D = null
 # 모래 동적 타일 한정 cell→Sprite2D (destroy 시 정리용).
 var _sand_mound_sprites: Dictionary = {}
+# Builder 대각 계단(STAIR) 동적 타일 cell 집합 (Vector2i → true).
+# WalkerState.gated step-up이 "계단 셀이 관여할 때만" 발동하도록 식별하는 데 쓴다.
+# bridge(평지)·sand_mound(수직 rung)는 제외 — 정사각 계단 보행 등반 전용.
+var _stair_cells: Dictionary = {}
 var _ladder_tex_cache: Dictionary = {}   # tier(String) → Texture2D
 # 테스트 전용 — tier(String)→true면 _ladder_texture가 그 tier를 null로 취급(asset 누락 시뮬). 평상시 빈 dict라 무영향.
 # (codex 2026-06-02 R7) missing-texture atomic 거부를 결정적으로 회귀 테스트하기 위한 seam.
@@ -93,6 +97,7 @@ func destroy_tile_at(
 	_static_occupancy.erase(cell)
 	_cell_kind.erase(cell)
 	_sand_mound_sprites.erase(cell)   # 모래 타일이면 tier registry도 정리 (아니면 no-op)
+	_stair_cells.erase(cell)          # 계단 타일이면 stair registry도 정리 (아니면 no-op)
 	return true
 
 func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE, visual_direction: int = 1) -> bool:
@@ -123,6 +128,9 @@ func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE, visual
 	_placed[cell] = body
 	# Phase 18 — 동적 placement도 destructible. Basher/Digger의 destroy 대상에 포함.
 	_cell_kind[cell] = "earth"
+	if visual_style == DYNAMIC_TILE_STAIR:
+		# 계단 등반(WalkerState gated step-up)이 식별할 STAIR 셀 등록.
+		_stair_cells[cell] = true
 	if visual_style == DYNAMIC_TILE_SAND_MOUND:
 		# biscuit-ladder: 동적 rung은 전부 middle. (아래/위 지형 면의 root/top은 reskin_cell_to_ladder가 담당.)
 		_sand_mound_sprites[cell] = sprite
@@ -258,6 +266,11 @@ func has_tile(cell: Vector2i) -> bool:
 # 외부에 노출해 ghost 미리보기가 정확히 예측 가능.
 func is_cell_occupied(cell: Vector2i) -> bool:
 	return _placed.has(cell) or _static_occupancy.has(cell)
+
+# 동적 STAIR(builder 대각 계단) 셀 여부. WalkerState gated step-up이
+# "계단 셀이 관여하는 벽 충돌"만 등반으로 처리하도록 식별하는 술어.
+func is_stair_cell(cell: Vector2i) -> bool:
+	return _stair_cells.has(cell)
 
 func tile_count() -> int:
 	return _placed.size()
