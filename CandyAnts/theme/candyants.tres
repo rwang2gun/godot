@@ -2,8 +2,6 @@
 
 [ext_resource type="FontFile" uid="uid://bqthtf7fdxu48" path="res://assets/fonts/Jua-Regular.ttf" id="1_jua"]
 
-[sub_resource type="StyleBoxEmpty" id="btn_focus"]
-
 [sub_resource type="StyleBoxFlat" id="btn_disabled"]
 content_margin_left = 22.0
 content_margin_top = 10.0
@@ -19,6 +17,8 @@ corner_radius_top_left = 16
 corner_radius_top_right = 16
 corner_radius_bottom_right = 16
 corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxEmpty" id="btn_focus"]
 
 [sub_resource type="StyleBoxFlat" id="btn_hover"]
 content_margin_left = 22.0
