@@ -4,7 +4,8 @@
 
 ## 0. 한 줄 요약
 캠페인 레벨을 처음부터 재설계 중. **스킬 정합성 "선행 정리"를 먼저** 하고 그 위에 9스테이지 캠페인을 저작하는 흐름.
-**2026-06-02 세션 2 완료**: 미커밋 5+ 스레드(builder 대각·Strings 중앙화·Home retire·blocker 배지·기절) **분리 커밋**(e0f9f02~6771bb2) → **A2 기절(Stun) 구현·검증**(commit 1f2a162) → **S1 "첫 마실"을 stage01 락 슬롯에 통합 완료**(dev 초안 폴더 삭제, promotion). 다음: **S2~S9 저작** + **A1 운반자 통일**.
+**2026-06-02 세션 2 완료**: 미커밋 5+ 스레드(builder 대각·Strings 중앙화·Home retire·blocker 배지·기절) **분리 커밋**(e0f9f02~6771bb2) → **A2 기절(Stun) 구현·검증**(commit 1f2a162) → **S1 "첫 마실"을 stage01 락 슬롯에 통합 완료**(dev 초안 폴더 삭제, promotion).
+**2026-06-02 세션 3 (미커밋)**: **S2 "오르막"을 stage02 락 슬롯에 저작** (§3c). distributor floater 분배 방식(사용자 결정 — rev2 §2 distributor 보류 철회, S2가 3개념 스테이지). 저작 중 **버그 2건 발견·수정**: ① 기절 경계값(정확히 5칸 ≈ 239.x < 240 임계 → 미발동, **6칸으로 교정**) ② star_thresholds **내림차순 오저작**(S1·S2 둘 다, 엔진은 오름차순 → SaveData가 valid 클리어를 "malformed"로 거부·별점 미저장, **오름차순으로 교정**). 다음: **A1 운반자 통일** → **S3~S9 저작**.
 
 ## 1. 관련 문서
 - **설계 시안**: `docs/LEVEL_DESIGN_PLAN.html` (rev2, 9스테이지, 그리드 시안 포함).
@@ -19,7 +20,7 @@
 - **S2 오르막**: 사탕 1칸↑ → climber 등반 + **5칸 낙하 → floater** 동시 학습.
 - **기절(Stun) 규칙**: 5칸+ 자유낙하 → `lost`. floater = **기절 완전 무효**. (스펙 §4-A2)
 - **builder = 대각 상승**(완료), **bridge = 평지 유지**.
-- **보류 스킬**: `blocker`·`distributor` — 학습 스테이지 삭제로 미배치. 스테이지 추가 작업 시 재배치.
+- **보류 스킬**: `blocker`·`distributor` — 학습 스테이지 삭제로 미배치. ~~스테이지 추가 작업 시 재배치.~~ **개정(세션 3)**: `distributor`는 **S2 "오르막"에서 floater 분배 장치로 도입**(사용자 결정, §3c). `blocker`만 미배치 유지.
 - **무스킬 0번 온보딩**: S1이 바로 climber 요구 → 맨 앞 무스킬 스테이지 삽입 여부 추후 검토.
 
 ## 3. 완료 — builder 대각선화 (커밋 e0f9f02)
@@ -43,6 +44,17 @@
 - **⚠ 옛 stage01 "오르막" 내용은 덮어써짐** — git 이력(`6771bb2` 직전 stage01.tres/layout)에서 복구 가능. rev2 §2의 **S2 "오르막"**(사탕 1칸↑ climber + 5칸 낙하 floater)은 옛 stage01을 출발점으로 재저작 권장.
 - **남은 통합 작업**: S2~S9를 같은 방식(stage02~09 슬롯 덮어쓰기/확장)으로. menu_layout는 이미 10슬롯(1~3 available, 4~10 "준비 중") + "/30" denominator 확보. SceneFlow.LAST_STAGE_ID(현 3)는 슬롯 확장 시 갱신.
 
+## 3c. 완료 — S2 "오르막" → stage02 락 슬롯 저작 (세션 3, 미커밋)
+HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드오프 §5의 "옛 stage01 valley 출발점"은 **파일 구조 템플릿** 의미였고, 설계 본문("사탕 1칸↑ 등반 + 5칸 낙하")은 메사(올라갔다 내려옴)와 일치 → valley 아닌 메사로 저작.
+- **테마**: 한 마리를 분배자로 정착시켜 무리 전체에 낙하산(floater)을 나눠준다. (사용자 결정: "floater 여럿 불필요 = distributor 분배")
+- **기하(cell 48)**: 좌측 평지(표면 row10) + cols16~20 위 **6칸 메사**(표면 row4). Home(2,9)·Candy(18,3)·Camera(576,336)·Spawner(120,472.5) total8 + col11 `SettlementMarker`(552,496). 등반 6칸(climber)·복귀 낙하 6칸=288px(기절 임계 240 ≫). ⚠ **원래 5칸 설계였으나 경계값 결함으로 6칸 교정**(§6 gotcha).
+- **메커니즘**: `distributor`+`floater`를 한 개미에 부여 → col11서 정착(`SettledState`, `set_blocker_active(false)`라 통행 방해 無) → 이후 지나가는 모든 개미에 `SettledState.TRANSFER_WHITELIST=[floater]` 전이. 배달 개미는 개별 climber만 부여하면 분배자에게서 floater를 받아 안전 강하.
+- **파라미터** (`stage02.tres`): id=2 "오르막" / total_ants=8 / candy_hp=5 / 100s / available=[climber,floater,distributor] / inventory={climber:6, **floater:1**, distributor:1} / ★=**[0.5, 0.75, 1.0]**(오름차순) / release_rate=30. floater:1 = "개별 부여로는 부족 → 분배자를 만들어라"를 인벤토리로 텔레그래프.
+- **테스트**: stale `Stage02HeadlessTest`(sand-bridge 무효) **폐기**(git rm) → `CampaignS2ClearTest`(분배자 floater 분배 → saved 5/5 PASS) + `CampaignS2NoFloaterTest`(climber만 → picks5/lost5/saved0, floater 식별성 + 6칸 경계 검증 PASS). 둘 다 `Stage02.tscn` instance.
+- **검증(run_test.py 전부 PASS)**: S2 Clear·NoFloater / 회귀 22종(S1 Clear·NoClimber·GameFlow·StunFall·Hud×2·LayoutBuilder×2·Scoring×2·SaveData×7·SceneFlow×5).
+- **배선**: SceneFlow slot2=Stage02.tscn 그대로, LAST_STAGE_ID=3 유지(S3=옛 MVP stage03). menu_layout 10슬롯·SaveData 언락 기존 유지.
+- **⚠ 옛 stage02 "모래 다리"(sand_mound/builder) 내용은 덮어써짐** — git 이력(`58b0fbb` 직전 stage02.tres/layout/tscn)에서 복구 가능.
+
 ## 4. 남은 작업 (권장 순서)
 
 ### A. 선행 정리 — 코드/에셋 (캠페인 저작 전 필수)
@@ -57,24 +69,28 @@
 - [ ] **B3. 흙 vs 쿠키(불괴) 시각 구분 확인**.
 
 ### C. 캠페인 저작
-- [~] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반), 스테이지별 플레이테스트로 인벤토리·시간·기하 튜닝. 특히 S3/S7/S10류 **복귀 경로**(왕복 제약) 정밀화. — **S1 "첫 마실" = stage01 슬롯 통합 완료**(§3b), **S2~S9 미착수**.
+- [~] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반), 스테이지별 플레이테스트로 인벤토리·시간·기하 튜닝. 특히 S3/S7/S10류 **복귀 경로**(왕복 제약) 정밀화. — **S1 = stage01 통합 완료**(§3b), **S2 "오르막" = stage02 저작 완료**(§3c), **S3~S9 미착수**.
 - [~] **C2. 진행 흐름 등록**: menu_layout 10슬롯·SaveData 언락(N-1 클리어)·"/30" denominator는 **이미 확보**. 슬롯 확장 시 SceneFlow.LAST_STAGE_ID·available 플래그만 갱신.
 - [ ] **C3. blocker·distributor 재배치** + 무스킬 0번 온보딩 결정.
 
 ### D. 하우스키핑
 - [x] **D1. builder 변경 커밋** — 완료(commit e0f9f02). 세션 2에서 builder/Strings/Home/Ant(blocker+stun)/S1+docs/theme 6커밋으로 분리.
-- [ ] **D2. stale 통합테스트 정리**: `Stage02HeadlessTest`(+stage03?)가 16px 시절 좌표라 48px 3-tier 후 red. trigger 좌표 갱신 or 폐기. (builder 변경과 무관한 기존 문제)
+- [x] **D2. stale 통합테스트 정리**: `Stage02HeadlessTest`(sand-bridge 기반) **폐기 완료**(세션 3, git rm) — S2 재저작으로 무효화. 대체: `CampaignS2Clear/NoFloaterTest`. (stage03 통합테스트는 별도 확인 필요 시 추후)
 - [ ] **D3. FloaterTraitTest 기존 실패 조사**: dev_stages/trait 스테이지에서 floater-only 개미가 낙하 미도달 → deadline. 기절 변경 무관(FallerState revert해도 실패 확인). 별도 조사 필요.
 
 ## 5. 다음 세션 즉시 행동 (제안)
-1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인(**HEAD = `227d146`**, 워킹트리 clean).
-2. **S2 "오르막" 저작** (다음 슬라이스 — A1 불필요, climber+floater만): 옛 stage01(git `227d146` 직전 = `6771bb2`의 stage01.tres/stage01_layout.tres)을 출발점으로 **stage02 슬롯**에 이식. 사탕 1칸↑ climber 등반 + **5칸 낙하→floater** 학습 → **이번 세션 기절(Stun) 메커니즘 연동 시연**. 절차는 §3b S1 사례 + §6 마이그레이션 패턴 답습. 같은 작업에서 `Stage02HeadlessTest`(D2 stale red)도 새 좌표로 정리.
-3. **A1(운반자 통일)** — S3(bridge)·S4(builder) 저작 *전* 필요(S2엔 불필요). builder/bridge `can_apply`를 Walker/Carrying 허용으로.
+1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 3 종료 시점: 미커밋 워킹트리** (S2 저작 + 버그 2 수정 + 본 문서). 커밋 전이면 §3c 변경 묶어 커밋 후 직진.
+2. **A1(운반자 통일)** — S3(bridge)·S4(builder) 저작 *전* 필요. `BridgeSkill.can_apply`가 현재 `has_candy` 거부 + Walker만 → builder처럼 **Walker/Carrying 허용**으로. 파괴·정지·하강계는 현행 거부 유지.
+3. **S3 "사탕 호수" 저작** (bridge 평지 횡단 + water 즉사). HTML rev2 시안 id:3 grid 기반(§1 HTML). stage03 슬롯 덮어쓰기, §3b/§3c 마이그레이션 패턴 답습. **water 해저드 셀** 필요 → B2(해저드 배치) 일부 선행.
+4. (선택) **기절 5칸 경계 결함 근본수정 여부 결정**(§6 gotcha) — 현재는 스테이지를 6칸으로 우회. 디자인 "5칸=기절" 의미를 살리려면 FallerState/WalkerState 측정 수정(코어 변경, 별도 테스트·리뷰).
 
 ## 6. Gotchas (다음 세션 주의)
+- **⚠ 기절 5칸 경계 결함 (세션 3 발견)**: 기절 임계는 `fall_dist >= 5×cell_size`(=240px)인데, **기하학적 정확히 5칸 낙하는 기절을 발동 못 함**. 원인: `WalkerState.update`가 매 프레임 `velocity.y += gravity*delta` + `move_and_slide` 적용 → 개미가 ledge 이탈 후 같은 프레임에 off-floor가 되어 즉시 Faller 전이하는데, `FallerState.enter()`가 기록하는 `_fall_start_y`가 이미 중력 1프레임만큼 내려간 값 → 측정 fall_dist ≈ 239.x < 240 → 미발동. **실증**: 정확히 5칸 메사에서 floater 없는 개미 전원 생존(CampaignS2NoFloaterTest가 saved=5로 FAIL). **6칸(288px)으로 올리니 전원 기절(lost=5)**. → **레벨 저작 규칙: 기절을 의도한 낙하는 ≥6칸으로**. 디자인 "5칸=기절"을 살리려면 측정 로직 근본수정 필요(§5.4, 코어 변경이라 별도 작업).
+- **⚠ star_thresholds는 오름차순 (세션 3 발견)**: 엔진 컨벤션은 `Scoring.STAR_THRESHOLDS=[0.50,0.80,0.95]` **오름차순**(`[1★최소비율, 2★, 3★]`, `compute_stars`는 `ratio>=threshold` 누적). HTML 시안 표기 `[1.0, 0.8, 0.6]`는 내림차순이라 **그대로 베끼면 `SaveData._is_clear_input_valid`가 거부**("malformed input" 경고 → 별점 미저장·attempts만 +1). **올바른 형식**: 3★=100/2★=80/1★=60이면 `[0.6, 0.8, 1.0]`. S1·S2 둘 다 내림차순 오저작이던 것을 세션 3에서 오름차순 교정(S1은 선재 버그).
 - **검증은 `python scripts/run_test.py tests/Xxx.tscn`**(풀 프로젝트, autoload 활성). `godot --check-only --script`는 **autoload(EventBus) 부재로 의존 스크립트가 줄줄이 거짓 실패** → 단독 컴파일 체크 용도로 쓰지 말 것.
 - Godot bin: `D:\Godot_v4.6.2-stable_win64_console.exe` (run_test.py가 자동 탐색).
 - **stage02 통합테스트 red는 기존 stale** — builder 변경이 깬 게 아님.
 - `docs/LEVEL_DESIGN_PLAN.html`은 **gitignore(*.html)** — 커밋해도 안 올라감. 로컬 보존.
 - **stage 슬롯 마이그레이션 패턴**(S2~S9 답습): ① `stageNN_layout.tres` 내용 이식(헤더 uid 유지) ② `stageNN.tres` 파라미터 ③ `StageNN.tscn` 엔티티 좌표(Home/Candy/Camera/Spawner)+hp+total ④ 지오메트리 하드코딩 테스트(GameFlowTest climber 좌표 등) 갱신 ⑤ 회귀(Hud/LayoutBuilder/GameFlow/SceneFlow). 경로 락이라 **파일명 유지·내용만 교체**.
-- **세션 2 종료 시점: 7 커밋 완료 (`e0f9f02`~`227d146`), 워킹트리 clean**. HEAD=`227d146`(S1 통합). 미push(로컬). 다음 세션은 여기서 직진.
+- **세션 2 종료**: 8 커밋(`e0f9f02`~`58b0fbb`), HEAD=`58b0fbb`, 워킹트리 clean, 미push(로컬).
+- **세션 3 종료 시점**: base `58b0fbb` 위 **미커밋 워킹트리** — S2 저작(stage02.tres/stage02_layout.tres/Stage02.tscn) + 신규 테스트 2(CampaignS2Clear/NoFloater) + stale 폐기(Stage02HeadlessTest 3파일) + 버그 수정(stage01.tres thresholds) + 본 문서. 커밋 미실행(사용자 확인 대기). 커밋 시 conventional commit `feat(level): S2 "오르막" stage02 저작 + 기절경계·별점순서 수정` 권장.

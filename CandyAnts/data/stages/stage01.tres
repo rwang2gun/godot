@@ -15,4 +15,4 @@ available_skills = ["climber", "blocker"]
 skill_inventory = { "climber": 8, "blocker": 1 }
 release_rate_initial = 30
 release_rate_min = 1
-star_thresholds = Array[float]([1.0, 0.8, 0.6])
+star_thresholds = Array[float]([0.6, 0.8, 1.0])

@@ -6,12 +6,13 @@
 [resource]
 script = ExtResource("1")
 id = 2
-display_name = "모래 다리"
+display_name = "오르막"
 layout = ExtResource("1_layout")
-total_ants = 4
-candy_hp = 2
-time_limit_seconds = 120.0
-available_skills = ["sand_mound", "builder", "climber", "blocker"]
-skill_inventory = { "sand_mound": 4, "builder": 6, "climber": 6, "blocker": 2 }
+total_ants = 8
+candy_hp = 5
+time_limit_seconds = 100.0
+available_skills = ["climber", "floater", "distributor"]
+skill_inventory = { "climber": 6, "floater": 1, "distributor": 1 }
 release_rate_initial = 30
 release_rate_min = 1
+star_thresholds = Array[float]([0.5, 0.75, 1.0])

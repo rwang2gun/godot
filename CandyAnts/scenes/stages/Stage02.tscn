@@ -16,6 +16,7 @@
 [ext_resource type="Resource" path="res://data/stage_layouts/stage02_layout.tres" id="14_stage_layout"]
 [ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="15_toolbar"]
 [ext_resource type="Script" path="res://scripts/world/PlacementPreview.gd" id="16_placement_preview"]
+[ext_resource type="PackedScene" path="res://scenes/world/SettlementMarker.tscn" id="17_settle_marker"]
 
 [node name="StageRunner" type="Node"]
 script = ExtResource("1")
@@ -43,28 +44,31 @@ toolbar_path = NodePath("../../SkillToolbar")
 terrain_path = NodePath("../Terrain")
 
 [node name="Home" type="Area2D" parent="World" instance=ExtResource("3")]
-position = Vector2(264, 1056)
+position = Vector2(120, 480)
 collision_layer = 32
 collision_mask = 4
 script = ExtResource("6_home")
 
 [node name="Candy" type="Area2D" parent="World" instance=ExtResource("4")]
-position = Vector2(1224, 816)
+position = Vector2(888, 192)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("8_candy")
-hp = 2
+hp = 5
+
+[node name="SettlementMarker" parent="World" instance=ExtResource("17_settle_marker")]
+position = Vector2(552, 496)
 
 [node name="Camera2D" type="Camera2D" parent="World"]
-position = Vector2(744, 936)
+position = Vector2(576, 336)
 
 [node name="StageBackground" type="CanvasLayer" parent="." instance=ExtResource("8")]
 layer = -100
 
 [node name="Spawner" type="Node" parent="."]
 script = ExtResource("2")
-spawn_position = Vector2(264, 1048.5)
-total = 4
+spawn_position = Vector2(120, 472.5)
+total = 8
 release_rate = 30
 spawn_direction = 1
 
