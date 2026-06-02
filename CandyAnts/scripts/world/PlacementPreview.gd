@@ -73,14 +73,24 @@ func _compute_targets(ant: Ant, skill_id: String, cs: int) -> Array[Vector2i]:
 			out.append(cell)
 		return out
 	if skill_id == "builder" or skill_id == "bridge":
+		# builder = 대각선 상승(전방+위), bridge = 평지(전방+아래 floor). WorkerState._place_one_tile/_place_bridge_tile와 일치.
 		var max_count: int = BUILDER_MAX if skill_id == "builder" else BRIDGE_MAX
+		var is_builder: bool = skill_id == "builder"
 		var cur_body: Vector2i = body
 		for i in max_count:
-			var tgt: Vector2i = cur_body + Vector2i(ant.direction, 1)
-			if _terrain.is_cell_occupied(tgt):
-				break
-			out.append(tgt)
-			cur_body += Vector2i(ant.direction, 0)
+			if is_builder:
+				var tgt_b: Vector2i = cur_body + Vector2i(ant.direction, 0)
+				var dest_body: Vector2i = cur_body + Vector2i(ant.direction, -1)
+				if _terrain.is_cell_occupied(tgt_b) or _terrain.is_cell_occupied(dest_body):
+					break
+				out.append(tgt_b)
+				cur_body += Vector2i(ant.direction, -1)
+			else:
+				var tgt_f: Vector2i = cur_body + Vector2i(ant.direction, 1)
+				if _terrain.is_cell_occupied(tgt_f):
+					break
+				out.append(tgt_f)
+				cur_body += Vector2i(ant.direction, 0)
 		return out
 	return out
 
@@ -88,7 +98,9 @@ func _first_target_cell(ant: Ant, skill_id: String, cs: int) -> Vector2i:
 	var body: Vector2i = _body_cell(ant, cs)
 	if skill_id == "sand_mound":
 		return body
-	return body + Vector2i(ant.direction, 1)
+	if skill_id == "builder":
+		return body + Vector2i(ant.direction, 0)   # 대각 상승 첫 발판
+	return body + Vector2i(ant.direction, 1)        # bridge 평지
 
 func _first_target_blocked(ant: Ant, skill_id: String, cs: int) -> bool:
 	return _terrain.is_cell_occupied(_first_target_cell(ant, skill_id, cs))

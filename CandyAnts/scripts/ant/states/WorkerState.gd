@@ -226,25 +226,33 @@ func exit() -> void:
 			a.set_blocker_active(false)
 	# sand_mound/bridge는 terminal cleanup 불필요 — Walker 복귀 시 자연 해제.
 
+# builder 대각선 상승 계단 (2026-06-02 정합성 개정 — 구 평지 동작 폐기).
+# tile마다 전방+위로 한 칸 상승. 새 발판 target = body_cell + (dir, 0): 현재 발밑(body+(0,1))보다
+# 한 칸 위·전방 셀 → 이 셀이 다음 stand 위치(body+(dir,-1))의 새 floor가 된다.
+# 올라설 자리(dest_body)가 막혀 있으면 레지/벽/천장 도달로 보고 중단(평지였던 bridge와 역할 분리).
 func _place_one_tile(a: Ant) -> void:
 	var terrain: Terrain = _find_terrain(a)
 	if terrain == null:
 		_aborted = true
 		return
 	var cs: int = terrain.cell_size
-	# 수평 다리 — ant 발 밑(한 칸 아래) 행에 forward로 12셀.
-	var cell: Vector2i = Vector2i(
+	var body_cell: Vector2i = Vector2i(
 		int(floor(a.global_position.x / cs)),
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
-	var target: Vector2i = cell + Vector2i(a.direction, 1)
+	var target: Vector2i = body_cell + Vector2i(a.direction, 0)
+	var dest_body: Vector2i = body_cell + Vector2i(a.direction, -1)
+	if terrain.is_cell_occupied(dest_body):
+		_aborted = true
+		return
 	var ok: bool = terrain.add_tile(target, Terrain.DYNAMIC_TILE_STAIR, a.direction)
 	if not ok:
 		_aborted = true
 		return
 	# Phase 17 — Bridge/Water 정책 (D8). hazard 없는 stage는 no-op.
 	terrain.deactivate_hazards_for_placement(target)
-	a.global_position += Vector2(a.direction * cs, 0.0)
+	# 전방 1칸 + 위 1칸 (대각 상승). 평지 시절 x-only에서 y -cs 추가.
+	a.global_position += Vector2(float(a.direction) * cs, float(-cs))
 	_remaining -= 1
 
 # biscuit-ladder 지형 통합 빌드 (2026-06-02, 구 sand_mound climb-over 폐기):
