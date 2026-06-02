@@ -1,18 +1,24 @@
 extends Node
 
 # Phase 18 — Basher가 wall 끝(연속 earth 종료 cell) 도달 시 _basher_forward_has_earth=false →
-# _aborted → WalkerState 자연 복귀. chain reaction 없음(인접 cell 무영향).
+# _aborted → WalkerState 자연 복귀. body row 기준 진행이라 wall 끝에서 깔끔히 멈춘다(runaway 없음).
 #
 # Layout (dev_basher_edge_stop_layout):
 #   y=21 body row: wall = (12,21), (13,21)
 #   y=22 floor row: x=8~17 solid
+#   (위 row 20·천장 row 19는 layout에 없음 = 공기)
 # Ant body_cell (10,21) → walker → wall (12,21) 직면 → basher → (12,21), (13,21) 제거 →
 # forward (14,21) earth 없음(공기) → _aborted → Walker.
+#
+# 2026-06-02 확장(2칸 통로 + 단면 reskin) 영향: 위 row(20)는 공기라 best-effort 제거 no-op. 발밑 floor
+# (12,22)/(13,22)는 root로 reskin되나 **텍스처만** 바뀌고 kind="earth"는 불변 → 아래 (3) kind 단언 유지.
+# 통로 위 ceiling(row 19)도 공기라 reskin no-op. (단면 reskin/2칸 굴착 자체의 정밀 검증은
+# BasherTwoTallReskinTest 담당 — 본 테스트는 wall-end abort + kind chain 없음만 가드한다.)
 #
 # PASS (30s 내):
 #  (1) basher 후 ant state == WalkerState
 #  (2) wall cell 2개 (12,21),(13,21) 제거 (kind="")
-#  (3) sample cell 5개 (11,21),(14,21),(15,21),(12,22),(13,22) 사전/사후 무변동
+#  (3) sample cell 5개 (11,21),(14,21),(15,21),(12,22),(13,22) 사전/사후 kind 무변동
 
 const ANT_SCENE: PackedScene = preload("res://scenes/entities/Ant.tscn")
 const LAYOUT: Resource = preload("res://data/stage_layouts/dev_basher_edge_stop_layout.tres")

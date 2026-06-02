@@ -33,8 +33,8 @@ CandyAnts ground terrain의 **painterly cookie 2-tier 시각 시스템** SoT(Sou
 - `plant` 타일 (Phase 19 Cutter 대상) — 독립 sprite 파이프라인.
 - Hazard / Candy / Home 등 entity 시각.
 - `cookie_segment`, `thin_floor`, `cookie_bridge_tile`, `thin_bridge` 등 비-`cookie_crust` theme variants — 본 문서의 painterly 디렉션은 따르되, 각자의 시각 규칙은 별도 박제 필요.
-- **굴착(digger/basher) 단면의 동적 re-tiering** — 현재 미구현(skill-tile-surface 트랙에서 보류·revert). 향후 트랙 후보.
-- **세로 단면(측벽) tier** — 미박제. 굴착으로 드러난 세로 면은 현재 tier 연속성을 강제하지 않는다.
+- **Basher 수평 굴착 단면 reskin** — §12. basher가 뚫는 2칸 통로의 **발밑 floor=root / 통로 위 ceiling=top** 면을 잘린-면 텍스처로 교체한다(2026-06-02 구현). ground 2-tier 추론과 독립이라 별도 섹션.
+- **digger(수직 굴착) 단면 re-tiering + 세로 단면(측벽) tier** — 여전히 미박제. digger는 흙만 제거하며 단면 텍스처를 바꾸지 않고, 굴착으로 드러난 세로 면은 tier 연속성을 강제하지 않는다(§9-3 후보).
 
 위 항목들의 시각 규약이 박제되어 있지 않다는 사실 자체가 향후 system 작업 후보다 (§9 참조).
 
@@ -187,7 +187,7 @@ CandyAnts ground terrain의 **painterly cookie 2-tier 시각 시스템** SoT(Sou
 
 1. **가로·세로 연속성 (§5)** — discrete 4-variant 타일은 인접 가장자리 정합을 코드가 검사하지 않는다(variant 분포만 분산). 개선안: 단일 source painting에서 정합 세트로 잘라 발주하거나, 향후 edge-aware variant 선택(wang tile류) 도입.
 2. **Theme 확장이 builder 코드 수정을 요구** — 현재 `_solid_texture_for_cell()`이 `cookie_crust` 텍스처를 직접 `load`. 개선안: `TerrainTheme.tres` 리소스화 — 각 theme가 under/interior 텍스처 2장 + tone 메타데이터를 declared field로 보유.
-3. **굴착 단면 동적 re-tiering / 세로 단면 tier 미구현** — 굴착으로 드러난 면(특히 세로 단면)이 주변 지형과 tier 연속되지 않는다(skill-tile-surface 트랙에서 비효율로 판단·보류). 개선안: `background` 채움을 solid 깊이로 전환 + 노출 셀 tier 런타임 재계산.
+3. **digger 수직 단면 / 세로 측벽 tier 미구현** — basher 수평 단면(floor/ceiling)은 root/top reskin으로 박제됐지만(§12), digger로 드러난 면과 굴착 세로 측벽은 여전히 주변 지형과 tier 연속되지 않는다. 개선안: `background` 채움을 solid 깊이로 전환 + 노출 셀 tier 런타임 재계산.
 4. **sand-mound(§11)는 지형 통합 사다리로 전환됨** (biscuit-ladder, 2026-06-02) — 구 3-tier(surface/under/background) 강등 + climb-over 폐기. 이제 아래/위 기존 지형 면을 root/top 텍스처로 통합하고 동적 rung은 middle. ground 2-tier 추론과는 독립.
 5. **slope / plant / hazard 시각 규약 미박제** — 각자 별도 경로로 그려지며 본 문서의 디렉션을 따른다는 보장이 없다. 슬로프 대각면은 `cookie_tile_surface.png`(폐기된 ground surface 텍스처)를 계속 쓴다.
 
@@ -254,3 +254,37 @@ CandyAnts ground terrain의 **painterly cookie 2-tier 시각 시스템** SoT(Sou
 - `tests/SandMoundMaxHeightTest.gd`: 허공 빌드 시 동적 rung 5칸 전부 **middle** + `region_enabled=false` + whole-tile scale + 중앙.
 - `tests/SandMoundClimbOverLedgeTest.gd`: 위 레지 아래에서 시전 → 레지 surface가 **top으로 cap** + 개미가 레지 위로 올라섬 + rung=middle + 바닥 지형 면=root.
 - `tests/SandMoundReskinGuardTest.gd`: reskin/cap 계약 — 동적 bridge·`plant`·슬로프(Sprite2D 없음) 셀 오염/cap 금지(false) · `earth`+Sprite2D 정적 셀만 reskin=top 성공 · `can_reskin_cell_to_ladder` 무부작용 · `_can_cap_ledge` atomicity 4종(적격 / body_cell 점유 / solid 벽 / plant 레지) · **실패한 cast(cap 불가 레지 아래 시전)는 발밑 floor를 root로 남기지 않음**(실제 Ant 구동) · 누락 tier 텍스처는 `has_ladder_texture` false + `reskin` honest false(무변경) · MIDDLE 누락 시 `add_tile(SAND_MOUND)` 거부(상태 무생성)·bridge 무관·cap preflight false, TOP 누락 시 cap false(test seam `_ladder_tex_forced_missing`로 결정적 검증). (codex 2026-06-02 HIGH×2/MEDIUM×6 회귀.)
+
+## 12. 동적 스킬 타일 — Basher 굴착 단면 reskin
+
+`BasherSkill`(id `basher`)은 ant 진행 방향으로 **2칸 높이 수평 통로**를 뚫는다 (2026-06-02 확장 — 이전엔 1칸). §11 sand-mound과 마찬가지로 ground 2-tier 자동 추론과 독립이며, 통로를 뚫으며 드러나는 **수평 단면**(발밑 floor / 통로 위 ceiling)을 전용 잘린-면 텍스처로 reskin한다.
+
+### 12.1 동작 (코드 자동)
+
+매 tick 전방 열(`body_cell + (dir, ·)`)에 대해:
+- `R` body row + `R-1` 위 row 제거 → **2칸 높이 통로**. body row 제거가 **필수**(전방 earth 없으면 wall 끝으로 보고 종료), 위 row는 **best-effort**(earth면 제거, 공기/비-earth면 skip).
+- `R+1` floor 면 → **root**, `R-2` ceiling 면 → **top** 텍스처로 reskin. **충돌/점유/cell_kind 불변, 시각만**. best-effort — 적격(earth+정적+Sprite2D) 아니면 no-op.
+- 그 뒤 `ant.x += dir*cs`로 1칸 전진. body row만이 진행/종료를 결정한다(`_basher_forward_has_earth`도 body row 기준).
+- 빌드 로직: `WorkerState._destroy_basher_cell`. reskin은 `Terrain.reskin_cell_to_basher(cell, face)`.
+
+### 12.2 자산 — 정사각형 타일 2장 (root / top)
+
+| 역할 | 파일 | 적용 대상 |
+| --- | --- | --- |
+| root | `usable_square/basher_root_square.png` | **발밑 floor 면**(개미가 밟는 잘린 윗면) |
+| top | `usable_square/basher_top_square.png` | **통로 위 ceiling 면**(잘린 아랫면) |
+
+- 각 파일은 **단일 정사각형 1칸**(48×48 권장), cell_size 기준 whole-tile scale(`_apply_tex_to_sprite`, region 없이 중앙·균일 scale — cell_size 16/32/48 모두 안 잘림).
+- 위치: `assets/sprites/terrain/usable_square/`. 코드가 이 경로(`basher_%s_square.png`)를 `load`.
+
+### 12.3 reskin 계약 (ladder와 공유)
+
+- `Terrain.reskin_cell_to_basher(cell, face)`는 **kind=="earth" + 정적 `_static_bodies` 등록 + 직접 Sprite2D 자식**(공용 술어 `can_reskin_cell`)을 모두 만족하는 셀의 텍스처만 root/top으로 교체한다. 동적 `_placed`(bridge/stair/rung)·`plant` 셀·슬로프(Sprite2D 없음)는 `false`(cross-mechanic 오염 금지). face 텍스처 load 실패 시 honest `false`(스프라이트 무변경) — asset 누락 시 거짓 성공 없음. `_apply_tex_to_sprite`·`can_reskin_cell`은 §11 ladder reskin과 **공유**한다(ladder의 `can_reskin_cell_to_ladder`는 `can_reskin_cell` 하위호환 별칭).
+- **digger(수직 굴착)는 단면 reskin 없음** — 위/아래로 흙만 제거하며 단면 텍스처를 바꾸지 않는다. 굴착 세로 측벽 tier도 여전히 미박제(§9-3).
+- reskin은 충돌/점유/cell_kind를 안 바꾸므로, basher가 floor를 root로 reskin해도 그 셀의 `get_cell_kind`는 "earth"·점유 불변 → kind/점유 기반 회귀 단언(예: `BasherEdgeStopTest`)과 양립한다.
+
+### 12.4 부트스트랩 + 회귀 테스트
+
+- 새 PNG 교체 후 `python scripts/run_test.py --import` 1회 필수 (안 하면 런타임 `load()`가 null).
+- `tests/BasherTwoTallReskinTest.gd`: 전방 4셀 통합(body·위 제거 / floor=root / ceiling=top / 1칸 전진) · 이웃 공기 best-effort(body만 제거, reskin no-op·잔존 없음) · 동적 bridge·`plant`·Sprite2D-없는 셀 reskin 금지(false·무변경) · `has_basher_texture(root/top)` 가용성 + 누락 face false · 누락 텍스처 seam(`_basher_tex_forced_missing`) honest-false + 원복.
+- `tests/BasherTunnelThroughWallTest.gd` / `BasherEdgeStopTest.gd` / `BasherOnPlantRejectedTest.gd`: 통과 유지 — 2칸 통로 + floor reskin은 kind/점유 불변이라 기존 kind 단언과 양립, plant 전방은 `_basher_forward_has_earth=false`로 즉시 abort.

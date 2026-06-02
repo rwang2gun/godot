@@ -27,6 +27,12 @@ const LADDER_TIER_ROOT: String = "root"
 const LADDER_TIER_MIDDLE: String = "middle"
 const LADDER_TIER_TOP: String = "top"
 
+# Basher 굴착 단면 reskin (2026-06-02): basher가 전방 2칸 통로(body+위)를 뚫을 때, 발밑 floor 면은 root,
+# 통로 위 ceiling 면은 top 텍스처로 교체한다 — 충돌/점유/cell_kind 불변, **시각만**. ladder reskin과
+# 동일 적격 조건(kind=="earth" + 정적 _static_bodies 등록 + 직접 Sprite2D 자식)을 공유한다(can_reskin_cell).
+const BASHER_FACE_ROOT: String = "root"
+const BASHER_FACE_TOP: String = "top"
+
 var _bridge_tile_texture: Texture2D = null
 var _stair_tile_texture: Texture2D = null
 # 모래 동적 타일 한정 cell→Sprite2D (destroy 시 정리용).
@@ -35,6 +41,9 @@ var _ladder_tex_cache: Dictionary = {}   # tier(String) → Texture2D
 # 테스트 전용 — tier(String)→true면 _ladder_texture가 그 tier를 null로 취급(asset 누락 시뮬). 평상시 빈 dict라 무영향.
 # (codex 2026-06-02 R7) missing-texture atomic 거부를 결정적으로 회귀 테스트하기 위한 seam.
 var _ladder_tex_forced_missing: Dictionary = {}
+var _basher_tex_cache: Dictionary = {}    # face(String) → Texture2D
+# 테스트 전용 seam — face(String)→true면 _basher_texture가 그 face를 null로 취급(asset 누락 시뮬). 평상시 빈 dict.
+var _basher_tex_forced_missing: Dictionary = {}
 
 func set_cell_size(s: int) -> void:
 	if s > 0:
@@ -155,11 +164,15 @@ func reskin_cell_to_ladder(cell: Vector2i, tier: String) -> bool:
 	# 텍스처 적용 성공 여부를 정직하게 반환 — tier 텍스처 load 실패 시 false (codex 2026-06-02 R5).
 	return _apply_ladder_tex(_cell_sprite(cell), tier)
 
-# reskin_cell_to_ladder가 성공할 셀인지 **부작용 없이** 미리 검사한다 — cap atomic preflight용.
-# 적격 조건은 reskin과 동일: kind=="earth" + 정적 등록 + 직접 Sprite2D 자식.
-# (텍스처 가용성은 tier별이므로 별도 has_ladder_texture로 검사 — cap preflight가 함께 사용.)
-func can_reskin_cell_to_ladder(cell: Vector2i) -> bool:
+# reskin이 성공할 셀인지 **부작용 없이** 미리 검사한다 — ladder cap atomic preflight + basher reskin 공용 술어.
+# 적격 조건: kind=="earth" + 정적 _static_bodies 등록 + 직접 Sprite2D 자식.
+# (텍스처 가용성은 tier/face별이므로 별도 has_ladder_texture / has_basher_texture로 검사한다.)
+func can_reskin_cell(cell: Vector2i) -> bool:
 	return get_cell_kind(cell) == "earth" and _cell_sprite(cell) != null
+
+# (하위호환 별칭) sand-mound cap preflight(WorkerState._can_cap_ledge)·기존 테스트가 사용. can_reskin_cell과 동일.
+func can_reskin_cell_to_ladder(cell: Vector2i) -> bool:
+	return can_reskin_cell(cell)
 
 # tier 텍스처가 실제 load 가능한지 — cap atomic preflight가 사용(없으면 capped가 거짓 성공이 되는 것 차단).
 # (codex 2026-06-02 R5) game-state 부작용 없음(텍스처 캐시 memoization만).
@@ -192,12 +205,15 @@ func _cell_sprite(cell: Vector2i) -> Sprite2D:
 			return ch as Sprite2D
 	return null
 
-# biscuit_ladder 타일(root/middle/top) whole-tile 렌더 — region 없이 cell_size에 맞춰 균일 scale, 중앙.
-# 48×48 단일 정사각이라 cell_size가 달라도(16/32/48) 잘리지 않는다.
-# 반환: 텍스처를 실제 적용했으면 true, tier 텍스처 load 실패면 false(스프라이트 무변경) — reskin atomic 보장용.
+# biscuit_ladder 타일(root/middle/top) whole-tile 렌더. tier 텍스처 load 실패면 false(무변경) — reskin atomic 보장용.
 func _apply_ladder_tex(sprite: Sprite2D, tier: String) -> bool:
-	var tex: Texture2D = _ladder_texture(tier)
-	if tex == null:
+	return _apply_tex_to_sprite(sprite, _ladder_texture(tier))
+
+# whole-tile 텍스처 적용 — region 없이 cell_size에 맞춰 균일 scale, 중앙. ladder/basher reskin + 동적 rung 렌더 공용.
+# 48×48 단일 정사각이라 cell_size가 달라도(16/32/48) 잘리지 않는다.
+# 반환: 실제 적용했으면 true, 텍스처 null(load 실패) 또는 sprite null이면 false(무변경) — reskin atomic 보장용.
+func _apply_tex_to_sprite(sprite: Sprite2D, tex: Texture2D) -> bool:
+	if sprite == null or tex == null:
 		return false
 	sprite.region_enabled = false
 	sprite.texture = tex
@@ -206,6 +222,34 @@ func _apply_ladder_tex(sprite: Sprite2D, tier: String) -> bool:
 	if ts.x > 0.0 and ts.y > 0.0:
 		sprite.scale = Vector2(float(cell_size) / ts.x, float(cell_size) / ts.y)
 	return true
+
+# Basher 굴착 단면 reskin — 발밑 floor=root / 통로 위 ceiling=top. can_reskin_cell(earth+정적+Sprite2D) 재사용.
+# 충돌/점유/cell_kind 불변, 시각만. best-effort: 적격 아니면(공기·동적 _placed·plant·슬로프 Sprite2D 없음)
+# no-op false → 호출부는 무시. 텍스처 load 실패 시에도 honest false(무변경) — asset 누락 시 거짓 성공 없음.
+func reskin_cell_to_basher(cell: Vector2i, face: String) -> bool:
+	if not can_reskin_cell(cell):
+		return false
+	return _apply_tex_to_sprite(_cell_sprite(cell), _basher_texture(face))
+
+# face 텍스처가 실제 load 가능한지 — 부작용 없음(텍스처 캐시 memoization만).
+func has_basher_texture(face: String) -> bool:
+	return _basher_texture(face) != null
+
+# basher face 텍스처 load+cache. asset 누락/미import면 null(에러 스팸 없이 exists 선검사).
+func _basher_texture(face: String) -> Texture2D:
+	if _basher_tex_forced_missing.has(face):
+		return null   # 테스트 seam — asset 누락 시뮬 (평상시 미사용)
+	var cached: Texture2D = _basher_tex_cache.get(face)
+	if cached != null:
+		return cached
+	var path: String = "res://assets/sprites/terrain/usable_square/basher_%s_square.png" % face
+	if not ResourceLoader.exists(path):
+		return null
+	var tex: Texture2D = load(path) as Texture2D
+	if tex == null:
+		return null
+	_basher_tex_cache[face] = tex
+	return tex
 
 func has_tile(cell: Vector2i) -> bool:
 	return _placed.has(cell)

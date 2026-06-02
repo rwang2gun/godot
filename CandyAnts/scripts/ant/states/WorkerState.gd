@@ -379,8 +379,10 @@ func _find_terrain(a: Ant) -> Terrain:
 		n = n.get_parent()
 	return null
 
-# Phase 18 — Basher 수평 굴착. ant 진행 방향의 body row cell을 BASHER_MAX_CELLS까지 tick 단위 제거.
-# 매 제거 시 ant.x += dir*cs로 1 cell 전진. wall 끝(forward에 earth 없음) 도달 시 자연 종료.
+# Phase 18 — Basher 수평 굴착. ant 진행 방향으로 **2칸 높이 통로**(body row + 위 row)를 BASHER_MAX_CELLS까지
+# tick 단위로 뚫는다(2026-06-02 확장). 매 tick: body row 전방 cell 제거(필수) + 위 row 전방 cell 제거(best-effort,
+# earth일 때만) + 발밑 floor 면을 basher root, 통로 위 ceiling 면을 basher top으로 reskin(best-effort, 시각만).
+# 그 뒤 ant.x += dir*cs로 1 cell 전진. body row forward에 earth 없으면(wall 끝) 자연 종료.
 # off-floor 시 즉시 _aborted → Faller (절벽 끝에서 활성화한 경우).
 func _update_basher(a: Ant, delta: float) -> void:
 	if _aborted or _remaining <= 0:
@@ -433,6 +435,13 @@ func _update_digger(a: Ant, delta: float) -> void:
 	if _aborted or _remaining <= 0:
 		a.return_to_walking()
 
+# 전방 열(body_cell + (dir, ·)) 기준 2칸 통로 굴착 + 단면 reskin (2026-06-02):
+#   R-2 ceiling: basher top reskin (통로 위 지형 면 — 시각만, best-effort)
+#   R-1 위:      제거 (best-effort — earth일 때만, 공기/비-earth면 skip)
+#   R   body:    제거 (필수 — 실패 시 abort, 통로 벽 종료)
+#   R+1 floor:   basher root reskin (개미가 밟을 발밑 면 — 시각만, best-effort)
+# body row 제거만이 진행/종료를 결정한다(_basher_forward_has_earth도 body row 기준). 나머지는 best-effort라
+# 1칸 천장/허공 통로에서도 자연스럽게 동작한다. reskin은 충돌/점유/cell_kind 불변(텍스처만) — abort 후 잔존 없음.
 func _destroy_basher_cell(a: Ant) -> void:
 	var terrain: Terrain = _find_terrain(a)
 	if terrain == null:
@@ -444,11 +453,16 @@ func _destroy_basher_cell(a: Ant) -> void:
 		int(floor(a.global_position.x / cs)),
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
-	var target: Vector2i = body_cell + Vector2i(a.direction, 0)
-	var ok: bool = terrain.destroy_tile_at(target, ["earth"])
-	if not ok:
+	# (1) body row 전방 — 필수. _update_basher가 직전에 forward earth를 확인했으므로 정상 true.
+	var body_target: Vector2i = body_cell + Vector2i(a.direction, 0)
+	if not terrain.destroy_tile_at(body_target, ["earth"]):
 		_aborted = true
 		return
+	# (2) 위 row 전방 — 2칸 높이 통로. best-effort(earth면 제거, 공기/비-earth면 no-op, abort 안 함).
+	terrain.destroy_tile_at(body_cell + Vector2i(a.direction, -1), ["earth"])
+	# (3) 발밑 floor → root, 통로 위 ceiling → top. best-effort 텍스처 교체(적격 아니면 no-op).
+	terrain.reskin_cell_to_basher(body_cell + Vector2i(a.direction, 1), Terrain.BASHER_FACE_ROOT)
+	terrain.reskin_cell_to_basher(body_cell + Vector2i(a.direction, -2), Terrain.BASHER_FACE_TOP)
 	# 1 cell 전진. Vector2 더하기로 Builder/Bridge/Sand-mound 스타일 통일.
 	a.global_position += Vector2(float(a.direction) * cs, 0.0)
 	_remaining -= 1
