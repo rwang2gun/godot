@@ -132,8 +132,9 @@ ROG Ally X 내장 패드는 Xbox 배열. 표준 Xbox 컨트롤러와 동일.
 |---|---|---|
 | 화면 탭 (게임 영역) | `cursor_move` + `skill_assign` (즉시 부여) | 자동 줌 보정 후 |
 | 화면 탭 (스킬 슬롯) | `skill_select_n` | 슬롯 직접 선택 |
+| **스킬 슬롯에서 드래그 → 개미 위 드롭** | 드롭한 개미에 해당 스킬 즉시 부여 | 탭-선택-후-탭 부여와 병존하는 보조 제스처. **슬롯에서 시작한 드래그만** 부여로 처리(드래그 data가 skill_id 운반) → 게임 영역에서 시작한 한 손가락 드래그(↓ camera_pan 예약)와 충돌 없음. 구현: `SkillSlot._get_drag_data` + `SkillDropZone`(평상시 IGNORE, 드래그 중에만 STOP) |
 | 두 손가락 핀치 | `camera_zoom` | post-MVP touch (phase 21) |
-| 두 손가락 드래그 | `camera_pan` | 한 손가락 드래그는 부여로 오해될 수 있음 |
+| 두 손가락 드래그 | `camera_pan` | 게임 영역 한 손가락 드래그는 부여로 오해될 수 있어 카메라는 두 손가락. 슬롯 시작 드래그는 위 행 참조(부여) |
 | 길게 누르기 (개미) | `info_toggle` | |
 | 길게 누르기 (스킬 슬롯) | 스킬 정보 |
 | 화면 가장자리 드래그 | `camera_pan` | |
@@ -151,6 +152,7 @@ ROG Ally X 내장 패드는 Xbox 배열. 표준 Xbox 컨트롤러와 동일.
 |---|---|---|
 | 마우스 이동 | `cursor_move` | synthetic (phase 5 emit) |
 | 좌클릭 | `skill_assign` | phase 5 InputMap |
+| 스킬 슬롯에서 좌버튼 드래그 → 개미 위 드롭 | 드롭한 개미에 해당 스킬 즉시 부여 | 클릭-부여와 병존하는 보조 제스처(Godot Control DnD). 슬롯에서 시작한 드래그만 부여 — `SkillSlot._get_drag_data` + `SkillDropZone` |
 | 우클릭 | `skill_cancel` | phase 5 InputMap (우클릭만 — Esc는 phase 13에서 game state 분기와 함께 InputMap 도입. phase 12 StageDialog는 dialog-local Esc만, DEFER-1) |
 | 마우스 모서리 | `camera_pan` (자동 스크롤) | **post-MVP 옵션** (phase 22) |
 | 휠 업/다운 | `camera_zoom` | **Phase 6 도입** (CameraController 합류 시 InputMap binding 등록 — phase 5에는 미등록·미발화) |

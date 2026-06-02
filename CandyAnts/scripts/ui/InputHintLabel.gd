@@ -28,10 +28,10 @@ func _exit_tree() -> void:
 func _on_mode_changed(mode: StringName) -> void:
 	match mode:
 		&"mouse":
-			text = "클릭: 적용  ·  1~8: 스킬  ·  Space: 일시정지"
+			text = "클릭/드래그: 적용  ·  1~8: 스킬  ·  Space: 일시정지"
 		&"pad":
 			text = "A: 적용  ·  LB/RB: 전환  ·  View: 일시정지"
 		&"touch":
-			text = "탭: 적용"
+			text = "탭/드래그: 적용"
 		_:
 			text = ""

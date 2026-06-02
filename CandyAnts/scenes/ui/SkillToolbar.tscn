@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://b6sktbphase11"]
+[gd_scene load_steps=3 format=3 uid="uid://b6sktbphase11"]
 
 [ext_resource type="Script" path="res://scripts/ui/SkillToolbar.gd" id="1_toolbar"]
+[ext_resource type="Script" path="res://scripts/ui/SkillDropZone.gd" id="2_dropzone"]
 
 [node name="SkillToolbar" type="CanvasLayer"]
 process_mode = 3
@@ -50,3 +51,13 @@ grow_vertical = 0
 alignment = 1
 theme_override_constants/separation = 14
 mouse_filter = 2
+
+[node name="DropZone" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_dropzone")
+toolbar_path = NodePath("..")

@@ -167,26 +167,47 @@ func _clear_selection() -> void:
 	_pending_skill_id = ""
 	Input.set_custom_mouse_cursor(null)
 
+# 클릭(탭) 흐름 — _pending_skill_id(armed)를 커서 위치 개미에 부여.
+# ant 미발견(빈 공간 클릭)이면 선택 유지(오클릭 보호), 그 외엔 적용 성공/실패 무관 선택 해제 — 기존 동작 보존.
 func _try_assign(world: Vector2) -> void:
 	if _pending_skill_id == "":
 		return
 	var ant: Ant = _find_closest_ant(world)
 	if ant == null:
 		return
-	var skill_script: Script = SkillRegistry.get_skill(_pending_skill_id)
-	if skill_script == null:
-		_clear_selection()
+	_apply_skill(_pending_skill_id, ant)
+	_clear_selection()
+
+# 드래그앤드롭 drop 경로 — SkillDropZone._drop_data가 호출.
+# 클릭 흐름의 _pending_skill_id와 독립: drop은 drag data dict가 운반한 id를 직접 적용한다.
+# (월드 드래그를 부여로 오해하지 않도록, 드래그는 반드시 SkillSlot에서 시작해야 데이터가 실린다.)
+func try_assign_dragged(id: String, world: Vector2) -> void:
+	if _all_disabled:
 		return
+	var ant: Ant = _find_closest_ant(world)
+	if ant == null:
+		return
+	_apply_skill(id, ant)
+	# 드롭으로 적용했으면 기존에 armed돼 있던 선택/커서도 초기화(stale skill 커서 방지).
+	_clear_selection()
+
+# id 스킬을 ant에 적용 시도 — 성공 시 인벤토리 차감 + true 반환. 클릭/드롭 공통 코어.
+func _apply_skill(id: String, ant: Ant) -> bool:
+	if id == "" or not _slots.has(id):
+		return false
+	if int(_inventory.get(id, 0)) <= 0:
+		return false
+	var skill_script: Script = SkillRegistry.get_skill(id)
+	if skill_script == null:
+		return false
 	var skill: Skill = skill_script.new() as Skill
 	if skill == null or not skill.can_apply(ant):
-		_clear_selection()
-		return
-	var applied_id: String = _pending_skill_id
+		return false
 	skill.apply(ant)
-	_inventory[applied_id] = int(_inventory[applied_id]) - 1
-	(_slots[applied_id] as SkillSlot).set_count(int(_inventory[applied_id]))
-	print("[SkillToolbar] applied=", applied_id, " to=", ant.name, " remaining=", _inventory[applied_id])
-	_clear_selection()
+	_inventory[id] = int(_inventory[id]) - 1
+	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
+	print("[SkillToolbar] applied=", id, " to=", ant.name, " remaining=", _inventory[id])
+	return true
 
 func _select_by_slot(slot_idx: int) -> void:
 	if stage_data == null:

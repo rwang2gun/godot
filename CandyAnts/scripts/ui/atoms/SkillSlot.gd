@@ -7,6 +7,7 @@ extends Button
 # focus halo는 패드 모드 검증 (mouse 모드에서는 has_focus()가 거의 안 잡힘).
 
 const _SIZE := Vector2(88, 88)
+const _DRAG_PREVIEW_SIZE := Vector2(56, 56)
 const _RADIUS := 16
 const _BORDER_WIDTH := 3
 const _SHADOW_OFFSET_NORMAL := Vector2(4, 4)
@@ -216,6 +217,44 @@ func _apply_count() -> void:
 		return
 	_count_label.text = str(_count)
 	_count_pill.visible = _count > 0
+
+# --- 드래그앤드롭 ---
+
+# 슬롯을 드래그하면 skill_id를 운반 — SkillDropZone가 drop을 수신해 부여.
+# count<=0 / disabled 슬롯은 드래그 불가(null 반환 → 드래그 자체가 시작 안 됨).
+# 정상 click(press+release in-place)은 그대로 pressed → _on_slot_pressed로 살아있다(공존).
+func _get_drag_data(_at_position: Vector2) -> Variant:
+	var payload: Variant = _make_drag_payload()
+	if payload == null:
+		return null
+	# 드래그 시작 시점에 press/hover 비주얼 해제 — release 이벤트가 DnD에 흡수돼
+	# button_up이 슬롯에 안 와도 눌린 모양(shadow/peach/translate)이 stuck되는 것 방지.
+	_on_button_up()
+	_on_mouse_exited()
+	_set_drag_preview_icon()
+	return payload
+
+# drag 페이로드 산출(순수 — 비주얼/preview 부수효과 없음). 테스트가 직접 호출 가능.
+func _make_drag_payload() -> Variant:
+	if disabled or _count <= 0:
+		return null
+	return {"skill_id": String(skill_id)}
+
+func _set_drag_preview_icon() -> void:
+	if icon_texture == null:
+		return
+	var preview := TextureRect.new()
+	preview.texture = icon_texture
+	preview.custom_minimum_size = _DRAG_PREVIEW_SIZE
+	preview.size = _DRAG_PREVIEW_SIZE
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview.modulate = Color(1, 1, 1, 0.85)
+	# 커서 중앙에 오도록 wrapper로 음수 오프셋.
+	var wrapper := Control.new()
+	wrapper.add_child(preview)
+	preview.position = -_DRAG_PREVIEW_SIZE * 0.5
+	set_drag_preview(wrapper)
 
 # --- 인터랙션 핸들러 ---
 
