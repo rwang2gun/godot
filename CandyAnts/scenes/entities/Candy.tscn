@@ -17,7 +17,7 @@ position = Vector2(0, -42)
 shape = SubResource("shape")
 
 [node name="Sprite" type="AnimatedSprite2D" parent="."]
-position = Vector2(0, -54)
+position = Vector2(0, -40)
 scale = Vector2(0.42, 0.42)
 sprite_frames = ExtResource("2")
 animation = &"default"
