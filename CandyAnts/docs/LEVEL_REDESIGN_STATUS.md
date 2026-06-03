@@ -185,6 +185,33 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 
 **교훈**: ① cutter/basher는 같은 WorkerState 파생이나 **절단 칸 수가 다르다**(cutter 1칸 / basher 2칸) — 식물 벽 통과는 개미 15px가 1칸에 들어가 OK지만 새 파괴 스킬 stage 저작 시 절단 프로파일을 확인할 것. ② sticky는 "감속"이 아니라 **3초 정지**(셀당) — HTML "감속" 표기와 구현이 다르니 셀 수로 체감 지연 조절. ③ backward-compat 테스트에 새 kind 도입 시 **path-gate로 정본 stage만 허용**(전역 허용은 다른 stage 드리프트 가드 무력화 — codex MEDIUM 교훈). ④ Godot headless stdout 버퍼링으로 종료 시 PASS print가 잘릴 수 있음 — **exit code가 권위**(음성 테스트는 exit0=클리어 안 됨, 클리어 시 `_fail`→exit1이라 견고).
 
+## 3j. 완료 — S9 "종합 과자점" → stage09 신규 슬롯 저작 (세션 11, 커밋 `cf7ecff`)
+**전제**: 세션 10 base `2da0f0d`(S1~S8). **마지막 스테이지**. bridge(Phase 16/세션5 무장)·basher(Phase 18)·builder(Phase 16/세션4·6 무장+gated step-up) 코어 전부 완비 — S9는 **순수 데이터 저작 + 테스트 드라이버**(코어 0 변경). S1~S8과 달리 **복수 스킬 게이트**라 §5.4 선결정을 사용자와 정렬: **HP5/8마리/150s(HTML 시안)** + **선두 1마리가 3구조물 모두 건설**.
+
+**핵심 코어 사실(저작 전 확인)**:
+- **bridge/builder 무장은 상호 배타**(`can_apply`이 `bridge_armed or builder_armed` 둘 다 차단, 2026-06-03 codex MEDIUM). → 동시 무장 불가 → 각 cliff(게이트1 물·게이트3 단)에서 **즉시 건설**로 적용(bridge 소비 후 builder 적용 = 위반 없음). basher는 비-무장(forward-earth)이라 독립 시전.
+- **`StageLayoutBuilder.build()`가 모든 비-plant/cookie 타일을 kind="earth"로 매핑** → 흙 벽은 그냥 `"solid"` 타일이면 basher 대상. S9는 plant/cookie/water-tag 불필요, 순수 `solid`+`background`+water 씬 인스턴스.
+
+**기하(cell 48, w24 h14, 보행면 row10/body row9)**:
+- 좌 지면 cols0-8(rows10-13) · Home(1,9).
+- **게이트1 소다 호수** cols9-12(4칸 갭, water surface row11 + inner rows12-13 씬 인스턴스 12셀). col8(x∈[384,432))서 bridge cliff_ahead → row10 평지 다리 4칸(BRIDGE_MAX_LENGTH=8 여유) → col13 착지. S3 소다 워터 패턴.
+- 중앙 지면 cols13-17(rows10-13) + **게이트2 흙 벽** cols15-16(rows5-9, solid=earth). col14서 basher(forward-earth) → rows8-9 2칸 통로 → col17 자연 종료(실측 bashes=1).
+- **게이트3 갭** cols18-20(무지면) + **높은 단** cols21-23(rows6-13, surface row6). col17(x∈[816,864))서 builder cliff_ahead → up-first 대각 계단 (17,9)(18,8)(19,7)(20,6) → 단 등반. Candy(22,5 pos 1080,288 hp5). S4 builder 패턴.
+
+**파라미터** (`stage09.tres`): id=9 "종합 과자점" / total8 / hp5 / 150s / available=[bridge,builder,basher,floater] / inventory={bridge:2,builder:2,basher:2,floater:3}(×2는 여유분, floater는 실수 보험) / ★=[0.6,0.8,1.0](오름차순) / release30.
+
+**⚠ 저작 중 발견·해결한 버그(basher가 builder 계단 오인 파괴)**: 동적 STAIR 타일이 **kind="earth"**라, builder 첫 계단 (17,9)(=보행 body row)를 **후속 개미가 col16에서 "전방 흙"으로 오인해 basher로 부숨** → 계단 바닥 소멸 → 선두 귀가 실패(saved=0)·후속 갭 추락(no_more_ants). **수정=드라이버 basher 게이트를 흙 벽 직전 col로 제한**(`body_cell.x >= 15` 차단). 실제 플레이어도 벽만 시전하므로 타당(S7/S8 forward-earth/plant 게이트와 동형). 코어 무변경(STAIR=earth는 의도된 동작 — 자기 계단 파괴는 플레이어 선택).
+
+**테스트(전부 PASS)**: **CampaignS9Clear**(3게이트 발동 단언 `_bridge_applied && _builder_applied && _bashes>0` + saved5/5 lost0 bashes1 frame1926) + 음성 3종 — **NoSkill**(무스킬→호수 추락 picks0)·**NoBasher**(bridge+builder만, `_reached_wall`=개미가 col14 실제 도달→벽서 막힘 picks0)·**NoBuilder**(bridge+basher만, `_reached_gap`=개미가 col17 실제 도달→갭서 막힘 picks0). 음성은 **위치 마커로 선행 게이트 물리 통과를 단언**(apply() 호출이 아닌 실제 통과 — codex R2). 갱신: **MenuLayout**(i<8→i<9)·**StageSelectUnlock**(case_initial slot9 COMING_SOON→LOCKED, priority slot9→slot10 retarget·clear[1..9])·**GameFlow ScenB**(Stage08 cutter→Stage09 3-스킬 `_apply_stage9_skills_if_ready` last-stage 재작성, time_scale 8x 결정적).
+
+**배선**: `SceneFlow.STAGE_SCENES[9]=Stage09.tscn` + `LAST_STAGE_ID 8→9`. `menu_layout` slot9 해금("종합 과자점", available=true). slot10만 "준비 중" 유지.
+
+**회귀(0 회귀)**: 큐레이트 — S1~S8 Clear / SceneFlow LastStagePredicate·ScreenState / StageDialog LastStageTitle·Dismiss·Sfx·PauseSafe / SaveData RecordClear·StarOverride·Malformed / Bridge·Basher·Builder 스킬 스위트 / GameFlow A·B·C(3x 결정적) 전부 green.
+
+**codex 적대적 리뷰 4R**: R1 MEDIUM(클리어 테스트가 3게이트 발동 미단언)→3게이트 단언+페어 음성 신설 / R2 MEDIUM×2(음성이 apply() 호출만 확인, 물리 통과 미증명)→위치 마커(_reached_wall/_reached_gap) 추가 / R3 HIGH(stage09 리소스·S9 테스트 untracked→부분 커밋 시 깨진 내비)→**원자적 커밋 `cf7ecff`로 해소**(S6 R1 선례) / R4(커밋 diff)=**approve, no material findings**. (R1/R2 MEDIUM은 정책상 수정 의무 없으나 자체 리뷰 우려와 일치+cheap·correct라 보강.)
+
+**교훈**: ① 복수 스킬 게이트 stage는 cliff별 즉시 건설(무장 상호 배타 회피) + forward-earth 위치 게이트 분리가 정공법. ② **동적 STAIR=kind earth** → basher/cutter 드라이버와 builder를 혼용하면 계단을 흙으로 오인 → 파괴 스킬 게이트를 벽 col로 제한 필수(새 복합 stage 주의). ③ 음성 테스트는 skill `apply()` 호출이 아닌 **개미의 물리적 위치 도달**로 선행 게이트 통과를 단언해야 게이트별 독립 필수성이 진짜 증명됨(codex R2 교훈). ④ **레벨 재설계 캠페인 S1~S9 완결** — 9스테이지 전부 저작.
+
 ## 4. 남은 작업 (권장 순서)
 
 ### A. 선행 정리 — 코드/에셋 (캠페인 저작 전 필수)
@@ -201,8 +228,8 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [ ] **B3. 흙 vs 쿠키(불괴) 시각 구분 확인**.
 
 ### C. 캠페인 저작
-- [~] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반), 스테이지별 플레이테스트로 인벤토리·시간·기하 튜닝. 특히 S3/S7/S10류 **복귀 경로**(왕복 제약) 정밀화. — **S1 stage01**(§3b), **S2 "오르막" stage02**(§3c), **S3 "사탕 호수" stage03**(§3d), **S4 "계단 공사" stage04**(§3e), **S5 "막대과자 탑" stage05**(§3f), **S6 "땅굴" stage06**(§3g), **S7 "옆파기" stage07**(§3h), **S8 "박하 덤불" stage08**(§3i) 완료. **S9 미착수**.
-- [~] **C2. 진행 흐름 등록**: menu_layout 10슬롯·SaveData 언락(N-1 클리어)·"/30" denominator는 **이미 확보**. SceneFlow.STAGE_SCENES[1~7]·**LAST_STAGE_ID=7**(세션 9 갱신) — 현재 캠페인 7스테이지(S1~S7) 완결 데모. **S8 저작 시 STAGE_SCENES[8] + LAST_STAGE_ID=8** 갱신 필요. **menu_layout**: 슬롯1~7 available=true(슬롯7 "옆파기"는 세션 9 해금, `MenuLayoutResourceTest` i<6→i<7 + `StageSelectUnlockTest` 슬롯 상태 배열 동반 갱신). 슬롯8~10 "준비 중"(available=false) — S8+ 저작 시 순차 해금.
+- [x] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반) — **전부 완료**. **S1 stage01**(§3b), **S2 "오르막"**(§3c), **S3 "사탕 호수"**(§3d), **S4 "계단 공사"**(§3e), **S5 "막대과자 탑"**(§3f), **S6 "땅굴"**(§3g), **S7 "옆파기"**(§3h), **S8 "박하 덤불"**(§3i), **S9 "종합 과자점"**(§3j) 완료. **레벨 재설계 캠페인 9스테이지 완결.**
+- [x] **C2. 진행 흐름 등록**: menu_layout 10슬롯·SaveData 언락(N-1 클리어)·"/30" denominator 확보. SceneFlow.STAGE_SCENES[1~9]·**LAST_STAGE_ID=9**(세션 11 갱신). **menu_layout**: 슬롯1~9 available=true(슬롯9 "종합 과자점"은 세션 11 해금, `MenuLayoutResourceTest` i<9 + `StageSelectUnlockTest` slot9 LOCKED·priority retarget slot9→slot10 동반 갱신). 슬롯10만 "준비 중"(available=false). S1~S9 완결이라 추가 슬롯은 후속 확장 시.
 - [ ] **C3. blocker·distributor 재배치** + 무스킬 0번 온보딩 결정.
 
 ### D. 하우스키핑
@@ -215,7 +242,7 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 10 종료: S8 "박하 덤불" stage08 커밋 `d2632d5`(base `eb0e15c`), 워킹트리 clean(추적), 미push(로컬)**(§3i). ⚠ §6의 full-suite 선재 실패 4건(Climber/Digger/Distributor/Floater Trait류)은 여전히 baseline(내 변경 무관) — 큐레이트 세트로 회귀 검증.
 2. ~~**S7 "옆파기" 저작**~~ **완료(세션 9, §3h)**. 예측대로 코어 0 변경.
 3. ~~**S8 "박하 덤불" 저작**~~ **완료(세션 10, §3i, 커밋 `d2632d5`)**. cutter=basher 동형(코어 0 변경) + sticky 씬 인스턴스(Water 패턴). codex 2R(R1 MEDIUM=backward-compat 전역 plant → path-gate → R2 approve).
-4. **S9 "종합 과자점" 저작** (마지막 스테이지). bridge+builder+basher(+floater) 복합 3관문, HTML rev2 id:9. **stage09 슬롯 신규** + STAGE_SCENES[9] + LAST_STAGE_ID 8→9 + menu slot9 해금 + 테스트 동반 갱신(MenuLayout i<8→i<9, StageSelectUnlock slot9 LOCKED·priority retarget slot9→slot10, GameFlow ScenB→Stage09). §3i 마이그레이션 패턴 답습. **선결정 필요**: 3관문 복합이라 (a) 여러 스킬 inventory 조합·시전 순서, (b) cutter 1칸 vs basher 2칸 통로 혼용 시 통과성, (c) HTML id:9 시안 기하 확인(로컬 `LEVEL_DESIGN_PLAN.html`). S1~S8과 달리 단일 스킬이 아니므로 GameFlow/Campaign 드라이버가 복수 스킬 게이트를 다뤄야 함.
+4. ~~**S9 "종합 과자점" 저작**~~ **완료(세션 11, §3j, 커밋 `cf7ecff`)**. bridge+basher+builder 복합 3관문 + last-stage 배선. 선결정=HP5/8마리/150s(HTML) + 선두 1마리 전부 건설. cliff별 즉시 건설(무장 상호 배타 회피) + basher col-게이트(STAIR=earth 오인 파괴 방지). codex 4R(R1/R2 MEDIUM 보강·R3 HIGH untracked 원자적 커밋·R4 approve). **레벨 재설계 캠페인 S1~S9 완결.**
 5. **(선재 실패 정리)** §6의 pristine-HEAD 실패 4건(Climber/Digger/Distributor/Floater Trait류) — 내 변경과 무관하나 main이 full-suite green 아님. 조사·수정은 별도 항목.
 6. (선택) **기절 5칸 경계 결함 근본수정 여부 결정**(§6 gotcha) — 현재는 스테이지를 6칸으로 우회.
 
@@ -227,6 +254,8 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - **water 해저드 저작(S3 이후)**: layout tile_map엔 water 없음 — `scenes/entities/hazards/Water.tscn`(Area2D, layer8/mask4, 48×48)를 **씬 World 아래 셀별 인스턴스**. `HazardBase._ready`가 `await physics_frame` 후 `floor(global_position/cell_size)`로 셀 등록. **표면행(예 row10) 1행이면 충분**(추락 개미 즉사 catch, dev 컨벤션). bridge tile이 `deactivate_hazards_for_placement(cell)`로 그 셀 water 끔 → 다리 위 안전. bridge 적용은 **갭 직전 마지막 지면 cell**(body_cell+(dir,+1)이 갭 첫 셀이어야 add_tile 성공)에서.
 - **sticky 해저드 저작(S8 이후)**: water와 동일 — `scenes/entities/hazards/Sticky.tscn`(Area2D layer8/mask4 48×48, `StickyHazard duration=3.0`)을 씬 World 아래 셀별 인스턴스. `HazardBase._ready`가 셀 자동등록. **보행선 위 body row(예 row9)에 배치**해야 통과 개미가 overlap(water는 추락 catch라 표면행, sticky는 보행 body row). **감속 아니라 3초 완전 정지**(셀당 1회, frame-dedup) — 체감 지연은 셀 수로 조절. 새 PNG 아니므로 `--import` 불요(기존 `sticky_caramel.png`).
 - **cutter vs basher 절단 칸 수**: cutter는 body row **1칸만**, basher는 body+위 **2칸**. 식물/흙 벽 통과는 개미 충돌 18×15px가 1칸(48px)에 들어가 OK지만, 천장이 막힌 좁은 통로 설계 시 차이 유의.
+- **⚠ 동적 STAIR 타일 = kind "earth" → basher/cutter와 builder 혼용 stage 주의 (세션 11, S9 발견)**: builder가 까는 STAIR 타일은 `kind="earth"`라 basher `destroy_tile_at(["earth"])`의 대상이 된다. 복합 stage(S9)에서 basher 드라이버가 "전방 body cell == earth"만 보면 **builder 첫 계단(보행 body row에 위치)을 흙 벽으로 오인해 파괴** → 계단 붕괴. **드라이버 basher 게이트를 흙 벽 col 직전으로 제한**(S9는 `body_cell.x >= 15` 차단)해야 한다. 코어는 정상(STAIR=earth는 의도된 동작; 자기 계단 파괴는 플레이어 선택). 새 파괴+건설 복합 stage 저작 시 동일 게이트 필요.
+- **복수 스킬 게이트 드라이버 패턴 (세션 11, S9)**: bridge/builder 무장은 **상호 배타**(`can_apply`이 둘 다 차단)라 한 개미에 동시 무장 불가 → 각 cliff(물·단)에서 **즉시 건설**로 적용(bridge 소비 후 builder 적용). basher는 비-무장 forward-earth라 독립. 테스트 드라이버 = S3 bridge x-window + S7 basher forward-earth(col-게이트) + S4 builder x-window 결합. 음성 테스트는 skill apply() 호출이 아닌 **개미 물리 위치 도달 마커**(_reached_wall/_reached_gap)로 선행 게이트 통과를 단언해야 게이트별 독립 필수성이 진짜 증명됨.
 - `docs/LEVEL_DESIGN_PLAN.html`은 **gitignore(*.html)** — 커밋해도 안 올라감. 로컬 보존.
 - **stage 슬롯 마이그레이션 패턴**(S2~S9 답습): ① `stageNN_layout.tres` 내용 이식(헤더 uid 유지) ② `stageNN.tres` 파라미터 ③ `StageNN.tscn` 엔티티 좌표(Home/Candy/Camera/Spawner)+hp+total ④ 지오메트리 하드코딩 테스트(GameFlowTest climber 좌표 등) 갱신 ⑤ 회귀(Hud/LayoutBuilder/GameFlow/SceneFlow). 경로 락이라 **파일명 유지·내용만 교체**.
 - **세션 2 종료**: 8 커밋(`e0f9f02`~`58b0fbb`), HEAD=`58b0fbb`, 워킹트리 clean, 미push(로컬).
