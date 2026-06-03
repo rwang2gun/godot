@@ -132,6 +132,7 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - **배선**: `SceneFlow.STAGE_SCENES[6]=Stage06.tscn` + `LAST_STAGE_ID 5→6`. `menu_layout` slot6 해금("땅굴", available=true). **`GameFlowTest` Scenario B를 Stage05→Stage06**(digger 흙 캡+floater last-stage) 재작성.
 - **회귀**: 큐레이트 18종(S1~S5 clear/neg·SceneFlow×2·Hud·Scoring·Digger/Basher/Cutter·LayoutBuilder×2) + S6 신규/수정 8종 = 내 변경 0 회귀.
 - **교훈**: ① digger 안전 하강 = 굴착 상태 낙하(기절 미검사)라 **개척자는 무-floater 자력 하강** — "floater 필수성"은 *공유 갱도 후속*에 한정(테스트 단언을 saved<orig로 재구성). ② cookie는 별도 굴착 abort가 아니라 **공기 cavern이 이미 digger를 멈춤** — cookie의 진짜 역할은 *벽·챔버를 플레이어가 못 부수게* 하는 구조 무결성. ③ 캠페인 슬롯 해금 시 `StageSelectUnlock` 같은 슬롯-상태 테스트도 동반 갱신 필요(세션4·6 미갱신 드리프트 교훈).
+- **codex 적대적 리뷰 (working-tree R1 → 커밋 `e4a3f61` → branch R2)**: R1 **HIGH 1**(stage06 파일 untracked인데 SceneFlow/menu가 S6 노출 → 부분 커밋 시 `load()`=null 크래시) → **원자적 커밋으로 해소** + `SceneFlow.load_stage` null 가드 추가. R2(커밋 diff) **HIGH 0, MEDIUM 2**: **M1**(digger6라 개별 굴착으로 floater 우회 가능 = "floater 필수" 미강제) → **defer(의도된 이중 해법, 사용자 결정 "개별 굴착 가능". 접근 가능 해법=공유 갱도+floater, 숙련 해법=개별 굴착. NoFloater 테스트는 *공유 갱도* 계약만 단언하고 주석에 명시).** **M2**(null 가드가 `_unload_current_screen()` 후라 실패 시 현재 화면 파괴) → **수정**(load+검증을 unload 전으로 이동, unknown-stage 가드와 동일하게 화면 보존, 후속 커밋). MEDIUM은 정책상 수정 의무 없으나 M2는 cheap·correct라 수정, M1은 설계 의도라 defer.
 
 ## 4. 남은 작업 (권장 순서)
 

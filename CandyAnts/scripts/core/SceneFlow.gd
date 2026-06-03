@@ -97,15 +97,17 @@ func load_stage(stage_id: int) -> void:
 		if current_screen == ScreenState.STAGE:
 			go_to_main_menu()
 		return
+	# Codex(세션 8) — 등록된 stage_id라도 그 .tscn/.tres가 누락(미커밋·export 제외)이면 load()가 null 반환 →
+	# instantiate() 크래시. **_unload_current_screen() 전에** load+검증해(codex 재리뷰 MEDIUM) 실패 시 현재 화면을
+	# 파괴하지 않고 보존 — unknown stage_id 가드와 동일 정책(STAGE면 main menu, 그 외엔 유지).
+	var scene: PackedScene = load(STAGE_SCENES[stage_id])
+	if scene == null:
+		push_error("[SceneFlow] stage %d 리소스 load 실패(%s) — 현재 화면 보존(STAGE면 main menu)" % [stage_id, STAGE_SCENES[stage_id]])
+		if current_screen == ScreenState.STAGE:
+			go_to_main_menu()
+		return
 	_unload_current_screen()
 	_last_result = {}
-	var scene: PackedScene = load(STAGE_SCENES[stage_id])
-	# Codex(세션 8) HIGH — STAGE_SCENES에 등록된 stage_id라도 그 .tscn/.tres가 누락(미커밋·export 제외)이면
-	# load()가 null 반환 → instantiate()에서 크래시. unknown stage_id와 동일하게 안전 fallback(blank 회피).
-	if scene == null:
-		push_error("[SceneFlow] stage %d 리소스 load 실패(%s) — main menu fallback" % [stage_id, STAGE_SCENES[stage_id]])
-		go_to_main_menu()
-		return
 	var stage_node: Node = scene.instantiate()
 	_current_stage_root.add_child(stage_node)
 	_current_stage_node = stage_node
