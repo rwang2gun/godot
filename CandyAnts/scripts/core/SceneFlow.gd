@@ -15,8 +15,9 @@ const STAGE_SCENES := {
 	3: "res://scenes/stages/Stage03.tscn",
 	4: "res://scenes/stages/Stage04.tscn",
 	5: "res://scenes/stages/Stage05.tscn",
+	6: "res://scenes/stages/Stage06.tscn",
 }
-const LAST_STAGE_ID := 5
+const LAST_STAGE_ID := 6
 
 const TITLE_SCENE := "res://scenes/ui/TitleScene.tscn"
 const MAIN_MENU_SCENE := "res://scenes/ui/MainMenu.tscn"
@@ -99,6 +100,12 @@ func load_stage(stage_id: int) -> void:
 	_unload_current_screen()
 	_last_result = {}
 	var scene: PackedScene = load(STAGE_SCENES[stage_id])
+	# Codex(세션 8) HIGH — STAGE_SCENES에 등록된 stage_id라도 그 .tscn/.tres가 누락(미커밋·export 제외)이면
+	# load()가 null 반환 → instantiate()에서 크래시. unknown stage_id와 동일하게 안전 fallback(blank 회피).
+	if scene == null:
+		push_error("[SceneFlow] stage %d 리소스 load 실패(%s) — main menu fallback" % [stage_id, STAGE_SCENES[stage_id]])
+		go_to_main_menu()
+		return
 	var stage_node: Node = scene.instantiate()
 	_current_stage_root.add_child(stage_node)
 	_current_stage_node = stage_node

@@ -20,6 +20,10 @@ const TILE_BACKGROUND := "background"
 # Phase 19 — 식물 정적 cell. _add_cell이 _add_plant_visual placeholder 적용 + build()가
 # register_static_body(kind="plant") 호출 → Terrain._cell_kind = "plant"로 등록되어 Cutter 전용 destroy 대상.
 const TILE_PLANT_SOLID := "plant"
+# S6 "땅굴" — 불괴(non-destructible) 구조 cell. build()가 register_static_body(kind="cookie") 호출 →
+# Terrain._cell_kind = "cookie". digger/basher의 destroy_tile_at(["earth"])·cutter(["plant"])가 모두 거부 →
+# 벽·챔버 바닥의 구조 무결성 보장(파괴 불가). 시각은 임시 색조(설계 B3 — 정식 흙/쿠키 텍스처 아트 후속).
+const TILE_COOKIE_SOLID := "cookie"
 
 # terrain-tier-restructure Phase 3 — ground 타일을 48×48 단일 정사각 4-variant로 교체.
 # 노출 최상단(걷는 면) = surface family, 가려진 본체 + background 시각 채움 = solid family.
@@ -59,8 +63,13 @@ func build() -> void:
 		var body: StaticBody2D = _add_cell(c, tile_type)
 		if body == null:
 			continue
-		# Phase 19 — TILE_PLANT_SOLID만 kind="plant"로 등록, 기존 solid/slope_*는 모두 "earth"로 backward compat.
-		var kind: String = "plant" if tile_type == TILE_PLANT_SOLID else "earth"
+		# Phase 19 — TILE_PLANT_SOLID만 kind="plant", S6 TILE_COOKIE_SOLID는 kind="cookie"(불괴),
+		# 기존 solid/slope_*는 모두 "earth"로 backward compat.
+		var kind: String = "earth"
+		if tile_type == TILE_PLANT_SOLID:
+			kind = "plant"
+		elif tile_type == TILE_COOKIE_SOLID:
+			kind = "cookie"
 		generated.append({"cell": c, "body": body, "kind": kind})
 	# Editor preview에서는 Terrain 없는 경우가 정상 → skip.
 	if Engine.is_editor_hint():
@@ -115,6 +124,9 @@ func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> StaticBody2D:
 	elif tile_type == TILE_PLANT_SOLID:
 		_add_solid_collision(body, cell_size)
 		_add_plant_visual(body, cell_size)
+	elif tile_type == TILE_COOKIE_SOLID:
+		_add_solid_collision(body, cell_size)
+		_add_cookie_visual(body, cell_size, cell)
 	else:
 		_add_solid_collision(body, cell_size)
 		_add_solid_visual(body, cell_size, cell)
@@ -167,6 +179,21 @@ func _add_solid_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> vo
 		base_sprite.modulate = Color(0.45, 0.28, 0.15)
 	body.add_child(base_sprite)
 	base_sprite.owner = owner
+
+func _add_cookie_visual(body: StaticBody2D, cell_size: int, cell: Vector2i) -> void:
+	# S6 "땅굴" — 불괴 구조 타일 placeholder 비주얼. 정사각 cookie 텍스처에 차가운 색조를 입혀 굴착 가능한
+	# earth(warm cookie 텍스처, 무색조)와 시각적으로 대비한다("단단한 사탕 껍질" 느낌). 임시 색조 구분이며
+	# 정식 흙/쿠키 텍스처 스왑은 아트 트랙 후속(설계 B3). 충돌/kind는 _add_solid_collision + build() kind="cookie"가 담당.
+	var sprite := Sprite2D.new()
+	sprite.name = "CookieVisual"
+	var texture: Texture2D = load(SOLID_TILES[_variant_index(cell, SOLID_TILES.size())]) as Texture2D
+	if texture != null:
+		_apply_square_tile(sprite, texture, cell_size)
+		sprite.modulate = Color(0.60, 0.70, 0.95)
+	else:
+		sprite.modulate = Color(0.55, 0.62, 0.85)
+	body.add_child(sprite)
+	sprite.owner = owner
 
 func _add_plant_visual(body: StaticBody2D, cell_size: int) -> void:
 	var sprite := Sprite2D.new()
@@ -272,6 +299,7 @@ func _is_collision_tile(tile_type: String) -> bool:
 		or tile_type == TILE_SLOPE_RIGHT
 		or tile_type == TILE_SLOPE_LEFT
 		or tile_type == TILE_PLANT_SOLID
+		or tile_type == TILE_COOKIE_SOLID
 	)
 
 func _clear_children() -> void:

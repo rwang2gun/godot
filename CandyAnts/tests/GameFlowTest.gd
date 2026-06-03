@@ -2,16 +2,15 @@ extends Node
 
 # Phase 6 통합 회귀 테스트.
 # 시나리오 A: Stage01 자연 clear → Next → Stage02 도달 (+ Result Dictionary 8키 검증, freeze/unfreeze)
-# 시나리오 B: SceneFlow.load_stage(5) → Stage05 clear(sand_mound 사다리+floater) → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
+# 시나리오 B: SceneFlow.load_stage(6) → Stage06 clear(digger 흙 캡 + floater 깊은 강하) → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
 # 시나리오 C: load_stage(1) → 강제 fail(no_more_ants) → Next 차단(disabled + signal reject) → Replay → stage1 reload
 # 시나리오 D: A에서 freeze/unfreeze 인라인 확인.
 # PASS: get_tree().quit(0). FAIL: 즉시 print + quit(1).
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
-# S5 "막대과자 탑"(sand_mound 수직 사다리) — 첫 ant가 플랫폼(cols13~19) 아래 cols14~17(x∈[672,864))에 있을 때
-# sand_mound 적용 → rung 기둥 + 레지 cap으로 플랫폼 등반. 사다리는 영구라 후속 ant는 LadderClimbState로 자동 등반.
-const STAGE5_CAST_X_MIN: float = 672.0
-const STAGE5_CAST_X_MAX: float = 864.0
+# S6 "땅굴"(digger 수직 하강 + floater) — 메사 top(흙 캡)에서 보행 중인 개미에 digger 적용 → 흙 지붕을 수직
+# 굴착 → 깊은 공동에서 abort → floater 안전 강하 → 쿠키 챔버. 캡 구멍은 영구라 후속 개미는 그 구멍으로 강하.
+const STAGE6_MESA_Y_MAX: float = 200.0
 
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed
@@ -19,13 +18,13 @@ var _current_stage_root: Node = null
 var _overlay: Control = null  # StageDialog (phase 12: 구 StageResultOverlayStub 교체, 동일 API contract)
 
 var _failed: bool = false
-var _stage5_cast_applied: bool = false  # Scenario B — sand_mound 1회 시전 가드.
+var _stage6_dig_applied: bool = false  # Scenario B — digger 첫 시전 로그 가드(can_apply가 재시전 자체는 차단).
 
 func _process(_delta: float) -> void:
 	if _failed:
 		return
 	_apply_climber_if_ready()
-	_apply_stage5_skills_if_ready()
+	_apply_stage6_skills_if_ready()
 
 func _apply_climber_if_ready() -> void:
 	if _scene_flow == null or _scene_flow._current_stage_id != 1:
@@ -52,31 +51,32 @@ func _apply_climber_if_ready() -> void:
 			climber.apply(a)
 			print("[GameFlowTest] applied Climber to ", a.name, " at x=", a.global_position.x)
 
-# S5 "막대과자 탑" 드라이버 — Scenario B. 무리 전체에 floater 부여(안전 하강) + 첫 ant에 sand_mound 1회
-# (플랫폼 아래 cols14~17). 사다리는 영구라 후속 ant는 LadderClimbState로 자동 등반 → candy 회수 → clear.
-func _apply_stage5_skills_if_ready() -> void:
-	if _scene_flow == null or _scene_flow._current_stage_id != 5:
+# S6 "땅굴" 드라이버 — Scenario B. 무리 전체에 floater 부여(깊은 공동 안전 강하) + 메사 top 보행 개미에 digger
+# (흙 캡 수직 굴착). 캡 구멍은 영구라 후속 ant는 그 구멍으로 floater 강하 → candy 회수 → clear.
+func _apply_stage6_skills_if_ready() -> void:
+	if _scene_flow == null or _scene_flow._current_stage_id != 6:
 		return
 	var runner: StageRunner = _find_current_stage_runner()
 	if runner == null or runner._completed:
 		return
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
-		if a == null or not is_instance_valid(a):
+		if a == null or not is_instance_valid(a) or a.state_machine == null:
 			continue
-		# 낙하산을 무리 전체에 분배 — 등반/시전에 무해, 하강 시에만 작동.
+		# 낙하산을 무리 전체에 분배 — 보행/굴착에 무해, 하강 시에만 작동.
 		if not a.has_trait(&"floater"):
 			var floater: FloaterSkill = FloaterSkill.new()
 			if floater.can_apply(a):
 				floater.apply(a)
-		# 첫 ant 1마리만 사다리 건설(플랫폼 아래 cols14~17, x∈[672,864)). 이후는 자동 등반.
-		if not _stage5_cast_applied and a.direction == 1 and not a.has_been_carrying \
-				and a.global_position.x >= STAGE5_CAST_X_MIN and a.global_position.x < STAGE5_CAST_X_MAX:
-			var sm: SandMoundSkill = SandMoundSkill.new()
-			if sm.can_apply(a):
-				sm.apply(a)
-				_stage5_cast_applied = true
-				print("[GameFlowTest] B applied SandMound at x=", a.global_position.x)
+		# 메사 top(y<200)에서 우향 보행 중(미운반)인 개미에 digger — 흙 캡 굴착. can_apply가 재시전을 차단.
+		if a.has_been_carrying or a.direction != 1 or a.global_position.y >= STAGE6_MESA_Y_MAX:
+			continue
+		var digger: DiggerSkill = DiggerSkill.new()
+		if digger.can_apply(a):
+			digger.apply(a)
+			if not _stage6_dig_applied:
+				_stage6_dig_applied = true
+				print("[GameFlowTest] B applied Digger at x=", a.global_position.x)
 
 func _ready() -> void:
 	# 헤드리스 wall clock 단축. 자연 진행은 유지하되 모든 시뮬을 8배 가속해
@@ -147,27 +147,27 @@ func _scenario_a() -> void:
 	print("[GameFlowTest] Scenario A PASS")
 
 # -----------------------------------------------------------------------------
-# 시나리오 B: load_stage(3) → clear → Next disabled → 강제 emit → go_to_menu fallback
+# 시나리오 B: load_stage(6) → clear → Next disabled → 강제 emit → go_to_menu fallback
 # -----------------------------------------------------------------------------
 func _scenario_b() -> void:
-	print("[GameFlowTest] === Scenario B: Stage05 → clear → Next disabled → menu fallback ===")
-	_stage5_cast_applied = false
-	_scene_flow.load_stage(5)
+	print("[GameFlowTest] === Scenario B: Stage06 → clear → Next disabled → menu fallback ===")
+	_stage6_dig_applied = false
+	_scene_flow.load_stage(6)
 	await get_tree().process_frame
 	await get_tree().process_frame  # stage instantiation + StageRunner._ready
-	if not _verify_current_stage_id(5, "B.start"):
+	if not _verify_current_stage_id(6, "B.start"):
 		return
 
-	# S5 "막대과자 탑": _apply_stage5_skills_if_ready(_process)가 무리에 floater 분배 + 첫 ant에 sand_mound 1회.
-	# rung 기둥 영구 → 후속 ant는 LadderClimbState로 자동 등반 → candy 회수 → floater 안전 하강 → clear.
-	# (구 Stage04 builder@last-stage 폐기 — LAST_STAGE_ID=5라 S5가 새 마지막 스테이지.)
+	# S6 "땅굴": _apply_stage6_skills_if_ready(_process)가 무리에 floater 분배 + 메사 개미에 digger.
+	# 흙 캡 구멍 영구 → 후속 ant는 그 구멍으로 floater 안전 강하 → candy 회수 → clear.
+	# (구 Stage05 sand_mound@last-stage 폐기 — LAST_STAGE_ID=6라 S6가 새 마지막 스테이지.)
 	var result: Dictionary = await _await_signal(EventBus.stage_cleared)
 	if _failed: return
-	if result["stage_id"] != 5 or not result["cleared"]:
-		_fail("B.cleared expected stage_id=5 cleared=true got %s" % str(result))
+	if result["stage_id"] != 6 or not result["cleared"]:
+		_fail("B.cleared expected stage_id=6 cleared=true got %s" % str(result))
 		return
 
-	# Phase 12: Scenario B = Stage05 cleared + last-stage → visible=true + disabled=true (회색).
+	# Phase 12: Scenario B = Stage06 cleared + last-stage → visible=true + disabled=true (회색).
 	# is_next_visible/is_next_disabled 두 inspector를 모두 assert (plan v6.1 §3.9, SH-1 가드).
 	if not _overlay.is_next_visible():
 		_fail("B.last_stage NextButton not visible (expected visible=true for last+cleared)")
@@ -177,7 +177,7 @@ func _scenario_b() -> void:
 		return
 	print("[GameFlowTest] B NextButton visible+disabled OK")
 
-	# Phase 13: last-stage Next emit → load_next_stage(next_id=6 미존재) → go_to_main_menu
+	# Phase 13: last-stage Next emit → load_next_stage(next_id=7 미존재) → go_to_main_menu
 	# (phase 6의 stage1 fallback 폐기, plan §3.5.4).
 	EventBus.request_next.emit()
 	await get_tree().process_frame
