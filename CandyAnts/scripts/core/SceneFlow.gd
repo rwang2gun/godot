@@ -18,8 +18,9 @@ const STAGE_SCENES := {
 	6: "res://scenes/stages/Stage06.tscn",
 	7: "res://scenes/stages/Stage07.tscn",
 	8: "res://scenes/stages/Stage08.tscn",
+	9: "res://scenes/stages/Stage09.tscn",
 }
-const LAST_STAGE_ID := 8
+const LAST_STAGE_ID := 9
 
 const TITLE_SCENE := "res://scenes/ui/TitleScene.tscn"
 const MAIN_MENU_SCENE := "res://scenes/ui/MainMenu.tscn"

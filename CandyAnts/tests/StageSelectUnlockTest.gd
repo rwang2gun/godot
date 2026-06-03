@@ -19,8 +19,8 @@ func _ready() -> void:
 	get_tree().quit(0)
 
 func _case_initial() -> void:
-	# stage1 cleared → slot1=CLEARED, slot2=PLAYABLE, slot3~8=LOCKED(available but prior 미클리어), slot9~10=COMING_SOON.
-	# (S1~S8 캠페인 = menu_layout slots1~8 available=true; S8 "박하 덤불" 추가로 slot8 해금. slot9~10만 available=false.)
+	# stage1 cleared → slot1=CLEARED, slot2=PLAYABLE, slot3~9=LOCKED(available but prior 미클리어), slot10=COMING_SOON.
+	# (S1~S9 캠페인 = menu_layout slots1~9 available=true; S9 "종합 과자점" 추가로 slot9 해금. slot10만 available=false.)
 	_cleanup()
 	SaveData._test_reset(TEST_PATH)
 	EventBus.stage_cleared.emit({"stage_id": 1, "cleared": true, "saved": 6, "original_hp": 10})
@@ -42,7 +42,7 @@ func _case_initial() -> void:
 		StageSlotCard.SlotState.LOCKED,
 		StageSlotCard.SlotState.LOCKED,
 		StageSlotCard.SlotState.LOCKED,
-		StageSlotCard.SlotState.COMING_SOON,
+		StageSlotCard.SlotState.LOCKED,
 		StageSlotCard.SlotState.COMING_SOON,
 	]
 	for i in 10:
@@ -60,12 +60,12 @@ func _case_initial() -> void:
 	print("[StageSelectUnlockTest] case initial OK")
 
 func _case_priority_coming_soon() -> void:
-	# Δ15: COMING_SOON(available=false) 우선순위가 unlock(playable)보다 높다 — stage1~8 모두 cleared여도
-	# slot9(available=false)은 PLAYABLE로 승격되지 않고 COMING_SOON 유지. (S8 추가로 첫 available=false 슬롯이
-	# slot8→slot9로 이동 → 검증 대상 retarget.)
+	# Δ15: COMING_SOON(available=false) 우선순위가 unlock(playable)보다 높다 — stage1~9 모두 cleared여도
+	# slot10(available=false)은 PLAYABLE로 승격되지 않고 COMING_SOON 유지. (S9 추가로 첫 available=false 슬롯이
+	# slot9→slot10으로 이동 → 검증 대상 retarget.)
 	_cleanup()
 	SaveData._test_reset(TEST_PATH)
-	for sid in [1, 2, 3, 4, 5, 6, 7, 8]:
+	for sid in [1, 2, 3, 4, 5, 6, 7, 8, 9]:
 		EventBus.stage_cleared.emit({"stage_id": sid, "cleared": true, "saved": 10, "original_hp": 10})
 		await get_tree().process_frame
 	var select_node: Control = StageSelectScene.instantiate()
@@ -73,10 +73,10 @@ func _case_priority_coming_soon() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var grid: GridContainer = select_node.get_node("MarginContainer/VBox/SlotGrid")
-	var slot9: StageSlotCard = grid.get_child(8) as StageSlotCard
-	if slot9.slot_state != StageSlotCard.SlotState.COMING_SOON:
+	var slot10: StageSlotCard = grid.get_child(9) as StageSlotCard
+	if slot10.slot_state != StageSlotCard.SlotState.COMING_SOON:
 		select_node.queue_free()
-		return _fail("Δ15: slot9 expected COMING_SOON, got %d (cleared+playable should not fallback)" % slot9.slot_state)
+		return _fail("Δ15: slot10 expected COMING_SOON, got %d (cleared+playable should not fallback)" % slot10.slot_state)
 	select_node.queue_free()
 	await get_tree().process_frame
 	print("[StageSelectUnlockTest] case priority OK (Δ15)")

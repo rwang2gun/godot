@@ -2,13 +2,17 @@ extends Node
 
 # Phase 6 통합 회귀 테스트.
 # 시나리오 A: Stage01 자연 clear → Next → Stage02 도달 (+ Result Dictionary 8키 검증, freeze/unfreeze)
-# 시나리오 B: SceneFlow.load_stage(8) → Stage08 clear(cutter 식물 벽 수평 통로) → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
+# 시나리오 B: SceneFlow.load_stage(9) → Stage09 clear(종합 과자점: bridge 호수+basher 흙 벽+builder 계단 3관문) → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
 # 시나리오 C: load_stage(1) → 강제 fail(no_more_ants) → Next 차단(disabled + signal reject) → Replay → stage1 reload
 # 시나리오 D: A에서 freeze/unfreeze 인라인 확인.
 # PASS: get_tree().quit(0). FAIL: 즉시 print + quit(1).
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
-const STAGE8_CELL_SIZE: int = 48
+const STAGE9_CELL_SIZE: int = 48
+const STAGE9_BRIDGE_X_MIN: float = 384.0   # col8 — 소다 호수 직전 (cliff_ahead → 즉시 다리 건설)
+const STAGE9_BRIDGE_X_MAX: float = 432.0
+const STAGE9_BUILDER_X_MIN: float = 816.0  # col17 — 게이트3 갭 직전 (cliff_ahead → 즉시 계단 건설)
+const STAGE9_BUILDER_X_MAX: float = 864.0
 
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed
@@ -16,13 +20,14 @@ var _current_stage_root: Node = null
 var _overlay: Control = null  # StageDialog (phase 12: 구 StageResultOverlayStub 교체, 동일 API contract)
 
 var _failed: bool = false
-var _stage8_cut_applied: bool = false  # Scenario B — cutter 첫 시전 로그 가드(forward-plant 게이트가 재시전 차단).
+var _stage9_bridge_applied: bool = false   # Scenario B — bridge 1회 시전 가드(게이트1).
+var _stage9_builder_applied: bool = false  # Scenario B — builder 1회 시전 가드(게이트3).
 
 func _process(_delta: float) -> void:
 	if _failed:
 		return
 	_apply_climber_if_ready()
-	_apply_stage8_skills_if_ready()
+	_apply_stage9_skills_if_ready()
 
 func _apply_climber_if_ready() -> void:
 	if _scene_flow == null or _scene_flow._current_stage_id != 1:
@@ -49,11 +54,12 @@ func _apply_climber_if_ready() -> void:
 			climber.apply(a)
 			print("[GameFlowTest] applied Climber to ", a.name, " at x=", a.global_position.x)
 
-# S8 "박하 덤불" 드라이버 — Scenario B. 우향 보행 중(미운반)인 개미의 전방 body cell이 plant(식물 벽)일 때 cutter
-# 시전 → 식물 벽 수평 통로 절단. 통로는 영구라 후속/귀가 개미가 같은 통로로 통행 → candy 회수 → clear.
-# forward-plant 게이트라 통로가 뚫린 뒤엔(전방=공기) 재시전 없음.
-func _apply_stage8_skills_if_ready() -> void:
-	if _scene_flow == null or _scene_flow._current_stage_id != 8:
+# S9 "종합 과자점" 드라이버 — Scenario B. 복합 3관문을 선두 개미가 순서대로 통과: ① col8서 bridge(소다 호수)
+# ② 흙 벽(col15-16) 직전 col14서 basher ③ col17서 builder(높은 단 계단). 영구 구조물이라 후속/귀가 개미가
+# 그대로 재사용 → candy 회수 → clear. bridge/builder는 무장 상호 배타라 서로 다른 cliff에서 즉시 건설로 적용한다.
+# (CampaignS9ClearTest 드라이버와 동일 로직.)
+func _apply_stage9_skills_if_ready() -> void:
+	if _scene_flow == null or _scene_flow._current_stage_id != 9:
 		return
 	var runner: StageRunner = _find_current_stage_runner()
 	if runner == null or runner._completed:
@@ -72,17 +78,37 @@ func _apply_stage8_skills_if_ready() -> void:
 		if not a.is_on_floor():
 			continue
 		var body_cell: Vector2i = Vector2i(
-			int(floor(a.global_position.x / STAGE8_CELL_SIZE)),
-			int(floor((a.global_position.y - 2.0) / STAGE8_CELL_SIZE))
+			int(floor(a.global_position.x / STAGE9_CELL_SIZE)),
+			int(floor((a.global_position.y - 2.0) / STAGE9_CELL_SIZE))
 		)
-		if terrain.get_cell_kind(body_cell + Vector2i(1, 0)) != "plant":
+		# 게이트1 — 소다 호수 직전 col8서 bridge (cliff_ahead → 즉시 평지 다리).
+		if not _stage9_bridge_applied \
+				and a.global_position.x >= STAGE9_BRIDGE_X_MIN and a.global_position.x < STAGE9_BRIDGE_X_MAX:
+			var bridge: BridgeSkill = BridgeSkill.new()
+			if bridge.can_apply(a):
+				bridge.apply(a)
+				_stage9_bridge_applied = true
+				print("[GameFlowTest] B applied Bridge at x=", a.global_position.x)
+				continue
+		# 게이트3 — 단 직전 col17서 builder (bridge 소비 후라 무장 상호 배타 안 걸림 → 즉시 대각 계단).
+		if not _stage9_builder_applied \
+				and a.global_position.x >= STAGE9_BUILDER_X_MIN and a.global_position.x < STAGE9_BUILDER_X_MAX:
+			var builder: BuilderSkill = BuilderSkill.new()
+			if builder.can_apply(a):
+				builder.apply(a)
+				_stage9_builder_applied = true
+				print("[GameFlowTest] B applied Builder at x=", a.global_position.x)
+				continue
+		# 게이트2 — 흙 벽(col15-16) 직전 col14서 basher(forward-earth). col15+ 차단 = builder 계단(col17 STAIR
+		# = kind earth) 오인 파괴 방지(CampaignS9ClearTest와 동일 게이트).
+		if body_cell.x >= 15:
 			continue
-		var cutter: CutterSkill = CutterSkill.new()
-		if cutter.can_apply(a):
-			cutter.apply(a)
-			if not _stage8_cut_applied:
-				_stage8_cut_applied = true
-				print("[GameFlowTest] B applied Cutter at x=", a.global_position.x)
+		if terrain.get_cell_kind(body_cell + Vector2i(1, 0)) != "earth":
+			continue
+		var basher: BasherSkill = BasherSkill.new()
+		if basher.can_apply(a):
+			basher.apply(a)
+			print("[GameFlowTest] B applied Basher at x=", a.global_position.x)
 
 func _ready() -> void:
 	# 헤드리스 wall clock 단축. 자연 진행은 유지하되 모든 시뮬을 8배 가속해
@@ -156,24 +182,25 @@ func _scenario_a() -> void:
 # 시나리오 B: load_stage(7) → clear → Next disabled → 강제 emit → go_to_menu fallback
 # -----------------------------------------------------------------------------
 func _scenario_b() -> void:
-	print("[GameFlowTest] === Scenario B: Stage08 → clear → Next disabled → menu fallback ===")
-	_stage8_cut_applied = false
-	_scene_flow.load_stage(8)
+	print("[GameFlowTest] === Scenario B: Stage09 → clear → Next disabled → menu fallback ===")
+	_stage9_bridge_applied = false
+	_stage9_builder_applied = false
+	_scene_flow.load_stage(9)
 	await get_tree().process_frame
 	await get_tree().process_frame  # stage instantiation + StageRunner._ready
-	if not _verify_current_stage_id(8, "B.start"):
+	if not _verify_current_stage_id(9, "B.start"):
 		return
 
-	# S8 "박하 덤불": _apply_stage8_skills_if_ready(_process)가 우향 보행 개미에 cutter 시전(전방 plant 게이트).
-	# 식물 벽 수평 통로 영구 → 후속/귀가 ant가 같은 통로로 통행 → candy 회수 → clear.
-	# (구 Stage07 basher@last-stage 폐기 — LAST_STAGE_ID=8라 S8이 새 마지막 스테이지.)
+	# S9 "종합 과자점": _apply_stage9_skills_if_ready(_process)가 선두 개미에 bridge/basher/builder 3스킬을
+	# 게이트별로 시전(소다 호수·흙 벽·높은 단). 영구 구조물 → 후속/귀가 ant가 재사용해 candy 회수 → clear.
+	# (구 Stage08 cutter@last-stage 폐기 — LAST_STAGE_ID=9라 S9이 새 마지막 스테이지.)
 	var result: Dictionary = await _await_signal(EventBus.stage_cleared)
 	if _failed: return
-	if result["stage_id"] != 8 or not result["cleared"]:
-		_fail("B.cleared expected stage_id=8 cleared=true got %s" % str(result))
+	if result["stage_id"] != 9 or not result["cleared"]:
+		_fail("B.cleared expected stage_id=9 cleared=true got %s" % str(result))
 		return
 
-	# Phase 12: Scenario B = Stage08 cleared + last-stage → visible=true + disabled=true (회색).
+	# Phase 12: Scenario B = Stage09 cleared + last-stage → visible=true + disabled=true (회색).
 	# is_next_visible/is_next_disabled 두 inspector를 모두 assert (plan v6.1 §3.9, SH-1 가드).
 	if not _overlay.is_next_visible():
 		_fail("B.last_stage NextButton not visible (expected visible=true for last+cleared)")
@@ -183,7 +210,7 @@ func _scenario_b() -> void:
 		return
 	print("[GameFlowTest] B NextButton visible+disabled OK")
 
-	# Phase 13: last-stage Next emit → load_next_stage(next_id=9 미존재) → go_to_main_menu
+	# Phase 13: last-stage Next emit → load_next_stage(next_id=10 미존재) → go_to_main_menu
 	# (phase 6의 stage1 fallback 폐기, plan §3.5.4).
 	EventBus.request_next.emit()
 	await get_tree().process_frame

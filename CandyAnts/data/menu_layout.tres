@@ -37,8 +37,8 @@ slots = [{
 "display_name": "박하 덤불",
 "stage_id": 8
 }, {
-"available": false,
-"display_name": "준비 중",
+"available": true,
+"display_name": "종합 과자점",
 "stage_id": 9
 }, {
 "available": false,
