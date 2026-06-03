@@ -1,7 +1,8 @@
 extends Node
 
 # Phase 14 — Climber + Floater 동시 보유 통합 테스트.
-# 첫 ant에 ClimberSkill + FloaterSkill 둘 다 부여 → 등반 후 추락 시 느린 낙하 검증.
+# 첫 ant에 ClimberSkill(스킬) + floater 트레잇(직접 부여) → 등반 후 추락 시 느린 낙하 검증.
+# (2026-06-03 F-3: floater 스킬이 즉시 정착으로 바뀌어 자기강하 검증엔 slow-fall 트레잇을 직접 부여.)
 #
 # PASS: ClimberState 진입 확인 + 이후 FallerState에서 vy delta < threshold.
 # DEADLINE: 30초.
@@ -55,11 +56,10 @@ func _apply_traits_when_ready() -> void:
 			_climber_applied = true
 			print("[TraitCombinedTest] applied climber at frame=%d" % _frame_count)
 	if not _floater_applied and _climber_applied:
-		var f: FloaterSkill = FloaterSkill.new()
-		if f.can_apply(_ant):
-			f.apply(_ant)
-			_floater_applied = true
-			print("[TraitCombinedTest] applied floater at frame=%d" % _frame_count)
+		# slow-fall 트레잇 직접 부여 (F-3: floater 스킬은 즉시 정착이라 자기강하 검증엔 트레잇 직접 부여).
+		_ant.set_trait(&"floater")
+		_floater_applied = true
+		print("[TraitCombinedTest] set floater trait at frame=%d" % _frame_count)
 
 var _prev_state_was_faller: bool = false
 

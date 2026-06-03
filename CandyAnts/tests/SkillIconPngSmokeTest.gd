@@ -15,8 +15,6 @@ const ICONS := [
 	"res://assets/icons/skills/cursors/cutter.png",
 	"res://assets/icons/skills/digger.png",
 	"res://assets/icons/skills/cursors/digger.png",
-	"res://assets/icons/skills/distributor.png",
-	"res://assets/icons/skills/cursors/distributor.png",
 	"res://assets/icons/skills/floater.png",
 	"res://assets/icons/skills/cursors/floater.png",
 	"res://assets/icons/skills/sand_mound.png",
@@ -30,7 +28,6 @@ const REGISTERED_IDS := [
 	"climber",
 	"cutter",
 	"digger",
-	"distributor",
 	"floater",
 	"sand_mound",
 ]

@@ -21,6 +21,8 @@ func start(total_hp: int) -> void:
 		EventBus.ant_saved.connect(_on_saved)
 	if not EventBus.candy_piece_lost.is_connected(_on_lost):
 		EventBus.candy_piece_lost.connect(_on_lost)
+	if not EventBus.candy_piece_recovered.is_connected(_on_recovered):
+		EventBus.candy_piece_recovered.connect(_on_recovered)
 
 func stop() -> void:
 	# StageRunner._exit_tree에서 호출. RefCounted라 GC 시점이 비결정적이라
@@ -31,6 +33,8 @@ func stop() -> void:
 		EventBus.ant_saved.disconnect(_on_saved)
 	if EventBus.candy_piece_lost.is_connected(_on_lost):
 		EventBus.candy_piece_lost.disconnect(_on_lost)
+	if EventBus.candy_piece_recovered.is_connected(_on_recovered):
+		EventBus.candy_piece_recovered.disconnect(_on_recovered)
 
 func is_cleared(candy_hp: int) -> bool:
 	return candy_hp == 0 and in_transit_pieces == 0
@@ -53,6 +57,12 @@ func _on_saved(_ant: Node, with_candy: bool) -> void:
 func _on_lost(_by_ant: Node) -> void:
 	lost_pieces += 1
 	in_transit_pieces -= 1
+	_assert_invariant()
+
+func _on_recovered(_by_ant: Node) -> void:
+	# 바닥 드롭 사탕 재획득 — 드롭 시 lost로 계산했던 조각을 다시 in_transit로 보정.
+	lost_pieces -= 1
+	in_transit_pieces += 1
 	_assert_invariant()
 
 func _assert_invariant() -> void:

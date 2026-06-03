@@ -20,7 +20,7 @@ const MIGRATED_KEYS := [
 
 const SKILL_IDS := [
 	"climber", "floater", "blocker", "builder", "sand_mound",
-	"bridge", "basher", "digger", "distributor", "cutter",
+	"bridge", "basher", "digger", "cutter",
 ]
 
 func _ready() -> void:

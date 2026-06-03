@@ -14,6 +14,15 @@ func _ready() -> void:
 	if not body_entered.is_connected(_on_body_entered):
 		body_entered.connect(_on_body_entered)
 
+func bind_distributor(a: Ant) -> void:
+	# in-place 정착(낙하산 분배자, 2026-06-03)용 — 분배자를 직접 주입해 settle 트리거 분기를 건너뛰고
+	# 곧장 transfer 모드로. 마커가 분배자 위치에 동적 생성되므로, 이미 area에 겹쳐 있는 개미에겐
+	# 한 physics frame 뒤 즉시 전이(body_entered 재발화 없이도 결정성 보장).
+	_distributor = a
+	await get_tree().physics_frame
+	if is_instance_valid(self) and is_instance_valid(a):
+		_drain_pending_receivers()
+
 func _on_body_entered(body: Node2D) -> void:
 	var ant: Ant = body as Ant
 	if ant == null or not is_instance_valid(ant):

@@ -1,8 +1,8 @@
 class_name SettledState extends AntState
 
-# Phase 15 — 정착 상태. terminal (해제 불가, exit 불호출). SettlementMarker._on_body_entered가
-# 분배자 본인의 정착 트리거에서 change_state(SettledState.new())로 진입시킨다.
-# 후속 walker는 SettledState로 안 들어가고 SettlementMarker._transfer_traits만 받음.
+# Phase 15 — 정착 상태. terminal (해제 불가, exit 불호출).
+# 2026-06-03 F-3: FloaterSkill.apply(낙하산 분배자)가 적용 즉시 change_state(SettledState.new())로 진입시킨다.
+# 후속 walker는 SettledState로 안 들어가고 SettlementMarker._transfer_traits로 floater만 받음.
 
 # v2 F3: 전이 가능 트레잇 화이트리스트 — single SoT. phase 16+ 트레잇 추가 시 본 배열만 갱신.
 const TRANSFER_WHITELIST: Array[StringName] = [&"floater"]
@@ -15,7 +15,7 @@ func enter() -> void:
 		return
 	_settle_pos = a.global_position
 	a.velocity = Vector2.ZERO
-	# 분배자가 blocker 스킬 받은 적 없음 (DistributorSkill.can_apply 표 참조)이지만 멱등 호출.
+	# 분배자가 blocker 활성일 리 없지만 멱등 안전망.
 	a.set_blocker_active(false)
 
 func update(delta: float) -> void:

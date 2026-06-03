@@ -287,7 +287,8 @@ func _update_sprite() -> void:
 	elif s is CarryingState:
 		anim = "carry"
 	elif s is FallerState:
-		anim = "fall"
+		# 낙하산(floater) 트레잇 보유 시 낙하산 강하 모션, 아니면 일반 낙하.
+		anim = "floater" if has_trait(&"floater") else "fall"
 	elif s is ClimberState:
 		# 등반 꼭대기(surface 타일 90%+) 또는 mantle 중에는 climb 대신 walk/carry로 전환(시각만).
 		if (s as ClimberState).near_surface_top(self):
@@ -300,6 +301,9 @@ func _update_sprite() -> void:
 	elif s is StairDescentState:
 		# 45° 계단 하강 — 낙하 자세(fall)로 미끄럼. 회전은 StairDescentState가 _sprite.rotation으로 적용.
 		anim = "fall"
+	elif s is SettledState:
+		# 낙하산 분배(정착) 중인 캐릭터는 idle 동작.
+		anim = "idle"
 	elif s is WalkerState:
 		anim = "walk"
 	elif s is WorkerState:
@@ -319,6 +323,10 @@ func _update_sprite() -> void:
 			# 기절 애니메이션이 없는 sprite는 안전 fallback "idle".
 			_sprite.play("idle")
 			_last_anim = "idle"
+		elif anim == "floater" and _sprite.sprite_frames != null and not _sprite.sprite_frames.has_animation("floater"):
+			# 낙하산 애니메이션이 없는 sprite는 안전 fallback "fall".
+			_sprite.play("fall")
+			_last_anim = "fall"
 		else:
 			_sprite.play(anim)
 			_last_anim = anim
@@ -327,6 +335,10 @@ func _update_sprite() -> void:
 	if _last_anim == "climb":
 		_sprite.scale = _climb_sprite_scale
 		_sprite.position = _climb_sprite_pos
+	elif _last_anim == "floater":
+		# 낙하산 모션은 base 대비 30% 크게.
+		_sprite.scale = _base_sprite_scale * 1.3
+		_sprite.position = _base_sprite_pos
 	else:
 		_sprite.scale = _base_sprite_scale
 		_sprite.position = _base_sprite_pos
@@ -340,8 +352,10 @@ func _update_trait_badges() -> void:
 		_tail_badges.position.x = -TAIL_BADGE_X * float(direction)
 	if _climber_badge != null:
 		_climber_badge.visible = has_trait(&"climber")
+	# 2026-06-03: 작은 우산(floater) 배지는 *분배 받은* 개미에게만 표시. 분배하는 개미(distributor 트레잇)는
+	# 배지 대신 캐릭터 뒤 간판(SettlementMarker·큰 우산)을 달므로 배지 숨김.
 	if _floater_badge != null:
-		_floater_badge.visible = has_trait(&"floater")
+		_floater_badge.visible = has_trait(&"floater") and not has_trait(&"distributor")
 	# blocker 시각 표식 — WorkerState("blocker")일 때 꼬리 배지 최상위(y=-44)에 차단 아이콘.
 	if _blocker_badge != null:
 		_blocker_badge.visible = _is_blocker_state()
@@ -352,9 +366,10 @@ func _update_trait_badges() -> void:
 	# 계단 무장 표식 — builder_armed인 동안(부여 후 낭떠러지 도달 전까지) 꼬리에 계단 아이콘.
 	if _builder_badge != null:
 		_builder_badge.visible = builder_armed
-	# Phase 15 — SettledState 진입 시 표식. state 기반(분배자 trait 보유여도 정착 전엔 표식 X).
+	# Phase 15 — SettledState 진입 시 표식. 2026-06-03: 분배 아이콘을 SettlementMarker(캐릭터 뒤쪽·크게)로
+	# 일원화하면서, 머리 위 작은 SettleBadge는 중복이라 상시 숨김(노드는 보존).
 	if _settle_badge != null:
-		_settle_badge.visible = state_machine != null and state_machine.current_state is SettledState
+		_settle_badge.visible = false
 	# Phase 17 — sticky stuck 표식. _sticky_remaining timer 기반 (state 무관 — Walker/Carrying 모두 stuck 가능).
 	if _sticky_badge != null:
 		_sticky_badge.visible = is_stuck()

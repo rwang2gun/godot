@@ -54,7 +54,6 @@ const _SKILL_NAMES: Dictionary = {
 	"bridge": "다리",
 	"basher": "굴착",
 	"digger": "땅파기",
-	"distributor": "분배자",
 	"cutter": "절단",
 }
 

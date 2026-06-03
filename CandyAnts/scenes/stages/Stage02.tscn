@@ -16,7 +16,6 @@
 [ext_resource type="Resource" path="res://data/stage_layouts/stage02_layout.tres" id="14_stage_layout"]
 [ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="15_toolbar"]
 [ext_resource type="Script" path="res://scripts/world/PlacementPreview.gd" id="16_placement_preview"]
-[ext_resource type="PackedScene" path="res://scenes/world/SettlementMarker.tscn" id="17_settle_marker"]
 
 [node name="StageRunner" type="Node"]
 script = ExtResource("1")
@@ -55,9 +54,6 @@ collision_layer = 16
 collision_mask = 4
 script = ExtResource("8_candy")
 hp = 5
-
-[node name="SettlementMarker" parent="World" instance=ExtResource("17_settle_marker")]
-position = Vector2(552, 496)
 
 [node name="Camera2D" type="Camera2D" parent="World"]
 position = Vector2(576, 336)

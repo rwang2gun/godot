@@ -3,6 +3,7 @@ extends Node
 signal candy_depleted
 signal candy_piece_picked(remaining_hp: int)
 signal candy_piece_lost(by_ant: Node)
+signal candy_piece_recovered(by_ant: Node)  # 2026-06-03 — 바닥에 드롭된 사탕 재획득. lost→in_transit 보정.
 signal ant_died(ant: Node, was_carrying: bool)
 signal ant_saved(ant: Node, with_candy: bool)
 signal stage_cleared(result: Dictionary)
