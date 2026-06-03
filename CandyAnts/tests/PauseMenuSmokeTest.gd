@@ -4,7 +4,7 @@ extends Node
 # 1) Main.tscn이 PauseMenu 포함해 파싱/인스턴스 OK
 # 2) STAGE 진입 후 PAUSE_TOGGLE 발화 → PauseMenu.visible == true
 # 3) 한 번 더 PAUSE_TOGGLE → visible == false
-# 4) request_title 발화 시 자동 hide
+# 4) 메인 메뉴로 버튼(request_main_menu) → 자동 hide
 
 const GameAction := preload("res://scripts/input/GameAction.gd")
 
@@ -48,7 +48,7 @@ func _ready() -> void:
 	if get_tree().paused:
 		_fail("tree.paused not false after second PAUSE_TOGGLE")
 		return
-	# 3) show 다시 → request_title 발화 → hide + paused 해제
+	# 3) show 다시 → 메인 메뉴로 버튼(request_main_menu) → hide + paused 해제
 	EventBus.action_triggered.emit(GameAction.PAUSE_TOGGLE, {})
 	await get_tree().process_frame
 	if not _pause_menu.visible:

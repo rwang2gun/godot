@@ -99,4 +99,4 @@ text = "다시하기"
 [node name="TitleBtn" parent="CardWrapper/Card/Main/Margin/VBox/Buttons" instance=ExtResource("3_cbutton")]
 custom_minimum_size = Vector2(260, 56)
 kind = 2
-text = "타이틀로 돌아가기"
+text = "메인 메뉴로 돌아가기"

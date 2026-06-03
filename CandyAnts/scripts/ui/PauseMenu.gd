@@ -9,7 +9,7 @@ extends Control
 # - PAUSE_TOGGLE 액션을 받으면 _menu_shown 토글 (단, STAGE 화면 + StageDialog 비표시일 때만).
 # - 계속하기: PAUSE_TOGGLE 재발화 → StepFrame이 tree.paused=false, 본 메뉴는 토글로 hide.
 # - 다시하기: tree.paused 해제 + request_replay 발화. SceneFlow가 stage 재로드.
-# - 타이틀로: tree.paused 해제 + request_title 발화. SceneFlow가 타이틀로 전환.
+# - 메인 메뉴로: tree.paused 해제 + request_main_menu 발화. SceneFlow가 메인 메뉴로 전환.
 # - 화면 전환/스테이지 결과 시 자동 hide (request_*/stage_cleared/failed).
 #
 # StepFrame stepping window 중에는 InputRouter._pause_actions_blocked가 true라서
@@ -82,9 +82,10 @@ func _on_restart_pressed() -> void:
 	EventBus.request_replay.emit()
 
 func _on_title_pressed() -> void:
+	# "메인 메뉴로 돌아가기" — 타이틀이 아니라 메인 메뉴로 진입.
 	_unpause_tree()
 	_force_hide()
-	EventBus.request_title.emit()
+	EventBus.request_main_menu.emit()
 
 func _unpause_tree() -> void:
 	var tree: SceneTree = get_tree()
