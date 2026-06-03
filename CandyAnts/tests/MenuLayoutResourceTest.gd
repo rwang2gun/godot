@@ -12,7 +12,7 @@ func _ready() -> void:
 		var s: Dictionary = layout.slots[i]
 		if int(s["stage_id"]) != i + 1:
 			return _fail("slot[%d].stage_id expected %d, got %s" % [i, i + 1, str(s["stage_id"])])
-		var expected_available: bool = i < 7
+		var expected_available: bool = i < 8
 		if bool(s["available"]) != expected_available:
 			return _fail("slot[%d].available expected %s" % [i, expected_available])
 	print("[MenuLayoutResourceTest] PASS")

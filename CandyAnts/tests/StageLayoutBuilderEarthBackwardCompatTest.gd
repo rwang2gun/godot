@@ -7,9 +7,11 @@ extends Node
 # PASS criteria:
 #  (1) 스캔된 layout 1개 이상 (empty scan = FAIL)
 #  (2) 각 layout build 성공 (_static_occupancy.size() > 0)
-#  (3) 각 layout의 모든 generated cell kind ∈ {"earth", "cookie"} (plant 0건 across all).
-#      S6 "땅굴"이 불괴 cookie(kind="cookie") 타일을 도입 → earth와 함께 허용. plant는 여전히 금지
-#      (plant는 dev_cutter_* fixture 전용, 아래 PHASE_19_PLANT_FIXTURES exclude).
+#  (3) 각 layout의 generated cell kind 화이트리스트 — 기본 {"earth", "cookie"}.
+#      S6 "땅굴"이 불괴 cookie(kind="cookie")를 earth와 함께 도입. plant(kind="plant")는 production stage 중
+#      **S8 "박하 덤불" stage08_layout.tres만** 정본으로 허용(식물 벽 = cutter 전용)하고, 나머지 S1~S7 layout에서
+#      plant가 검출되면 solid→plant 드리프트(파괴 종류 오염·클리어 불가)로 FAIL. dev_cutter_* fixture는
+#      애초에 PHASE_19_PLANT_FIXTURES로 스캔 제외. → "plant 드리프트는 S8 외부에서 통과 못 한다"가 가드의 핵심.
 #  (4) 각 layout의 occupancy cell 카운트 = 충돌 타일 수 (solid/slope/plant/cookie).
 #      3-tier 도입(commit a4cc9d7) 후 surface/background는 visual-only로 occupancy에
 #      등록되지 않으므로 tile_map.size()가 아니라 _is_collision_tile 집합만 센다.
@@ -84,16 +86,22 @@ func _ready() -> void:
 		if occ.size() != expected_count:
 			_fail("%s cell 카운트 불일치 — occ=%d expected=%d" % [path, occ.size(), expected_count])
 			return
-		# (3) 모든 cell kind == "earth".
+		# (3) cell kind 화이트리스트 — 기본은 {earth, cookie}. plant는 production stage 중 S8 "박하 덤불"
+		#     stage08_layout.tres만 정본으로 허용(식물 벽 = cutter 전용). 그 외 S1~S7 layout에서 plant가 검출되면
+		#     solid→plant 드리프트(파괴 종류 오염·클리어 불가)이므로 FAIL — 이 path-게이트가 회귀 가드의 핵심.
+		var plant_allowed: bool = path.get_file() == "stage08_layout.tres"
 		for c in occ.keys():
 			var cell: Vector2i = c as Vector2i
 			var kind: String = terrain.get_cell_kind(cell)
-			if kind != "earth" and kind != "cookie":
-				_fail("%s cell %s kind not in {earth,cookie} (got=%s) — plant 회귀 검출" % [path, str(cell), kind])
-				return
+			if kind == "earth" or kind == "cookie":
+				continue
+			if kind == "plant" and plant_allowed:
+				continue
+			_fail("%s cell %s kind not allowed (got=%s; plant는 stage08만 허용) — 회귀 검출" % [path, str(cell), kind])
+			return
 		world.queue_free()
 		await get_tree().process_frame
-	print("[StageLayoutBuilderEarthBackwardCompatTest] PASS — %d layouts all-earth" % paths.size())
+	print("[StageLayoutBuilderEarthBackwardCompatTest] PASS — %d layouts (earth/cookie; plant=stage08만)" % paths.size())
 	get_tree().quit(0)
 
 func _fail(reason: String) -> void:
