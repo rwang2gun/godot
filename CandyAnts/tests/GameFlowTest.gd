@@ -2,15 +2,13 @@ extends Node
 
 # Phase 6 통합 회귀 테스트.
 # 시나리오 A: Stage01 자연 clear → Next → Stage02 도달 (+ Result Dictionary 8키 검증, freeze/unfreeze)
-# 시나리오 B: SceneFlow.load_stage(6) → Stage06 clear(digger 흙 캡 + floater 깊은 강하) → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
+# 시나리오 B: SceneFlow.load_stage(7) → Stage07 clear(basher 흙 벽 수평 통로) → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
 # 시나리오 C: load_stage(1) → 강제 fail(no_more_ants) → Next 차단(disabled + signal reject) → Replay → stage1 reload
 # 시나리오 D: A에서 freeze/unfreeze 인라인 확인.
 # PASS: get_tree().quit(0). FAIL: 즉시 print + quit(1).
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
-# S6 "땅굴"(digger 수직 하강 + floater) — 메사 top(흙 캡)에서 보행 중인 개미에 digger 적용 → 흙 지붕을 수직
-# 굴착 → 깊은 공동에서 abort → floater 안전 강하 → 쿠키 챔버. 캡 구멍은 영구라 후속 개미는 그 구멍으로 강하.
-const STAGE6_MESA_Y_MAX: float = 200.0
+const STAGE7_CELL_SIZE: int = 48
 
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed
@@ -18,13 +16,13 @@ var _current_stage_root: Node = null
 var _overlay: Control = null  # StageDialog (phase 12: 구 StageResultOverlayStub 교체, 동일 API contract)
 
 var _failed: bool = false
-var _stage6_dig_applied: bool = false  # Scenario B — digger 첫 시전 로그 가드(can_apply가 재시전 자체는 차단).
+var _stage7_bash_applied: bool = false  # Scenario B — basher 첫 시전 로그 가드(forward-earth 게이트가 재시전 차단).
 
 func _process(_delta: float) -> void:
 	if _failed:
 		return
 	_apply_climber_if_ready()
-	_apply_stage6_skills_if_ready()
+	_apply_stage7_skills_if_ready()
 
 func _apply_climber_if_ready() -> void:
 	if _scene_flow == null or _scene_flow._current_stage_id != 1:
@@ -51,32 +49,40 @@ func _apply_climber_if_ready() -> void:
 			climber.apply(a)
 			print("[GameFlowTest] applied Climber to ", a.name, " at x=", a.global_position.x)
 
-# S6 "땅굴" 드라이버 — Scenario B. 무리 전체에 floater 부여(깊은 공동 안전 강하) + 메사 top 보행 개미에 digger
-# (흙 캡 수직 굴착). 캡 구멍은 영구라 후속 ant는 그 구멍으로 floater 강하 → candy 회수 → clear.
-func _apply_stage6_skills_if_ready() -> void:
-	if _scene_flow == null or _scene_flow._current_stage_id != 6:
+# S7 "옆파기" 드라이버 — Scenario B. 우향 보행 중(미운반)인 개미의 전방 body cell이 earth(흙 벽)일 때 basher
+# 시전 → 2칸 높이 수평 통로 굴착. 통로는 영구라 후속/귀가 개미가 같은 통로로 통행 → candy 회수 → clear.
+# forward-earth 게이트라 통로가 뚫린 뒤엔(전방=공기) 재시전 없음.
+func _apply_stage7_skills_if_ready() -> void:
+	if _scene_flow == null or _scene_flow._current_stage_id != 7:
 		return
 	var runner: StageRunner = _find_current_stage_runner()
 	if runner == null or runner._completed:
+		return
+	var terrain: Terrain = runner.get_node_or_null("World/Terrain") as Terrain
+	if terrain == null:
 		return
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
 		if a == null or not is_instance_valid(a) or a.state_machine == null:
 			continue
-		# 낙하산을 무리 전체에 분배 — 보행/굴착에 무해, 하강 시에만 작동.
-		if not a.has_trait(&"floater"):
-			var floater: FloaterSkill = FloaterSkill.new()
-			if floater.can_apply(a):
-				floater.apply(a)
-		# 메사 top(y<200)에서 우향 보행 중(미운반)인 개미에 digger — 흙 캡 굴착. can_apply가 재시전을 차단.
-		if a.has_been_carrying or a.direction != 1 or a.global_position.y >= STAGE6_MESA_Y_MAX:
+		if a.has_candy or a.direction != 1:
 			continue
-		var digger: DiggerSkill = DiggerSkill.new()
-		if digger.can_apply(a):
-			digger.apply(a)
-			if not _stage6_dig_applied:
-				_stage6_dig_applied = true
-				print("[GameFlowTest] B applied Digger at x=", a.global_position.x)
+		if not (a.state_machine.current_state is WalkerState):
+			continue
+		if not a.is_on_floor():
+			continue
+		var body_cell: Vector2i = Vector2i(
+			int(floor(a.global_position.x / STAGE7_CELL_SIZE)),
+			int(floor((a.global_position.y - 2.0) / STAGE7_CELL_SIZE))
+		)
+		if terrain.get_cell_kind(body_cell + Vector2i(1, 0)) != "earth":
+			continue
+		var basher: BasherSkill = BasherSkill.new()
+		if basher.can_apply(a):
+			basher.apply(a)
+			if not _stage7_bash_applied:
+				_stage7_bash_applied = true
+				print("[GameFlowTest] B applied Basher at x=", a.global_position.x)
 
 func _ready() -> void:
 	# 헤드리스 wall clock 단축. 자연 진행은 유지하되 모든 시뮬을 8배 가속해
@@ -147,24 +153,24 @@ func _scenario_a() -> void:
 	print("[GameFlowTest] Scenario A PASS")
 
 # -----------------------------------------------------------------------------
-# 시나리오 B: load_stage(6) → clear → Next disabled → 강제 emit → go_to_menu fallback
+# 시나리오 B: load_stage(7) → clear → Next disabled → 강제 emit → go_to_menu fallback
 # -----------------------------------------------------------------------------
 func _scenario_b() -> void:
-	print("[GameFlowTest] === Scenario B: Stage06 → clear → Next disabled → menu fallback ===")
-	_stage6_dig_applied = false
-	_scene_flow.load_stage(6)
+	print("[GameFlowTest] === Scenario B: Stage07 → clear → Next disabled → menu fallback ===")
+	_stage7_bash_applied = false
+	_scene_flow.load_stage(7)
 	await get_tree().process_frame
 	await get_tree().process_frame  # stage instantiation + StageRunner._ready
-	if not _verify_current_stage_id(6, "B.start"):
+	if not _verify_current_stage_id(7, "B.start"):
 		return
 
-	# S6 "땅굴": _apply_stage6_skills_if_ready(_process)가 무리에 floater 분배 + 메사 개미에 digger.
-	# 흙 캡 구멍 영구 → 후속 ant는 그 구멍으로 floater 안전 강하 → candy 회수 → clear.
-	# (구 Stage05 sand_mound@last-stage 폐기 — LAST_STAGE_ID=6라 S6가 새 마지막 스테이지.)
+	# S7 "옆파기": _apply_stage7_skills_if_ready(_process)가 우향 보행 개미에 basher 시전(전방 earth 게이트).
+	# 흙 벽 2칸 통로 영구 → 후속/귀가 ant가 같은 통로로 통행 → candy 회수 → clear.
+	# (구 Stage06 digger@last-stage 폐기 — LAST_STAGE_ID=7라 S7이 새 마지막 스테이지.)
 	var result: Dictionary = await _await_signal(EventBus.stage_cleared)
 	if _failed: return
-	if result["stage_id"] != 6 or not result["cleared"]:
-		_fail("B.cleared expected stage_id=6 cleared=true got %s" % str(result))
+	if result["stage_id"] != 7 or not result["cleared"]:
+		_fail("B.cleared expected stage_id=7 cleared=true got %s" % str(result))
 		return
 
 	# Phase 12: Scenario B = Stage06 cleared + last-stage → visible=true + disabled=true (회색).
@@ -177,7 +183,7 @@ func _scenario_b() -> void:
 		return
 	print("[GameFlowTest] B NextButton visible+disabled OK")
 
-	# Phase 13: last-stage Next emit → load_next_stage(next_id=7 미존재) → go_to_main_menu
+	# Phase 13: last-stage Next emit → load_next_stage(next_id=8 미존재) → go_to_main_menu
 	# (phase 6의 stage1 fallback 폐기, plan §3.5.4).
 	EventBus.request_next.emit()
 	await get_tree().process_frame

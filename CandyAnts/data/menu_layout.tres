@@ -29,8 +29,8 @@ slots = [{
 "display_name": "땅굴",
 "stage_id": 6
 }, {
-"available": false,
-"display_name": "준비 중",
+"available": true,
+"display_name": "옆파기",
 "stage_id": 7
 }, {
 "available": false,
