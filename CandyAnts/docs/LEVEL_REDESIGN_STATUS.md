@@ -139,7 +139,7 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [ ] **D4. (세션 3 신설) blocker/alternate-spawn 커버리지 보강**: `Stage03HeadlessTest` 폐기로 **D-1(AntSpawner spawn_direction_alternate) / D-2(BlockerSkill carrying 거부) / D-3(blocker clear) 통합 커버리지 소멸**. 둘 다 재설계 캠페인 미사용(blocker 보류·alternate 미사용)이라 defer. blocker/alternate 재도입 시 standalone unit test 신설.
 
 ## 5. 다음 세션 즉시 행동 (제안)
-1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 7 종료: S5 "막대과자 탑" stage05 + 후속 개미 사다리 통행 코어(LadderClimbState) — 커밋 대기/완료**(§3f). base=`a962a9f`(S1~S4 + biscuit ladder). 세션 5·6(`544df23`·`a962a9f`)은 이미 커밋됨. S6부터 직진.
+1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 7 종료: S5 "막대과자 탑" stage05 + 후속 개미 사다리 통행 코어(LadderClimbState) — 커밋 `34269ac`, origin/main에 push 완료**(§3f). base=`a962a9f`(S1~S4 + biscuit ladder). 세션 5·6(`544df23`·`a962a9f`)도 push됨. 워킹트리 clean. S6부터 직진. ⚠ §6의 full-suite 선재 실패 4건(Climber/Digger/Distributor/Floater Trait류)은 여전히 baseline(내 변경 무관) — 큐레이트 세트로 회귀 검증.
 2. **S6 "땅굴" 저작** (digger 안전 수직 하강·흙). HTML rev2 id:6 / total6 / hp4 / 120s / digger. **layout에 earth 태그(B1) 필요** — digger는 흙(earth)만 굴착, 쿠키(불괴)는 무효. 안전 하강(digger 수직 통로) + 복귀는 지하 보행 경사로/계단(왕복 제약, §2 round-trip 표). stage06 슬롯 **신규** + **SceneFlow.STAGE_SCENES[6] + LAST_STAGE_ID=6** + menu_layout slot6 해금 + `MenuLayoutResourceTest` i<5→i<6. §3d~§3f 마이그레이션 패턴 답습.
 3. **S7~S9** 순차 (S7 basher / S8 cutter / S9 종합). S6~S8 파괴계는 layout에 earth/plant 태그(B1) + water/sticky 해저드(B2) 저작 필요. **S7 basher·S8 cutter는 수평 통로라 등반 불필요 = 현 코어로 동작**.
 4. **(선재 실패 정리)** §6의 pristine-HEAD 실패 4건(Climber/Digger/Distributor/Floater Trait류) — 내 변경과 무관하나 main이 full-suite green 아님. 조사·수정은 별도 항목.
