@@ -158,6 +158,33 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 
 **교훈**: ① basher처럼 수평 파괴 스킬은 등반 코어 의존이 없어 **데이터 저작만으로 완결**(S4/S5의 코어 갭과 대조) — 핸드오프 예측이 정확했다. ② 흙 벽을 공기로 둘러싸면 basher가 forward-earth false로 자연 종료 → cookie 막이는 *옵션*이지 필수 아님. ③ LAST_STAGE_ID 증가 시 `SceneFlowLastStagePredicateTest`·`GameFlow Scenario B`(last-stage Next-disabled)·`StageSelectUnlock`(priority retarget)·`MenuLayout`(i<N)가 동반 갱신 대상(세션4·6 드리프트 교훈 답습).
 
+## 3i. 완료 — S8 "박하 덤불" → stage08 락 슬롯 저작 (세션 10, 커밋 `d2632d5`)
+**전제**: 세션 9 base `eb0e15c`(S1~S7). cutter 수평 절단 코어는 Phase 19에서, sticky 해저드는 Phase 17에서, plant 정적 타일(`TILE_PLANT_SOLID`)은 Phase 19에서 이미 완비 — S8은 **순수 데이터 저작**(코어 0 변경). S7과 동형(예측 적중: cutter=basher 구조).
+
+**HTML rev2 id:8 시안**: `fills:[["sol",0,10,23,12],["P",12,5,14,9]]`, sticky:[[5,9],[6,9],[7,9]], home:[1,9], candy:[20,9], cutter×4, total6, hp4, 130s. intent="식물 벽 = cutter 전용(basher 무효). 끈끈이로 감속 학습."
+
+**⚠ cutter는 basher와 절단 프로파일이 다르다**: basher는 `_destroy_basher_cell`이 body row(필수)+위 row(best-effort)=**2칸 통로**를 굴착하지만, cutter `_destroy_cutter_cell`은 **body row 1칸만** 절단(위 row 미절단). 식물 벽 rows5-9 중 cutter는 row9(body)만 열고 rows5-8 plant가 통로 위 overhang으로 잔존 → 개미 충돌(18×15px)이 1칸(48px)에 충분히 들어가 통과(CampaignS8Clear 4마리 횡단 실증).
+
+**Sticky 선결정 해소**: Water.tscn류 **씬 인스턴스** 패턴 확정(layout 태그 X). Sticky.tscn(Area2D layer8/mask4 48×48, StickyHazard `duration=3.0`)이 이미 존재하고 `HazardBase._ready`가 `await physics_frame` 후 `floor(global_position/cs)`로 셀 자동등록(S3 Water·dev sticky 동일). layout 태그 방식은 sticky가 타일이 아닌 Area2D라 신규 인프라(B2 에디터) 필요 = 범위 밖. **sticky는 감속이 아니라 3초 완전 정지**(`Ant.is_stuck()`=`_sticky_remaining>0`이면 Walker/Carrying `update`가 좌우 정지). 셀당 1회(body_entered frame-dedup) → 3셀=누적 ~9초 지연이나 치명 무관(lost 불변).
+
+**기하(cell 48, w24 h13)**:
+- 바닥 solid cols0-23 rows10-12(3행) — 표면 row10 top(y=480)=보행선. Home(1,9)→Candy(20,9) flat(S7과 동일 좌표).
+- 식물 벽 plant cols12-14 rows5-9(kind=plant) — 표면 row10 위 5행 높이, row9(보행 body cell)를 막음.
+- Sticky 3개 cells (5,9)(6,9)(7,9) → 씬 인스턴스 pos (264,456)(312,456)(360,456)(=col*48+24, row9*48+24=456). 보행 body row라 통과 개미가 overlap.
+- Home Area2D (72,480) / Candy (984,480) hp4 / Camera (576,384) / Spawner (72,472.5) total6.
+
+**메커니즘**: 첫 ant가 sticky 통과(3초×3 정지) 후 col11(forward=col12 plant)서 cutter 시전 → `WorkerState("cutter")`가 body row(row9) cols12-14 절단 → col15(공기, kind≠plant)서 `_cutter_forward_has_plant`=false → 자연 종료 → walker 복귀 → candy 진행. plant rows5-8(cols12-14)은 overhang 잔존. 통로 영구 → 후속/귀가 통행(forward-plant 게이트라 재시전 없음, 실측 cuts=1). **cookie 미사용**(S7과 동일 — 공기 둘러쌈으로 자연 종료).
+
+**파라미터** (`stage08.tres`): id=8 "박하 덤불" / total6 / hp4 / 130s / available=[cutter] / inventory={cutter:4} / ★=[0.5,0.75,1.0](오름차순) / release30.
+
+**테스트(전부 PASS)**: **CampaignS8Clear**(forward-plant 게이트 cutter→saved4/4 lost0 cuts1 frame2708 — sticky 통과해도 lost0) + **CampaignS8NoCutter**(무시전→식물 벽 flip 왕복→picks0, cutter 필수성). 갱신: **MenuLayoutResource**(i<7→i<8) + **StageSelectUnlock**(case_initial slot8 COMING_SOON→LOCKED, priority case clear[1..8]+검증 slot8→slot9 retarget) + **GameFlow Scenario B**(Stage07 basher → Stage08 cutter last-stage 재작성 — `_apply_stage8_skills_if_ready` _process 드라이버, forward-plant 게이트) + **StageLayoutBuilderEarthBackwardCompat**(plant를 **stage08_layout.tres만** 허용하는 path-gate — S1~S7은 earth/cookie 제한 유지).
+
+**배선**: `SceneFlow.STAGE_SCENES[8]=Stage08.tscn` + `LAST_STAGE_ID 7→8`. `menu_layout` slot8 해금("박하 덤불", available=true). 슬롯9~10 "준비 중" 유지.
+
+**codex 적대적 리뷰 2R**: R1 **MEDIUM 1**(backward-compat 테스트가 plant를 *전역* 허용 → S1~S7 plant 드리프트 못 잡음) → **path-gate fix**(plant=stage08만 허용, 나머지 earth/cookie) → R2 **approve 무findings**. MEDIUM이나 cheap·correct·자체 self-review 우려와 일치라 수정. **회귀(0 회귀)**: S1~S8 Clear / S8 NoCutter·S7 NoBasher / GameFlow A·B·C / SceneFlow×5 / LayoutBuilder×2 / Cutter·Sticky·Basher 스킬 스위트 / Hud·StunFall 전부 green. (`test_CutterSkill`/`test_StickyHazard`/`test_BasherSkill`은 `.tscn` 없는 stub `.gd` = 선재, 무관.)
+
+**교훈**: ① cutter/basher는 같은 WorkerState 파생이나 **절단 칸 수가 다르다**(cutter 1칸 / basher 2칸) — 식물 벽 통과는 개미 15px가 1칸에 들어가 OK지만 새 파괴 스킬 stage 저작 시 절단 프로파일을 확인할 것. ② sticky는 "감속"이 아니라 **3초 정지**(셀당) — HTML "감속" 표기와 구현이 다르니 셀 수로 체감 지연 조절. ③ backward-compat 테스트에 새 kind 도입 시 **path-gate로 정본 stage만 허용**(전역 허용은 다른 stage 드리프트 가드 무력화 — codex MEDIUM 교훈). ④ Godot headless stdout 버퍼링으로 종료 시 PASS print가 잘릴 수 있음 — **exit code가 권위**(음성 테스트는 exit0=클리어 안 됨, 클리어 시 `_fail`→exit1이라 견고).
+
 ## 4. 남은 작업 (권장 순서)
 
 ### A. 선행 정리 — 코드/에셋 (캠페인 저작 전 필수)
@@ -174,7 +201,7 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [ ] **B3. 흙 vs 쿠키(불괴) 시각 구분 확인**.
 
 ### C. 캠페인 저작
-- [~] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반), 스테이지별 플레이테스트로 인벤토리·시간·기하 튜닝. 특히 S3/S7/S10류 **복귀 경로**(왕복 제약) 정밀화. — **S1 stage01**(§3b), **S2 "오르막" stage02**(§3c), **S3 "사탕 호수" stage03**(§3d), **S4 "계단 공사" stage04**(§3e), **S5 "막대과자 탑" stage05**(§3f), **S6 "땅굴" stage06**(§3g), **S7 "옆파기" stage07**(§3h) 완료. **S8~S9 미착수**.
+- [~] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반), 스테이지별 플레이테스트로 인벤토리·시간·기하 튜닝. 특히 S3/S7/S10류 **복귀 경로**(왕복 제약) 정밀화. — **S1 stage01**(§3b), **S2 "오르막" stage02**(§3c), **S3 "사탕 호수" stage03**(§3d), **S4 "계단 공사" stage04**(§3e), **S5 "막대과자 탑" stage05**(§3f), **S6 "땅굴" stage06**(§3g), **S7 "옆파기" stage07**(§3h), **S8 "박하 덤불" stage08**(§3i) 완료. **S9 미착수**.
 - [~] **C2. 진행 흐름 등록**: menu_layout 10슬롯·SaveData 언락(N-1 클리어)·"/30" denominator는 **이미 확보**. SceneFlow.STAGE_SCENES[1~7]·**LAST_STAGE_ID=7**(세션 9 갱신) — 현재 캠페인 7스테이지(S1~S7) 완결 데모. **S8 저작 시 STAGE_SCENES[8] + LAST_STAGE_ID=8** 갱신 필요. **menu_layout**: 슬롯1~7 available=true(슬롯7 "옆파기"는 세션 9 해금, `MenuLayoutResourceTest` i<6→i<7 + `StageSelectUnlockTest` 슬롯 상태 배열 동반 갱신). 슬롯8~10 "준비 중"(available=false) — S8+ 저작 시 순차 해금.
 - [ ] **C3. blocker·distributor 재배치** + 무스킬 0번 온보딩 결정.
 
@@ -185,13 +212,12 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [ ] **D4. (세션 3 신설) blocker/alternate-spawn 커버리지 보강**: `Stage03HeadlessTest` 폐기로 **D-1(AntSpawner spawn_direction_alternate) / D-2(BlockerSkill carrying 거부) / D-3(blocker clear) 통합 커버리지 소멸**. 둘 다 재설계 캠페인 미사용(blocker 보류·alternate 미사용)이라 defer. blocker/alternate 재도입 시 standalone unit test 신설.
 
 ## 5. 다음 세션 즉시 행동 (제안)
-1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 8 종료: 불괴 cookie 타일 타입(코어) + S6 "땅굴" stage06 — 미커밋(로컬, base `34269ac`)**(§3g). ⚠ §6의 full-suite 선재 실패 4건(Climber/Digger/Distributor/Floater Trait류)은 여전히 baseline(내 변경 무관) — 큐레이트 세트로 회귀 검증.
-2. **(세션 8 미커밋분 처리)** S6 8파일 신규/수정(StageLayoutBuilder cookie / stage06 layout·tres·scene / SceneFlow / menu_layout / 4 신규 테스트 + 3 회귀 테스트 갱신). 커밋 후 (선택) codex 적대적 리뷰. cookie는 작은 additive 코어라 self-review로 충분 판단했으나, 공유 파일(StageLayoutBuilder) 변경이라 codex 1회 권장.
-3. ~~**S7 "옆파기" 저작**~~ **완료(세션 9, §3h)**. 예측대로 코어 0 변경. cookie 막이는 미사용(공기 둘러쌈으로 자연 종료).
-4. **S8 "박하 덤불" 저작** (cutter 식물 절단 + sticky 감속). HTML rev2 id:8 / total6 / hp4 / 130s / cutter×4. plant 태그=`TILE_PLANT_SOLID`(기존, Phase 19) + **sticky(감속) 해저드 셀**(B2 일부 선행 필요 — water 패턴 답습 가능성). cutter는 수평 절단이라 **현 코어 동작 예상**(basher 동형). 핵심 교육=**종류 매칭**(흙=basher/digger, 식물=cutter; basher는 식물에 무효). HTML 시안: `fills:[["sol",0,10,23,12],["P",12,5,14,9]]`, sticky:[[5,9],[6,9],[7,9]], home:[1,9] candy:[20,9]. stage08 슬롯 신규 + STAGE_SCENES[8] + LAST_STAGE_ID=8 + menu slot8 해금 + 테스트 동반 갱신(MenuLayout i<7→i<8, StageSelectUnlock retarget slot8→slot9, GameFlow ScenB→Stage08). §3h 마이그레이션 패턴 답습. **선결정 필요**: sticky 해저드 저작 방식(Water.tscn류 별 씬 인스턴스 vs layout 태그).
-5. **S9 "종합 과자점"** — bridge+builder+basher+floater 복합, 3관문. 마지막 스테이지.
-4. **(선재 실패 정리)** §6의 pristine-HEAD 실패 4건(Climber/Digger/Distributor/Floater Trait류) — 내 변경과 무관하나 main이 full-suite green 아님. 조사·수정은 별도 항목.
-5. (선택) **기절 5칸 경계 결함 근본수정 여부 결정**(§6 gotcha) — 현재는 스테이지를 6칸으로 우회.
+1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 10 종료: S8 "박하 덤불" stage08 커밋 `d2632d5`(base `eb0e15c`), 워킹트리 clean(추적), 미push(로컬)**(§3i). ⚠ §6의 full-suite 선재 실패 4건(Climber/Digger/Distributor/Floater Trait류)은 여전히 baseline(내 변경 무관) — 큐레이트 세트로 회귀 검증.
+2. ~~**S7 "옆파기" 저작**~~ **완료(세션 9, §3h)**. 예측대로 코어 0 변경.
+3. ~~**S8 "박하 덤불" 저작**~~ **완료(세션 10, §3i, 커밋 `d2632d5`)**. cutter=basher 동형(코어 0 변경) + sticky 씬 인스턴스(Water 패턴). codex 2R(R1 MEDIUM=backward-compat 전역 plant → path-gate → R2 approve).
+4. **S9 "종합 과자점" 저작** (마지막 스테이지). bridge+builder+basher(+floater) 복합 3관문, HTML rev2 id:9. **stage09 슬롯 신규** + STAGE_SCENES[9] + LAST_STAGE_ID 8→9 + menu slot9 해금 + 테스트 동반 갱신(MenuLayout i<8→i<9, StageSelectUnlock slot9 LOCKED·priority retarget slot9→slot10, GameFlow ScenB→Stage09). §3i 마이그레이션 패턴 답습. **선결정 필요**: 3관문 복합이라 (a) 여러 스킬 inventory 조합·시전 순서, (b) cutter 1칸 vs basher 2칸 통로 혼용 시 통과성, (c) HTML id:9 시안 기하 확인(로컬 `LEVEL_DESIGN_PLAN.html`). S1~S8과 달리 단일 스킬이 아니므로 GameFlow/Campaign 드라이버가 복수 스킬 게이트를 다뤄야 함.
+5. **(선재 실패 정리)** §6의 pristine-HEAD 실패 4건(Climber/Digger/Distributor/Floater Trait류) — 내 변경과 무관하나 main이 full-suite green 아님. 조사·수정은 별도 항목.
+6. (선택) **기절 5칸 경계 결함 근본수정 여부 결정**(§6 gotcha) — 현재는 스테이지를 6칸으로 우회.
 
 ## 6. Gotchas (다음 세션 주의)
 - **⚠ 기절 5칸 경계 결함 (세션 3 발견)**: 기절 임계는 `fall_dist >= 5×cell_size`(=240px)인데, **기하학적 정확히 5칸 낙하는 기절을 발동 못 함**. 원인: `WalkerState.update`가 매 프레임 `velocity.y += gravity*delta` + `move_and_slide` 적용 → 개미가 ledge 이탈 후 같은 프레임에 off-floor가 되어 즉시 Faller 전이하는데, `FallerState.enter()`가 기록하는 `_fall_start_y`가 이미 중력 1프레임만큼 내려간 값 → 측정 fall_dist ≈ 239.x < 240 → 미발동. **실증**: 정확히 5칸 메사에서 floater 없는 개미 전원 생존(CampaignS2NoFloaterTest가 saved=5로 FAIL). **6칸(288px)으로 올리니 전원 기절(lost=5)**. → **레벨 저작 규칙: 기절을 의도한 낙하는 ≥6칸으로**. 디자인 "5칸=기절"을 살리려면 측정 로직 근본수정 필요(§5.4, 코어 변경이라 별도 작업).
@@ -199,6 +225,8 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - **검증은 `python scripts/run_test.py tests/Xxx.tscn`**(풀 프로젝트, autoload 활성). `godot --check-only --script`는 **autoload(EventBus) 부재로 의존 스크립트가 줄줄이 거짓 실패** → 단독 컴파일 체크 용도로 쓰지 말 것.
 - Godot bin: `D:\Godot_v4.6.2-stable_win64_console.exe` (run_test.py가 자동 탐색).
 - **water 해저드 저작(S3 이후)**: layout tile_map엔 water 없음 — `scenes/entities/hazards/Water.tscn`(Area2D, layer8/mask4, 48×48)를 **씬 World 아래 셀별 인스턴스**. `HazardBase._ready`가 `await physics_frame` 후 `floor(global_position/cell_size)`로 셀 등록. **표면행(예 row10) 1행이면 충분**(추락 개미 즉사 catch, dev 컨벤션). bridge tile이 `deactivate_hazards_for_placement(cell)`로 그 셀 water 끔 → 다리 위 안전. bridge 적용은 **갭 직전 마지막 지면 cell**(body_cell+(dir,+1)이 갭 첫 셀이어야 add_tile 성공)에서.
+- **sticky 해저드 저작(S8 이후)**: water와 동일 — `scenes/entities/hazards/Sticky.tscn`(Area2D layer8/mask4 48×48, `StickyHazard duration=3.0`)을 씬 World 아래 셀별 인스턴스. `HazardBase._ready`가 셀 자동등록. **보행선 위 body row(예 row9)에 배치**해야 통과 개미가 overlap(water는 추락 catch라 표면행, sticky는 보행 body row). **감속 아니라 3초 완전 정지**(셀당 1회, frame-dedup) — 체감 지연은 셀 수로 조절. 새 PNG 아니므로 `--import` 불요(기존 `sticky_caramel.png`).
+- **cutter vs basher 절단 칸 수**: cutter는 body row **1칸만**, basher는 body+위 **2칸**. 식물/흙 벽 통과는 개미 충돌 18×15px가 1칸(48px)에 들어가 OK지만, 천장이 막힌 좁은 통로 설계 시 차이 유의.
 - `docs/LEVEL_DESIGN_PLAN.html`은 **gitignore(*.html)** — 커밋해도 안 올라감. 로컬 보존.
 - **stage 슬롯 마이그레이션 패턴**(S2~S9 답습): ① `stageNN_layout.tres` 내용 이식(헤더 uid 유지) ② `stageNN.tres` 파라미터 ③ `StageNN.tscn` 엔티티 좌표(Home/Candy/Camera/Spawner)+hp+total ④ 지오메트리 하드코딩 테스트(GameFlowTest climber 좌표 등) 갱신 ⑤ 회귀(Hud/LayoutBuilder/GameFlow/SceneFlow). 경로 락이라 **파일명 유지·내용만 교체**.
 - **세션 2 종료**: 8 커밋(`e0f9f02`~`58b0fbb`), HEAD=`58b0fbb`, 워킹트리 clean, 미push(로컬).
