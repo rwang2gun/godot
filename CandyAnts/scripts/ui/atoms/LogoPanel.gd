@@ -18,6 +18,9 @@ extends Control
 @export var bob_enabled: bool = true
 @export var bob_amplitude: float = 1.03
 @export var bob_period: float = 1.6
+# 2026-06-03: 타이틀 화면은 인트로 영상에 이미 캐릭터가 있어 마스코트를 숨김.
+# 기본 true → MainMenu 등 기존 사용처는 마스코트 유지.
+@export var show_mascot: bool = true
 
 @onready var _wordmark_node: TextureRect = $VBox/Wordmark
 @onready var _mascot_node: TextureRect = $VBox/Mascot
@@ -26,7 +29,9 @@ var _bob_tween: Tween = null
 
 func _ready() -> void:
 	_apply_textures()
-	if bob_enabled:
+	if _mascot_node != null:
+		_mascot_node.visible = show_mascot
+	if bob_enabled and show_mascot:
 		_bob_tween = Motion.idle_bob(_mascot_node, bob_amplitude, bob_period)
 
 func _apply_textures() -> void:

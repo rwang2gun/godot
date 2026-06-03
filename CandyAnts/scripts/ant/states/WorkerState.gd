@@ -41,6 +41,9 @@ var _bridge_floor_grace_used: bool = false
 # DIGGER_OFF_FLOOR_LIMIT 초과 시 _aborted + FallerState 직접 전이 (D11 void termination).
 # basher 모드에서는 미사용 (off-floor 즉시 _aborted라 카운팅 불필요).
 var _off_floor_frames: int = 0
+# Builder up-first (2026-06-03): 첫 계단 타일은 절벽 끝 위에 수직 배치(이후 대각). 절벽에 flush하게
+# 시작해 floating 갭 제거 + 목표 플랫폼과 같은 높이로 끝나도록 한다.
+var _builder_first_tile: bool = false
 
 func _init(work_type: String = "builder") -> void:
 	_work_type = work_type
@@ -71,6 +74,7 @@ func _enter_builder(a: Ant) -> void:
 	_remaining = TOTAL_TILES
 	_tick_accum = 0.0
 	_aborted = false
+	_builder_first_tile = true
 	a.velocity = Vector2.ZERO
 
 func _enter_blocker(a: Ant) -> void:
@@ -226,10 +230,13 @@ func exit() -> void:
 			a.set_blocker_active(false)
 	# sand_mound/bridge는 terminal cleanup 불필요 — Walker 복귀 시 자연 해제.
 
-# builder 대각선 상승 계단 (2026-06-02 정합성 개정 — 구 평지 동작 폐기).
-# tile마다 전방+위로 한 칸 상승. 새 발판 target = body_cell + (dir, 0): 현재 발밑(body+(0,1))보다
-# 한 칸 위·전방 셀 → 이 셀이 다음 stand 위치(body+(dir,-1))의 새 floor가 된다.
-# 올라설 자리(dest_body)가 막혀 있으면 레지/벽/천장 도달로 보고 중단(평지였던 bridge와 역할 분리).
+# builder 대각선 상승 계단 (2026-06-02 정합성 개정 + 2026-06-03 up-first).
+# 절벽 끝에서 "위 먼저" 시작: 첫 타일은 현재 body cell(절벽 끝 바로 위)에 수직 배치하고 한 칸 위로 올라선다
+# → 계단이 절벽에 flush하게 시작(구 동작은 첫 타일이 절벽 코너에서 대각 우상단으로 떨어져 floating).
+# 이후 타일은 전방+위 대각 상승: 새 발판 target = body_cell + (dir, 0) → 다음 stand 위치(body+(dir,-1))의 새 floor.
+# 정지: (a) 전방-아래가 지형이고 전방이 비면 = 이미 올라설 평지(목표 플랫폼)에 같은 높이로 도달 → 계단 종료
+#       (up-first로 마지막 계단이 플랫폼과 같은 높이가 되어 자연스럽게 walk-onto). (b) 올라설 자리(dest_body)
+#       막힘 = 레지/벽/천장. (c) target 점유 = add_tile 실패. 어느 쪽이든 _aborted=정상 종료 → return_to_walking.
 func _place_one_tile(a: Ant) -> void:
 	var terrain: Terrain = _find_terrain(a)
 	if terrain == null:
@@ -240,6 +247,24 @@ func _place_one_tile(a: Ant) -> void:
 		int(floor(a.global_position.x / cs)),
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
+	# (a) 전방-아래 지형 + 전방 빈칸 → 같은 높이의 평지에 도달, 계단 종료(걷기 복귀). up-first가 마지막
+	#     계단을 목표 플랫폼과 같은 높이로 맞추므로 여기서 멈춰 overshoot(허공으로 계속 쌓기)를 막는다.
+	if terrain.is_cell_occupied(body_cell + Vector2i(a.direction, 1)) \
+			and not terrain.is_cell_occupied(body_cell + Vector2i(a.direction, 0)):
+		_aborted = true
+		return
+	# up-first: 첫 타일은 절벽 끝 위(현재 body cell)에 수직 배치 → 한 칸 위로만 상승(전방 이동 없음).
+	if _builder_first_tile:
+		_builder_first_tile = false
+		if not terrain.add_tile(body_cell, Terrain.DYNAMIC_TILE_STAIR, a.direction):
+			_aborted = true
+			return
+		terrain.deactivate_hazards_for_placement(body_cell)
+		_place_stair_fill_below(terrain, body_cell, a.direction)
+		a.global_position += Vector2(0.0, float(-cs))
+		_remaining -= 1
+		return
+	# 대각 상승 (전방 1칸 + 위 1칸).
 	var target: Vector2i = body_cell + Vector2i(a.direction, 0)
 	var dest_body: Vector2i = body_cell + Vector2i(a.direction, -1)
 	if terrain.is_cell_occupied(dest_body):
@@ -251,9 +276,18 @@ func _place_one_tile(a: Ant) -> void:
 		return
 	# Phase 17 — Bridge/Water 정책 (D8). hazard 없는 stage는 no-op.
 	terrain.deactivate_hazards_for_placement(target)
-	# 전방 1칸 + 위 1칸 (대각 상승). 평지 시절 x-only에서 y -cs 추가.
+	_place_stair_fill_below(terrain, target, a.direction)
 	a.global_position += Vector2(float(a.direction) * cs, float(-cs))
 	_remaining -= 1
+
+# 디아그램(2026-06-03): stair01(표면) 바로 아래 칸이 비어 있으면 stair02(받침)를 채운다. 점유 시 no-op.
+# 받침은 시각/지지용 — 등반 대상(_stair_cells)이 아니다(STAIR_FILL). 실패해도 계단 자체엔 영향 없음.
+func _place_stair_fill_below(terrain: Terrain, stair_cell: Vector2i, dir: int) -> void:
+	var below: Vector2i = stair_cell + Vector2i(0, 1)
+	if terrain.is_cell_occupied(below):
+		return
+	terrain.add_tile(below, Terrain.DYNAMIC_TILE_STAIR_FILL, dir)
+	terrain.deactivate_hazards_for_placement(below)
 
 # biscuit-ladder 지형 통합 빌드 (2026-06-02, 구 sand_mound climb-over 폐기):
 # - 위 칸이 비면: middle rung 배치 + 1칸 상승.

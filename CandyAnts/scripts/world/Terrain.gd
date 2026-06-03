@@ -17,7 +17,8 @@ var _static_bodies: Dictionary = {}       # Vector2i → StaticBody2D
 # destroy_tile_at의 allowed_kinds로 cross-mechanic 침범 차단.
 var _cell_kind: Dictionary = {}           # Vector2i → String
 const DYNAMIC_TILE_BRIDGE: String = "bridge"
-const DYNAMIC_TILE_STAIR: String = "stair"
+const DYNAMIC_TILE_STAIR: String = "stair"            # 01 = 표면(개미가 밟고 등반). _stair_cells 등록.
+const DYNAMIC_TILE_STAIR_FILL: String = "stair_fill"  # 02 = 받침(stair01 바로 아래 빈칸 채움). 비등반.
 const DYNAMIC_TILE_SAND_MOUND: String = "sand_mound"
 
 # biscuit-ladder reskin (2026-06-02): 막대과자 사다리(구 sand_mound)는 "지형 통합" 모델.
@@ -34,7 +35,11 @@ const BASHER_FACE_ROOT: String = "root"
 const BASHER_FACE_TOP: String = "top"
 
 var _bridge_tile_texture: Texture2D = null
-var _stair_tile_texture: Texture2D = null
+# 계단(STAIR) 대각 비스킷 두 절반 (2026-06-03, 구 cookie_stair_tile 단일 텍스처 폐기).
+# _01 = 프레임 우하단 절반(stick 하부), _02 = 좌상단 절반(stick 상부). 한 셀에 둘을 native(76px) 크기로
+# 겹쳐 그려 48px 셀을 넘쳐 대각 이웃과 이어지는 "끊김 없는" 비스킷 경사를 만든다.
+var _stair_tex_lower: Texture2D = null   # biscuit_stair_45_01.png
+var _stair_tex_upper: Texture2D = null   # biscuit_stair_45_02.png
 # 모래 동적 타일 한정 cell→Sprite2D (destroy 시 정리용).
 var _sand_mound_sprites: Dictionary = {}
 # Builder 대각 계단(STAIR) 동적 타일 cell 집합 (Vector2i → true).
@@ -110,7 +115,9 @@ func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE, visual
 	if visual_style == DYNAMIC_TILE_SAND_MOUND and not has_ladder_texture(LADDER_TIER_MIDDLE):
 		return false
 	var body: StaticBody2D = StaticBody2D.new()
-	body.collision_layer = 1
+	# STAIR_FILL(02 받침)은 시각/지지 전용 → 충돌 없음(layer 0). 솔리드면 후속 개미가 받침을 비-stair 벽으로
+	# 보고 flip해 등반이 막힌다. 등반은 01(STAIR, 솔리드+stair cell)만 담당. 그 외 타일은 기존대로 솔리드.
+	body.collision_layer = 0 if visual_style == DYNAMIC_TILE_STAIR_FILL else 1
 	body.collision_mask = 0
 	var shape: CollisionShape2D = CollisionShape2D.new()
 	var rect: RectangleShape2D = RectangleShape2D.new()
@@ -129,7 +136,8 @@ func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE, visual
 	# Phase 18 — 동적 placement도 destructible. Basher/Digger의 destroy 대상에 포함.
 	_cell_kind[cell] = "earth"
 	if visual_style == DYNAMIC_TILE_STAIR:
-		# 계단 등반(WalkerState gated step-up)이 식별할 STAIR 셀 등록.
+		# 계단 등반(WalkerState 게이트 + StairClimbState)이 식별할 STAIR(01=표면) 셀만 등록.
+		# 02(받침=STAIR_FILL)는 등반 대상 아님 — 빌더가 01 아래 빈칸에 별도로 배치(2026-06-03 디아그램).
 		_stair_cells[cell] = true
 	if visual_style == DYNAMIC_TILE_SAND_MOUND:
 		# biscuit-ladder: 동적 rung은 전부 middle. (아래/위 지형 면의 root/top은 reskin_cell_to_ladder가 담당.)
@@ -142,13 +150,12 @@ func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String, visu
 		_apply_ladder_tex(sprite, LADDER_TIER_MIDDLE)
 		return
 	if visual_style == DYNAMIC_TILE_STAIR:
-		if _stair_tile_texture == null:
-			_stair_tile_texture = load("res://assets/sprites/terrain/cookie_stair_tile.png") as Texture2D
-		sprite.texture = _stair_tile_texture
-		sprite.flip_h = visual_direction < 0
-		var stair_scale: float = float(cell_size) / 48.0
-		sprite.position = Vector2.ZERO
-		sprite.scale = Vector2(stair_scale, stair_scale)
+		# 01 = 표면 타일 (개미가 밟고 등반). 한 셀에 01만 렌더(구 01+02 병합 폐기).
+		_apply_stair_half(sprite, false, visual_direction)
+		return
+	if visual_style == DYNAMIC_TILE_STAIR_FILL:
+		# 02 = 받침 타일 (stair01 바로 아래). 한 셀에 02만 렌더.
+		_apply_stair_half(sprite, true, visual_direction)
 		return
 	# 다리 타일 (2026-06-02) — biscuit_bridge "middle_horizontal" 48×48 whole-tile.
 	# 사다리/basher/rung과 동일한 _apply_tex_to_sprite(region 없이 셀 중앙 + cell_size 비례 scale) 후
@@ -159,6 +166,34 @@ func _configure_dynamic_tile_sprite(sprite: Sprite2D, visual_style: String, visu
 		_bridge_tile_texture = load("res://assets/sprites/terrain/biscuit_bridge_middle_horizontal_concept_01.png") as Texture2D
 	_apply_tex_to_sprite(sprite, _bridge_tile_texture)
 	sprite.position.y = -float(cell_size) / 4.0
+
+# overlap = 1.0이면 텍스처를 정확히 cell_size(48px)로 렌더 → 지면 타일과 동일 기준(2026-06-03).
+# 다른 타일(_apply_square_tile/_apply_tex_to_sprite)은 모두 cell/texture_width로 스케일하는데 계단만
+# cell/48(하드코딩)을 써 76px 텍스처가 과대 렌더됐던 것을 교정. >1로 키우면 크기↑.
+const STAIR_OVERLAP: float = 1.0
+
+# 계단 비스킷 1개를 sprite에 적용. upper=true → 02(받침), false → 01(표면).
+# 01/02는 각자 별도 셀에 들어간다(01=표면 셀, 02=그 아래 셀 — 2026-06-03 디아그램). 셀 중앙에 그대로 배치
+# (구 병합용 centroid 오프셋 제거 — 같은 셀에 둘을 겹치지 않으므로 "두 평행 레일" 문제 없음).
+# scale = cell_size / texture_width * overlap → overlap 1.0에서 텍스처가 셀 크기(48px). flip_h로 좌향 대응.
+func _apply_stair_half(sprite: Sprite2D, upper: bool, visual_direction: int) -> void:
+	sprite.region_enabled = false
+	sprite.texture = _stair_tex(upper)
+	sprite.flip_h = visual_direction < 0
+	var tex_w: float = float(sprite.texture.get_width())
+	var s: float = float(cell_size) / tex_w * STAIR_OVERLAP
+	sprite.scale = Vector2(s, s)
+	sprite.position = Vector2.ZERO
+
+# 계단 절반 텍스처 load+cache. upper → biscuit_stair_45_02, lower → _01.
+func _stair_tex(upper: bool) -> Texture2D:
+	if upper:
+		if _stair_tex_upper == null:
+			_stair_tex_upper = load("res://assets/sprites/terrain/biscuit_stair_45_02.png") as Texture2D
+		return _stair_tex_upper
+	if _stair_tex_lower == null:
+		_stair_tex_lower = load("res://assets/sprites/terrain/biscuit_stair_45_01.png") as Texture2D
+	return _stair_tex_lower
 
 # biscuit-ladder 지형 통합 (2026-06-02): 셀의 시각 sprite 텍스처만 biscuit_ladder tier로 교체한다.
 # 충돌/점유/cell_kind 불변 — 사다리가 아래/위 기존 **일반 정적 지형 면**(earth surface)을 root/top으로 통합할 때 호출.

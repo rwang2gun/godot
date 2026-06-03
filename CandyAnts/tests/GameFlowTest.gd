@@ -9,7 +9,7 @@ extends Node
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
 # S4 "계단 공사"(builder 대각 계단) — 첫 ant가 갭 직전 마지막 지면 cell(col8, x∈[384,432))에 있을 때 builder 적용 →
-# 대각 계단(9,9)(10,8)(11,7)을 쌓아 우측 높은 단(표면 row6)에 올라섬. 계단은 영구라 후속 ant도 보행 등반(step-up).
+# up-first 대각 계단(8,9)(9,8)(10,7)(11,6)을 쌓아 우측 높은 단(표면 row6)에 올라섬. 계단은 영구라 후속 ant도 보행 등반(step-up).
 const STAGE4_BUILDER_X_MIN: float = 384.0
 const STAGE4_BUILDER_X_MAX: float = 432.0
 

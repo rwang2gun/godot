@@ -1,7 +1,8 @@
 extends Node
 
-# Builder 대각선 상승 검증 (2026-06-02 builder 정합성 개정).
-# 첫 walker ant에 BuilderSkill 적용 → 대각선 계단으로 ASCEND(전방+위).
+# Builder 대각선 상승 검증 (2026-06-02 builder 정합성 개정 + 2026-06-03 무장 메커니즘).
+# 첫 walker ant에 BuilderSkill 적용(cols~10 평지) → 무장(builder_armed)만 한 채 보행 → 낭떠러지
+# (dev 레이아웃 cols13~16 갭)에 도달하면 자동으로 대각선 계단 ASCEND(전방+위).
 # PASS: deadline 내, builder ant가 적용 시점 대비 y가 RISE_CELLS(4)칸 이상 상승.
 #   - 평지 builder였다면 y 불변 → rise≈0 → FAIL. 대각선이어야만 통과한다(회귀 식별력 확보).
 # 라운드트립/사탕 도달은 검증 범위 밖(overshoot 의존 회피) — 캠페인 스테이지 저작 시 별도 검증.

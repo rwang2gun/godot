@@ -2,7 +2,8 @@ extends Node
 
 # Campaign S4 "계단 공사" — builder 대각 계단으로 높은 단(우측) 등반 → candy 회수 클리어 검증.
 # 플레이어 모사: 첫 ant가 갭 직전 마지막 지면 cell(col8, x∈[384,432))에 도달하면 BuilderSkill 적용 →
-#   대각 계단(9,9)(10,8)(11,7)을 쌓아 단(col12, 표면 row6)에 올라선다. 계단은 영구라 후속 ant도 등반.
+#   up-first 대각 계단(8,9)(9,8)(10,7)(11,6) — 첫 타일은 절벽 끝 위(col8)에 수직, 이후 대각 — 을 쌓아
+#   단(col12, 표면 row6)에 flush하게 올라선다. 계단은 영구라 후속 ant도 등반.
 # candy_hp 4 → 4마리가 단 위 candy를 회수해 귀가하면 클리어. PASS: stage_cleared && saved>=4 && lost==0.
 # FAIL: stage_failed / deadline / saved<4.
 #
@@ -10,7 +11,7 @@ extends Node
 #   계단 등반/단 진입이 walker step-up 부재로 막히는지(picks=0) 정밀 식별.
 
 const DEADLINE_FRAMES: int = 18000
-const BUILDER_X_MIN: float = 384.0   # col8 시작 (마지막 좌측 지면 cell). target=(col9,row9)부터 계단.
+const BUILDER_X_MIN: float = 384.0   # col8 시작 (마지막 좌측 지면 cell). up-first 첫 계단=(8,9) 절벽 위.
 const BUILDER_X_MAX: float = 432.0   # col9(갭) 전까지.
 
 var _builder_applied: bool = false

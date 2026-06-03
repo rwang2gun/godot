@@ -44,6 +44,11 @@ var has_candy: bool = false
 # frame try_build_armed_bridge()로 검사 → 개미가 낭떠러지(전방 바닥 없음)에 도달하면 그 자리
 # (지표면 높이)에서 자동으로 WorkerState("bridge") 진입. 이미 낭떠러지에서 부여하면 apply가 즉시 건설.
 var bridge_armed: bool = false
+# 계단 무장(armed builder, 2026-06-03) — BridgeSkill과 동일 패턴. BuilderSkill.apply가 낭떠러지가 아닌
+# 곳에서 부여되면 즉시 건설하지 않고 이 플래그만 세운다(인벤토리는 부여 시점 차감 = 소비). Walker/Carrying.update가
+# 매 frame try_build_armed_builder()로 검사 → 개미가 낭떠러지(전방 바닥 없음)에 도달하면 그 자리에서 자동으로
+# WorkerState("builder") 진입(대각 계단 건설). 이미 낭떠러지에서 부여하면 apply가 즉시 건설.
+var builder_armed: bool = false
 var state_machine: AntStateMachine = null
 var _grace_until: float = 0.0
 var _blocker_hitbox: Area2D = null
@@ -62,6 +67,18 @@ var _last_blocker_bounce_frame: int = -1
 # Sprite — 시각 전용. 게임 로직 무영향 (collision/state 무관).
 var _sprite: AnimatedSprite2D = null
 var _last_anim: String = ""
+# climb 프레임은 720px 캔버스(타 애니는 431px)라 동일 scale에서 ~1.8x 커진다.
+# → climb 애니에만 전용 scale을 적용하고, 발이 base와 동일한 바닥선에 닿도록 y를 보정.
+# 스케일 1개(_CLIMB_SPRITE_SCALE)만 조정하면 y 오프셋은 _ready에서 자동 재계산된다.
+const _CLIMB_SPRITE_SCALE := 0.15   # 머리 크기를 walk 기준과 일치시키는 값(검증: verify_climb_scale 비교)
+const _CLIMB_CANVAS_H := 720.0      # climb_*.png 캔버스 높이
+const _CLIMB_FEET_Y := 716.0        # climb 프레임 내 발(불투명 px) 하단 y
+const _BASE_CANVAS_H := 431.0       # idle/walk/carry/... 캔버스 높이
+const _BASE_FEET_Y := 426.0         # base 프레임 내 발 하단 y
+var _base_sprite_scale: Vector2 = Vector2.ONE
+var _base_sprite_pos: Vector2 = Vector2.ZERO
+var _climb_sprite_scale: Vector2 = Vector2.ONE
+var _climb_sprite_pos: Vector2 = Vector2.ZERO
 
 # Phase 14 — trait 보유 dict + 시각 표식 badge 노드.
 # traits: StringName(name) → true. 빈 dict = 트레잇 없음.
@@ -78,6 +95,8 @@ var _floater_badge: Sprite2D = null
 var _blocker_badge: Sprite2D = null
 # 다리 무장 시 꼬리 배지(y=0)에 다리 아이콘 표시. bridge_armed 기반 토글(climber/floater와 동일 패턴).
 var _bridge_badge: Sprite2D = null
+# 계단 무장 시 꼬리 배지에 계단(builder) 아이콘 표시. builder_armed 기반 토글(bridge 배지와 동일 슬롯·패턴).
+var _builder_badge: Sprite2D = null
 # Phase 15 — 정착 시각 표식. visible toggle은 _update_trait_badges()에서 state 기반.
 var _settle_badge: Sprite2D = null
 
@@ -103,6 +122,15 @@ func _ready() -> void:
 	state_machine.ant = self
 	_blocker_hitbox = get_node_or_null("BlockerHitbox") as Area2D
 	_sprite = get_node_or_null("Sprite") as AnimatedSprite2D
+	if _sprite != null:
+		# base(walk 등) transform 캐시 + climb 전용 transform 산출. climb 프레임은 더 큰
+		# 캔버스라 전용 scale을 쓰고, 발이 base와 같은 바닥선에 닿도록 y를 역산한다.
+		_base_sprite_scale = _sprite.scale
+		_base_sprite_pos = _sprite.position
+		_climb_sprite_scale = Vector2(_CLIMB_SPRITE_SCALE, _CLIMB_SPRITE_SCALE)
+		var feet_screen_y: float = _base_sprite_pos.y + (_BASE_FEET_Y - _BASE_CANVAS_H * 0.5) * _base_sprite_scale.y
+		var climb_y: float = feet_screen_y - (_CLIMB_FEET_Y - _CLIMB_CANVAS_H * 0.5) * _CLIMB_SPRITE_SCALE
+		_climb_sprite_pos = Vector2(_base_sprite_pos.x, climb_y)
 	_trait_badges = get_node_or_null("TraitBadges") as Node2D
 	# 스킬 뱃지(climber/floater)는 꼬리 컨테이너 아래. 미보유 .tscn에서는 null 안전 fall-back.
 	_tail_badges = get_node_or_null("TailBadges") as Node2D
@@ -111,6 +139,7 @@ func _ready() -> void:
 		_floater_badge = _tail_badges.get_node_or_null("FloaterBadge") as Sprite2D
 		_blocker_badge = _tail_badges.get_node_or_null("BlockerBadge") as Sprite2D
 		_bridge_badge = _tail_badges.get_node_or_null("BridgeBadge") as Sprite2D
+		_builder_badge = _tail_badges.get_node_or_null("BuilderBadge") as Sprite2D
 	if _trait_badges != null:
 		_settle_badge = _trait_badges.get_node_or_null("SettleBadge") as Sprite2D
 		_sticky_badge = _trait_badges.get_node_or_null("StickyBadge") as Sprite2D
@@ -260,7 +289,17 @@ func _update_sprite() -> void:
 	elif s is FallerState:
 		anim = "fall"
 	elif s is ClimberState:
-		anim = "climb"
+		# 등반 꼭대기(surface 타일 90%+) 또는 mantle 중에는 climb 대신 walk/carry로 전환(시각만).
+		if (s as ClimberState).near_surface_top(self):
+			anim = "carry" if has_candy else "walk"
+		else:
+			anim = "climb"
+	elif s is StairClimbState:
+		# 45° 계단 등반 — 회전은 StairClimbState가 _sprite.rotation으로 적용. 운반 중이면 carry 애니 유지.
+		anim = "carry" if has_candy else "walk"
+	elif s is StairDescentState:
+		# 45° 계단 하강 — 낙하 자세(fall)로 미끄럼. 회전은 StairDescentState가 _sprite.rotation으로 적용.
+		anim = "fall"
 	elif s is WalkerState:
 		anim = "walk"
 	elif s is WorkerState:
@@ -283,6 +322,14 @@ func _update_sprite() -> void:
 		else:
 			_sprite.play(anim)
 			_last_anim = anim
+	# climb 프레임(720px 캔버스) 전용 scale/position 보정. 그 외 애니는 base 복원.
+	# _last_anim은 위에서 실제 재생된 애니(climb 미보유 sprite는 "walk"로 fallback)를 반영.
+	if _last_anim == "climb":
+		_sprite.scale = _climb_sprite_scale
+		_sprite.position = _climb_sprite_pos
+	else:
+		_sprite.scale = _base_sprite_scale
+		_sprite.position = _base_sprite_pos
 	_sprite.flip_h = direction < 0
 
 func _update_trait_badges() -> void:
@@ -302,6 +349,9 @@ func _update_trait_badges() -> void:
 	# 낭떠러지 도달해 건설 진입 시 bridge_armed=false → 배지 사라지고 build 애니로 전환.
 	if _bridge_badge != null:
 		_bridge_badge.visible = bridge_armed
+	# 계단 무장 표식 — builder_armed인 동안(부여 후 낭떠러지 도달 전까지) 꼬리에 계단 아이콘.
+	if _builder_badge != null:
+		_builder_badge.visible = builder_armed
 	# Phase 15 — SettledState 진입 시 표식. state 기반(분배자 trait 보유여도 정착 전엔 표식 X).
 	if _settle_badge != null:
 		_settle_badge.visible = state_machine != null and state_machine.current_state is SettledState
@@ -335,16 +385,28 @@ func return_to_walking() -> void:
 func try_build_armed_bridge() -> bool:
 	if not bridge_armed:
 		return false
-	if state_machine == null or not bridge_cliff_ahead():
+	if state_machine == null or not cliff_ahead():
 		return false
 	bridge_armed = false
 	state_machine.change_state(WorkerState.new("bridge"))
 	return true
 
+# 계단 무장 자동 건설 — Walker/Carrying.update가 매 frame 호출. 무장 상태 + 낭떠러지 도달 시
+# 무장 해제 후 WorkerState("builder") 진입(대각 계단 건설). 전이했으면 true(호출부는 즉시 return).
+# try_build_armed_bridge의 복제 — 공용 cliff_ahead() 술어 사용, work_type만 "builder".
+func try_build_armed_builder() -> bool:
+	if not builder_armed:
+		return false
+	if state_machine == null or not cliff_ahead():
+		return false
+	builder_armed = false
+	state_machine.change_state(WorkerState.new("builder"))
+	return true
+
 # 발판 위 + 진행 방향 전방이 낭떠러지인지 — 전방 셀이 벽이 아니고(벽이면 flip/climb/step-up이 처리)
-# 전방 아래 셀에 바닥이 없을 때(=한 칸 더 가면 추락). BridgeSkill.apply의 "즉시 건설" 분기와 공용.
+# 전방 아래 셀에 바닥이 없을 때(=한 칸 더 가면 추락). bridge/builder 무장 즉시 건설 분기와 공용(2026-06-03 리네임).
 # add_tile은 target=발밑 전방 셀(body_cell+(dir,+1))에 놓으므로, 이 셀이 비어야(낭떠러지) 건설 가능.
-func bridge_cliff_ahead() -> bool:
+func cliff_ahead() -> bool:
 	if state_machine == null or direction == 0 or not is_on_floor():
 		return false
 	var terrain: Terrain = _find_terrain()
@@ -358,6 +420,59 @@ func bridge_cliff_ahead() -> bool:
 	var forward: Vector2i = body_cell + Vector2i(direction, 0)
 	var forward_down: Vector2i = body_cell + Vector2i(direction, 1)
 	return not terrain.is_cell_occupied(forward) and not terrain.is_cell_occupied(forward_down)
+
+# 계단(STAIR) 부드러운 45° 등반 게이트 — 단일 SoT. Walker/Carrying 진입(dir=direction)과
+# StairClimbState 연속 스텝(dir=_dir lock) 양쪽이 공유. dir_override=0이면 self.direction 사용.
+# 조건(전부 충족): (1) 전방 셀이 점유=올라설 벽 존재 → 허공 over-climb 차단(codex 2026-06-03 HIGH).
+#   (2) 올라설 자리(전방+위) 빔. (3) 전방 또는 발밑이 STAIR 셀 → 정적 벽은 게이트 불충족=flip(climber 퍼즐 보존).
+# 하강은 전방 셀이 비어 점유 조건 불충족 → 비대칭(상승만 발동).
+func stair_climb_ahead(dir_override: int = 0) -> bool:
+	var dir: int = dir_override if dir_override != 0 else direction
+	if dir == 0:
+		return false
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return false
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(global_position.x / cs)),
+		int(floor((global_position.y - 2.0) / cs))
+	)
+	var front: Vector2i = body_cell + Vector2i(dir, 0)
+	var below: Vector2i = body_cell + Vector2i(0, 1)
+	var dest: Vector2i = body_cell + Vector2i(dir, -1)
+	if not terrain.is_cell_occupied(front):
+		return false   # 전방 벽 없음 = 올라설 대상 없음(계단 꼭대기 허공) → 등반 금지(over-climb 차단).
+	if terrain.is_cell_occupied(dest):
+		return false   # 올라설 자리 막힘(레지/천장).
+	return terrain.is_stair_cell(front) or terrain.is_stair_cell(below)
+
+# 계단(STAIR) 부드러운 45° 하강 게이트 (2026-06-03). stair_climb_ahead의 하강 대칭.
+# 계단 표면에서 하강 방향으로 진행 시 수직 낙하 대신 전방+아래 대각 미끄럼(StairDescentState)으로 전이.
+# 조건(전부): (1) 발밑(body+아래)이 STAIR = 계단 위에 서 있음. (2) 전방 빔 = 올라설 벽 없음(등반 아님).
+# (3) 전방-아래 빔 = 전방 바닥 없음(가장자리/허공). (4) 착지 칸(전방 2칸 아래)이 STAIR(다음 계단) 또는
+# solid 지면(맨 아래 단 → 플랫폼 최종 미끄럼). (3)이 위를 비워두므로 벽에 박지 않고 그 위로 올라선다.
+func stair_descent_ahead(dir_override: int = 0) -> bool:
+	var dir: int = dir_override if dir_override != 0 else direction
+	if dir == 0:
+		return false
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return false
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(global_position.x / cs)),
+		int(floor((global_position.y - 2.0) / cs))
+	)
+	if not terrain.is_stair_cell(body_cell + Vector2i(0, 1)):
+		return false   # 발밑이 계단 아님 → 일반 보행/낙하.
+	if terrain.is_cell_occupied(body_cell + Vector2i(dir, 0)):
+		return false   # 전방 벽 = 등반 상황(stair_climb_ahead 담당), 하강 아님.
+	if terrain.is_cell_occupied(body_cell + Vector2i(dir, 1)):
+		return false   # 전방 바닥 있음 = 아직 가장자리 아님(평평 보행 중).
+	# 착지 칸이 다음 계단(STAIR)이면 연속 하강, solid 지면이면 맨 아래 단→플랫폼 최종 미끄럼.
+	var land: Vector2i = body_cell + Vector2i(dir, 2)
+	return terrain.is_stair_cell(land) or terrain.is_cell_occupied(land)
 
 func _find_terrain() -> Terrain:
 	# WalkerState/WorkerState._find_terrain와 동일 — ancestor chain에서 Terrain 노드 탐색.

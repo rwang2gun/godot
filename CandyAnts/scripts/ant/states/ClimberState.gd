@@ -42,6 +42,32 @@ func mantle_stall_frame_count() -> int:
 func mantle_offset() -> float:
 	return _mantle_offset
 
+# 시각 전용 — Ant._update_sprite가 호출. 물리/상태 전이에는 영향 없음.
+# 등반이 surface 타일 상단의 90% 이상 올라왔거나 mantle(꼭대기 수평 진입) 중이면 true →
+# climb 대신 walk/carry 애니 재생(꼭대기에서 climb 포즈가 옆으로 미끄러지는 어색함 제거).
+const _NEAR_TOP_FRACTION: float = 0.10   # 남은 높이 10% 이내 == 90% 이상 등반
+const _BODY_HALF_H: float = 7.5          # Ant CollisionShape2D(18x15) 절반 높이 = 발 오프셋
+func near_surface_top(a: Ant) -> bool:
+	if _mantle_offset >= 0.0:
+		return true   # mantle 중 = 이미 꼭대기
+	var terrain: Terrain = a._find_terrain()
+	if terrain == null:
+		return false
+	var cs: float = float(terrain.cell_size)
+	if cs <= 0.0:
+		return false
+	var feet_y: float = a.global_position.y + _BODY_HALF_H
+	var fx: int = int(floor(a.global_position.x / cs)) + _climb_direction
+	var feet_row: int = int(floor(feet_y / cs))
+	if not terrain.is_cell_occupied(Vector2i(fx, feet_row)):
+		return true   # 발이 이미 벽 위(=100% 등반) → walk
+	# 전방 벽 칼럼의 최상단 점유 셀까지 위로 스캔 → surface 타일 상단 y.
+	var top_row: int = feet_row
+	while top_row > feet_row - 64 and terrain.is_cell_occupied(Vector2i(fx, top_row - 1)):
+		top_row -= 1
+	var surface_top_y: float = float(top_row) * cs
+	return feet_y <= surface_top_y + _NEAR_TOP_FRACTION * cs
+
 func update(delta: float) -> void:
 	var a: Ant = ant as Ant
 	if a == null:

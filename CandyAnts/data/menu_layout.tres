@@ -6,19 +6,19 @@
 script = ExtResource("1_layout")
 slots = [{
 "available": true,
-"display_name": "햇살 정원",
+"display_name": "첫 마실",
 "stage_id": 1
 }, {
 "available": true,
-"display_name": "다리 공사",
+"display_name": "오르막",
 "stage_id": 2
 }, {
 "available": true,
-"display_name": "차단 미로",
+"display_name": "사탕 호수",
 "stage_id": 3
 }, {
-"available": false,
-"display_name": "준비 중",
+"available": true,
+"display_name": "계단 공사",
 "stage_id": 4
 }, {
 "available": false,
