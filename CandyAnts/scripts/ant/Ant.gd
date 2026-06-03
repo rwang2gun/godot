@@ -474,6 +474,26 @@ func stair_descent_ahead(dir_override: int = 0) -> bool:
 	var land: Vector2i = body_cell + Vector2i(dir, 2)
 	return terrain.is_stair_cell(land) or terrain.is_cell_occupied(land)
 
+# 막대과자 사다리(SAND_MOUND rung) 수직 등반 게이트 (2026-06-03 follower 통행).
+# 시전 개미가 깔아둔 rung 벽에 막혀 멈춘 후속 walker를 LadderClimbState로 전이시키는 단일 SoT.
+# 조건: 진행 방향 전방 셀이 동적 ladder rung 셀일 것. 정적 벽(분지/단)은 is_ladder_cell=false라
+# 게이트 불충족 → 기존 flip 유지(climber/캡 퍼즐 보존). 등반 종료·캡은 LadderClimbState가 담당한다
+# (전방이 rung인 한 진입만 책임지고, 허공 over-climb·런어웨이는 상태 안전망이 처리).
+func ladder_climb_ahead(dir_override: int = 0) -> bool:
+	var dir: int = dir_override if dir_override != 0 else direction
+	if dir == 0:
+		return false
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return false
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(global_position.x / cs)),
+		int(floor((global_position.y - 2.0) / cs))
+	)
+	var front: Vector2i = body_cell + Vector2i(dir, 0)
+	return terrain.is_ladder_cell(front)
+
 func _find_terrain() -> Terrain:
 	# WalkerState/WorkerState._find_terrain와 동일 — ancestor chain에서 Terrain 노드 탐색.
 	var n: Node = get_parent()

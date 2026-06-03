@@ -93,6 +93,25 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - **테스트**: `CampaignS4ClearTest`(builder→**4마리** 계단 등반 회수 saved=4/4 lost=0 PASS) + `CampaignS4NoBuilderTest`(무빌더→전원 갭 추락 picks=0 no_more_ants PASS, builder 필수성). **`GameFlowTest` Scenario B를 Stage03 bridge→Stage04 builder로 재작성**(LAST_STAGE_ID=4라 S4가 새 마지막 스테이지 = Next-disabled+menu fallback 검증).
 - **배선**: `SceneFlow.STAGE_SCENES[4]=Stage04.tscn` + `LAST_STAGE_ID=3→4`. **menu_layout는 미수정**(슬롯4 "준비 중" 유지) — S4는 S3 클리어→Next로 도달. menu_layout 슬롯명/가용성 동기화(슬롯1~3도 구 캠페인명 stale)는 별도 follow-up(§4 C2 note).
 
+## 3f. 완료 — 후속 개미 사다리 수직 통행(코어) + S5 "막대과자 탑" stage05 저작 (세션 7)
+**전제 — 세션 5·6 커밋 반영**: §0의 "세션 5(소다 워터+다리 무장)"는 `544df23`, "세션 6(계단 개편)"은 `a962a9f`로 **커밋 완료**(문서의 "미커밋" 표기는 stale). 세션 7 base = `a962a9f`(S1~S4 + biscuit ladder `9c48f88` 포함).
+
+**⚠ §5.2 선결정 해소(사용자 결정 = "코어 추가: 사다리 통행")**: biscuit ladder(`9c48f88`)는 **시전 개미만** rung을 깔며 등반하고, WalkerState는 수직 rung을 등반 전이에서 제외(climber·STAIR만) → 후속 개미는 rung 벽에 flip, 재시전도 "위 칸 solid→종료"라 안 통함. S5(HP4 → ≥4마리 등반)는 현 코어로 클리어 불가(S4 step-up 전과 동형). → **수직 사다리 통행 코어 신설**.
+
+**코어 — `LadderClimbState`(신규) + 게이트 + 술어 + WalkerState 전이**:
+- `Terrain.is_ladder_cell(cell)` = `_sand_mound_sprites.has(cell)`(기존 rung 레지스트리 재사용, add_tile/destroy 정합). 정적 벽은 ladder 셀 아님 → S1 분지 climber 퍼즐 보존(CampaignS1NoClimber PASS 실증).
+- `Ant.ladder_climb_ahead(dir)` = 전방 셀이 ladder rung 셀. `WalkerState`가 is_on_wall 시 climber→stair_climb 다음에 이 게이트로 `LadderClimbState` 전이(아니면 flip).
+- `LadderClimbState`: StairClimbState처럼 move_and_slide 우회, **rung 기둥(_col)을 rung 셀만 수직 글라이드 관통**. 꼭대기는 **즉시 cap/open 착지**(비-rung 레지 칸을 글라이드 통과 안 함). 진입은 **같은 행 수평 진입**(대각 코너 관통 방지) 후 수직. CarryingState 미적용(S5는 빈손 등반·floater 하강).
+- **지지(support) 불변**: 매 frame `is_ladder_cell(_col, 현재행)` **단일 셀** — rung 파괴/소멸 시 즉시 FallerState(충돌 우회 글라이드로 무관 지형 관통·부분 파괴 통과 차단). blocked-top은 flip.
+
+**S5 "막대과자 탑" stage05 저작** (HTML rev2 id:5 — 수직 사다리 ↑ + floater 귀가):
+- **기하(cell 48)**: 바닥 표면 row11(solid 11~13, cols0~23) + 좌/우 벽(col0·col23 rows8~10) + **고립 오버행 플랫폼 row5 cols13~19**. Home(1,10 pos72,528)·Candy(16,4 pos792,240 플랫폼 위)·Camera(576,384)·Spawner(72,520.5).
+- **메커니즘**: 첫 ant가 플랫폼 아래(cols14~17)서 sand_mound → rung 기둥 4개 + 레지 cap으로 플랫폼 등반. **후속 ant는 LadderClimbState로 자동 등반**(시전 1회로 충분). candy 회수 후 플랫폼 가장자리(6칸 낙하)를 **floater로 안전 하강**(무 floater=기절). 
+- **파라미터** (`stage05.tres`): id=5 "막대과자 탑" / total 6 / hp 4 / 120s / available=[sand_mound, floater] / inventory={sand_mound:2, floater:6} / ★=[0.5,0.75,1.0] / release 30.
+- **테스트**: CampaignS5Clear(시전1+후속자동등반 saved4/4 lost0)/NoSandMound(picks0 time_out) + **코어 회귀 4종**: LadderFollowerClimb(시전 안 한 개미도 레지 도달=≥2마리) / LadderDestroyMidClimb(등반 중 전체 rung 파괴→FallerState) / LadderPartialDestroyClimb(상단 rung만 제거·하단 잔존→FallerState=단일셀 지지) / LadderEntryHorizontal(기둥 도달 전 상승 금지=수평 진입 불변).
+- **배선**: `SceneFlow.STAGE_SCENES[5]=Stage05.tscn` + `LAST_STAGE_ID 4→5`. `menu_layout` slot5 해금("막대과자 탑", available=true) + `MenuLayoutResourceTest` i<4→i<5. **`GameFlowTest` Scenario B를 Stage04 builder→Stage05 sand_mound+floater last-stage 재작성**(`_apply_stage5_skills_if_ready` _process 드라이버).
+- **codex 적대적 리뷰 5라운드(R1~R4 HIGH 해소 → R5 approve)**: R1 지지 미재검증 → R2 검사 too late → R3 윈도우 too lax(아래 rung 통과) → R4 진입 대각 코너 관통 → R5 approve. 각 라운드 회귀 추가. 교훈: 충돌 우회 글라이드(StairClimb류) 상태는 **매 frame 단일-셀 지지 재검증 + 비-rung 칸 글라이드 회피(즉시 착지) + 진입 대각 제거**까지 가야 terrain 동적 변형/코너 관통에 안전.
+
 ## 4. 남은 작업 (권장 순서)
 
 ### A. 선행 정리 — 코드/에셋 (캠페인 저작 전 필수)
@@ -101,6 +120,7 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [x] **A3. 기절 스프라이트** — **완료(commit 1f2a162)**. `assets/sprites/characters/ant_pajama_girl/stun/`(PNG4) + AntFrames `stun` 애니(loop, speed6).
 - [ ] **A4. (아트) stair 스프라이트 검토**: `cookie_stair_tile.png`가 대각 상승으로 잘 읽히는지. 충돌/로직은 정상.
 - [x] **A5. builder 계단 보행 등반(코어 gated step-up)** — **완료(세션 4)**. WalkerState `_try_stair_step_up`(전방/발밑 STAIR 게이트) + Terrain `_stair_cells`/`is_stair_cell`. 상세 §3e. S4 클리어 가능화의 전제. S1 분지(정적 벽) 보존 실증. **S5 sand_mound 사다리의 후속-개미 보행 통행은 별개 갭(수직)이라 미해결 — S5 저작 시 결정**(floater 하강 귀가는 설계됨, 등반은 시전 개미만 = candy_hp>1 다중 등반 필요 시 sand_mound도 통행 메커니즘 필요).
+- [x] **A6. (세션 7) 후속 개미 사다리 수직 통행** — **완료(세션 7)**. `LadderClimbState` + `Ant.ladder_climb_ahead` + `Terrain.is_ladder_cell`. 상세 §3f. A5(대각 step-up)의 수직 대응. S5 클리어 가능화. codex 5R(R4 HIGH→R5 approve).
 
 ### B. 에디터 / 데이터 (map-editor 트랙)
 - [ ] **B1. 파괴 종류 브러시**: 레이아웃에 `earth`(digger·basher)/`plant`(cutter) 태그 저작. 현재 에디터는 solid/slope만.
@@ -108,8 +128,8 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [ ] **B3. 흙 vs 쿠키(불괴) 시각 구분 확인**.
 
 ### C. 캠페인 저작
-- [~] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반), 스테이지별 플레이테스트로 인벤토리·시간·기하 튜닝. 특히 S3/S7/S10류 **복귀 경로**(왕복 제약) 정밀화. — **S1 stage01**(§3b), **S2 "오르막" stage02**(§3c), **S3 "사탕 호수" stage03**(§3d), **S4 "계단 공사" stage04**(§3e) 완료. **S5~S9 미착수**.
-- [~] **C2. 진행 흐름 등록**: menu_layout 10슬롯·SaveData 언락(N-1 클리어)·"/30" denominator는 **이미 확보**. SceneFlow.STAGE_SCENES[1~4]·**LAST_STAGE_ID=4**(세션 4 갱신) — 현재 캠페인 4스테이지(S1~S4) 완결 데모. **S5 저작 시 STAGE_SCENES[5] + LAST_STAGE_ID=5** 갱신 필요. **⚠ menu_layout follow-up**: 슬롯1~3 display_name이 **구 캠페인명**("햇살 정원/다리 공사/차단 미로")으로 stale(재설계 S1~S4 = "첫 마실/오르막/사탕 호수/계단 공사"), 슬롯4~10 "준비 중"(available=false). 캠페인 Next-flow는 정상 동작하나 stage-select 메뉴 직접 선택은 슬롯명/available 미동기. menu_layout 마이그레이션(슬롯명 교체 + 클리어된 stage available flip + `MenuLayoutResourceTest`의 `i<3` 갱신)은 별도 정리 항목.
+- [~] **C1. 9개 `stageNN.tres` + `stageNN_layout.tres`** 저작 (HTML 시안 기반), 스테이지별 플레이테스트로 인벤토리·시간·기하 튜닝. 특히 S3/S7/S10류 **복귀 경로**(왕복 제약) 정밀화. — **S1 stage01**(§3b), **S2 "오르막" stage02**(§3c), **S3 "사탕 호수" stage03**(§3d), **S4 "계단 공사" stage04**(§3e), **S5 "막대과자 탑" stage05**(§3f) 완료. **S6~S9 미착수**.
+- [~] **C2. 진행 흐름 등록**: menu_layout 10슬롯·SaveData 언락(N-1 클리어)·"/30" denominator는 **이미 확보**. SceneFlow.STAGE_SCENES[1~5]·**LAST_STAGE_ID=5**(세션 7 갱신) — 현재 캠페인 5스테이지(S1~S5) 완결 데모. **S6 저작 시 STAGE_SCENES[6] + LAST_STAGE_ID=6** 갱신 필요. **menu_layout**: 슬롯1~4 display_name은 `a962a9f`에서 재설계명으로 정정됨, **슬롯5는 세션 7에 "막대과자 탑"+available=true 해금**(`MenuLayoutResourceTest` i<4→i<5 갱신). 슬롯6~10 "준비 중"(available=false) — S6+ 저작 시 순차 해금.
 - [ ] **C3. blocker·distributor 재배치** + 무스킬 0번 온보딩 결정.
 
 ### D. 하우스키핑
@@ -119,9 +139,9 @@ HTML rev2 S2 시안(메사 토폴로지)대로 stage02 슬롯에 저작. 핸드�
 - [ ] **D4. (세션 3 신설) blocker/alternate-spawn 커버리지 보강**: `Stage03HeadlessTest` 폐기로 **D-1(AntSpawner spawn_direction_alternate) / D-2(BlockerSkill carrying 거부) / D-3(blocker clear) 통합 커버리지 소멸**. 둘 다 재설계 캠페인 미사용(blocker 보류·alternate 미사용)이라 defer. blocker/alternate 재도입 시 standalone unit test 신설.
 
 ## 5. 다음 세션 즉시 행동 (제안)
-1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 4 종료: HEAD=`ef2551b`(A5 step-up + S4). 추적 파일 워킹트리 clean, 미push(로컬)**. ⚠ **단 `git status`에 climb 애니 아트(`AntFrames.tres` + `climb/climb_*.png` + `docs/climb_4pose_limb_color_reference.*`)가 미커밋으로 뜸 — 병렬 아트 트랙 산출물이라 정상이며 내 작업 아님. 스테이지 커밋에 섞지 말 것**(아트 트랙이 별도 커밋). S5부터 직진.
-2. **S5 "막대과자 탑" 저작** (sand_mound 수직 사다리 + floater 귀가). HTML rev2 id:5 grid: 높은 외딴 단 위 candy → 좁은 수직 기둥(sand_mound)으로 등반, 귀가는 floater 안전 낙하(왕복 제약). stage05 슬롯 **신규** + **SceneFlow.STAGE_SCENES[5] + LAST_STAGE_ID=5**. §3d/§3e 마이그레이션 패턴 답습. **⚠ 선결정 필요**: sand_mound도 builder처럼 "시전 개미만 등반"(빌드-텔레포트) = candy_hp>1 다중 등반 시 후속-개미 사다리 보행 통행 미구현(§3e). S5는 **사다리 수직**이라 builder의 대각 step-up(A5)이 안 통함 → ① floater로 *내려오기*만 하고 *올라가기*는 각 개미가 sand_mound 시전(인벤토리 충분) 패턴인지, ② 사다리 climb 메커니즘 신설인지 결정. SandMoundClimbTest는 saved>=1(1마리)만 검증 = 다중 등반 미검증.
-3. **S6~S9** 순차 (S6 digger / S7 basher / S8 cutter / S9 종합). S6+ 파괴계는 layout에 earth/plant 태그(B1) + water/sticky 해저드(B2) 저작 필요. **S7 basher·S8 cutter는 수평 통로라 등반 불필요 = 현 코어로 동작**.
+1. `python scripts/execute.py mvp validate` 1회(세션 시작 루틴) + `git log --oneline -8`로 baseline 확인. **세션 7 종료: S5 "막대과자 탑" stage05 + 후속 개미 사다리 통행 코어(LadderClimbState) — 커밋 대기/완료**(§3f). base=`a962a9f`(S1~S4 + biscuit ladder). 세션 5·6(`544df23`·`a962a9f`)은 이미 커밋됨. S6부터 직진.
+2. **S6 "땅굴" 저작** (digger 안전 수직 하강·흙). HTML rev2 id:6 / total6 / hp4 / 120s / digger. **layout에 earth 태그(B1) 필요** — digger는 흙(earth)만 굴착, 쿠키(불괴)는 무효. 안전 하강(digger 수직 통로) + 복귀는 지하 보행 경사로/계단(왕복 제약, §2 round-trip 표). stage06 슬롯 **신규** + **SceneFlow.STAGE_SCENES[6] + LAST_STAGE_ID=6** + menu_layout slot6 해금 + `MenuLayoutResourceTest` i<5→i<6. §3d~§3f 마이그레이션 패턴 답습.
+3. **S7~S9** 순차 (S7 basher / S8 cutter / S9 종합). S6~S8 파괴계는 layout에 earth/plant 태그(B1) + water/sticky 해저드(B2) 저작 필요. **S7 basher·S8 cutter는 수평 통로라 등반 불필요 = 현 코어로 동작**.
 4. **(선재 실패 정리)** §6의 pristine-HEAD 실패 4건(Climber/Digger/Distributor/Floater Trait류) — 내 변경과 무관하나 main이 full-suite green 아님. 조사·수정은 별도 항목.
 5. (선택) **기절 5칸 경계 결함 근본수정 여부 결정**(§6 gotcha) — 현재는 스테이지를 6칸으로 우회.
 

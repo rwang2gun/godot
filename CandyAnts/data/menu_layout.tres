@@ -21,8 +21,8 @@ slots = [{
 "display_name": "계단 공사",
 "stage_id": 4
 }, {
-"available": false,
-"display_name": "준비 중",
+"available": true,
+"display_name": "막대과자 탑",
 "stage_id": 5
 }, {
 "available": false,

@@ -2,16 +2,16 @@ extends Node
 
 # Phase 6 통합 회귀 테스트.
 # 시나리오 A: Stage01 자연 clear → Next → Stage02 도달 (+ Result Dictionary 8키 검증, freeze/unfreeze)
-# 시나리오 B: SceneFlow.load_stage(4) → Stage04 clear(builder 계단) → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
+# 시나리오 B: SceneFlow.load_stage(5) → Stage05 clear(sand_mound 사다리+floater) → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
 # 시나리오 C: load_stage(1) → 강제 fail(no_more_ants) → Next 차단(disabled + signal reject) → Replay → stage1 reload
 # 시나리오 D: A에서 freeze/unfreeze 인라인 확인.
 # PASS: get_tree().quit(0). FAIL: 즉시 print + quit(1).
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
-# S4 "계단 공사"(builder 대각 계단) — 첫 ant가 갭 직전 마지막 지면 cell(col8, x∈[384,432))에 있을 때 builder 적용 →
-# up-first 대각 계단(8,9)(9,8)(10,7)(11,6)을 쌓아 우측 높은 단(표면 row6)에 올라섬. 계단은 영구라 후속 ant도 보행 등반(step-up).
-const STAGE4_BUILDER_X_MIN: float = 384.0
-const STAGE4_BUILDER_X_MAX: float = 432.0
+# S5 "막대과자 탑"(sand_mound 수직 사다리) — 첫 ant가 플랫폼(cols13~19) 아래 cols14~17(x∈[672,864))에 있을 때
+# sand_mound 적용 → rung 기둥 + 레지 cap으로 플랫폼 등반. 사다리는 영구라 후속 ant는 LadderClimbState로 자동 등반.
+const STAGE5_CAST_X_MIN: float = 672.0
+const STAGE5_CAST_X_MAX: float = 864.0
 
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed
@@ -19,11 +19,13 @@ var _current_stage_root: Node = null
 var _overlay: Control = null  # StageDialog (phase 12: 구 StageResultOverlayStub 교체, 동일 API contract)
 
 var _failed: bool = false
+var _stage5_cast_applied: bool = false  # Scenario B — sand_mound 1회 시전 가드.
 
 func _process(_delta: float) -> void:
 	if _failed:
 		return
 	_apply_climber_if_ready()
+	_apply_stage5_skills_if_ready()
 
 func _apply_climber_if_ready() -> void:
 	if _scene_flow == null or _scene_flow._current_stage_id != 1:
@@ -49,6 +51,32 @@ func _apply_climber_if_ready() -> void:
 				continue
 			climber.apply(a)
 			print("[GameFlowTest] applied Climber to ", a.name, " at x=", a.global_position.x)
+
+# S5 "막대과자 탑" 드라이버 — Scenario B. 무리 전체에 floater 부여(안전 하강) + 첫 ant에 sand_mound 1회
+# (플랫폼 아래 cols14~17). 사다리는 영구라 후속 ant는 LadderClimbState로 자동 등반 → candy 회수 → clear.
+func _apply_stage5_skills_if_ready() -> void:
+	if _scene_flow == null or _scene_flow._current_stage_id != 5:
+		return
+	var runner: StageRunner = _find_current_stage_runner()
+	if runner == null or runner._completed:
+		return
+	for n in get_tree().get_nodes_in_group("ants"):
+		var a: Ant = n as Ant
+		if a == null or not is_instance_valid(a):
+			continue
+		# 낙하산을 무리 전체에 분배 — 등반/시전에 무해, 하강 시에만 작동.
+		if not a.has_trait(&"floater"):
+			var floater: FloaterSkill = FloaterSkill.new()
+			if floater.can_apply(a):
+				floater.apply(a)
+		# 첫 ant 1마리만 사다리 건설(플랫폼 아래 cols14~17, x∈[672,864)). 이후는 자동 등반.
+		if not _stage5_cast_applied and a.direction == 1 and not a.has_been_carrying \
+				and a.global_position.x >= STAGE5_CAST_X_MIN and a.global_position.x < STAGE5_CAST_X_MAX:
+			var sm: SandMoundSkill = SandMoundSkill.new()
+			if sm.can_apply(a):
+				sm.apply(a)
+				_stage5_cast_applied = true
+				print("[GameFlowTest] B applied SandMound at x=", a.global_position.x)
 
 func _ready() -> void:
 	# 헤드리스 wall clock 단축. 자연 진행은 유지하되 모든 시뮬을 8배 가속해
@@ -122,47 +150,24 @@ func _scenario_a() -> void:
 # 시나리오 B: load_stage(3) → clear → Next disabled → 강제 emit → go_to_menu fallback
 # -----------------------------------------------------------------------------
 func _scenario_b() -> void:
-	print("[GameFlowTest] === Scenario B: Stage04 → clear → Next disabled → menu fallback ===")
-	_scene_flow.load_stage(4)
+	print("[GameFlowTest] === Scenario B: Stage05 → clear → Next disabled → menu fallback ===")
+	_stage5_cast_applied = false
+	_scene_flow.load_stage(5)
 	await get_tree().process_frame
 	await get_tree().process_frame  # stage instantiation + StageRunner._ready
-	if not _verify_current_stage_id(4, "B.start"):
+	if not _verify_current_stage_id(5, "B.start"):
 		return
 
-	# S4 "계단 공사": 첫 +1 ant가 갭 직전 col8(x∈[384,432))에 도달하면 BuilderSkill 적용 → 대각 계단으로 단 등반.
-	# 계단은 영구라 후속 ant도 보행 등반(WalkerState gated step-up) → candy 회수 → clear (구 bridge@호수 폐기).
-	var builder_applied: bool = false
-	var elapsed: float = 0.0
-	while not builder_applied and elapsed < SCENARIO_TIMEOUT_SECONDS:
-		for n in get_tree().get_nodes_in_group("ants"):
-			var a: Ant = n as Ant
-			if a == null or not is_instance_valid(a):
-				continue
-			if a.direction != 1 or a.has_been_carrying:
-				continue
-			if a.global_position.x < STAGE4_BUILDER_X_MIN or a.global_position.x >= STAGE4_BUILDER_X_MAX:
-				continue
-			var builder: BuilderSkill = BuilderSkill.new()
-			if not builder.can_apply(a):
-				continue
-			builder.apply(a)
-			builder_applied = true
-			print("[GameFlowTest] B applied Builder at x=", a.global_position.x)
-			break
-		if not builder_applied:
-			await get_tree().process_frame
-			elapsed += get_process_delta_time()
-	if not builder_applied:
-		_fail("B builder apply timeout")
-		return
-
+	# S5 "막대과자 탑": _apply_stage5_skills_if_ready(_process)가 무리에 floater 분배 + 첫 ant에 sand_mound 1회.
+	# rung 기둥 영구 → 후속 ant는 LadderClimbState로 자동 등반 → candy 회수 → floater 안전 하강 → clear.
+	# (구 Stage04 builder@last-stage 폐기 — LAST_STAGE_ID=5라 S5가 새 마지막 스테이지.)
 	var result: Dictionary = await _await_signal(EventBus.stage_cleared)
 	if _failed: return
-	if result["stage_id"] != 4 or not result["cleared"]:
-		_fail("B.cleared expected stage_id=4 cleared=true got %s" % str(result))
+	if result["stage_id"] != 5 or not result["cleared"]:
+		_fail("B.cleared expected stage_id=5 cleared=true got %s" % str(result))
 		return
 
-	# Phase 12: Scenario B = Stage04 cleared + last-stage → visible=true + disabled=true (회색).
+	# Phase 12: Scenario B = Stage05 cleared + last-stage → visible=true + disabled=true (회색).
 	# is_next_visible/is_next_disabled 두 inspector를 모두 assert (plan v6.1 §3.9, SH-1 가드).
 	if not _overlay.is_next_visible():
 		_fail("B.last_stage NextButton not visible (expected visible=true for last+cleared)")
@@ -172,7 +177,7 @@ func _scenario_b() -> void:
 		return
 	print("[GameFlowTest] B NextButton visible+disabled OK")
 
-	# Phase 13: last-stage Next emit → load_next_stage(next_id=5 미존재) → go_to_main_menu
+	# Phase 13: last-stage Next emit → load_next_stage(next_id=6 미존재) → go_to_main_menu
 	# (phase 6의 stage1 fallback 폐기, plan §3.5.4).
 	EventBus.request_next.emit()
 	await get_tree().process_frame

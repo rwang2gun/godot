@@ -39,6 +39,12 @@ func update(delta: float) -> void:
 		if a.stair_climb_ahead():
 			a.state_machine.change_state(StairClimbState.new())
 			return
+		# 막대과자 사다리(SAND_MOUND rung) 후속 개미 수직 등반 — 시전 개미가 깔아둔 rung 벽에 막히면
+		# LadderClimbState로 전이해 기둥을 글라이드 관통 등반. 게이트는 Ant.ladder_climb_ahead(전방 rung 셀).
+		# 정적 벽(분지/단)은 is_ladder_cell=false라 미발동 → flip 유지(climber/캡 퍼즐 보존).
+		if a.ladder_climb_ahead():
+			a.state_machine.change_state(LadderClimbState.new())
+			return
 		a.flip()
 
 	# 계단 하강 — 계단 표면에서 하강 가장자리 도달 시 수직 낙하 대신 45° 미끄럼(StairDescentState).

@@ -309,6 +309,13 @@ func is_cell_occupied(cell: Vector2i) -> bool:
 func is_stair_cell(cell: Vector2i) -> bool:
 	return _stair_cells.has(cell)
 
+# 동적 SAND_MOUND(막대과자 사다리 rung) 셀 여부 (2026-06-03 follower 통행).
+# 시전 개미가 깔아둔 rung 셀을 후속 walker가 식별해 LadderClimbState로 수직 등반하도록 하는 술어.
+# _sand_mound_sprites(add_tile/destroy_tile_at에서 유지)를 그대로 SoT로 사용 — root/top reskin(지형 면)은
+# 동적 rung이 아니라 제외되어, 정적 벽은 ladder 셀이 아님 → 게이트 불충족=flip(climber/캡 퍼즐 보존).
+func is_ladder_cell(cell: Vector2i) -> bool:
+	return _sand_mound_sprites.has(cell)
+
 func tile_count() -> int:
 	return _placed.size()
 
