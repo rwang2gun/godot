@@ -17,8 +17,9 @@ class_name PlacementPreview extends Node2D
 const PLACEMENT_SKILLS: Array[String] = ["sand_mound", "builder", "bridge"]
 const CLICK_RADIUS: float = 48.0  # SkillToolbar.CLICK_RADIUS와 동일 (이중 SoT 회피 위해 향후 통합 고려)
 const SAND_MOUND_MAX: int = 5
-const BUILDER_MAX: int = 12
-const BRIDGE_MAX: int = 8
+# 캡은 WorkerState.BUILDER_MAX_STEPS / BRIDGE_MAX_LENGTH와 이중 SoT — 함께 5로 유지 (2026-06-04).
+const BUILDER_MAX: int = 5
+const BRIDGE_MAX: int = 5
 
 const COLOR_OK: Color = Color(0.4, 1.0, 0.4, 0.45)
 const COLOR_BLOCKED: Color = Color(1.0, 0.35, 0.35, 0.55)

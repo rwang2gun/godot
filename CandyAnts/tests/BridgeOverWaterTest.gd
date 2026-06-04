@@ -8,12 +8,15 @@ extends Node
 
 const DEADLINE_FRAMES: int = 5400   # 90초
 
+# 갭 6칸 > 다리 캡 5칸이라 다리 1개로는 못 건넌다(끝 col17이 물). 개미 2마리를 무장 → 첫 개미가 다리1
+# (cols12~16) 건설 후 표류, 둘째 개미가 다리1 끝(col16)에서 다리2(col17, 반대편 col18 도달)를 이어 건설(체인).
+const ARM_COUNT: int = 2
+
 var _stage: StageRunner = null
 var _score: ScoreSystem = null
 var _frame_count: int = 0
 var _result_emitted: bool = false
-var _first_ant: Ant = null
-var _bridge_applied: bool = false
+var _armed_ids: Dictionary = {}
 
 func _ready() -> void:
 	print("[BridgeOverWaterTest] driver ready, deadline=%d frames" % DEADLINE_FRAMES)
@@ -26,7 +29,7 @@ func _physics_process(_delta: float) -> void:
 	_apply_bridge_when_ready()
 	_observe()
 	if _frame_count > DEADLINE_FRAMES:
-		_fail("deadline exceeded — saved=%d lost=%d bridge_applied=%s" % [_score.saved_pieces if _score else -1, _score.lost_pieces if _score else -1, _bridge_applied])
+		_fail("deadline exceeded — saved=%d lost=%d armed=%d" % [_score.saved_pieces if _score else -1, _score.lost_pieces if _score else -1, _armed_ids.size()])
 
 func _ensure_stage() -> void:
 	if _stage != null:
@@ -45,12 +48,15 @@ func _find_stage(node: Node) -> StageRunner:
 	return null
 
 func _apply_bridge_when_ready() -> void:
-	if _bridge_applied:
+	if _armed_ids.size() >= ARM_COUNT:
 		return
-	# 첫 ant가 갭 직전(x ≈ 350~390)에 도달했을 때 bridge 적용.
+	# 갭 직전 floor 마지막 cell(x=11, 352~383px)에서 개미 2마리 무장. 첫 개미 즉시 다리1 건설, 둘째 개미는
+	# 다리 타일이 생긴 뒤라 무장만 → 다리1 건너 끝(col16)에서 다리2 체인.
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
 		if a == null or not is_instance_valid(a) or a.state_machine == null:
+			continue
+		if _armed_ids.has(a.get_instance_id()):
 			continue
 		if not (a.state_machine.current_state is WalkerState):
 			continue
@@ -58,17 +64,16 @@ func _apply_bridge_when_ready() -> void:
 			continue
 		if a.has_candy:
 			continue
-		# 갭 직전 floor 마지막 cell(x=11, 352~383px)에서 bridge 적용 → target=(12, 22) gap 첫 cell.
 		if a.global_position.x < 360.0 or a.global_position.x > 380.0:
 			continue
 		var skill: BridgeSkill = BridgeSkill.new()
 		if not skill.can_apply(a):
 			continue
 		skill.apply(a)
-		_first_ant = a
-		_bridge_applied = true
-		print("[BridgeOverWaterTest] bridge applied frame=%d pos=%s" % [_frame_count, a.global_position])
-		return
+		_armed_ids[a.get_instance_id()] = true
+		print("[BridgeOverWaterTest] bridge → frame=%d pos=%s (total=%d)" % [_frame_count, a.global_position, _armed_ids.size()])
+		if _armed_ids.size() >= ARM_COUNT:
+			return
 
 func _observe() -> void:
 	if _score == null:
@@ -81,7 +86,7 @@ func _observe() -> void:
 	if _score.lost_pieces > 0:
 		_fail("ant lost in water despite bridge: lost=%d (expected 0)" % _score.lost_pieces)
 		return
-	if not _bridge_applied:
+	if _armed_ids.is_empty():
 		return
 	# saved 도달 시 Water 모두 monitoring=false 확인.
 	if _score.saved_pieces >= 1:
@@ -91,7 +96,7 @@ func _observe() -> void:
 			if (w as HazardBase)._active:
 				still_active += 1
 		if still_active > 0:
-			# bridge가 모든 Water cell 덮지 않으면 발생 가능 — bridge MAX_LENGTH=8, 갭=6 → 모두 덮을 것
+			# 다리 2개 체인(5+1칸)이 갭 6칸 전체를 덮으면 모든 Water 비활성. 일부 잔존 시 경고(체인 미완 가능).
 			print("[BridgeOverWaterTest] warning: %d/%d Water still active" % [still_active, water_nodes.size()])
 		print("[BridgeOverWaterTest] PASS frame=%d saved=%d lost=%d water_active=%d/%d" % [_frame_count, _score.saved_pieces, _score.lost_pieces, still_active, water_nodes.size()])
 		_result_emitted = true

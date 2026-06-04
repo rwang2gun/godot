@@ -1,7 +1,8 @@
 extends Node
 
-# Phase 16 — Bridge가 12-cell 갭에서 MAX_LENGTH=8 도달 시 미완성 종료 + D7 잔재 유지 검증.
-# PASS: 50초 내 tile_count == 8 AND saved_pieces == 0
+# Phase 16 — Bridge가 12-cell 갭에서 MAX_LENGTH=5 도달 시 미완성 종료 + D7 잔재 유지 검증
+# (2026-06-04 캡 8→5).
+# PASS: 50초 내 tile_count == 5 AND saved_pieces == 0
 
 const DEADLINE_FRAMES: int = 3000
 const TRIGGER_X: float = 330.0
@@ -70,10 +71,10 @@ func _check_complete() -> void:
 	if stage != null and stage.get("score_system") != null:
 		saved = (stage.score_system as ScoreSystem).saved_pieces
 	print("[BridgeGapTooLongTest] post-soak tile_count=%d saved=%d" % [tc, saved])
-	if tc == 8 and saved == 0:
+	if tc == 5 and saved == 0:
 		_pass()
 	else:
-		_fail("tile_count=%d (need==8) saved=%d (need==0)" % [tc, saved])
+		_fail("tile_count=%d (need==5) saved=%d (need==0)" % [tc, saved])
 
 func _tile_count() -> int:
 	if _terrain == null:

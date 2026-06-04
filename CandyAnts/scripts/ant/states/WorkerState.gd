@@ -5,13 +5,16 @@ class_name WorkerState extends AntState
 # 회귀 0건. dev_*_layout 사용 stage(cell_size=32)는 새 단위로 placement.
 
 const TICK_SECONDS: float = 0.2
-const TOTAL_TILES: int = 12
+# 계단(builder) 최대 스텝 수 — up-first 1칸 + 대각 (N-1)칸. 다른 건설 스킬과 동일하게 5칸 캡
+# (2026-06-04, 구 12). 미리보기 PlacementPreview.BUILDER_MAX와 이중 SoT — 함께 갱신할 것.
+const BUILDER_MAX_STEPS: int = 5
 
 const SAND_MOUND_TICK: float = 0.25
 const SAND_MOUND_MAX_HEIGHT: int = 5
 
 const BRIDGE_TICK: float = 0.20
-const BRIDGE_MAX_LENGTH: int = 8
+# 다리 최대 길이(칸) — 5칸 캡 (2026-06-04, 구 8). 미리보기 PlacementPreview.BRIDGE_MAX와 이중 SoT.
+const BRIDGE_MAX_LENGTH: int = 5
 
 # Phase 18 — Basher(수평 굴착) + Digger(수직 굴착) 상수.
 # DIGGER_OFF_FLOOR_LIMIT: void 무한 낙하 안전망 (D11, codex R1 H1). 3초 @ 60fps.
@@ -71,7 +74,7 @@ func enter() -> void:
 		_aborted = true
 
 func _enter_builder(a: Ant) -> void:
-	_remaining = TOTAL_TILES
+	_remaining = BUILDER_MAX_STEPS
 	_tick_accum = 0.0
 	_aborted = false
 	_builder_first_tile = true
