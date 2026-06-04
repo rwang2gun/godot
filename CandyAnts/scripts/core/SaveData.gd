@@ -28,6 +28,13 @@ var last_saved_at: String = ""
 var _save_path: String = SAVE_PATH
 
 func _ready() -> void:
+	# 테스트 격리(2026-06-04) — 환경변수 CANDYANTS_SAVE_PATH가 있으면 그 경로를 저장소로 사용한다.
+	# run_test.py가 헤드리스 테스트 실행 시에만 throwaway 경로로 설정 → Campaign/GameFlow 등
+	# stage_cleared/failed를 발화하는 통합 테스트가 실제 user://save.cfg(플레이어 진행)를 오염시키지 않는다.
+	# 일반 게임 실행(에디터/익스포트)은 이 변수가 없으므로 기본 SAVE_PATH(user://save.cfg) 그대로 사용.
+	var override_path: String = OS.get_environment("CANDYANTS_SAVE_PATH")
+	if override_path != "":
+		_save_path = override_path
 	load_or_init()
 	EventBus.stage_cleared.connect(_on_stage_cleared)
 	EventBus.stage_failed.connect(_on_stage_failed)

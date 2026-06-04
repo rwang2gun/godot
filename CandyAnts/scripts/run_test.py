@@ -25,6 +25,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -101,9 +102,28 @@ def main() -> int:
         scene,
         *extra_args,
     ]
-    print(f"[run_test] godot={godot.name} scene={scene}", flush=True)
-    proc = subprocess.run(cmd, cwd=str(ROOT))
-    return proc.returncode
+    # SaveData 격리 — stage_cleared/failed를 발화하는 통합 테스트(Campaign*/GameFlow 등)가 실제
+    # user://save.cfg(플레이어 진행)에 쓰지 않도록, 이 실행 전용 throwaway 저장 경로를 환경변수로 전달한다.
+    # SaveData._ready가 CANDYANTS_SAVE_PATH를 읽어 그 경로를 사용한다(없으면 user://save.cfg 기본).
+    # pid 기반 고유 경로 → 병렬 실행 시에도 충돌 없음. 실행 전후로 .cfg/.bak/.tmp 정리.
+    env = os.environ.copy()
+    save_path = Path(tempfile.gettempdir()) / f"candyants_test_save_{os.getpid()}.cfg"
+    env["CANDYANTS_SAVE_PATH"] = str(save_path)
+
+    def _cleanup_save() -> None:
+        for suffix in ("", ".bak", ".tmp"):
+            try:
+                Path(str(save_path) + suffix).unlink()
+            except FileNotFoundError:
+                pass
+
+    _cleanup_save()  # 이전 잔여 제거 — 결정적 fresh 시작.
+    print(f"[run_test] godot={godot.name} scene={scene} save={save_path.name}", flush=True)
+    try:
+        proc = subprocess.run(cmd, cwd=str(ROOT), env=env)
+        return proc.returncode
+    finally:
+        _cleanup_save()
 
 
 if __name__ == "__main__":
