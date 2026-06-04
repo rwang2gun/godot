@@ -8,6 +8,7 @@ export_presets.cfg
 # 빌드/임포트 산출물
 *.tmp
 *.import
+build/
 
 # IDE/OS
 .vscode/
