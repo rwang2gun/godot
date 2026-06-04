@@ -297,6 +297,10 @@ func _update_sprite() -> void:
 			anim = "carry" if has_candy else "walk"
 		else:
 			anim = "climb"
+	elif s is LadderClimbState:
+		# 막대과자 사다리(sand_mound rung) 수직 등반 — ClimberState와 동일한 등반 모션. 글라이드 중
+		# climb 프레임(720px 캔버스) 전용 scale/position 보정은 아래 _last_anim=="climb" 분기가 처리.
+		anim = "climb"
 	elif s is StairClimbState:
 		# 45° 계단 등반 — 회전은 StairClimbState가 _sprite.rotation으로 적용. 운반 중이면 carry 애니 유지.
 		anim = "carry" if has_candy else "walk"
