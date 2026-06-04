@@ -34,9 +34,10 @@ func _connect_buttons() -> void:
 func _refresh_continue_state() -> void:
 	# Δ4: last_played > 0 AND SceneFlow에 stage 존재 AND is_unlocked
 	var last_id: int = SaveData.last_played_stage
-	SceneFlow.ensure_stage_scan()  # SceneFlow._ready 미경유 진입(standalone)에서도 STAGE_SCENES 채워짐 보장.
+	SceneFlow.ensure_stage_scan()  # standalone 진입에서도 PUBLISHED_STAGE_IDS 채워짐 보장.
+	# 캠페인 published(씬 ∩ menu_layout.available)만 Continue 대상 — 미공개 StageNN 노출 차단(codex HIGH).
 	var can_continue: bool = last_id > 0 \
-		and SceneFlow.STAGE_SCENES.has(last_id) \
+		and SceneFlow.PUBLISHED_STAGE_IDS.has(last_id) \
 		and SaveData.is_unlocked(last_id)
 	_continue_btn.disabled = not can_continue
 

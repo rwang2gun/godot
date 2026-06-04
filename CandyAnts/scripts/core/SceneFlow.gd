@@ -9,33 +9,56 @@ const GameAction := preload("res://scripts/input/GameAction.gd")
 
 enum ScreenState { TITLE, MAIN_MENU, STAGE_SELECT, STAGE }
 
-# 스테이지 라우팅 — `res://scenes/stages/Stage%02d.tscn`를 자동 스캔(레벨 에디터 map-editor 트랙).
-# 구 하드코딩 dict 폐기: 레벨 에디터 Create Stage가 만든 새 스테이지가 별도 코드 수정 없이 자동 등록된다.
+# 스테이지 라우팅 — 두 단계로 분리(codex adversarial-review HIGH 대응, 2026-06-04):
+#   STAGE_SCENES        = `res://scenes/stages/Stage%02d.tscn` 파일 존재 스캔. load_stage(N)/replay/playtest용.
+#                         "파일이 있으면 로드는 가능" — 하지만 캠페인 노출과는 분리한다.
+#   PUBLISHED_STAGE_IDS = STAGE_SCENES ∩ menu_layout.tres `available==true`. **캠페인 SoT.**
+#                         LAST_STAGE_ID(엔드포인트)·load_next_stage(다음)·Continue 가용성은 이쪽만 본다.
+# 근거: 파일 존재만으로 캠페인 routing을 결정하면, 미완성/실수 커밋된 StageNN.tscn이 authored
+#   available 게이트를 우회해 Next로 노출되고 엔드포인트(LAST_STAGE_ID)를 멋대로 옮긴다. authored
+#   menu_layout 플래그를 캠페인 게이트로 유지하되, 씬 스캔으로 신규 스테이지 "로드 가능"은 자동화한다.
 # export 안전: DirAccess(res:// 리매핑 취약) 대신 ResourceLoader.exists로 프로빙.
 # lazy 1회 스캔: static var 초기자에서 직접 스캔하면 클래스 로드 타이밍에 엔진 싱글톤 접근으로 크래시 →
-#   ensure_stage_scan()을 진입점(_ready/load_*/_on_stage_result)에서 호출해 런타임에 1회만 채운다.
-#   MainMenu의 `SceneFlow.STAGE_SCENES.has()`는 SceneFlow._ready(스캔 완료) 이후에만 인스턴스화되므로 채워진 dict를 본다.
+#   ensure_stage_scan()을 진입점(_ready/load_*)에서 호출해 런타임에 1회만 채운다.
 # dev stage(910~)는 패턴/스캔 상한(1..99) 밖이라 자연 제외(기존 동작 유지).
 const STAGE_SCENE_PATTERN := "res://scenes/stages/Stage%02d.tscn"
 const STAGE_SCAN_MAX := 99
+const MENU_LAYOUT_PATH := "res://data/menu_layout.tres"
 static var STAGE_SCENES: Dictionary = {}
+static var PUBLISHED_STAGE_IDS: Dictionary = {}
 static var LAST_STAGE_ID: int = 0
 static var _stage_scan_done := false
 
-# 스테이지 스캔을 1회 보장. SceneFlow._ready를 거치지 않고 STAGE_SCENES/LAST_STAGE_ID를
-# 읽는 외부 호출자(예: MainMenu standalone)도 채워진 값을 보도록 진입점에서 호출한다.
+# 스테이지 스캔을 1회 보장. SceneFlow._ready를 거치지 않고 STAGE_SCENES/PUBLISHED_STAGE_IDS/
+# LAST_STAGE_ID를 읽는 외부 호출자(예: MainMenu standalone)도 채워진 값을 보도록 진입점에서 호출한다.
 static func ensure_stage_scan() -> void:
 	if _stage_scan_done:
 		return
 	_stage_scan_done = true
+	# (1) 씬 스캔 — 파일 존재만(load_stage/replay/playtest용, 캠페인 노출 아님).
 	var scenes := {}
-	var last := 0
 	for id in range(1, STAGE_SCAN_MAX + 1):
 		var path: String = STAGE_SCENE_PATTERN % id
 		if ResourceLoader.exists(path):
 			scenes[id] = path
-			last = maxi(last, id)
 	STAGE_SCENES = scenes
+	# (2) 캠페인 published — 씬 존재 ∩ menu_layout.available. authored 게이트로 미완성 스테이지 노출 차단.
+	# **fail closed**: menu_layout이 없거나 MenuLayout이 아니거나 is_valid()가 거짓이면 published를 비운다.
+	#   (fail open으로 씬 스캔을 전부 published 하면, 손상된 빌드+미공개 StageNN 동시 발생 시 HIGH가 재현됨.)
+	#   is_valid() 통과 시에만 slot 직접 인덱싱(타입·길이·stage_id 정합 보장됨).
+	var published := {}
+	var last := 0
+	var layout: Resource = ResourceLoader.load(MENU_LAYOUT_PATH) if ResourceLoader.exists(MENU_LAYOUT_PATH) else null
+	if layout is MenuLayout and layout.is_valid():
+		for slot: Dictionary in layout.slots:
+			var sid: int = int(slot["stage_id"])
+			if bool(slot["available"]) and scenes.has(sid):
+				published[sid] = scenes[sid]
+				last = maxi(last, sid)
+	else:
+		# 손상된 빌드: 미공개 스테이지를 노출하느니 캠페인을 닫는다(published 비움, LAST_STAGE_ID=0).
+		push_error("[SceneFlow] menu_layout 누락/무효 — 캠페인 published 비움(fail closed)")
+	PUBLISHED_STAGE_IDS = published
 	LAST_STAGE_ID = last
 
 const TITLE_SCENE := "res://scenes/ui/TitleScene.tscn"
@@ -139,8 +162,9 @@ func load_stage(stage_id: int) -> void:
 
 func load_next_stage() -> void:
 	var next_id: int = _current_stage_id + 1
-	if not STAGE_SCENES.has(next_id):
-		# last-stage clear → main menu 복귀 (phase 6 stage1 fallback 폐기, plan §3.5.4)
+	# 캠페인 진행은 published(=씬 ∩ menu_layout.available)만. 미완성/미공개 StageNN 파일이 있어도
+	# Next로 넘어가지 않는다(codex HIGH). 다음 published가 없으면 last-stage clear → main menu.
+	if not PUBLISHED_STAGE_IDS.has(next_id):
 		go_to_main_menu()
 		return
 	load_stage(next_id)
@@ -224,6 +248,14 @@ func _on_request_stage_select() -> void:
 	go_to_stage_select()
 
 func _on_request_play_stage(stage_id: int) -> void:
+	# 캠페인 trust boundary는 여기서 중앙 강제(codex MEDIUM). request_play_stage는 player 경로
+	# (MainMenu Play/Continue·StageSelect 슬롯)이므로 published(=씬 ∩ menu_layout.available)만 허용.
+	# 미공개 StageNN.tscn이 있어도, 어떤 호출자가 request_play_stage(N)을 emit해도 로드되지 않는다.
+	# (replay/내부 직접 진행은 load_stage를 직접 호출 — 이미 published 경유로 들어온 현재 스테이지만 대상.)
+	ensure_stage_scan()
+	if not PUBLISHED_STAGE_IDS.has(stage_id):
+		push_error("[SceneFlow] request_play_stage(%d) 거부 — 미공개 스테이지(campaign gate)" % stage_id)
+		return
 	_overlay.hide_overlay()
 	load_stage(stage_id)
 

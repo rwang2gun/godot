@@ -15,7 +15,7 @@
 - latent bug fix: `available_skills` 타입 명시 빈 배열 대입(Godot 4.6 Invalid assignment 회피).
 - 미저장 변경(dirty) 표시: 콘텐츠 편집 시 제목 + 하단 패널 버튼에 `*`. Load/Save/Create 시 clean. 로드 중 suppress.
 - 프로젝트 런처: `run_level_editor.bat` / `scripts/run_editor.py` — Godot 에디터로 프로젝트 열기(바이너리 재귀 탐색 폴백 포함).
-- **새 스테이지 자동 등록**: `SceneFlow.STAGE_SCENES`를 하드코딩 dict → `res://scenes/stages/Stage%02d.tscn` 자동 스캔(lazy 1회, `ensure_stage_scan()`)으로 전환. Create Stage로 만든 새 스테이지가 게임 플로우(load_next/Continue/boot)에 코드 수정 없이 진입. `MainMenu`는 standalone 진입 대비 `ensure_stage_scan()` 호출. 회귀 가드: `tests/SceneFlowStageScanTest`. **단 StageSelect 그리드는 `data/menu_layout.tres`(고정 10슬롯) 기반이라 선택 화면 노출은 별도 — backlog 유지.**
+- **새 스테이지 등록(2단계, codex 리뷰 반영)**: `SceneFlow`를 `STAGE_SCENES`(파일 존재 스캔, load_stage용)와 `PUBLISHED_STAGE_IDS`(씬 ∩ `menu_layout.tres` available, **캠페인 SoT**)로 분리. `LAST_STAGE_ID`·`load_next`·`_on_request_play_stage`·Continue는 published만. menu_layout 무효 시 **fail closed**. → 새 스테이지는 파일만 있으면 *로드 가능*, *캠페인 노출*은 menu_layout `available=true` 필요(미완성 스테이지 자동 노출 차단). 회귀 가드: `tests/SceneFlowStageScanTest`(Stage10 파일 추가해도 미노출+LAST 9 유지). 제약: 11번째 스테이지는 `MenuLayout.EXPECTED_LENGTH` 확장 필요. codex adversarial-review 3R→approve.
 - 헤드리스 PASS: 데이터 20-assert + dirty 11-assert(임시 하니스, 사후 삭제) + SceneFlow/MainMenu/GameFlow/StageSelect 9개 씬 테스트 + 신규 SceneFlowStageScanTest. 세션 로그: [2026-06-04-skills-hazards-meta.md](2026-06-04-skills-hazards-meta.md).
 - 이전 상태(2026-05-17): 텍스트 좌표 + Grid preview + 큰 Grid 창 + slope tile 타입까지.
 

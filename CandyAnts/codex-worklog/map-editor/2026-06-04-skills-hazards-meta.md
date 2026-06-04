@@ -65,6 +65,31 @@ Godot 4.6에서 `Invalid assignment` 런타임 에러. 타입 명시 빈 배열(
 - **한계**: StageSelect 그리드는 `data/menu_layout.tres` 고정 10슬롯 기반 → 선택 화면 노출은 아직 수동(backlog).
 - 검증: `MainMenuContinueGuardTest`(직전 RED→GREEN) 포함 SceneFlow/MainMenu/GameFlow/StageSelect 9개 + SceneFlowStageScanTest 전부 PASS.
 
+## codex 적대적 리뷰 (사후, 2026-06-04)
+
+`/codex:adversarial-review --base 7255f96`(2커밋) → 이후 working-tree 재리뷰. 3라운드 만에 clean.
+
+- **R1 (needs-attention, HIGH)**: 파일 존재만으로 캠페인 routing 결정 → 미공개 StageNN.tscn이 menu_layout
+  available 게이트를 우회해 Next로 노출되고 LAST_STAGE_ID(엔드포인트)를 이동.
+- **R2 (needs-attention)**: HIGH = menu_layout 누락/무효 시 폴백이 fail-open(씬 전체 published). MEDIUM =
+  `_on_request_play_stage`가 published 우회(중앙 trust boundary 누락).
+- **R3 (approve, no material findings)**.
+
+### 게이팅 수정 (hot-fix)
+- `SceneFlow.gd`: 라우팅을 2단계로 분리.
+  - `STAGE_SCENES` = 파일 존재 스캔(load_stage/replay/playtest용).
+  - `PUBLISHED_STAGE_IDS` = `STAGE_SCENES ∩ menu_layout.tres available==true` = **캠페인 SoT**.
+  - `LAST_STAGE_ID` = max(published). `load_next_stage`·`_on_request_play_stage`는 published만 허용.
+  - **fail closed**: `layout is MenuLayout and layout.is_valid()` 아니면 published 비움(LAST_STAGE_ID=0).
+- `MainMenu.gd`: Continue 가용성 `STAGE_SCENES` → `PUBLISHED_STAGE_IDS`.
+- 회귀: `SceneFlowStageScanTest` 갱신 — Stage10.tscn 파일 추가해도 (slot10 unavailable) 캠페인 미노출 + LAST_STAGE_ID=9 유지.
+- 검증: SceneFlow/MainMenu/GameFlow/StageSelect 11개 씬 테스트 PASS.
+
+### 신규 출시(publish) 워크플로 + 제약
+- 새 스테이지 **로드 가능**: `Stage%02d.tscn` 파일만 있으면 자동(씬 스캔).
+- 새 스테이지 **캠페인 노출**: menu_layout.tres 해당 slot `available=true`로 설정(authored 게이트).
+- **제약**: `MenuLayout.EXPECTED_LENGTH=10` → 슬롯 10번까지는 available 토글만, **11번째 스테이지는 menu_layout 슬롯 + EXPECTED_LENGTH 확장 필요**(기존 menu_layout 계약과 동일, StageSelect도 같은 제약).
+
 ## 알려진 한계 / 다음 작업
 - 해저드 배치는 기존 그리드 placeable 영역(y≤27)과 동일 제약. 바닥 아래 물웅덩이(y>27)는 그리드 bounds 재작업 필요(기존 backlog).
 - 레거시 스테이지(03/08/09)의 씬-only 해저드는 hazard_map에 없어 Load 시 그리드에 표시되지 않음(에디터 저작 스테이지만 라운드트립).
