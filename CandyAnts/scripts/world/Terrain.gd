@@ -105,6 +105,52 @@ func destroy_tile_at(
 	_stair_cells.erase(cell)          # 계단 타일이면 stair registry도 정리 (아니면 no-op)
 	return true
 
+# Phase 19 (2026-06-04 개정) — Cutter 전용 덩쿨 일괄 절단. start_cell에서 4-방향으로 연결된 모든 "plant" cell을
+# flood-fill로 찾아 한 번에 파괴하고, 각 cell 자리에 떨어져 부서지는 디브리(PlantDebris)를 스폰한다. 반환: 제거 수.
+# 전파는 kind=="plant"만 — earth/cookie/공기는 경계가 되어 전파를 멈춘다(cross-mechanic 침범 차단, EdgeStop 보존).
+# destroy_tile_at(["plant"])로 실제 제거하므로 hazard registry·정적/동적 invariant는 기존 atomic 경로 그대로 따른다.
+# _SHATTER_MAX_CELLS로 BFS 폭주를 방어적으로 상한.
+const _SHATTER_MAX_CELLS: int = 256
+# preload로 참조 — class_name 글로벌 캐시(.godot import) 의존 없이 헤드리스에서도 안정 (SkillRegistry 패턴).
+const PlantDebrisScript := preload("res://scripts/world/PlantDebris.gd")
+
+func shatter_connected_plants(start_cell: Vector2i) -> int:
+	if get_cell_kind(start_cell) != "plant":
+		return 0
+	# 1) flood-fill로 연결 plant 클러스터 수집 (4-이웃, seen으로 중복 방지).
+	var cells: Array[Vector2i] = []
+	var seen: Dictionary = {start_cell: true}
+	var stack: Array[Vector2i] = [start_cell]
+	while not stack.is_empty() and cells.size() < _SHATTER_MAX_CELLS:
+		var c: Vector2i = stack.pop_back()
+		if get_cell_kind(c) != "plant":
+			continue
+		cells.append(c)
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = c + d
+			if seen.has(n):
+				continue
+			seen[n] = true
+			if get_cell_kind(n) == "plant":
+				stack.append(n)
+	# 2) 각 cell: destroy 전 원본 Sprite 텍스처 캡처 → 디브리 스폰 → 파괴.
+	var removed: int = 0
+	for c in cells:
+		_spawn_plant_debris(c)
+		if destroy_tile_at(c, ["plant"]):
+			removed += 1
+	return removed
+
+# 잘린 plant cell 자리에 떨어지는 디브리 스폰 — destroy_tile_at 직전 호출(원본 PlantVisual Sprite가 살아있을 때).
+# 텍스처/위치를 캡처해 PlantDebris.setup에 넘긴다. 텍스처가 없으면(미등록/슬로프 등) no-op — 시각만이라 무해.
+func _spawn_plant_debris(cell: Vector2i) -> void:
+	var spr: Sprite2D = _cell_sprite(cell)
+	if spr == null or spr.texture == null:
+		return
+	var debris: Node2D = PlantDebrisScript.new()
+	add_child(debris)
+	debris.setup(spr.texture, spr.global_position, cell_size)
+
 func add_tile(cell: Vector2i, visual_style: String = DYNAMIC_TILE_BRIDGE, visual_direction: int = 1) -> bool:
 	# D8 first-place wins — 동적/정적 어느 쪽이든 점유면 reject.
 	if _placed.has(cell) or _static_occupancy.has(cell):

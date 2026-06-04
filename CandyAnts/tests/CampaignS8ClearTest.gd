@@ -1,11 +1,11 @@
 extends Node
 
-# Campaign S8 "박하 덤불" — cutter로 식물 벽(cols12-14 rows5-9)에 수평 통로를 절단해 Home↔Candy 횡단.
+# Campaign S8 "박하 덤불" — cutter로 식물 벽(cols12-14 rows5-9)을 통째로 베어 Home↔Candy 횡단.
 # 경로 중간 sticky(cols5-7 row9)는 개미를 잠시 정지시키지만 죽이지 않는다(lost==0 불변).
 # 플레이어 모사:
 #   우향 보행 중(미운반)인 개미의 **전방 body cell이 plant**일 때 CutterSkill 적용 → WorkerState("cutter")가
-#   body row를 CUTTER_MAX_CELLS까지 절단하고 벽 끝(공기)에서 자연 종료 → walker 복귀 → candy로 진행.
-#   통로는 영구라 후속 개미·귀가 개미가 같은 통로로 통행(시전 1회로 충분, forward-plant 게이트라 재시전 없음).
+#   전방 덩쿨과 연결된 plant 클러스터 전체를 flood-fill로 1회 제거(Terrain.shatter_connected_plants) → walker 복귀.
+#   덩쿨이 통째로 사라져 길이 영구히 열리므로 후속·귀가 개미가 같은 길로 통행(시전 1회로 충분, forward-plant 게이트라 재시전 없음).
 # candy_hp 4 → 4마리가 candy를 회수해 귀가하면 클리어. PASS: stage_cleared && saved>=4 && lost==0.
 # FAIL: stage_failed / deadline / saved<4 / lost>0.
 

@@ -25,9 +25,10 @@ const DIGGER_TICK: float = 0.20
 const DIGGER_MAX_CELLS: int = 12
 const DIGGER_OFF_FLOOR_LIMIT: int = 180
 
-# Phase 19 — Cutter 수평 절단(식물). Basher 패턴 답습, kind 검사만 "plant"로 교체.
+# Phase 19 (2026-06-04 개정) — Cutter 덩쿨 일괄 절단. 구 수평 march(Basher와 동형, 1 row만 제거)를 폐기하고,
+# 전방 plant와 4-방향 연결된 덩쿨 전체를 한 번에 flood-fill 제거한다(Terrain.shatter_connected_plants).
+# 잘린 타일은 지면으로 떨어지며 부서지는 디브리(PlantDebris)로 연출. CUTTER_TICK = 절단 발동 전 wind-up 1틱.
 const CUTTER_TICK: float = 0.18
-const CUTTER_MAX_CELLS: int = 12
 
 var _work_type: String = ""
 var _remaining: int = 0
@@ -113,7 +114,6 @@ func _enter_digger(a: Ant) -> void:
 	a.velocity = Vector2.ZERO
 
 func _enter_cutter(a: Ant) -> void:
-	_remaining = CUTTER_MAX_CELLS
 	_tick_accum = 0.0
 	_aborted = false
 	a.velocity = Vector2.ZERO
@@ -553,10 +553,13 @@ func _digger_below_has_earth(a: Ant) -> bool:
 	)
 	return terrain.get_cell_kind(body_cell + Vector2i(0, 1)) == "earth"
 
-# Phase 19 — Cutter 수평 절단. Basher 구조 답습. forward body row cell이 "plant" kind일 때만 destroy.
+# Phase 19 (2026-06-04 개정) — Cutter 덩쿨 일괄 절단. wind-up 1틱 후, 전방 plant와 연결된 덩쿨 전체를
+# flood-fill로 한 번에 제거(Terrain.shatter_connected_plants)하고 즉시 Walker 복귀. 구 수평 march(1 row만
+# 잘라 Basher와 동형)를 폐기 — 덩쿨이 세로로 매달려도 한 번에 통째로 베어 길을 연다.
 # off-floor 시 즉시 _aborted → Faller (절벽 끝에서 활성화 안전망, Basher와 동일).
+# 전방에 plant가 없으면(earth/공기) 아무것도 제거하지 않고 Walker 복귀 — cross-kind 침범 차단.
 func _update_cutter(a: Ant, delta: float) -> void:
-	if _aborted or _remaining <= 0:
+	if _aborted:
 		a.return_to_walking()
 		return
 	a.velocity.y += a.gravity * delta
@@ -567,40 +570,26 @@ func _update_cutter(a: Ant, delta: float) -> void:
 		a.state_machine.change_state(FallerState.new())
 		return
 	_tick_accum += delta
-	while _tick_accum >= CUTTER_TICK and _remaining > 0 and not _aborted:
-		_tick_accum -= CUTTER_TICK
-		if not _cutter_forward_has_plant(a):
-			_aborted = true
-			break
-		_destroy_cutter_cell(a)
-	if _aborted or _remaining <= 0:
-		a.return_to_walking()
-
-func _destroy_cutter_cell(a: Ant) -> void:
-	var terrain: Terrain = _find_terrain(a)
-	if terrain == null:
-		_aborted = true
+	if _tick_accum < CUTTER_TICK:
 		return
+	# 절단은 1회성 — 전방 덩쿨과 연결된 plant 전체를 통째로 제거하고 종료.
+	if _cutter_forward_has_plant(a):
+		var terrain: Terrain = _find_terrain(a)
+		if terrain != null:
+			terrain.shatter_connected_plants(_cutter_forward_cell(a, terrain))
+	_aborted = true
+	a.return_to_walking()
+
+func _cutter_forward_cell(a: Ant, terrain: Terrain) -> Vector2i:
 	var cs: int = terrain.cell_size
 	var body_cell: Vector2i = Vector2i(
 		int(floor(a.global_position.x / cs)),
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
-	var target: Vector2i = body_cell + Vector2i(a.direction, 0)
-	var ok: bool = terrain.destroy_tile_at(target, ["plant"])
-	if not ok:
-		_aborted = true
-		return
-	a.global_position += Vector2(float(a.direction) * cs, 0.0)
-	_remaining -= 1
+	return body_cell + Vector2i(a.direction, 0)
 
 func _cutter_forward_has_plant(a: Ant) -> bool:
 	var terrain: Terrain = _find_terrain(a)
 	if terrain == null:
 		return false
-	var cs: int = terrain.cell_size
-	var body_cell: Vector2i = Vector2i(
-		int(floor(a.global_position.x / cs)),
-		int(floor((a.global_position.y - 2.0) / cs))
-	)
-	return terrain.get_cell_kind(body_cell + Vector2i(a.direction, 0)) == "plant"
+	return terrain.get_cell_kind(_cutter_forward_cell(a, terrain)) == "plant"
