@@ -102,31 +102,46 @@ func _process(delta: float) -> void:
 
 	var candy_hp: int = _candy.hp if _candy != null else 0
 
+	# 스테이지 종료 판정 — 더 이상 진행 불가하거나 시간이 끝나면 종료하고, 그 시점의 별점으로
+	# 클리어/실패를 가른다. 2026-06-04 정책: 별 1개 이상(저장 비율 ≥ 1성 임계)이면 클리어.
+	#   (1) is_cleared      = 모든 사탕 처리(저장 또는 손실) 완료.
+	#   (2) no_more_ants    = 남은 개미 0 + 운반 중 0 → 더 옮길 수 없음(미수거 사탕이 남아도 종료).
+	#   (3) time_out        = 제한 시간 종료.
+	var reason: String = ""
+	var concluded: bool = false
 	if score_system.is_cleared(candy_hp):
+		concluded = true
+	elif _spawner_finished and _living_ant_count() == 0 and score_system.in_transit_pieces == 0:
+		concluded = true
+		reason = "no_more_ants"
+	elif _time_left <= 0.0:
+		concluded = true
+		reason = "time_out"
+
+	if concluded:
 		_completed = true
-		# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
+		_conclude_stage(reason)
+
+# 종료 시점 별점으로 클리어/실패 확정. 별 1개 이상이면 stage_cleared emit →
+# SaveData가 cleared=true 기록 → is_unlocked(다음 스테이지) true → 다음 스테이지 진입 가능.
+func _conclude_stage(fail_reason: String) -> void:
+	var cleared: bool = score_system.score() >= _one_star_threshold()
+	# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
+	if cleared:
 		EventBus.sfx_request.emit(&"stage_cleared")
 		EventBus.stage_cleared.emit(_make_result(true, ""))
-		_disable_toolbar()
-		return
-
-	if (_spawner_finished
-		and _living_ant_count() == 0
-		and score_system.in_transit_pieces == 0
-		and candy_hp > 0):
-		_completed = true
-		# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
+	else:
 		EventBus.sfx_request.emit(&"stage_failed")
-		EventBus.stage_failed.emit(_make_result(false, "no_more_ants"))
-		_disable_toolbar()
-		return
+		EventBus.stage_failed.emit(_make_result(false, fail_reason if fail_reason != "" else "incomplete"))
+	_disable_toolbar()
 
-	if _time_left <= 0.0:
-		_completed = true
-		# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
-		EventBus.sfx_request.emit(&"stage_failed")
-		EventBus.stage_failed.emit(_make_result(false, "time_out"))
-		_disable_toolbar()
+# 1성(별 1개) 임계값. stage_data.star_thresholds[0]가 있으면 사용, 없으면 글로벌 Scoring fall-back.
+# Scoring.compute_stars(=UI/SaveData 별점)와 동일 임계를 써 "별 1개" 정의를 단일 SoT로 유지한다.
+func _one_star_threshold() -> float:
+	var th: Array = stage_data.star_thresholds
+	if th != null and not th.is_empty():
+		return float(th[0])
+	return float(Scoring.STAR_THRESHOLDS[0])
 
 func _disable_toolbar() -> void:
 	# codex plan-review v1 HIGH-2: direct ref 라우팅 — global group lookup 사용 X.
@@ -174,8 +189,14 @@ func _living_ant_count() -> int:
 	for n in get_tree().get_nodes_in_group("ants"):
 		if not is_instance_valid(n):
 			continue
-		if _spawn_parent.is_ancestor_of(n):
-			count += 1
+		if not _spawn_parent.is_ancestor_of(n):
+			continue
+		# 2026-06-04 — 물 표류(AdriftState) 개미는 정상 루트 복귀 불가한 종착 상태라 "남은 개미"에서 제외.
+		# 표류 개미가 queue_free되지 않고 그룹에 남아도 no_more_ants(스테이지 종료) 판정을 막지 않도록 한다.
+		var a: Ant = n as Ant
+		if a != null and a.state_machine != null and a.state_machine.current_state is AdriftState:
+			continue
+		count += 1
 	return count
 
 func _on_spawner_finished() -> void:
