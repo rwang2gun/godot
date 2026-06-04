@@ -191,11 +191,14 @@ func _living_ant_count() -> int:
 			continue
 		if not _spawn_parent.is_ancestor_of(n):
 			continue
-		# 2026-06-04 — 물 표류(AdriftState) 개미는 정상 루트 복귀 불가한 종착 상태라 "남은 개미"에서 제외.
-		# 표류 개미가 queue_free되지 않고 그룹에 남아도 no_more_ants(스테이지 종료) 판정을 막지 않도록 한다.
+		# 2026-06-04 — 물 표류(AdriftState)·낙하 기절(DeadState) 개미는 정상 루트 복귀 불가한 종착 상태라
+		# "남은 개미"에서 제외. 종료까지 queue_free되지 않고 그룹에 남아도 no_more_ants(스테이지 종료)
+		# 판정을 막지 않도록 한다(기절도 표류처럼 종료까지 화면에 유지되는 정책으로 통일).
 		var a: Ant = n as Ant
-		if a != null and a.state_machine != null and a.state_machine.current_state is AdriftState:
-			continue
+		if a != null and a.state_machine != null:
+			var st: AntState = a.state_machine.current_state
+			if st is AdriftState or st is DeadState:
+				continue
 		count += 1
 	return count
 

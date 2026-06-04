@@ -283,7 +283,7 @@ func _update_sprite() -> void:
 	var s: AntState = state_machine.current_state
 	var anim: String = "idle"
 	if s is DeadState:
-		anim = "stun"   # 기절 — 5칸+ 낙하(non-floater). DeadState가 기절 스프라이트 재생 후 ~1초 뒤 queue_free.
+		anim = "stun"   # 기절 — 5칸+ 낙하(non-floater). DeadState가 스테이지 종료까지 기절 스프라이트 재생(swim 표류와 동일, queue_free 없음).
 	elif s is AdriftState:
 		anim = "swim"   # 물 표류 — 수면에서 헤엄(swim) 모션. AdriftState가 매 frame 부유 위치를 갱신.
 	elif s is CarryingState:
