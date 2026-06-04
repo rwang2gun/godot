@@ -34,7 +34,7 @@
 
 | 스킬 | 스크립트 | dev 테스트 레벨 (`dev_stages/`) | 추가 레이아웃 fixture (`data/stage_layouts/`) | 헤드리스 테스트(`tests/`) |
 |---|---|---|---|---|
-| **builder** | `BuilderSkill.gd` | — | — | `tests/*Builder*` |
+| **builder** | `BuilderSkill.gd` | `builder_chain/` | — | `tests/*Builder*` |
 | **blocker** | `BlockerSkill.gd` | — | — | `tests/*Blocker*` |
 | **climber** | `ClimberSkill.gd` | — | — | `tests/Climber*` |
 | **floater** | `FloaterSkill.gd` | — | — | `tests/Floater*` |
@@ -71,6 +71,7 @@
 | `basher_digger_chain` | BasherDiggerChainTest.tscn | basher · digger |
 | `digger_pillar` | DiggerPillarTest.tscn | digger |
 | `cutter_vine` | CutterVineTest.tscn | cutter |
+| `builder_chain` | BuilderChainStage.tscn | builder (계단 끝 낭떠러지 체인 건설) |
 | `bridge` | BridgeTest.tscn | bridge |
 | `bridge_over_overlap` | BridgeOverOverlapTest.tscn | bridge |
 | `bridge_over_water` | BridgeOverWaterTest.tscn | bridge · water |
