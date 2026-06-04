@@ -3,8 +3,21 @@
 ## 목적
 인게임/에디터 내 스테이지 맵 에디터 툴. Godot 에디터 플러그인 기반 long-running 트랙.
 
-## 현재 상태 (2026-05-17 기준)
-**텍스트 좌표 입력 + Grid preview + 별도 큰 Grid Editor 창 + slope tile 타입** 단계. 완성형 레벨 에디터는 아니지만, 플랫폼 칸은 GUI 모눈에서 직접 그리기/지우기가 가능하고 solid/slope_right/slope_left 타입을 칠할 수 있다.
+## 현재 상태 (2026-06-04 기준)
+**텍스트 좌표 입력 + Grid preview + 별도 큰 Grid Editor 창 + slope tile 타입 + 전체 스킬/해저드/메타 저작** 단계.
+플랫폼 칸은 GUI 모눈에서 직접 그리기/지우기(solid/slope_right/slope_left), 해저드(water/sticky)도 같은 모눈에서 페인팅 가능.
+스킬은 SkillRegistry 등록 9종 전부를 횟수와 함께 설정하고, spawn 방향·theme·정착 cell·별 기준(star_thresholds)도 GUI로 편집한다.
+
+### 2026-06-04 추가 (skills-hazards-meta)
+- 스킬 9종(builder/blocker/climber/floater/sand_mound/bridge/basher/digger/cutter) × 횟수 SpinBox. distributor는 미등록이라 제외.
+- 해저드 브러시(Water/Sticky) → `StageLayoutData.hazard_map`에 저장, 씬 생성 시 `Water_x_y`/`Sticky_x_y` 노드 인스턴스화.
+- 메타 GUI: spawn dir(+1/-1)·alternate·theme(5종)·settlement cell(센티넬 -1,-1)·star override(off=글로벌 fallback).
+- latent bug fix: `available_skills` 타입 명시 빈 배열 대입(Godot 4.6 Invalid assignment 회피).
+- 미저장 변경(dirty) 표시: 콘텐츠 편집 시 제목 + 하단 패널 버튼에 `*`. Load/Save/Create 시 clean. 로드 중 suppress.
+- 프로젝트 런처: `run_level_editor.bat` / `scripts/run_editor.py` — Godot 에디터로 프로젝트 열기(바이너리 재귀 탐색 폴백 포함).
+- **새 스테이지 자동 등록**: `SceneFlow.STAGE_SCENES`를 하드코딩 dict → `res://scenes/stages/Stage%02d.tscn` 자동 스캔(lazy 1회, `ensure_stage_scan()`)으로 전환. Create Stage로 만든 새 스테이지가 게임 플로우(load_next/Continue/boot)에 코드 수정 없이 진입. `MainMenu`는 standalone 진입 대비 `ensure_stage_scan()` 호출. 회귀 가드: `tests/SceneFlowStageScanTest`. **단 StageSelect 그리드는 `data/menu_layout.tres`(고정 10슬롯) 기반이라 선택 화면 노출은 별도 — backlog 유지.**
+- 헤드리스 PASS: 데이터 20-assert + dirty 11-assert(임시 하니스, 사후 삭제) + SceneFlow/MainMenu/GameFlow/StageSelect 9개 씬 테스트 + 신규 SceneFlowStageScanTest. 세션 로그: [2026-06-04-skills-hazards-meta.md](2026-06-04-skills-hazards-meta.md).
+- 이전 상태(2026-05-17): 텍스트 좌표 + Grid preview + 큰 Grid 창 + slope tile 타입까지.
 
 ### 산출물 위치
 - 플러그인: `addons/candyants_level_tool/` (하단 패널 `CandyAnts Level` + `Project > Tools > CandyAnts Level Tool`)
@@ -33,13 +46,14 @@
 `StageData.gd`·`StageLayoutBuilder.gd`에서 `StageLayoutData` 타입을 직접 참조 시, 스크립트 캐시가 새 `class_name`을 등록 못 한 타이밍에 "타입을 찾을 수 없음" 오류 발생 가능 → export 타입을 `Resource`로 낮춰 순서 의존성 제거.
 
 ## 다음 작업
-- Home/Candy/Spawner 배치 모드 추가
-- 마커 클릭/드래그 이동
+- Home/Candy/Spawner 배치 모드 추가 (마커 클릭/드래그 이동)
 - 현재 grid에서 stage bounds/카메라 프레임 오버레이 표시
-- 기존 스테이지 불러오기/수정
 - 지우개, 선 긋기, 사각형 채우기
 - Save Layout과 Create Stage 분리
-- Playtest Stage 버튼
+- Playtest Stage 버튼 (이번 범위에서 제외됨)
+- 해저드 배치를 바닥 아래(y>27)까지 허용 — 그리드 bounds 재작업 필요(현재 y≤27 제약 공유)
+- 레거시 스테이지(03/08/09) 씬-only 해저드를 hazard_map으로 마이그레이션(현재 Load 시 미표시)
+- StageSelect 그리드(`data/menu_layout.tres` 고정 10슬롯)에 새 스테이지 자동 노출 — SceneFlow 라우팅은 자동(2026-06-04)이나 선택 화면은 아직 수동
 - ~~기존 `Stage01~03` layout 마이그레이션~~ — **데이터 레벨 완료** (2026-05-29). Stage01=commit `a4cc9d7`, Stage02/03=3-tier(surface/solid/background)로 재작성 (`scripts/tools/build_stage_3tier_layout.py` 생성기 + [worklog](../../worklog/2026-05/2026-05-29-stage-3tier-layout-migration.md)). 단, **에디터에는 아직 surface/background 브러시가 없어** 위 생성기로 hand-author했다. 에디터 기반 3-tier 저작을 하려면 brush + 자동 깊이 채움 추가 필요 (아래 신규 항목).
 - **(신규)** 에디터에 `surface`/`background` tile 브러시 + 바닥 아래 자동 background 채움 추가 (3-tier 저작 지원)
 - 스테이지 선택/진행 흐름에 새 스테이지 자동 등록

@@ -5,6 +5,7 @@ class GridPreview:
 	extends Control
 
 	signal tile_map_changed(tile_map: Dictionary)
+	signal hazard_map_changed(hazard_map: Dictionary)
 
 	const GRID_COLUMNS := 60
 	const GRID_ROWS := 34
@@ -13,11 +14,16 @@ class GridPreview:
 	const TILE_SLOPE_RIGHT := "slope_right"
 	const TILE_SLOPE_LEFT := "slope_left"
 	const TILE_ERASE := "erase"
+	# 해저드 브러시 — tile_map이 아니라 hazard_map에 칠해진다.
+	const TILE_WATER := "water"
+	const TILE_STICKY := "sticky"
 
 	var tile_map: Dictionary = {}
+	var hazard_map: Dictionary = {}
 	var home_cell := Vector2i(12, 27)
 	var candy_cell := Vector2i(44, 27)
 	var camera_cell := Vector2i(30, 17)
+	var settlement_cell := Vector2i(-1, -1)
 	var preview_cell_size := 16
 	var brush_tile_type := TILE_SOLID
 	var _paint_button := 0
@@ -37,14 +43,19 @@ class GridPreview:
 		tile_map = next_tile_map.duplicate()
 		queue_redraw()
 
+	func set_hazard_map(next_hazard_map: Dictionary) -> void:
+		hazard_map = next_hazard_map.duplicate()
+		queue_redraw()
+
 	func set_brush_tile_type(next_tile_type: String) -> void:
 		brush_tile_type = next_tile_type
 		queue_redraw()
 
-	func set_markers(next_home_cell: Vector2i, next_candy_cell: Vector2i, next_camera_cell: Vector2i) -> void:
+	func set_markers(next_home_cell: Vector2i, next_candy_cell: Vector2i, next_camera_cell: Vector2i, next_settlement_cell: Vector2i = Vector2i(-1, -1)) -> void:
 		home_cell = next_home_cell
 		candy_cell = next_candy_cell
 		camera_cell = next_camera_cell
+		settlement_cell = next_settlement_cell
 		queue_redraw()
 
 	func _gui_input(event: InputEvent) -> void:
@@ -74,6 +85,11 @@ class GridPreview:
 				var rect := _cell_rect(cell).grow(-1.0)
 				_draw_tile(rect, str(tile_map[key]))
 
+		for hazard_key in hazard_map.keys():
+			var hazard_cell := _cell_from_key(str(hazard_key))
+			if _is_cell_in_bounds(hazard_cell) and _is_cell_placeable(hazard_cell):
+				_draw_hazard(_cell_rect(hazard_cell).grow(-1.0), str(hazard_map[hazard_key]))
+
 		for x in range(GRID_COLUMNS + 1):
 			var x_pos := float(x * preview_cell_size)
 			var color := Color(1, 1, 1, 0.28) if x % 5 == 0 else Color(1, 1, 1, 0.12)
@@ -86,6 +102,8 @@ class GridPreview:
 		_draw_marker(home_cell, Color(0.18, 0.85, 0.36), "H")
 		_draw_marker(candy_cell, Color(1.0, 0.28, 0.62), "C")
 		_draw_marker(camera_cell, Color(0.35, 0.65, 1.0), "K")
+		if settlement_cell.x >= 0:
+			_draw_marker(settlement_cell, Color(0.85, 0.75, 0.2), "S")
 		var limit_y := float((MAX_PLATFORM_ROW + 1) * preview_cell_size)
 		draw_line(Vector2(0, limit_y), Vector2(bounds.size.x, limit_y), Color(1.0, 0.2, 0.15, 0.85), 2.0)
 		draw_rect(bounds, Color(1, 1, 1, 0.22), false, 2.0)
@@ -95,15 +113,27 @@ class GridPreview:
 		if not _is_cell_in_bounds(cell) or not _is_cell_placeable(cell):
 			return
 		var key := _cell_key(cell)
-		var changed := false
+		# 우클릭 또는 Erase 브러시 = 타일·해저드 모두 지움.
 		if _paint_button == MOUSE_BUTTON_RIGHT or brush_tile_type == TILE_ERASE:
-			if tile_map.has(key):
-				tile_map.erase(key)
-				changed = true
-		elif tile_map.get(key, "") != brush_tile_type:
+			var tile_erased := tile_map.erase(key)
+			var hazard_erased := hazard_map.erase(key)
+			if tile_erased or hazard_erased:
+				queue_redraw()
+			if tile_erased:
+				tile_map_changed.emit(tile_map.duplicate())
+			if hazard_erased:
+				hazard_map_changed.emit(hazard_map.duplicate())
+			return
+		# 해저드 브러시 = hazard_map에 칠함.
+		if brush_tile_type == TILE_WATER or brush_tile_type == TILE_STICKY:
+			if hazard_map.get(key, "") != brush_tile_type:
+				hazard_map[key] = brush_tile_type
+				queue_redraw()
+				hazard_map_changed.emit(hazard_map.duplicate())
+			return
+		# 일반 타일 브러시.
+		if tile_map.get(key, "") != brush_tile_type:
 			tile_map[key] = brush_tile_type
-			changed = true
-		if changed:
 			queue_redraw()
 			tile_map_changed.emit(tile_map.duplicate())
 
@@ -127,6 +157,14 @@ class GridPreview:
 		else:
 			draw_rect(rect, Color(0.92, 0.60, 0.28, 1.0), true)
 			draw_rect(rect, Color(0.45, 0.24, 0.12, 1.0), false, 1.0)
+
+	func _draw_hazard(rect: Rect2, hazard_type: String) -> void:
+		if hazard_type == TILE_STICKY:
+			draw_rect(rect, Color(0.82, 0.52, 0.16, 0.55), true)
+			draw_rect(rect, Color(0.55, 0.32, 0.08, 0.9), false, 1.0)
+		else:
+			draw_rect(rect, Color(0.20, 0.52, 1.0, 0.5), true)
+			draw_rect(rect, Color(0.12, 0.32, 0.7, 0.9), false, 1.0)
 
 	func _draw_marker(cell: Vector2i, color: Color, label: String) -> void:
 		if not _is_cell_in_bounds(cell):
@@ -158,14 +196,38 @@ class GridPreview:
 
 var editor_interface: EditorInterface = null
 
+# 미저장 변경(dirty) 추적. 제목/하단 패널 버튼에 `*` 표시.
+signal dirty_changed(is_dirty: bool)
+const BASE_TITLE := "CandyAnts Level"
+var _dirty := false
+var _suppress_dirty := true  # _ready/로드 중 프로그램적 값 변경이 dirty로 오인되지 않도록.
+var _title_label: Label
+
+# SkillRegistry.SKILL_SCRIPTS에 등록된 9종(= validate_stage 통과). distributor는 미등록이라 제외.
+const SKILL_IDS: Array[String] = [
+	"builder", "blocker", "climber", "floater", "sand_mound",
+	"bridge", "basher", "digger", "cutter",
+]
+const THEME_NAMES: Array[String] = [
+	"cookie_crust", "cookie_segment", "thin_floor", "cookie_bridge_tile", "thin_bridge",
+]
+
 var _id_spin: SpinBox
 var _name_edit: LineEdit
 var _total_ants_spin: SpinBox
 var _candy_hp_spin: SpinBox
 var _time_limit_spin: SpinBox
 var _release_rate_spin: SpinBox
-var _builder_spin: SpinBox
-var _blocker_spin: SpinBox
+var _skill_spins: Dictionary = {}
+var _theme_option: OptionButton
+var _spawn_dir_option: OptionButton
+var _spawn_alt_check: CheckBox
+var _settlement_check: CheckBox
+var _settlement_x_spin: SpinBox
+var _settlement_y_spin: SpinBox
+var _star_override_check: CheckBox
+var _star_spins: Array[SpinBox] = []
+var _hazard_map: Dictionary = {}
 var _cell_size_spin: SpinBox
 var _home_cell_x_spin: SpinBox
 var _home_cell_y_spin: SpinBox
@@ -186,10 +248,10 @@ func _ready() -> void:
 	name = "CandyAnts Level"
 	custom_minimum_size = Vector2(300, 0)
 
-	var title := Label.new()
-	title.text = "CandyAnts Level"
-	title.add_theme_font_size_override("font_size", 18)
-	add_child(title)
+	_title_label = Label.new()
+	_title_label.text = BASE_TITLE
+	_title_label.add_theme_font_size_override("font_size", 18)
+	add_child(_title_label)
 
 	_id_spin = _add_spin("Stage ID", 4, 1, 99, 1)
 	_name_edit = _add_line_edit("Name", "새 스테이지")
@@ -209,8 +271,47 @@ func _ready() -> void:
 	_release_rate_spin = _add_spin("Release Rate", 30, 1, 99, 1)
 
 	_add_section("Skills")
-	_builder_spin = _add_spin("Builder", 3, 0, 99, 1)
-	_blocker_spin = _add_spin("Blocker", 0, 0, 99, 1)
+	var skills_hint := Label.new()
+	skills_hint.text = "Count 0 = 미사용. Count > 0 = available_skills + skill_inventory에 등록."
+	skills_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(skills_hint)
+	for skill_id: String in SKILL_IDS:
+		_skill_spins[skill_id] = _add_spin(skill_id, 0, 0, 99, 1)
+
+	_add_section("Stage Meta")
+	_spawn_dir_option = OptionButton.new()
+	_spawn_dir_option.add_item("Right (+1)", 1)
+	_spawn_dir_option.add_item("Left (-1)", 0)
+	add_child(_labeled_control("Spawn Dir", _spawn_dir_option))
+	_spawn_alt_check = CheckBox.new()
+	_spawn_alt_check.text = "Alternate spawn direction"
+	add_child(_spawn_alt_check)
+
+	_theme_option = OptionButton.new()
+	for theme_index in range(THEME_NAMES.size()):
+		_theme_option.add_item(THEME_NAMES[theme_index], theme_index)
+	add_child(_labeled_control("Theme", _theme_option))
+
+	_settlement_check = CheckBox.new()
+	_settlement_check.text = "Use settlement marker (분배자)"
+	_settlement_check.toggled.connect(_on_settlement_toggled)
+	add_child(_settlement_check)
+	_settlement_x_spin = _add_spin("Settle Cell X", 30, -200, 200, 1)
+	_settlement_y_spin = _add_spin("Settle Cell Y", 27, -200, 200, 1)
+	_settlement_x_spin.editable = false
+	_settlement_y_spin.editable = false
+	_settlement_x_spin.value_changed.connect(_on_marker_spin_changed)
+	_settlement_y_spin.value_changed.connect(_on_marker_spin_changed)
+
+	_star_override_check = CheckBox.new()
+	_star_override_check.text = "Override star thresholds (off = 글로벌 fallback)"
+	_star_override_check.toggled.connect(_on_star_override_toggled)
+	add_child(_star_override_check)
+	var star_defaults := [0.6, 0.8, 1.0]
+	for star_index in range(3):
+		var star_spin := _add_spin("Star %d" % (star_index + 1), star_defaults[star_index], 0.0, 1.0, 0.05)
+		star_spin.editable = false
+		_star_spins.append(star_spin)
 
 	_add_section("Layout")
 	_cell_size_spin = _add_spin("Cell Size", 32, 8, 128, 8)
@@ -240,6 +341,8 @@ func _ready() -> void:
 	_brush_option.add_item("Slope Right", 1)
 	_brush_option.add_item("Slope Left", 2)
 	_brush_option.add_item("Erase", 3)
+	_brush_option.add_item("Water", 4)
+	_brush_option.add_item("Sticky", 5)
 	_brush_option.item_selected.connect(_on_brush_selected)
 	add_child(_labeled_control("Brush", _brush_option))
 
@@ -261,6 +364,7 @@ func _ready() -> void:
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_grid_preview = GridPreview.new(12)
 	_grid_preview.tile_map_changed.connect(_on_grid_tile_map_changed)
+	_grid_preview.hazard_map_changed.connect(_on_grid_hazard_map_changed)
 	scroll.add_child(_grid_preview)
 	add_child(scroll)
 
@@ -280,6 +384,9 @@ func _ready() -> void:
 
 	_connect_layout_spins()
 	_sync_grid_from_controls()
+	_connect_dirty_tracking()
+	_suppress_dirty = false
+	_set_dirty(false)
 
 func _add_section(text: String) -> void:
 	var label := Label.new()
@@ -361,6 +468,7 @@ func _save_stage(overwrite: bool) -> void:
 		editor_interface.open_scene_from_path(scene_path)
 
 	_set_status("%s Stage%02d." % ["Saved" if overwrite else "Created", stage_id], false)
+	_set_dirty(false)
 
 func _save_resource(resource: Resource, path: String) -> int:
 	resource.take_over_path(path)
@@ -380,16 +488,28 @@ func _load_stage() -> void:
 		_set_status("Failed to load %s." % data_path, true)
 		return
 
+	# 로드 중 프로그램적 값 변경이 dirty로 오인되지 않도록 억제.
+	_suppress_dirty = true
 	_name_edit.text = stage_data.display_name if "display_name" in stage_data else ""
 	_total_ants_spin.value = stage_data.total_ants if "total_ants" in stage_data else 10
 	_candy_hp_spin.value = stage_data.candy_hp if "candy_hp" in stage_data else 10
 	_time_limit_spin.value = stage_data.time_limit_seconds if "time_limit_seconds" in stage_data else 180
 	_release_rate_spin.value = stage_data.release_rate_initial if "release_rate_initial" in stage_data else 30
-	_builder_spin.value = int(stage_data.skill_inventory.get("builder", 0)) if "skill_inventory" in stage_data else 0
-	_blocker_spin.value = int(stage_data.skill_inventory.get("blocker", 0)) if "skill_inventory" in stage_data else 0
+	var inventory: Dictionary = stage_data.skill_inventory if "skill_inventory" in stage_data else {}
+	for skill_id: String in SKILL_IDS:
+		_skill_spins[skill_id].value = int(inventory.get(skill_id, 0))
+
+	var stars: Array = stage_data.star_thresholds if "star_thresholds" in stage_data else []
+	_star_override_check.button_pressed = not stars.is_empty()
+	for star_index in range(_star_spins.size()):
+		if star_index < stars.size():
+			_star_spins[star_index].value = float(stars[star_index])
+		_star_spins[star_index].editable = not stars.is_empty()
 
 	var layout_data := _load_or_default_layout(stage_id)
 	_apply_layout_data(layout_data)
+	_suppress_dirty = false
+	_set_dirty(false)
 	_set_status("Loaded Stage%02d. Use Save Stage to overwrite existing files." % stage_id, false)
 
 func _build_stage_data(stage_id: int, stage_name: String, _scene_path: String, layout_path: String, data_path: String) -> Resource:
@@ -399,7 +519,7 @@ func _build_stage_data(stage_id: int, stage_name: String, _scene_path: String, l
 		stage_data = script.new()
 	stage_data.id = stage_id
 	stage_data.display_name = stage_name
-	var layout_ref := ResourceLoader.load(layout_path)
+	var layout_ref: Resource = ResourceLoader.load(layout_path) if ResourceLoader.exists(layout_path) else null
 	stage_data.layout = layout_ref if layout_ref != null else _build_layout_data()
 	stage_data.total_ants = int(_total_ants_spin.value)
 	stage_data.candy_hp = int(_candy_hp_spin.value)
@@ -407,9 +527,18 @@ func _build_stage_data(stage_id: int, stage_name: String, _scene_path: String, l
 	stage_data.release_rate_initial = int(_release_rate_spin.value)
 	stage_data.release_rate_min = 1
 	stage_data.skill_inventory = {}
-	stage_data.available_skills = []
-	_add_skill(stage_data, "builder", int(_builder_spin.value))
-	_add_skill(stage_data, "blocker", int(_blocker_spin.value))
+	var empty_skills: Array[String] = []
+	stage_data.available_skills = empty_skills
+	for skill_id: String in SKILL_IDS:
+		_add_skill(stage_data, skill_id, int(_skill_spins[skill_id].value))
+	if _star_override_check.button_pressed:
+		var stars: Array[float] = []
+		for star_spin: SpinBox in _star_spins:
+			stars.append(float(star_spin.value))
+		stage_data.star_thresholds = stars
+	else:
+		var empty_stars: Array[float] = []
+		stage_data.star_thresholds = empty_stars
 	return stage_data
 
 func _build_layout_data() -> Resource:
@@ -421,9 +550,11 @@ func _build_layout_data() -> Resource:
 	layout_data.camera_cell = Vector2i(int(_camera_cell_x_spin.value), int(_camera_cell_y_spin.value))
 	layout_data.tile_map = _parse_tile_map(_platform_text.text)
 	layout_data.platform_cells = _tile_map_to_platform_cells(layout_data.tile_map)
-	if _template_option.get_selected_id() == 2:
-		layout_data.spawn_direction = 1
-		layout_data.spawn_direction_alternate = true
+	layout_data.hazard_map = _hazard_map.duplicate()
+	layout_data.spawn_direction = 1 if _spawn_dir_option.get_selected_id() == 1 else -1
+	layout_data.spawn_direction_alternate = _spawn_alt_check.button_pressed
+	layout_data.theme = THEME_NAMES[clampi(_theme_option.get_selected_id(), 0, THEME_NAMES.size() - 1)]
+	layout_data.settlement_cell = _current_settlement_cell()
 	return layout_data
 
 func _load_or_default_layout(stage_id: int) -> Resource:
@@ -474,6 +605,26 @@ func _apply_layout_data(layout_data: Resource) -> void:
 		_platform_text.text = _format_platform_cells(layout_data.platform_cells)
 	else:
 		_platform_text.text = ""
+
+	_hazard_map = layout_data.hazard_map.duplicate() if "hazard_map" in layout_data else {}
+
+	var spawn_dir: int = layout_data.spawn_direction if "spawn_direction" in layout_data else 1
+	_spawn_dir_option.select(_spawn_dir_option.get_item_index(1 if spawn_dir >= 0 else 0))
+	_spawn_alt_check.button_pressed = layout_data.spawn_direction_alternate if "spawn_direction_alternate" in layout_data else false
+
+	var theme_name: String = layout_data.theme if "theme" in layout_data else "cookie_crust"
+	var theme_index := THEME_NAMES.find(theme_name)
+	_theme_option.select(_theme_option.get_item_index(theme_index if theme_index >= 0 else 0))
+
+	var settle_cell: Vector2i = layout_data.settlement_cell if "settlement_cell" in layout_data else Vector2i(-1, -1)
+	var settle_enabled := settle_cell.x >= 0
+	_settlement_check.button_pressed = settle_enabled
+	_settlement_x_spin.editable = settle_enabled
+	_settlement_y_spin.editable = settle_enabled
+	if settle_enabled:
+		_settlement_x_spin.value = settle_cell.x
+		_settlement_y_spin.value = settle_cell.y
+
 	_sync_grid_from_controls()
 
 func _add_skill(stage_data: Resource, skill_id: String, count: int) -> void:
@@ -508,6 +659,7 @@ func _build_stage_scene(stage_data: Resource) -> Node:
 	_add_entity(world, "res://scenes/entities/Home.tscn", "Home", stage_data.layout.cell_to_world(stage_data.layout.home_cell))
 	var candy := _add_entity(world, "res://scenes/entities/Candy.tscn", "Candy", stage_data.layout.cell_to_world(stage_data.layout.candy_cell))
 	candy.hp = int(_candy_hp_spin.value)
+	_add_hazards(world, stage_data.layout)
 	_add_camera(world, stage_data.layout)
 	_add_spawner(root, stage_data.layout)
 	_add_hud(root)
@@ -546,6 +698,17 @@ func _add_terrain(world: Node2D) -> void:
 	terrain.set_script(load("res://scripts/world/Terrain.gd"))
 	world.add_child(terrain)
 	terrain.owner = world.owner
+
+func _add_hazards(world: Node2D, layout_data: Resource) -> void:
+	if not "hazard_map" in layout_data:
+		return
+	for key in layout_data.hazard_map.keys():
+		var cell := _cell_from_key(str(key))
+		var hazard_type := str(layout_data.hazard_map[key])
+		var scene_path := "res://scenes/entities/hazards/Sticky.tscn" if hazard_type == GridPreview.TILE_STICKY else "res://scenes/entities/hazards/Water.tscn"
+		var node_prefix := "Sticky" if hazard_type == GridPreview.TILE_STICKY else "Water"
+		var node_name := "%s_%d_%d" % [node_prefix, cell.x, cell.y]
+		_add_entity(world, scene_path, node_name, layout_data.cell_to_world(cell))
 
 func _add_camera(world: Node2D, layout_data: Resource) -> void:
 	var camera := Camera2D.new()
@@ -625,6 +788,8 @@ func _create_grid_window() -> void:
 	window_brush.add_item("Slope Right", 1)
 	window_brush.add_item("Slope Left", 2)
 	window_brush.add_item("Erase", 3)
+	window_brush.add_item("Water", 4)
+	window_brush.add_item("Sticky", 5)
 	window_brush.item_selected.connect(func(index: int) -> void:
 		_brush_option.select(index)
 		_on_brush_selected(index)
@@ -647,6 +812,7 @@ func _create_grid_window() -> void:
 	_grid_window_preview = GridPreview.new(24)
 	_grid_window_preview.size = _grid_window_preview.custom_minimum_size
 	_grid_window_preview.tile_map_changed.connect(_on_grid_tile_map_changed)
+	_grid_window_preview.hazard_map_changed.connect(_on_grid_hazard_map_changed)
 	scroll.add_child(_grid_window_preview)
 
 func _open_grid_editor() -> void:
@@ -714,6 +880,39 @@ func _tile_map_to_platform_cells(tile_map: Dictionary) -> Array[Vector2i]:
 		cells.append(cell)
 	return cells
 
+func _mark_dirty() -> void:
+	if _suppress_dirty:
+		return
+	if not _dirty:
+		_set_dirty(true)
+
+func _set_dirty(value: bool) -> void:
+	_dirty = value
+	if _title_label != null:
+		_title_label.text = BASE_TITLE + ("  *  (미저장 변경)" if value else "")
+	dirty_changed.emit(value)
+
+func _connect_dirty_tracking() -> void:
+	for spin: SpinBox in [
+		_total_ants_spin, _candy_hp_spin, _time_limit_spin, _release_rate_spin,
+		_cell_size_spin, _home_cell_x_spin, _home_cell_y_spin,
+		_candy_cell_x_spin, _candy_cell_y_spin, _camera_cell_x_spin, _camera_cell_y_spin,
+		_settlement_x_spin, _settlement_y_spin,
+	]:
+		spin.value_changed.connect(func(_v: float) -> void: _mark_dirty())
+	for skill_id: String in SKILL_IDS:
+		_skill_spins[skill_id].value_changed.connect(func(_v: float) -> void: _mark_dirty())
+	for star_spin: SpinBox in _star_spins:
+		star_spin.value_changed.connect(func(_v: float) -> void: _mark_dirty())
+	_name_edit.text_changed.connect(func(_t: String) -> void: _mark_dirty())
+	_platform_text.text_changed.connect(func() -> void: _mark_dirty())
+	_spawn_dir_option.item_selected.connect(func(_i: int) -> void: _mark_dirty())
+	_theme_option.item_selected.connect(func(_i: int) -> void: _mark_dirty())
+	_template_option.item_selected.connect(func(_i: int) -> void: _mark_dirty())
+	_spawn_alt_check.toggled.connect(func(_p: bool) -> void: _mark_dirty())
+	_settlement_check.toggled.connect(func(_p: bool) -> void: _mark_dirty())
+	_star_override_check.toggled.connect(func(_p: bool) -> void: _mark_dirty())
+
 func _connect_layout_spins() -> void:
 	for spin: SpinBox in [
 		_home_cell_x_spin,
@@ -734,13 +933,16 @@ func _sync_grid_from_controls() -> void:
 	var home_cell := Vector2i(int(_home_cell_x_spin.value), int(_home_cell_y_spin.value))
 	var candy_cell := Vector2i(int(_candy_cell_x_spin.value), int(_candy_cell_y_spin.value))
 	var camera_cell := Vector2i(int(_camera_cell_x_spin.value), int(_camera_cell_y_spin.value))
+	var settlement_cell := _current_settlement_cell()
 	var tile_map := _parse_tile_map(_platform_text.text)
 	_grid_preview.set_tile_map(tile_map)
-	_grid_preview.set_markers(home_cell, candy_cell, camera_cell)
+	_grid_preview.set_hazard_map(_hazard_map)
+	_grid_preview.set_markers(home_cell, candy_cell, camera_cell, settlement_cell)
 	_grid_preview.set_brush_tile_type(_selected_brush_tile_type())
 	if _grid_window_preview != null:
 		_grid_window_preview.set_tile_map(tile_map)
-		_grid_window_preview.set_markers(home_cell, candy_cell, camera_cell)
+		_grid_window_preview.set_hazard_map(_hazard_map)
+		_grid_window_preview.set_markers(home_cell, candy_cell, camera_cell, settlement_cell)
 		_grid_window_preview.set_brush_tile_type(_selected_brush_tile_type())
 
 func _on_grid_tile_map_changed(tile_map: Dictionary) -> void:
@@ -748,6 +950,26 @@ func _on_grid_tile_map_changed(tile_map: Dictionary) -> void:
 	_platform_text.text = _format_tile_map(tile_map)
 	_syncing_grid = false
 	_sync_grid_from_controls()
+	_mark_dirty()
+
+func _on_grid_hazard_map_changed(hazard_map: Dictionary) -> void:
+	_hazard_map = hazard_map.duplicate()
+	_sync_grid_from_controls()
+	_mark_dirty()
+
+func _on_settlement_toggled(pressed: bool) -> void:
+	_settlement_x_spin.editable = pressed
+	_settlement_y_spin.editable = pressed
+	_sync_grid_from_controls()
+
+func _on_star_override_toggled(pressed: bool) -> void:
+	for star_spin: SpinBox in _star_spins:
+		star_spin.editable = pressed
+
+func _current_settlement_cell() -> Vector2i:
+	if _settlement_check != null and _settlement_check.button_pressed:
+		return Vector2i(int(_settlement_x_spin.value), int(_settlement_y_spin.value))
+	return Vector2i(-1, -1)
 
 func _format_platform_cells(cells: Array) -> String:
 	var tile_map := {}
@@ -805,6 +1027,10 @@ func _selected_brush_tile_type() -> String:
 			return GridPreview.TILE_SLOPE_LEFT
 		3:
 			return GridPreview.TILE_ERASE
+		4:
+			return GridPreview.TILE_WATER
+		5:
+			return GridPreview.TILE_STICKY
 		_:
 			return GridPreview.TILE_SOLID
 

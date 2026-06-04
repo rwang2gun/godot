@@ -10,6 +10,7 @@ var _bottom_button: Button = null
 func _enter_tree() -> void:
 	_dock = LevelToolDock.new()
 	_dock.editor_interface = get_editor_interface()
+	_dock.dirty_changed.connect(_on_dock_dirty_changed)
 	_bottom_button = add_control_to_bottom_panel(_dock, "CandyAnts Level")
 	add_tool_menu_item(MENU_ITEM, _show_level_tool)
 
@@ -24,3 +25,7 @@ func _exit_tree() -> void:
 func _show_level_tool() -> void:
 	if _dock != null:
 		make_bottom_panel_item_visible(_dock)
+
+func _on_dock_dirty_changed(is_dirty: bool) -> void:
+	if _bottom_button != null:
+		_bottom_button.text = "CandyAnts Level *" if is_dirty else "CandyAnts Level"

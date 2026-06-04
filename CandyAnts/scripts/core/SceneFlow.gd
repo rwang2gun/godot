@@ -9,18 +9,34 @@ const GameAction := preload("res://scripts/input/GameAction.gd")
 
 enum ScreenState { TITLE, MAIN_MENU, STAGE_SELECT, STAGE }
 
-const STAGE_SCENES := {
-	1: "res://scenes/stages/Stage01.tscn",
-	2: "res://scenes/stages/Stage02.tscn",
-	3: "res://scenes/stages/Stage03.tscn",
-	4: "res://scenes/stages/Stage04.tscn",
-	5: "res://scenes/stages/Stage05.tscn",
-	6: "res://scenes/stages/Stage06.tscn",
-	7: "res://scenes/stages/Stage07.tscn",
-	8: "res://scenes/stages/Stage08.tscn",
-	9: "res://scenes/stages/Stage09.tscn",
-}
-const LAST_STAGE_ID := 9
+# 스테이지 라우팅 — `res://scenes/stages/Stage%02d.tscn`를 자동 스캔(레벨 에디터 map-editor 트랙).
+# 구 하드코딩 dict 폐기: 레벨 에디터 Create Stage가 만든 새 스테이지가 별도 코드 수정 없이 자동 등록된다.
+# export 안전: DirAccess(res:// 리매핑 취약) 대신 ResourceLoader.exists로 프로빙.
+# lazy 1회 스캔: static var 초기자에서 직접 스캔하면 클래스 로드 타이밍에 엔진 싱글톤 접근으로 크래시 →
+#   ensure_stage_scan()을 진입점(_ready/load_*/_on_stage_result)에서 호출해 런타임에 1회만 채운다.
+#   MainMenu의 `SceneFlow.STAGE_SCENES.has()`는 SceneFlow._ready(스캔 완료) 이후에만 인스턴스화되므로 채워진 dict를 본다.
+# dev stage(910~)는 패턴/스캔 상한(1..99) 밖이라 자연 제외(기존 동작 유지).
+const STAGE_SCENE_PATTERN := "res://scenes/stages/Stage%02d.tscn"
+const STAGE_SCAN_MAX := 99
+static var STAGE_SCENES: Dictionary = {}
+static var LAST_STAGE_ID: int = 0
+static var _stage_scan_done := false
+
+# 스테이지 스캔을 1회 보장. SceneFlow._ready를 거치지 않고 STAGE_SCENES/LAST_STAGE_ID를
+# 읽는 외부 호출자(예: MainMenu standalone)도 채워진 값을 보도록 진입점에서 호출한다.
+static func ensure_stage_scan() -> void:
+	if _stage_scan_done:
+		return
+	_stage_scan_done = true
+	var scenes := {}
+	var last := 0
+	for id in range(1, STAGE_SCAN_MAX + 1):
+		var path: String = STAGE_SCENE_PATTERN % id
+		if ResourceLoader.exists(path):
+			scenes[id] = path
+			last = maxi(last, id)
+	STAGE_SCENES = scenes
+	LAST_STAGE_ID = last
 
 const TITLE_SCENE := "res://scenes/ui/TitleScene.tscn"
 const MAIN_MENU_SCENE := "res://scenes/ui/MainMenu.tscn"
@@ -44,6 +60,7 @@ var _last_result: Dictionary = {}
 var current_screen: ScreenState = ScreenState.TITLE
 
 func _ready() -> void:
+	ensure_stage_scan()
 	_current_stage_root = get_node(current_stage_root_path)
 	_overlay = get_node(overlay_path)
 
@@ -92,6 +109,7 @@ func go_to_menu() -> void:
 	go_to_main_menu()
 
 func load_stage(stage_id: int) -> void:
+	ensure_stage_scan()
 	# Codex R6 HIGH fix: 잘못된 stage_id에 대해 _unload_current_screen()를 먼저 호출하면
 	# blank screen + 복구 경로 없음. 검증을 unload 전에 옮기고, 미존재 stage는 fallback.
 	if not STAGE_SCENES.has(stage_id):
