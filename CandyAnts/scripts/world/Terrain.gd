@@ -329,6 +329,16 @@ func register_hazard_at_cell(cell: Vector2i, hazard: HazardBase) -> void:
 	arr.append(hazard)
 	_hazards_by_cell[cell] = arr
 
+# 2026-06-04 — 셀에 활성 WaterHazard가 있는지. AdriftState가 수면 span(연속 물 타일) 탐색에 사용.
+# 다리로 비활성(set_active(false))된 물 셀은 false → 표류 개미가 다리 아래 비활성 구간으로 넘어가지 않는다.
+func is_active_water_cell(cell: Vector2i) -> bool:
+	var arr: Array = _hazards_by_cell.get(cell, [])
+	for h in arr:
+		var w: WaterHazard = h as WaterHazard
+		if w != null and is_instance_valid(w) and w._active:
+			return true
+	return false
+
 # Phase 17 — cell의 모든 hazard에 set_active(false) 일괄. registration 순서 무관 (codex R1-H1).
 func deactivate_hazards_at(cell: Vector2i) -> void:
 	var arr: Array = _hazards_by_cell.get(cell, [])

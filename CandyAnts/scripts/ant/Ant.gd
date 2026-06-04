@@ -284,6 +284,8 @@ func _update_sprite() -> void:
 	var anim: String = "idle"
 	if s is DeadState:
 		anim = "stun"   # 기절 — 5칸+ 낙하(non-floater). DeadState가 기절 스프라이트 재생 후 ~1초 뒤 queue_free.
+	elif s is AdriftState:
+		anim = "swim"   # 물 표류 — 수면에서 헤엄(swim) 모션. AdriftState가 매 frame 부유 위치를 갱신.
 	elif s is CarryingState:
 		anim = "carry"
 	elif s is FallerState:
@@ -327,6 +329,10 @@ func _update_sprite() -> void:
 			# 낙하산 애니메이션이 없는 sprite는 안전 fallback "fall".
 			_sprite.play("fall")
 			_last_anim = "fall"
+		elif anim == "swim" and _sprite.sprite_frames != null and not _sprite.sprite_frames.has_animation("swim"):
+			# 헤엄 애니메이션이 없는 sprite는 안전 fallback "idle".
+			_sprite.play("idle")
+			_last_anim = "idle"
 		else:
 			_sprite.play(anim)
 			_last_anim = anim
@@ -338,6 +344,10 @@ func _update_sprite() -> void:
 	elif _last_anim == "floater":
 		# 낙하산 모션은 base 대비 30% 크게.
 		_sprite.scale = _base_sprite_scale * 1.3
+		_sprite.position = _base_sprite_pos
+	elif _last_anim == "swim":
+		# 수영(표류) 모션은 base 대비 25% 크게. 수면 정렬은 AdriftState.SURFACE_SINK가 담당.
+		_sprite.scale = _base_sprite_scale * 1.25
 		_sprite.position = _base_sprite_pos
 	else:
 		_sprite.scale = _base_sprite_scale
@@ -528,10 +538,11 @@ func is_alive() -> bool:
 	# trait dict만 사용 (정착 후 trait 변동 불가).
 	# Phase 17 — LostState 추가. HazardBase가 본 함수 단일 진입점으로 terminal 일괄 차단
 	# (§0.2 어휘 정합 — HazardBase에서 terminal state 식별자 직접 참조 회피).
+	# 2026-06-04 — AdriftState(물 표류) terminal 추가. 표류 중 추가 hazard·스킬·out-of-bounds 차단.
 	if state_machine == null or state_machine.current_state == null:
 		return false
 	var s: AntState = state_machine.current_state
-	return not (s is SavedState or s is DeadState or s is SettledState or s is LostState)
+	return not (s is SavedState or s is DeadState or s is SettledState or s is LostState or s is AdriftState)
 
 func effective_speed() -> float:
 	# 사탕 보유 = 0.78배. state가 Faller/Walker로 잠시 빠져도 속도 페널티 유지.

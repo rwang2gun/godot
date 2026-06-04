@@ -1,11 +1,11 @@
 extends Node
 
-# Campaign S3 "사탕 호수" — bridge 평지 횡단 + water(즉사) 클리어 가능성 검증 (레벨 재설계 rev2, 2026-06-02 세션 3).
+# Campaign S3 "사탕 호수" — bridge 평지 횡단 + water 클리어 가능성 검증 (레벨 재설계 rev2, 2026-06-02 세션 3).
 # 플레이어 모사: 첫 ant가 호수 직전 마지막 지면 cell(col8, x∈[384,432))에 도달하면 BridgeSkill 적용 →
 #   8칸 다리(cols9~16, row10)를 깔아 호수를 건넘.
-# 소다 워터 개편(세션 5): 물 표면이 지면(row10)보다 한 칸 낮은 row11(심부 row12~13)에 있어 다리(row10)는
-#   물 위 한 칸 위를 가로지른다 → 다리 위를 걷는 개미는 물(row11+)에 닿지 않아 LostState(즉사) 안 됨.
-#   (구 메커니즘이던 per-tile deactivate는 row10에 물이 없어 no-op — 1칸 간격이 안전을 보장.) 다리는 영구 → 후속 ant 왕복.
+# 수면 하강(2026-06-04): 물 표면이 지면(row10)보다 두 칸 낮은 row12(심부 row13~14)에 있어 다리(row10)는
+#   물 위 두 칸 위를 가로지른다 → 다리 위를 걷는 개미는 물(row12+)에 닿지 않아 표류(AdriftState) 안 됨.
+#   (구 메커니즘이던 per-tile deactivate는 row10에 물이 없어 no-op — 간격이 안전을 보장.) 다리는 영구 → 후속 ant 왕복.
 # candy_hp 4 → 4 왕복이면 클리어. PASS: stage_cleared && saved==original_hp && lost==0.
 #   - 다리 없이는 호수에서 전원 즉사(짝 테스트 CampaignS3NoBridgeTest) → bridge 필수성 입증.
 # FAIL: stage_failed / deadline / saved<original / lost>0(개미가 다리 아래 물에 닿음 = 지오메트리 이상).

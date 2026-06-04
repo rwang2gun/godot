@@ -1,8 +1,9 @@
 extends Node
 
 # Phase 17 — WaterHazard 빈손 ant 진입 검증.
-# 4 ants 모두 home→candy 도중 Water entry → LostState → queue_free.
-# 빈손이라 candy_piece_lost emit 안 됨 → lost_pieces 변화 0, saved_pieces 0, ant 모두 사라짐.
+# 2026-06-04 — 물 동작 개편(즉사 → 수면 표류). 4 ants 모두 home→candy 도중 Water entry →
+# AdriftState(표류). 빈손이라 candy_piece_lost emit 안 됨 → lost_pieces 변화 0, saved_pieces 0.
+# 표류 개미는 queue_free되지 않고 그룹에 남으므로 '전원 AdriftState'로 판정(과거: alive==0).
 # ScoreSystem invariant 유지.
 #
 # PASS: quit(0). FAIL: quit(1).
@@ -62,10 +63,21 @@ func _observe() -> void:
 	if not inv_ok:
 		_fail("ScoreSystem invariant broken: saved=%d in_transit=%d lost=%d original=%d" % [_score.saved_pieces, _score.in_transit_pieces, _score.lost_pieces, _score.original_hp])
 		return
-	# 모든 ant가 LostState로 queue_free 완료 + AntSpawner._remaining 다 소비됨.
-	# spawn 완료 + ants_alive==0 이면 모두 Water entry 처리.
-	var alive: int = _living_ant_count()
-	if alive == 0 and _frame_count > 120:
+	# 모든 ant가 Water entry → AdriftState(표류) 완료 시 PASS. 표류 개미는 queue_free되지 않으므로
+	# '그룹 내 전원이 AdriftState'로 판정(spawn 완료 == total_ants 명 present).
+	var total: int = _stage.stage_data.total_ants
+	var present: int = 0
+	var adrift: int = 0
+	for n in get_tree().get_nodes_in_group("ants"):
+		if not is_instance_valid(n):
+			continue
+		var a: Ant = n as Ant
+		if a == null:
+			continue
+		present += 1
+		if a.state_machine != null and a.state_machine.current_state is AdriftState:
+			adrift += 1
+	if present >= total and adrift == present and present > 0 and _frame_count > 120:
 		# 빈손 진입이므로 lost_pieces == 0 + saved == 0 검증.
 		if _score.saved_pieces != 0:
 			_fail("expected saved=0 (no ant reached candy) but saved=%d" % _score.saved_pieces)
@@ -73,7 +85,7 @@ func _observe() -> void:
 		if _score.lost_pieces != 0:
 			_fail("expected lost=0 (empty-hand entry emits no candy_piece_lost) but lost=%d" % _score.lost_pieces)
 			return
-		print("[WaterHazardLossEmptyHandTest] PASS frame=%d saved=%d lost=%d original=%d" % [_frame_count, _score.saved_pieces, _score.lost_pieces, _score.original_hp])
+		print("[WaterHazardLossEmptyHandTest] PASS frame=%d adrift=%d/%d saved=%d lost=%d original=%d" % [_frame_count, adrift, total, _score.saved_pieces, _score.lost_pieces, _score.original_hp])
 		_result_emitted = true
 		get_tree().quit(0)
 

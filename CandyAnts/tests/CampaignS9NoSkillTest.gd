@@ -1,7 +1,8 @@
 extends Node
 
 # Campaign S9 "종합 과자점" 음성 짝 — 스킬을 하나도 시전하지 않으면 첫 관문(소다 호수)을 못 넘는다.
-# 개미는 col8 끝에서 호수(cols9-12)로 추락 → row11 water 즉사(lost) → 결국 no_more_ants로 stage_failed.
+# 개미는 col8 끝에서 호수(cols9-12)로 추락 → row12 water에서 표류(AdriftState) → 결국 no_more_ants로 stage_failed.
+# (표류 개미는 StageRunner._living_ant_count에서 제외 → 정상 종료를 막지 않음.)
 # candy는 호수+흙 벽+갭+높은 단 너머라 bridge/basher/builder 없이는 도달 불가 → picks==0 불변.
 # 이로써 3개 스킬의 필수성을 입증(클리어 짝 CampaignS9ClearTest와 대비).
 # PASS: stage_failed && picks==0. FAIL: stage_cleared (스킬 없이 클리어 = 지오메트리 이상) / deadline.

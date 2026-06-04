@@ -56,33 +56,17 @@ collision_mask = 4
 script = ExtResource("8_candy")
 hp = 5
 
-[node name="Water_9_11" parent="World" instance=ExtResource("17_water")]
-position = Vector2(456, 552)
-
-[node name="Water_10_11" parent="World" instance=ExtResource("17_water")]
-position = Vector2(504, 552)
-
-[node name="Water_11_11" parent="World" instance=ExtResource("17_water")]
-position = Vector2(552, 552)
-
-[node name="Water_12_11" parent="World" instance=ExtResource("17_water")]
-position = Vector2(600, 552)
-
 [node name="Water_9_12" parent="World" instance=ExtResource("17_water")]
 position = Vector2(456, 600)
-deep = true
 
 [node name="Water_10_12" parent="World" instance=ExtResource("17_water")]
 position = Vector2(504, 600)
-deep = true
 
 [node name="Water_11_12" parent="World" instance=ExtResource("17_water")]
 position = Vector2(552, 600)
-deep = true
 
 [node name="Water_12_12" parent="World" instance=ExtResource("17_water")]
 position = Vector2(600, 600)
-deep = true
 
 [node name="Water_9_13" parent="World" instance=ExtResource("17_water")]
 position = Vector2(456, 648)
@@ -98,6 +82,22 @@ deep = true
 
 [node name="Water_12_13" parent="World" instance=ExtResource("17_water")]
 position = Vector2(600, 648)
+deep = true
+
+[node name="Water_9_14" parent="World" instance=ExtResource("17_water")]
+position = Vector2(456, 696)
+deep = true
+
+[node name="Water_10_14" parent="World" instance=ExtResource("17_water")]
+position = Vector2(504, 696)
+deep = true
+
+[node name="Water_11_14" parent="World" instance=ExtResource("17_water")]
+position = Vector2(552, 696)
+deep = true
+
+[node name="Water_12_14" parent="World" instance=ExtResource("17_water")]
+position = Vector2(600, 696)
 deep = true
 
 [node name="Camera2D" type="Camera2D" parent="World"]
