@@ -27,6 +27,13 @@ func update(delta: float) -> void:
 	# 무장한 계단 스킬 — 낭떠러지 도달 시 그 자리에서 대각 계단 자동 건설. 전이 시 즉시 return.
 	if a.try_build_armed_builder():
 		return
+	# 무장한 굴착 스킬 — 흙 벽(전방 셀 earth) 도달 시 그 자리에서 전방 최대 5칸 자동 굴착. 전이 시 즉시 return.
+	# is_on_wall flip보다 먼저 검사해 벽에서 flip 대신 굴착하도록 한다(흙 아닌 벽은 미발동 → 아래 flip 유지).
+	if a.try_bash_armed_wall():
+		return
+	# 무장한 절단 스킬 — 식물 벽(전방 셀 plant) 도달 시 그 자리에서 연결 덩쿨 일괄 절단. 전이 시 즉시 return.
+	if a.try_cut_armed_wall():
+		return
 
 	if a.is_on_wall():
 		# Phase 14 — climber 보유 시 벽에서 ClimberState로 전이, 아니면 기존대로 flip.

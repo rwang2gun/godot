@@ -42,6 +42,7 @@ func _populate_slots(layout: MenuLayout) -> void:
 		var stage_id: int = int(meta["stage_id"])
 		var card: StageSlotCard = SLOT_CARD_SCENE.instantiate() as StageSlotCard
 		card.stage_id = stage_id
+		card.display_name = String(meta.get("display_name", ""))
 		var entry: Dictionary = SaveData.get_stage_entry(stage_id)
 		var state: int = _resolve_slot_state(meta, stage_id, entry)
 		_slot_grid.add_child(card)

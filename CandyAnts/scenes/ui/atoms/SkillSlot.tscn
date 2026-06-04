@@ -3,75 +3,75 @@
 [ext_resource type="Script" path="res://scripts/ui/atoms/SkillSlot.gd" id="1_skillslot"]
 
 [node name="SkillSlot" type="Button"]
-custom_minimum_size = Vector2(88, 88)
+custom_minimum_size = Vector2(116.16, 116.16)
 focus_mode = 2
 script = ExtResource("1_skillslot")
 
 [node name="ShadowBG" type="Panel" parent="."]
 mouse_filter = 2
-custom_minimum_size = Vector2(88, 88)
-offset_left = 4.0
-offset_top = 4.0
-offset_right = 92.0
-offset_bottom = 92.0
+custom_minimum_size = Vector2(116.16, 116.16)
+offset_left = 5.28
+offset_top = 5.28
+offset_right = 121.44
+offset_bottom = 121.44
 
 [node name="MainBG" type="Panel" parent="."]
 mouse_filter = 2
-custom_minimum_size = Vector2(88, 88)
-offset_right = 88.0
-offset_bottom = 88.0
+custom_minimum_size = Vector2(116.16, 116.16)
+offset_right = 116.16
+offset_bottom = 116.16
 
 [node name="Icon" type="TextureRect" parent="MainBG"]
 mouse_filter = 2
-custom_minimum_size = Vector2(56, 56)
-offset_left = 16.0
-offset_top = 14.0
-offset_right = 72.0
-offset_bottom = 70.0
+custom_minimum_size = Vector2(73.92, 73.92)
+offset_left = 21.12
+offset_top = 18.48
+offset_right = 95.04
+offset_bottom = 92.4
 expand_mode = 1
 stretch_mode = 5
 
 [node name="HotkeyPill" type="PanelContainer" parent="MainBG"]
 mouse_filter = 2
-offset_left = 4.0
-offset_top = 4.0
-offset_right = 22.0
-offset_bottom = 18.0
+offset_left = 5.28
+offset_top = 5.28
+offset_right = 29.04
+offset_bottom = 23.76
 
 [node name="Label" type="Label" parent="MainBG/HotkeyPill"]
 mouse_filter = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 14
 horizontal_alignment = 1
 vertical_alignment = 1
 text = ""
 
 [node name="CountBadge" type="PanelContainer" parent="MainBG"]
 mouse_filter = 2
-offset_left = 56.0
-offset_top = 2.0
-offset_right = 86.0
-offset_bottom = 22.0
+offset_left = 73.92
+offset_top = 2.64
+offset_right = 113.52
+offset_bottom = 29.04
 
 [node name="Label" type="Label" parent="MainBG/CountBadge"]
 mouse_filter = 2
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 14
 horizontal_alignment = 1
 vertical_alignment = 1
 text = ""
 
 [node name="KoLabel" type="Label" parent="MainBG"]
 mouse_filter = 2
-offset_left = 4.0
-offset_top = 70.0
-offset_right = 84.0
-offset_bottom = 86.0
-theme_override_font_sizes/font_size = 11
+offset_left = 5.28
+offset_top = 92.4
+offset_right = 110.88
+offset_bottom = 113.52
+theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
 text = ""
 
 [node name="FocusHalo" type="Panel" parent="."]
 mouse_filter = 2
-offset_left = -4.0
-offset_top = -4.0
-offset_right = 92.0
-offset_bottom = 92.0
+offset_left = -5.28
+offset_top = -5.28
+offset_right = 121.44
+offset_bottom = 121.44

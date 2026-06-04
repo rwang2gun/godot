@@ -10,7 +10,7 @@ func can_apply(ant: Ant) -> bool:
 	# 이미 무장(다리 또는 계단) 중이면 중복 부여 차단 — 무장 스킬은 상호 배타(codex 2026-06-03 MEDIUM).
 	# 한 ant에 bridge+builder가 동시 무장되면 낭떠러지에서 bridge가 먼저 발화해 builder를 그림자 처리하므로
 	# 한 번에 한 무장만 허용한다. (BuilderSkill.can_apply와 대칭.)
-	if ant.bridge_armed or ant.builder_armed:
+	if ant.bridge_armed or ant.builder_armed or ant.basher_armed or ant.cutter_armed:
 		return false
 	var s: AntState = ant.state_machine.current_state
 	# A1 (운반자 통일, 2026-06-02) — builder처럼 Walker/Carrying 모두 허용. 작업 종료 시 return_to_walking()이

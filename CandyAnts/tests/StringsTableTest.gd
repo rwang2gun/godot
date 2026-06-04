@@ -39,7 +39,7 @@ func _ready() -> void:
 		failures.append("(2) stage_card.title got=%s" % Strings.t("stage_card.title", [7]))
 
 	# (3) skill_label.
-	if Strings.skill_label("climber") != "등반":
+	if Strings.skill_label("climber") != "벽 오르기":
 		failures.append("(3) skill_label climber got=%s" % Strings.skill_label("climber"))
 	if Strings.skill_label("__nope__") != "__nope__":
 		failures.append("(3) skill_label fallback got=%s" % Strings.skill_label("__nope__"))

@@ -46,15 +46,15 @@ const _TABLE: Dictionary = {
 # 스킬 id -> 한글 라벨. 구 SkillToolbar.KO_LABELS를 이관.
 # 미등록 id는 skill_label()이 영문 id를 그대로 반환(구 `.get(id, id)` 동작 보존).
 const _SKILL_NAMES: Dictionary = {
-	"climber": "등반",
-	"floater": "낙하산",
-	"blocker": "차단",
-	"builder": "계단",
-	"sand_mound": "모래",
-	"bridge": "다리",
-	"basher": "굴착",
+	"climber": "벽 오르기",
+	"floater": "낙하산 분배",
+	"blocker": "길 막기",
+	"builder": "경사면",
+	"sand_mound": "막대세우기",
+	"bridge": "다리만들기",
+	"basher": "벽 부수기",
 	"digger": "땅파기",
-	"cutter": "절단",
+	"cutter": "식물 자르기",
 }
 
 # key로 문자열 조회. args 비어있지 않으면 `%` format 적용.

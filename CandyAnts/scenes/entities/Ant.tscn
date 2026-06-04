@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/ant/Ant.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/ant/AntStateMachine.gd" id="2"]
@@ -11,6 +11,8 @@
 [ext_resource type="Texture2D" path="res://assets/icons/skills/blocker.png" id="9_blocker_badge"]
 [ext_resource type="Texture2D" path="res://assets/icons/skills/bridge.png" id="10_bridge_badge"]
 [ext_resource type="Texture2D" path="res://assets/icons/skills/builder.png" id="11_builder_badge"]
+[ext_resource type="Texture2D" path="res://assets/icons/skills/basher.png" id="12_basher_badge"]
+[ext_resource type="Texture2D" path="res://assets/icons/skills/cutter.png" id="13_cutter_badge"]
 
 [sub_resource type="RectangleShape2D" id="shape"]
 size = Vector2(18, 15)
@@ -105,5 +107,19 @@ visible = false
 position = Vector2(0, 0)
 scale = Vector2(0.22, 0.22)
 texture = ExtResource("11_builder_badge")
+z_index = 3
+visible = false
+
+[node name="BasherBadge" type="Sprite2D" parent="TailBadges"]
+position = Vector2(0, 0)
+scale = Vector2(0.22, 0.22)
+texture = ExtResource("12_basher_badge")
+z_index = 3
+visible = false
+
+[node name="CutterBadge" type="Sprite2D" parent="TailBadges"]
+position = Vector2(0, 0)
+scale = Vector2(0.22, 0.22)
+texture = ExtResource("13_cutter_badge")
 z_index = 3
 visible = false

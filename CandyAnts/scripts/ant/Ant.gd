@@ -49,6 +49,16 @@ var bridge_armed: bool = false
 # 매 frame try_build_armed_builder()로 검사 → 개미가 낭떠러지(전방 바닥 없음)에 도달하면 그 자리에서 자동으로
 # WorkerState("builder") 진입(대각 계단 건설). 이미 낭떠러지에서 부여하면 apply가 즉시 건설.
 var builder_armed: bool = false
+# 굴착 무장(armed basher, 2026-06-05) — BridgeSkill/BuilderSkill 패턴 복제. BasherSkill.apply가 전방이
+# 막히지 않은(열린) 곳에서 부여되면 즉시 굴착하지 않고 이 플래그만 세운다(인벤토리는 부여 시점 차감 = 소비).
+# Walker.update가 매 frame try_bash_armed_wall()로 검사 → 개미가 흙 벽(전방 셀이 earth)에 도달하면 그
+# 자리에서 자동으로 WorkerState("basher") 진입(전방 최대 5칸 굴착 후 해제). 이미 벽에서 부여하면 apply가 즉시 처리.
+var basher_armed: bool = false
+# 절단 무장(armed cutter, 2026-06-05) — basher와 동일 패턴. CutterSkill.apply가 전방이 막히지 않은(열린)
+# 곳에서 부여되면 즉시 절단하지 않고 이 플래그만 세운다. Walker.update가 매 frame try_cut_armed_wall()로
+# 검사 → 개미가 식물 벽(전방 셀 plant)에 도달하면 그 자리에서 자동으로 WorkerState("cutter") 진입
+# (연결 덩쿨 flood-fill 일괄 절단 후 해제). 이미 식물 벽에서 부여하면 apply가 즉시 처리.
+var cutter_armed: bool = false
 var state_machine: AntStateMachine = null
 var _grace_until: float = 0.0
 var _blocker_hitbox: Area2D = null
@@ -97,6 +107,10 @@ var _blocker_badge: Sprite2D = null
 var _bridge_badge: Sprite2D = null
 # 계단 무장 시 꼬리 배지에 계단(builder) 아이콘 표시. builder_armed 기반 토글(bridge 배지와 동일 슬롯·패턴).
 var _builder_badge: Sprite2D = null
+# 굴착 무장 시 꼬리 배지에 굴착(basher) 아이콘 표시. basher_armed 기반 토글(bridge/builder 배지와 동일 슬롯).
+var _basher_badge: Sprite2D = null
+# 절단 무장 시 꼬리 배지에 절단(cutter) 아이콘 표시. cutter_armed 기반 토글(동일 슬롯).
+var _cutter_badge: Sprite2D = null
 # Phase 15 — 정착 시각 표식. visible toggle은 _update_trait_badges()에서 state 기반.
 var _settle_badge: Sprite2D = null
 
@@ -140,6 +154,8 @@ func _ready() -> void:
 		_blocker_badge = _tail_badges.get_node_or_null("BlockerBadge") as Sprite2D
 		_bridge_badge = _tail_badges.get_node_or_null("BridgeBadge") as Sprite2D
 		_builder_badge = _tail_badges.get_node_or_null("BuilderBadge") as Sprite2D
+		_basher_badge = _tail_badges.get_node_or_null("BasherBadge") as Sprite2D
+		_cutter_badge = _tail_badges.get_node_or_null("CutterBadge") as Sprite2D
 	if _trait_badges != null:
 		_settle_badge = _trait_badges.get_node_or_null("SettleBadge") as Sprite2D
 		_sticky_badge = _trait_badges.get_node_or_null("StickyBadge") as Sprite2D
@@ -380,6 +396,12 @@ func _update_trait_badges() -> void:
 	# 계단 무장 표식 — builder_armed인 동안(부여 후 낭떠러지 도달 전까지) 꼬리에 계단 아이콘.
 	if _builder_badge != null:
 		_builder_badge.visible = builder_armed
+	# 굴착 무장 표식 — basher_armed인 동안(부여 후 흙 벽 도달 전까지) 꼬리에 굴착 아이콘.
+	if _basher_badge != null:
+		_basher_badge.visible = basher_armed
+	# 절단 무장 표식 — cutter_armed인 동안(부여 후 식물 벽 도달 전까지) 꼬리에 절단 아이콘.
+	if _cutter_badge != null:
+		_cutter_badge.visible = cutter_armed
 	# Phase 15 — SettledState 진입 시 표식. 2026-06-03: 분배 아이콘을 SettlementMarker(캐릭터 뒤쪽·크게)로
 	# 일원화하면서, 머리 위 작은 SettleBadge는 중복이라 상시 숨김(노드는 보존).
 	if _settle_badge != null:
@@ -431,6 +453,67 @@ func try_build_armed_builder() -> bool:
 	builder_armed = false
 	state_machine.change_state(WorkerState.new("builder"))
 	return true
+
+# 굴착 무장 자동 굴착 — Walker.update가 매 frame 호출. 무장 상태 + 흙 벽(전방 셀 earth) 도달 시
+# 무장 해제 후 WorkerState("basher") 진입(전방 최대 5칸 굴착). 전이했으면 true(호출부는 즉시 return).
+func try_bash_armed_wall() -> bool:
+	if not basher_armed:
+		return false
+	if state_machine == null or not basher_wall_ahead():
+		return false
+	basher_armed = false
+	state_machine.change_state(WorkerState.new("basher"))
+	return true
+
+# 절단 무장 자동 절단 — Walker.update가 매 frame 호출. 무장 상태 + 식물 벽(전방 셀 plant) 도달 시
+# 무장 해제 후 WorkerState("cutter") 진입(연결 덩쿨 일괄 절단). 전이했으면 true(호출부는 즉시 return).
+func try_cut_armed_wall() -> bool:
+	if not cutter_armed:
+		return false
+	if state_machine == null or not cutter_plant_ahead():
+		return false
+	cutter_armed = false
+	state_machine.change_state(WorkerState.new("cutter"))
+	return true
+
+# 전방 body-row 셀이 굴착 가능한 흙 벽인지 — basher 무장 자동 굴착 트리거. WorkerState._basher_forward_has_earth와
+# 동일 좌표식(body_cell + (dir, 0), kind=="earth")이라 무장 트리거와 실제 굴착 진입 조건이 일치한다.
+func basher_wall_ahead() -> bool:
+	return _forward_body_cell_kind() == "earth"
+
+# 전방 body-row 셀이 절단 대상 식물 벽인지 — cutter 무장 자동 절단 트리거. WorkerState._cutter_forward_has_plant와
+# 동일 좌표식(body_cell + (dir, 0), kind=="plant").
+func cutter_plant_ahead() -> bool:
+	return _forward_body_cell_kind() == "plant"
+
+# 무장 스킬(basher/cutter) 부여 시 무장 여부 판단 — 전방이 열려 있으면(벽 없음) true → 무장 후 보행.
+# 막혀 있으면(흙/식물/쿠키 등) false → Skill.apply가 즉시 WorkerState로 처리(대상이면 작업, 아니면 자연 abort,
+# 기존 동작·cross-kind 침범 차단 보존).
+func forward_cell_open() -> bool:
+	if state_machine == null or direction == 0 or not is_on_floor():
+		return false
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return false
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(global_position.x / cs)),
+		int(floor((global_position.y - 2.0) / cs))
+	)
+	return not terrain.is_cell_occupied(body_cell + Vector2i(direction, 0))
+
+func _forward_body_cell_kind() -> String:
+	if state_machine == null or direction == 0 or not is_on_floor():
+		return ""
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return ""
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(global_position.x / cs)),
+		int(floor((global_position.y - 2.0) / cs))
+	)
+	return terrain.get_cell_kind(body_cell + Vector2i(direction, 0))
 
 # 발판 위 + 진행 방향 전방이 낭떠러지인지 — 전방 셀이 벽이 아니고(벽이면 flip/climb/step-up이 처리)
 # 전방 아래 셀에 바닥이 없을 때(=한 칸 더 가면 추락). bridge/builder 무장 즉시 건설 분기와 공용(2026-06-03 리네임).
@@ -547,6 +630,14 @@ func is_alive() -> bool:
 		return false
 	var s: AntState = state_machine.current_state
 	return not (s is SavedState or s is DeadState or s is SettledState or s is LostState or s is AdriftState)
+
+# 터치/클릭 스킬 부여 타겟 좌표 — 충돌 원점(발, y=0)이 아니라 보이는 캐릭터(스프라이트) 중심.
+# 스프라이트는 원점보다 ~44px 위에 그려지므로(Sprite.position.y=-43.5), 원점 기준 판정 시
+# 머리 터치가 빠진다(2026-06-04 버그). 등반 등으로 _sprite.position이 바뀌어도 global이 따라감.
+func tap_target_position() -> Vector2:
+	if _sprite != null:
+		return _sprite.global_position
+	return global_position
 
 func effective_speed() -> float:
 	# 사탕 보유 = 0.78배. state가 Faller/Walker로 잠시 빠져도 속도 페널티 유지.

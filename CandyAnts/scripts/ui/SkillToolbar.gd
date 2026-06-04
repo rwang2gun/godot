@@ -8,7 +8,16 @@ class_name SkillToolbar extends CanvasLayer
 
 const GameAction := preload("res://scripts/input/GameAction.gd")
 const SkillSlotScene: PackedScene = preload("res://scenes/ui/atoms/SkillSlot.tscn")
-const CLICK_RADIUS: float = 48.0
+# 터치/클릭 스킬 부여 판정 반경. 기준점은 개미 충돌 원점(발)이 아니라 보이는 캐릭터 중심
+# (Ant.tap_target_position) — 스프라이트가 원점보다 ~44px 위에 그려져, 원점+48 반경이면
+# 캐릭터 아래 절반만 덮어 머리 터치가 빠졌다(2026-06-04 버그). 중심 기준 + 반경 64로
+# 머리(중심에서 ~52px)까지 + 터치 여유 포함.
+const CLICK_RADIUS: float = 64.0
+# 자동 슬롯 간격 — HBox separation을 슬롯 실제 폭에 비례시켜 버튼 크기를 키워도
+# 간격이 같은 비율로 자동 추종한다. 기준점은 원본 설계값(88px 슬롯 ↔ 14px 간격).
+# 슬롯 .tscn의 custom_minimum_size만 바꾸면 여기서 간격이 자동 재계산된다.
+const SLOT_BASE_SIZE: float = 88.0
+const SEPARATION_BASE: float = 14.0
 # 스킬 선택 시 커스텀 마우스 커서 배율. Input.set_custom_mouse_cursor는 노드 scale을 무시하고
 # 텍스처 원본 px를 그대로 OS 커서로 그린다(128px 원본 → 화면 128px). 그래서 다운스케일한
 # ImageTexture를 넘겨 크기를 줄인다. 0.5 = 50% 축소.
@@ -70,6 +79,7 @@ func _ready() -> void:
 		slot.pressed.connect(func() -> void: _on_slot_pressed(captured_id))
 		_slots[id] = slot
 		i += 1
+	_apply_auto_separation(hbox)
 	if not EventBus.action_triggered.is_connected(_on_action):
 		EventBus.action_triggered.connect(_on_action)
 
@@ -78,6 +88,24 @@ func _exit_tree() -> void:
 	Input.set_custom_mouse_cursor(null)
 	if EventBus.action_triggered.is_connected(_on_action):
 		EventBus.action_triggered.disconnect(_on_action)
+
+# HBox separation을 슬롯 실제 폭에 비례해 설정 (slot_w / 88 * 14).
+# 슬롯 atom 크기를 키우면 버튼 사이 간격도 같은 비율로 자동 확대된다.
+func _apply_auto_separation(hbox: Node) -> void:
+	var box := hbox as HBoxContainer
+	if box == null or _slots.is_empty():
+		return
+	var probe: SkillSlot = null
+	for id: String in _slots:
+		probe = _slots[id] as SkillSlot
+		break
+	if probe == null:
+		return
+	var slot_w: float = probe.custom_minimum_size.x
+	if slot_w <= 0.0:
+		return
+	var sep: int = int(round(slot_w / SLOT_BASE_SIZE * SEPARATION_BASE))
+	box.add_theme_constant_override("separation", sep)
 
 # StageRunner._disable_toolbar가 직접 호출 (group lookup 폐기, codex v1 HIGH-2).
 # SkillSlot.set_disabled_state 사용 — Button.disabled 직접 대입 금지 (alpha 0.55 visual refresh 보장).
@@ -224,7 +252,7 @@ func _find_closest_ant(world: Vector2) -> Ant:
 			continue
 		if not a.is_alive():
 			continue
-		var d: float = a.global_position.distance_to(world)
+		var d: float = a.tap_target_position().distance_to(world)
 		if d < best:
 			best = d
 			closest = a

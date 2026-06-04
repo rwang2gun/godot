@@ -15,6 +15,13 @@ const ICON_LOCK := preload("res://assets/icons/ui/lock.svg")
 		if is_inside_tree():
 			_apply_text()
 
+# menu_layout.tres slot의 display_name. 비어 있으면 "스테이지 N" 폴백.
+@export var display_name: String = "":
+	set(value):
+		display_name = value
+		if is_inside_tree():
+			_apply_text()
+
 @export var slot_state: SlotState = SlotState.PLAYABLE:
 	set(value):
 		slot_state = value
@@ -55,7 +62,7 @@ func set_progress(entry: Dictionary) -> void:
 func _apply_text() -> void:
 	if _stage_label == null:
 		return
-	_stage_label.text = Strings.t("stage_card.title", [stage_id])
+	_stage_label.text = display_name if not display_name.is_empty() else Strings.t("stage_card.title", [stage_id])
 	var stars: int = int(_progress.get("stars", 0))
 	for i in _star_polys.size():
 		var poly: Polygon2D = _star_polys[i].get_node("Poly") as Polygon2D

@@ -6,7 +6,10 @@ extends Button
 # Button을 transparent stylebox로 비워두고 MainBG/ShadowBG/Icon/Pill/Badge/Label/FocusHalo로 시각 구성.
 # focus halo는 패드 모드 검증 (mouse 모드에서는 has_focus()가 거의 안 잡힘).
 
-const _SIZE := Vector2(88, 88)
+# 슬롯 크기 SoT — 이 값이 custom_minimum_size를 결정한다(_ready에서 .tscn 값을 덮어씀).
+# .tscn의 자식(MainBG/ShadowBG/Icon/Pill/Badge/KoLabel/FocusHalo) offset도 동일 배율(×1.32)로
+# 스케일돼 있으므로, 크기 변경 시 이 상수와 .tscn 자식 offset을 함께 같은 배율로 바꿔야 정합이 깨지지 않는다.
+const _SIZE := Vector2(116.16, 116.16)  # 원본 88 × 1.32
 const _DRAG_PREVIEW_SIZE := Vector2(56, 56)
 const _RADIUS := 16
 const _BORDER_WIDTH := 3
@@ -60,6 +63,9 @@ var _box_selected: StyleBoxFlat
 
 func _ready() -> void:
 	custom_minimum_size = _SIZE
+	# 하단 스킬바(HBox, panel 높이만큼 세로 확장) 안에서 세로 중앙 정렬.
+	# 기본 FILL이면 버튼이 컨테이너 높이로 늘어나/밀려 아래로 쳐진다.
+	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	focus_mode = Control.FOCUS_ALL
 	_clear_button_styles()
 	_apply_shadow_style()

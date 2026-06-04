@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atoms/Counter.tscn" id="3_counter"]
-[ext_resource type="PackedScene" path="res://scenes/ui/ReleaseRateStepper.tscn" id="4_stepper"]
+[ext_resource type="Script" path="res://scripts/ui/SpeedBtn.gd" id="4_speedbtn"]
 [ext_resource type="Script" path="res://scripts/ui/PauseBtn.gd" id="5_pausebtn"]
 
 [node name="HUD" type="CanvasLayer"]
@@ -61,7 +61,10 @@ kind = 4
 top_label_en = "TIME"
 bottom_label_ko = "남은 시간"
 
-[node name="ReleaseRateStepper" parent="Root/TopRight" instance=ExtResource("4_stepper")]
+[node name="SpeedBtn" type="Button" parent="Root/TopRight"]
+custom_minimum_size = Vector2(56, 56)
+script = ExtResource("4_speedbtn")
+kind = 2
 
 [node name="PauseBtn" type="Button" parent="Root/TopRight"]
 custom_minimum_size = Vector2(56, 56)

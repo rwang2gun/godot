@@ -7,12 +7,20 @@ class GridPreview:
 	signal tile_map_changed(tile_map: Dictionary)
 	signal hazard_map_changed(hazard_map: Dictionary)
 
-	const GRID_COLUMNS := 60
-	const GRID_ROWS := 34
-	const MAX_PLATFORM_ROW := 27
+	# 게임 뷰포트 (project.godot window/size). 카메라 프레임 오버레이 환산용.
+	const VIEW_W := 1920
+	const VIEW_H := 1080
+	# 카메라 프레임/콘텐츠 둘레 여유 칸 (좌측 배경 등 레벨 바깥도 보이도록).
+	const MARGIN := 3
+	# 폭주 방지 캔버스 상한 (cell).
+	const MAX_SPAN := 400
 	const TILE_SOLID := "solid"
 	const TILE_SLOPE_RIGHT := "slope_right"
 	const TILE_SLOPE_LEFT := "slope_left"
+	# 실제 캠페인 터레인 — StageLayoutBuilder의 kind 문자열과 1:1 일치해야 함.
+	const TILE_BACKGROUND := "background"  # 시각 채움(무충돌)
+	const TILE_PLANT := "plant"            # 식물벽 (cutter 전용 파괴, S8)
+	const TILE_COOKIE := "cookie"          # 불괴 구조 (S6)
 	const TILE_ERASE := "erase"
 	# 해저드 브러시 — tile_map이 아니라 hazard_map에 칠해진다.
 	const TILE_WATER := "water"
@@ -20,35 +28,49 @@ class GridPreview:
 
 	var tile_map: Dictionary = {}
 	var hazard_map: Dictionary = {}
-	var home_cell := Vector2i(12, 27)
-	var candy_cell := Vector2i(44, 27)
-	var camera_cell := Vector2i(30, 17)
+	var home_cell := Vector2i(2, 9)
+	var candy_cell := Vector2i(18, 9)
+	var camera_cell := Vector2i(11, 6)
 	var settlement_cell := Vector2i(-1, -1)
 	var preview_cell_size := 16
+	# 실제 월드 cell_size (layout.cell_size). 카메라 프레임 = VIEW_W/H를 이 단위로 환산.
+	var world_cell_size := 48
 	var brush_tile_type := TILE_SOLID
+	# 보이는 캔버스 영역. origin_cell은 음수 가능(= 레벨 경계 바깥 배경 포함).
+	var origin_cell := Vector2i(0, 0)
+	var cols := 48
+	var rows := 30
 	var _paint_button := 0
 
 	func _init(next_preview_cell_size: int = 16) -> void:
 		preview_cell_size = next_preview_cell_size
-		custom_minimum_size = Vector2(GRID_COLUMNS * preview_cell_size, GRID_ROWS * preview_cell_size)
 		mouse_filter = Control.MOUSE_FILTER_STOP
+		_recompute_bounds()
 
 	func set_platform_cells(cells: Array[Vector2i]) -> void:
 		tile_map = {}
 		for cell: Vector2i in cells:
 			tile_map[_cell_key(cell)] = TILE_SOLID
+		_recompute_bounds()
 		queue_redraw()
 
 	func set_tile_map(next_tile_map: Dictionary) -> void:
 		tile_map = next_tile_map.duplicate()
+		_recompute_bounds()
 		queue_redraw()
 
 	func set_hazard_map(next_hazard_map: Dictionary) -> void:
 		hazard_map = next_hazard_map.duplicate()
+		_recompute_bounds()
 		queue_redraw()
 
 	func set_brush_tile_type(next_tile_type: String) -> void:
 		brush_tile_type = next_tile_type
+		queue_redraw()
+
+	func set_world_cell_size(next_world_cell_size: int) -> void:
+		world_cell_size = maxi(1, next_world_cell_size)
+		_recompute_bounds()
 		queue_redraw()
 
 	func set_markers(next_home_cell: Vector2i, next_candy_cell: Vector2i, next_camera_cell: Vector2i, next_settlement_cell: Vector2i = Vector2i(-1, -1)) -> void:
@@ -56,7 +78,43 @@ class GridPreview:
 		candy_cell = next_candy_cell
 		camera_cell = next_camera_cell
 		settlement_cell = next_settlement_cell
+		_recompute_bounds()
 		queue_redraw()
+
+	# 카메라 월드 중심에서 화면(VIEW_W×VIEW_H)의 좌상단~우하단을 cell 인덱스 Rect으로 환산.
+	func _camera_frame_cells() -> Rect2i:
+		var cx := camera_cell.x * world_cell_size + world_cell_size / 2
+		var cy := camera_cell.y * world_cell_size + world_cell_size / 2
+		var left := floori(float(cx - VIEW_W / 2) / float(world_cell_size))
+		var top := floori(float(cy - VIEW_H / 2) / float(world_cell_size))
+		var right := floori(float(cx + VIEW_W / 2 - 1) / float(world_cell_size))
+		var bottom := floori(float(cy + VIEW_H / 2 - 1) / float(world_cell_size))
+		return Rect2i(left, top, right - left + 1, bottom - top + 1)
+
+	# 캔버스 = 카메라 프레임 ∪ 모든 콘텐츠(타일·해저드·마커) + 여유. origin_cell은 음수 가능.
+	func _recompute_bounds() -> void:
+		var frame := _camera_frame_cells()
+		var min_x := frame.position.x
+		var min_y := frame.position.y
+		var max_x := frame.position.x + frame.size.x - 1
+		var max_y := frame.position.y + frame.size.y - 1
+		var consider: Array[Vector2i] = [home_cell, candy_cell, camera_cell]
+		if settlement_cell.x >= 0:
+			consider.append(settlement_cell)
+		for key in tile_map.keys():
+			consider.append(_cell_from_key(str(key)))
+		for key in hazard_map.keys():
+			consider.append(_cell_from_key(str(key)))
+		for c: Vector2i in consider:
+			min_x = mini(min_x, c.x)
+			min_y = mini(min_y, c.y)
+			max_x = maxi(max_x, c.x)
+			max_y = maxi(max_y, c.y)
+		origin_cell = Vector2i(min_x - MARGIN, min_y - MARGIN)
+		cols = clampi((max_x - min_x + 1) + MARGIN * 2, 1, MAX_SPAN)
+		rows = clampi((max_y - min_y + 1) + MARGIN * 2, 1, MAX_SPAN)
+		custom_minimum_size = Vector2(cols * preview_cell_size, rows * preview_cell_size)
+		size = custom_minimum_size
 
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton:
@@ -73,44 +131,60 @@ class GridPreview:
 			accept_event()
 
 	func _draw() -> void:
-		var bounds := Rect2(Vector2.ZERO, Vector2(GRID_COLUMNS * preview_cell_size, GRID_ROWS * preview_cell_size))
-		draw_rect(bounds, Color(0.10, 0.09, 0.08, 1.0), true)
-		var blocked_top := float((MAX_PLATFORM_ROW + 1) * preview_cell_size)
-		var blocked_rect := Rect2(Vector2(0, blocked_top), Vector2(bounds.size.x, bounds.size.y - blocked_top))
-		draw_rect(blocked_rect, Color(0.02, 0.02, 0.02, 0.72), true)
+		var canvas_px := Vector2(cols * preview_cell_size, rows * preview_cell_size)
+		# 레벨 바깥(카메라 프레임 밖) = 어둡게.
+		draw_rect(Rect2(Vector2.ZERO, canvas_px), Color(0.06, 0.06, 0.07, 1.0), true)
+		# 카메라 프레임 내부 = 약간 밝게 (플레이어가 실제 보는 영역).
+		var frame := _camera_frame_cells()
+		var frame_rect := _cells_to_px_rect(frame)
+		draw_rect(frame_rect, Color(0.13, 0.14, 0.17, 1.0), true)
 
 		for key in tile_map.keys():
 			var cell := _cell_from_key(str(key))
-			if _is_cell_in_bounds(cell) and _is_cell_placeable(cell):
-				var rect := _cell_rect(cell).grow(-1.0)
-				_draw_tile(rect, str(tile_map[key]))
+			if _is_cell_in_bounds(cell):
+				_draw_tile(_cell_rect(cell).grow(-1.0), str(tile_map[key]))
 
 		for hazard_key in hazard_map.keys():
 			var hazard_cell := _cell_from_key(str(hazard_key))
-			if _is_cell_in_bounds(hazard_cell) and _is_cell_placeable(hazard_cell):
+			if _is_cell_in_bounds(hazard_cell):
 				_draw_hazard(_cell_rect(hazard_cell).grow(-1.0), str(hazard_map[hazard_key]))
 
-		for x in range(GRID_COLUMNS + 1):
+		for x in range(cols + 1):
 			var x_pos := float(x * preview_cell_size)
-			var color := Color(1, 1, 1, 0.28) if x % 5 == 0 else Color(1, 1, 1, 0.12)
-			draw_line(Vector2(x_pos, 0), Vector2(x_pos, bounds.size.y), color, 1.0)
-		for y in range(GRID_ROWS + 1):
+			var col_index := origin_cell.x + x
+			var color := Color(1, 1, 1, 0.28) if col_index % 5 == 0 else Color(1, 1, 1, 0.10)
+			draw_line(Vector2(x_pos, 0), Vector2(x_pos, canvas_px.y), color, 1.0)
+		for y in range(rows + 1):
 			var y_pos := float(y * preview_cell_size)
-			var color := Color(1, 1, 1, 0.28) if y % 5 == 0 else Color(1, 1, 1, 0.12)
-			draw_line(Vector2(0, y_pos), Vector2(bounds.size.x, y_pos), color, 1.0)
+			var row_index := origin_cell.y + y
+			var color := Color(1, 1, 1, 0.28) if row_index % 5 == 0 else Color(1, 1, 1, 0.10)
+			draw_line(Vector2(0, y_pos), Vector2(canvas_px.x, y_pos), color, 1.0)
+
+		# 레벨 원점(col 0 = 월드 x 0)을 초록 세로선으로 표시 → 어디가 보드 왼쪽 끝인지.
+		var origin_x_px := float((0 - origin_cell.x) * preview_cell_size)
+		if origin_x_px >= 0.0 and origin_x_px <= canvas_px.x:
+			draw_line(Vector2(origin_x_px, 0), Vector2(origin_x_px, canvas_px.y), Color(0.3, 0.9, 0.5, 0.6), 2.0)
 
 		_draw_marker(home_cell, Color(0.18, 0.85, 0.36), "H")
 		_draw_marker(candy_cell, Color(1.0, 0.28, 0.62), "C")
 		_draw_marker(camera_cell, Color(0.35, 0.65, 1.0), "K")
 		if settlement_cell.x >= 0:
 			_draw_marker(settlement_cell, Color(0.85, 0.75, 0.2), "S")
-		var limit_y := float((MAX_PLATFORM_ROW + 1) * preview_cell_size)
-		draw_line(Vector2(0, limit_y), Vector2(bounds.size.x, limit_y), Color(1.0, 0.2, 0.15, 0.85), 2.0)
-		draw_rect(bounds, Color(1, 1, 1, 0.22), false, 2.0)
+
+		# 카메라 프레임 외곽선 (= 플레이어 화면, 시안).
+		draw_rect(frame_rect, Color(0.30, 0.85, 1.0, 0.95), false, 2.0)
+		draw_rect(Rect2(Vector2.ZERO, canvas_px), Color(1, 1, 1, 0.20), false, 2.0)
+
+	func _cells_to_px_rect(cell_rect: Rect2i) -> Rect2:
+		var tl := Vector2(
+			float((cell_rect.position.x - origin_cell.x) * preview_cell_size),
+			float((cell_rect.position.y - origin_cell.y) * preview_cell_size)
+		)
+		return Rect2(tl, Vector2(cell_rect.size.x * preview_cell_size, cell_rect.size.y * preview_cell_size))
 
 	func _apply_paint_at(position: Vector2) -> void:
-		var cell := Vector2i(floori(position.x / preview_cell_size), floori(position.y / preview_cell_size))
-		if not _is_cell_in_bounds(cell) or not _is_cell_placeable(cell):
+		var cell := origin_cell + Vector2i(floori(position.x / preview_cell_size), floori(position.y / preview_cell_size))
+		if not _is_cell_in_bounds(cell):
 			return
 		var key := _cell_key(cell)
 		# 우클릭 또는 Erase 브러시 = 타일·해저드 모두 지움.
@@ -155,8 +229,21 @@ class GridPreview:
 			draw_colored_polygon(points, Color(0.94, 0.64, 0.28, 1.0))
 			draw_polyline(points + PackedVector2Array([points[0]]), Color(0.45, 0.24, 0.12, 1.0), 1.0)
 		else:
-			draw_rect(rect, Color(0.92, 0.60, 0.28, 1.0), true)
-			draw_rect(rect, Color(0.45, 0.24, 0.12, 1.0), false, 1.0)
+			# 타일 종류별 색 — builder 비주얼과 대략 일치(plant=녹색, cookie=차가운 청회색, background=어두운 채움).
+			var fill := Color(0.92, 0.60, 0.28, 1.0)   # solid (걷는 면)
+			var border := Color(0.45, 0.24, 0.12, 1.0)
+			match tile_type:
+				TILE_BACKGROUND:
+					fill = Color(0.40, 0.26, 0.16, 1.0)
+					border = Color(0.24, 0.15, 0.09, 1.0)
+				TILE_PLANT:
+					fill = Color(0.30, 0.66, 0.30, 1.0)
+					border = Color(0.16, 0.38, 0.16, 1.0)
+				TILE_COOKIE:
+					fill = Color(0.60, 0.70, 0.95, 1.0)
+					border = Color(0.32, 0.40, 0.62, 1.0)
+			draw_rect(rect, fill, true)
+			draw_rect(rect, border, false, 1.0)
 
 	func _draw_hazard(rect: Rect2, hazard_type: String) -> void:
 		if hazard_type == TILE_STICKY:
@@ -177,13 +264,16 @@ class GridPreview:
 		draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 	func _cell_rect(cell: Vector2i) -> Rect2:
-		return Rect2(Vector2(cell.x * preview_cell_size, cell.y * preview_cell_size), Vector2(preview_cell_size, preview_cell_size))
+		return Rect2(
+			Vector2((cell.x - origin_cell.x) * preview_cell_size, (cell.y - origin_cell.y) * preview_cell_size),
+			Vector2(preview_cell_size, preview_cell_size)
+		)
 
 	func _is_cell_in_bounds(cell: Vector2i) -> bool:
-		return cell.x >= 0 and cell.x < GRID_COLUMNS and cell.y >= 0 and cell.y < GRID_ROWS
-
-	func _is_cell_placeable(cell: Vector2i) -> bool:
-		return cell.y <= MAX_PLATFORM_ROW
+		return (
+			cell.x >= origin_cell.x and cell.x < origin_cell.x + cols
+			and cell.y >= origin_cell.y and cell.y < origin_cell.y + rows
+		)
 
 	func _cell_key(cell: Vector2i) -> String:
 		return "%d,%d" % [cell.x, cell.y]
@@ -211,6 +301,24 @@ const SKILL_IDS: Array[String] = [
 const THEME_NAMES: Array[String] = [
 	"cookie_crust", "cookie_segment", "thin_floor", "cookie_bridge_tile", "thin_bridge",
 ]
+# 브러시 항목 — 도크/그리드 창 두 OptionButton이 동일 순서·id를 쓰도록 단일 SoT.
+# id는 _selected_brush_tile_type() match와 일치. 창 동기화는 select(index) 기반이라
+# 두 OptionButton의 표시 순서가 같아야 하므로 한 곳에서 채운다.
+const BRUSH_ITEMS: Array = [
+	["Solid (지면)", 0],
+	["Background (시각 채움)", 6],
+	["Plant (식물벽)", 7],
+	["Cookie (불괴)", 8],
+	["Slope Right", 1],
+	["Slope Left", 2],
+	["Water (즉사)", 4],
+	["Sticky (점착)", 5],
+	["Erase (지우개)", 3],
+]
+
+func _populate_brush_option(option: OptionButton) -> void:
+	for item in BRUSH_ITEMS:
+		option.add_item(str(item[0]), int(item[1]))
 
 var _id_spin: SpinBox
 var _name_edit: LineEdit
@@ -337,18 +445,13 @@ func _ready() -> void:
 	add_child(_labeled_control("Platform Runs", _platform_text))
 
 	_brush_option = OptionButton.new()
-	_brush_option.add_item("Solid", 0)
-	_brush_option.add_item("Slope Right", 1)
-	_brush_option.add_item("Slope Left", 2)
-	_brush_option.add_item("Erase", 3)
-	_brush_option.add_item("Water", 4)
-	_brush_option.add_item("Sticky", 5)
+	_populate_brush_option(_brush_option)
 	_brush_option.item_selected.connect(_on_brush_selected)
 	add_child(_labeled_control("Brush", _brush_option))
 
 	_add_section("Grid Preview")
 	var grid_hint := Label.new()
-	grid_hint.text = "Left drag: draw. Right drag: erase. Rows below Stage01 ground limit are blocked."
+	grid_hint.text = "좌클릭=칠 / 우클릭=지움. 시안 사각형 = 플레이어 화면(카메라). 초록 세로선 = 레벨 원점(col 0). 그 왼쪽(음수 칸)도 칠할 수 있음."
 	grid_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(grid_hint)
 
@@ -775,7 +878,7 @@ func _create_grid_window() -> void:
 	root.add_child(toolbar)
 
 	var hint := Label.new()
-	hint.text = "Left drag paints the selected tile. Right drag erases. Rows below the Stage01 ground limit are blocked. H=Home, C=Candy, K=Camera."
+	hint.text = "좌클릭=선택 브러시 칠 / 우클릭=지움. 시안 사각형 = 플레이어가 보는 화면(카메라 프레임). 초록 세로선 = 레벨 원점(col 0). H=Home, C=Candy, K=Camera."
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbar.add_child(hint)
 
@@ -784,12 +887,7 @@ func _create_grid_window() -> void:
 	toolbar.add_child(brush_label)
 
 	var window_brush := OptionButton.new()
-	window_brush.add_item("Solid", 0)
-	window_brush.add_item("Slope Right", 1)
-	window_brush.add_item("Slope Left", 2)
-	window_brush.add_item("Erase", 3)
-	window_brush.add_item("Water", 4)
-	window_brush.add_item("Sticky", 5)
+	_populate_brush_option(window_brush)
 	window_brush.item_selected.connect(func(index: int) -> void:
 		_brush_option.select(index)
 		_on_brush_selected(index)
@@ -858,8 +956,6 @@ func _parse_tile_map(text: String) -> Dictionary:
 			tile_type = _normalize_tile_type(parts[3])
 		for offset in range(length):
 			var cell := Vector2i(x + offset, y)
-			if cell.y > GridPreview.MAX_PLATFORM_ROW:
-				continue
 			var key := _cell_key(cell)
 			if seen.has(key):
 				continue
@@ -872,8 +968,6 @@ func _tile_map_to_platform_cells(tile_map: Dictionary) -> Array[Vector2i]:
 	var seen := {}
 	for key in tile_map.keys():
 		var cell := _cell_from_key(str(key))
-		if cell.y > GridPreview.MAX_PLATFORM_ROW:
-			continue
 		if seen.has(cell):
 			continue
 		seen[cell] = true
@@ -915,6 +1009,7 @@ func _connect_dirty_tracking() -> void:
 
 func _connect_layout_spins() -> void:
 	for spin: SpinBox in [
+		_cell_size_spin,
 		_home_cell_x_spin,
 		_home_cell_y_spin,
 		_candy_cell_x_spin,
@@ -934,15 +1029,18 @@ func _sync_grid_from_controls() -> void:
 	var candy_cell := Vector2i(int(_candy_cell_x_spin.value), int(_candy_cell_y_spin.value))
 	var camera_cell := Vector2i(int(_camera_cell_x_spin.value), int(_camera_cell_y_spin.value))
 	var settlement_cell := _current_settlement_cell()
+	var world_cell_size := int(_cell_size_spin.value)
 	var tile_map := _parse_tile_map(_platform_text.text)
 	_grid_preview.set_tile_map(tile_map)
 	_grid_preview.set_hazard_map(_hazard_map)
 	_grid_preview.set_markers(home_cell, candy_cell, camera_cell, settlement_cell)
+	_grid_preview.set_world_cell_size(world_cell_size)
 	_grid_preview.set_brush_tile_type(_selected_brush_tile_type())
 	if _grid_window_preview != null:
 		_grid_window_preview.set_tile_map(tile_map)
 		_grid_window_preview.set_hazard_map(_hazard_map)
 		_grid_window_preview.set_markers(home_cell, candy_cell, camera_cell, settlement_cell)
+		_grid_window_preview.set_world_cell_size(world_cell_size)
 		_grid_window_preview.set_brush_tile_type(_selected_brush_tile_type())
 
 func _on_grid_tile_map_changed(tile_map: Dictionary) -> void:
@@ -1031,6 +1129,12 @@ func _selected_brush_tile_type() -> String:
 			return GridPreview.TILE_WATER
 		5:
 			return GridPreview.TILE_STICKY
+		6:
+			return GridPreview.TILE_BACKGROUND
+		7:
+			return GridPreview.TILE_PLANT
+		8:
+			return GridPreview.TILE_COOKIE
 		_:
 			return GridPreview.TILE_SOLID
 
@@ -1040,6 +1144,12 @@ func _normalize_tile_type(raw: String) -> String:
 		return GridPreview.TILE_SLOPE_RIGHT
 	if value == "slope_left" or value == "slop_left" or value == "left":
 		return GridPreview.TILE_SLOPE_LEFT
+	if value == "background" or value == "bg":
+		return GridPreview.TILE_BACKGROUND
+	if value == "plant":
+		return GridPreview.TILE_PLANT
+	if value == "cookie":
+		return GridPreview.TILE_COOKIE
 	return GridPreview.TILE_SOLID
 
 func _cell_key(cell: Vector2i) -> String:

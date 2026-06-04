@@ -10,6 +10,63 @@
 
 ---
 
+## 2026-06-05
+
+> iPad Mini 타겟 대응 + UI/UX 폴리싱 + 무장 스킬(armed) 메커니즘 확장 세션. 커밋엔 세션 전부터 작업 중이던
+> 변경(스킬 라벨 리네임·StageSelect/SlotCard UI·맵 에디터 addon)도 사용자 지시로 함께 반영했다. 맵 에디터
+> addon(`addons/candyants_level_tool/*`)은 별도 툴링 트랙이라 본 로그(버그/폴리싱 전용)엔 상세 기록하지 않는다.
+
+### Fixed
+
+#### F-4. iPad Mini(3:2) 해상도 대응
+- **요청**: 게임을 iPad Mini 미니 해상도 기준으로 동작하게. **사용자 결정**: iPad Mini 6세대(2266×1488 = 1.5228), 가로(landscape), keep(레터박스).
+- **제약**: 카메라 zoom=1·limit 없음 → base 해상도가 곧 "보이는 월드 범위". 세로를 iPad 논리값 744로 잡으면 지표 아래 ~6셀(낙하·기절 개미, y≈768)이 화면에서 잘림.
+- **수정**: [project.godot](../project.godot) `[display]` — `viewport 1644×1080`(세로 1080 유지로 낙하 가시성 보존, 과한 가로 여백만 3:2로 축소) + `window override 1133×744`(데스크톱 에뮬레이트) + `stretch canvas_items/keep` + `handheld/orientation=landscape`.
+- **검증**: `GameFlowTest` 3시나리오 PASS. HUD/메뉴는 앵커 기반이라 base 너비 변화에 자동 적응(무영향).
+
+#### F-5. 타이틀 인트로 영상 레터박스
+- **증상**: 16:9(1280×720) 인트로 영상이 3:2 프레임에서 `expand=true`로 세로 늘어나 왜곡.
+- **수정**: [TitleScene.tscn](../scenes/ui/TitleScene.tscn) — 영상 뒤 검은 `Letterbox` ColorRect(풀스크린) + `VideoPlayer`를 가로 꽉(1644)·세로 924.75(16:9 유지) 중앙 박스로(위아래 ~77.6px 검은 바).
+- **검증**: `TitleSceneInputTest` PASS.
+
+#### F-6. 스킬 버튼 확대 + 자동 간격 + 세로 중앙 정렬 + 라벨 폰트
+- **요청**: 스킬 버튼 크게(누적 ×1.32), 커진 만큼 버튼 사이 간격 자동 조정, 하단 바 세로 중앙 정렬, 스킬 이름 폰트 확대.
+- **핵심 버그**: [SkillSlot.gd](../scripts/ui/atoms/SkillSlot.gd)가 `_ready`에서 `custom_minimum_size = _SIZE`(88×88)로 `.tscn` 크기를 매번 덮어써, `.tscn`만 키우면 버튼은 88 그대로이고 자식(MainBG/Icon/라벨)만 116 기준으로 커져 **버튼 밖으로 삐져나와 겹침**.
+- **수정**: `SkillSlot.gd` `_SIZE` 88→116.16 + `size_flags_vertical = SHRINK_CENTER`; [SkillSlot.tscn](../scenes/ui/atoms/SkillSlot.tscn) 자식 offset ×1.32 + `KoLabel` 폰트 18; [SkillToolbar.gd](../scripts/ui/SkillToolbar.gd) 자동 간격(`separation = round(슬롯폭 × 14/88)`); [SkillToolbar.tscn](../scenes/ui/SkillToolbar.tscn) HBox를 panel 전체로 확장(세로 중앙 정렬).
+- **검증**: `SkillToolbarPositionGuard`/`SkillToolbarReentry`/`AtomShowcase` PASS + 실측(슬롯 116.16, 간격 18, y=11 중앙).
+
+#### F-7. 방출 속도 스테퍼 제거 → 배속 버튼 신설
+- **요청**: 개미 수가 적어 방출 속도 조절은 불필요, 대신 진행 속도 배속 버튼이 낫다.
+- **수정**: [HUD.tscn](../scenes/ui/HUD.tscn) `ReleaseRateStepper` 인스턴스 제거 + `SpeedBtn` 추가. [SpeedBtn.gd](../scripts/ui/SpeedBtn.gd) **신규** — 기존 `speed_toggle` 액션(키보드 F)+버튼 클릭으로 1×→2×→3× 순환, `Engine.time_scale` **상대 배수**(진입 시 base 캡처 → 헤드리스 테스트 time_scale=8 비간섭, `_exit_tree`에서 base 복원해 메뉴 가속 방지).
+- **검증**: `HudCounterRegression`/`GameActionContract` PASS, `GameFlowTest`의 time_scale=8 보존(전 시나리오 PASS).
+
+#### F-8. 터치 스킬 부여 — 머리 터치 미인식
+- **증상**: 터치 조작으로 스킬 부여 시, 특히 개미 **머리** 터치가 인식 안 됨.
+- **원인**: 개미 충돌 원점은 발(y=0)인데 스프라이트(보이는 캐릭터, 높이 ~103px)는 중심이 -43.5라 캐릭터 전체가 원점 위. [SkillToolbar.gd](../scripts/ui/SkillToolbar.gd) `_find_closest_ant`가 **원점 기준 반경 48**로 판정 → 캐릭터 아래 절반만 덮어 머리(원점에서 ~58~95px)가 빠짐. (좌표 변환은 정상 — 레터박스 무관.)
+- **수정**: [Ant.gd](../scripts/ant/Ant.gd) `tap_target_position()`(스프라이트 시각 중심) 추가 → 툴바가 그 기준으로 거리 측정 + `CLICK_RADIUS` 48→64.
+- **검증**: probe(머리/몸통/발 모두 인식, 한참 빗나간 지점 미인식) + 툴바 회귀 PASS.
+
+#### F-9. basher / cutter 무장(armed) 패턴 전환
+- **요청**: basher·cutter도 (bridge/builder처럼) 개미에 부착하면 벽을 만날 때까지 들고 있다가 작동 후 해제. (basher=전방 5칸 굴착, cutter=연결 덩쿨 일괄 절단.)
+- **수정**: [Ant.gd](../scripts/ant/Ant.gd) `basher_armed`/`cutter_armed` + `try_bash_armed_wall()`/`try_cut_armed_wall()` + `basher_wall_ahead()`(전방 earth)/`cutter_plant_ahead()`(전방 plant) + `forward_cell_open()`; [WalkerState.gd](../scripts/ant/states/WalkerState.gd) 매 frame 훅(벽 flip보다 먼저). 전방이 **열림→무장 후 보행**, 흙/식물 벽 도달 시 자동 작동. 이미 벽에서 부여하면(전방 막힘) **기존처럼 즉시 처리**(대상이면 작업, 비대상이면 자연 abort=cross-kind 침범 차단) → 기존 테스트 전부 보존. [WorkerState.gd](../scripts/ant/states/WorkerState.gd) `BASHER_MAX_CELLS` 12→5. [BasherSkill](../scripts/skills/BasherSkill.gd)/[CutterSkill](../scripts/skills/CutterSkill.gd)/[BridgeSkill](../scripts/skills/BridgeSkill.gd)/[BuilderSkill](../scripts/skills/BuilderSkill.gd) 4종 armed 상호 배타. [Ant.tscn](../scenes/entities/Ant.tscn) `BasherBadge`/`CutterBadge` 무장 표식 배지.
+- **검증**: Basher 단위 4 + Cutter 단위 5 + `CampaignS7/S8/S9` Clear/음성 + `ArmedSkillMutexTest`(4-way로 확장) + armed probe(열린 공간 적용→무장→벽 자동 작동, 비대상 미침범) PASS.
+
+#### F-10. 메인 메뉴 설정·크레딧 버튼 숨김
+- **요청**: 메인 메뉴에서 설정·크레딧 버튼 숨기기.
+- **수정**: [MainMenu.tscn](../scenes/ui/MainMenu.tscn) `SettingsBtn`/`CreditsBtn` `visible=false`(노드·시그널 연결은 보존 — 재노출은 `visible=true`만). VBox가 빈 공간 자동 접음.
+- **검증**: `MainMenuNav`(`.pressed.emit()`은 신호 직접 발화라 숨김 무관)/`MainMenuContinueGuard` PASS.
+
+#### F-11. 스킬 한글 라벨 명확화 (세션 전 작업분, 번들)
+- [Strings.gd](../scripts/core/Strings.gd) 스킬 라벨을 더 직관적으로 리네임(등반→**벽 오르기**, 굴착→**벽 부수기**, 절단→**식물 자르기**, 계단→경사면, 차단→길 막기, 다리→다리만들기, sand_mound→막대세우기, floater→낙하산 분배). 라벨을 직접 단언하던 테스트 2개([StringsTableTest](../tests/StringsTableTest.gd) climber, [SkillToolbarCutterIntegrationTest](../tests/SkillToolbarCutterIntegrationTest.gd) cutter)를 새 라벨로 동기화(stale 해소).
+- **검증**: 두 테스트 PASS.
+
+### Known issues (미수정 — 효율/스코프 사유로 보류)
+
+#### K-7. release_rate 키보드 단축키가 UI 없이 잔존
+- **내용**: F-7로 방출속도 스테퍼 UI는 제거했으나, 입력 액션 `release_rate_up`/`release_rate_down`(`[`/`]`)은 `GameActionContractTest`의 canonical InputMap 계약에 묶여 있어 **바인딩은 유지**. UI 없이 스폰 주기를 조용히 바꾼다(무해, 스포너는 release_rate를 내부 스폰 주기로 계속 사용).
+- **왜 안 고쳤나**: 입력 액션 제거는 계약 fixture(`GameActionContractTest` + `project.godot` InputMap)까지 동반 수정 필요 → 스코프 확대.
+- **고친다면**: release_rate 조절을 완전히 폐기하기로 확정 시 액션 2개 + 계약 fixture + `StageRunner._on_action`의 RELEASE_RATE 분기 + `ReleaseRateStepper` 위젯/테스트 일괄 정리.
+
 ## 2026-06-03
 
 ### Fixed

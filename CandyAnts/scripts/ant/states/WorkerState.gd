@@ -20,7 +20,10 @@ const BRIDGE_MAX_LENGTH: int = 5
 # DIGGER_OFF_FLOOR_LIMIT: void 무한 낙하 안전망 (D11, codex R1 H1). 3초 @ 60fps.
 # 정상 1~5 cell drop(1~60 frames)에서 trigger X. hazard도 없는 완전한 void에서만 발동.
 const BASHER_TICK: float = 0.18
-const BASHER_MAX_CELLS: int = 12
+# 전방 굴착 최대 칸수 — 5칸 캡 (2026-06-05 요청, 구 12). 무장 basher가 흙 벽 도달 시 전방 5칸까지 뚫고 해제.
+# 벽이 5칸보다 얇으면 공기 만나 자연 종료(_basher_forward_has_earth=false). 기존 정본 스테이지 벽은 모두 ≤5칸
+# (S7=4, S9=2)이라 회귀 없음.
+const BASHER_MAX_CELLS: int = 5
 const DIGGER_TICK: float = 0.20
 const DIGGER_MAX_CELLS: int = 12
 const DIGGER_OFF_FLOOR_LIMIT: int = 180
