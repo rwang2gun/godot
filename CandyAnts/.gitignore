@@ -32,3 +32,6 @@ tools/map_editor/node_modules/
 # scripts/execute.py가 untracked path 분류 시 거부하지 않도록 명시적 ignore.
 # (phase 14 plan adversarial-review Round 2 MEDIUM 대응)
 **/.claude/worktrees/**
+
+# Claude Code 런타임 락 — ScheduleWakeup 등 세션 런타임 산출물(커밋 금지).
+**/.claude/scheduled_tasks.lock
