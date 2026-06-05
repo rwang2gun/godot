@@ -28,10 +28,13 @@ const DIGGER_TICK: float = 0.20
 const DIGGER_MAX_CELLS: int = 12
 const DIGGER_OFF_FLOOR_LIMIT: int = 180
 
-# Phase 19 (2026-06-04 개정) — Cutter 덩쿨 일괄 절단. 구 수평 march(Basher와 동형, 1 row만 제거)를 폐기하고,
-# 전방 plant와 4-방향 연결된 덩쿨 전체를 한 번에 flood-fill 제거한다(Terrain.shatter_connected_plants).
-# 잘린 타일은 지면으로 떨어지며 부서지는 디브리(PlantDebris)로 연출. CUTTER_TICK = 절단 발동 전 wind-up 1틱.
+# Cutter 전방 열 절단 (2026-06-05 개정). Basher(전방 흙 5칸 굴착)의 식물 버전 — 매 tick 전방 plant 1열
+# (그 열의 연속 세로 덩쿨, Terrain.shatter_plant_column)을 제거하고 1 cell 전진하며, CUTTER_MAX_COLUMNS까지
+# 전방으로 march한다. 구 flood-fill 일괄 절단(4-방향 연결 클러스터 전체, 두께 무제한)을 폐기 — "1열씩 최대
+# 5열". 전방 열에 plant가 없으면(벽 끝/공기/earth) 자연 종료. CUTTER_TICK = 열당 처리 간격(첫 절단 전 wind-up).
 const CUTTER_TICK: float = 0.18
+# 전방 절단 최대 열수 — 5열 캡 (basher BASHER_MAX_CELLS와 동형). 덤불이 5열보다 두꺼우면 앞 5열만 열고 종료.
+const CUTTER_MAX_COLUMNS: int = 5
 
 var _work_type: String = ""
 var _remaining: int = 0
@@ -117,6 +120,7 @@ func _enter_digger(a: Ant) -> void:
 	a.velocity = Vector2.ZERO
 
 func _enter_cutter(a: Ant) -> void:
+	_remaining = CUTTER_MAX_COLUMNS
 	_tick_accum = 0.0
 	_aborted = false
 	a.velocity = Vector2.ZERO
@@ -556,13 +560,11 @@ func _digger_below_has_earth(a: Ant) -> bool:
 	)
 	return terrain.get_cell_kind(body_cell + Vector2i(0, 1)) == "earth"
 
-# Phase 19 (2026-06-04 개정) — Cutter 덩쿨 일괄 절단. wind-up 1틱 후, 전방 plant와 연결된 덩쿨 전체를
-# flood-fill로 한 번에 제거(Terrain.shatter_connected_plants)하고 즉시 Walker 복귀. 구 수평 march(1 row만
-# 잘라 Basher와 동형)를 폐기 — 덩쿨이 세로로 매달려도 한 번에 통째로 베어 길을 연다.
+# Cutter 전방 열 절단 march (2026-06-05 개정, Basher 동형). 매 tick 전방 plant 1열(세로 연속 덩쿨)을 제거하고
+# 1 cell 전진하며 CUTTER_MAX_COLUMNS까지 나아간다. 전방 열에 plant 없으면(벽 끝/공기/earth) 자연 종료 → Walker.
 # off-floor 시 즉시 _aborted → Faller (절벽 끝에서 활성화 안전망, Basher와 동일).
-# 전방에 plant가 없으면(earth/공기) 아무것도 제거하지 않고 Walker 복귀 — cross-kind 침범 차단.
 func _update_cutter(a: Ant, delta: float) -> void:
-	if _aborted:
+	if _aborted or _remaining <= 0:
 		a.return_to_walking()
 		return
 	a.velocity.y += a.gravity * delta
@@ -573,15 +575,26 @@ func _update_cutter(a: Ant, delta: float) -> void:
 		a.state_machine.change_state(FallerState.new())
 		return
 	_tick_accum += delta
-	if _tick_accum < CUTTER_TICK:
+	while _tick_accum >= CUTTER_TICK and _remaining > 0 and not _aborted:
+		_tick_accum -= CUTTER_TICK
+		if not _cutter_forward_has_plant(a):
+			_aborted = true
+			break
+		_cut_cutter_column(a)
+	if _aborted or _remaining <= 0:
+		a.return_to_walking()
+
+# 전방 plant 1열(세로 연속 덩쿨)을 제거하고 basher와 동일하게 1 cell 전진. _update_cutter가 직전에 전방
+# plant를 확인했으므로 정상 경로에선 shatter가 1개 이상 제거한다(공기열은 상위에서 이미 abort).
+func _cut_cutter_column(a: Ant) -> void:
+	var terrain: Terrain = _find_terrain(a)
+	if terrain == null:
+		_aborted = true
 		return
-	# 절단은 1회성 — 전방 덩쿨과 연결된 plant 전체를 통째로 제거하고 종료.
-	if _cutter_forward_has_plant(a):
-		var terrain: Terrain = _find_terrain(a)
-		if terrain != null:
-			terrain.shatter_connected_plants(_cutter_forward_cell(a, terrain))
-	_aborted = true
-	a.return_to_walking()
+	var cs: int = terrain.cell_size
+	terrain.shatter_plant_column(_cutter_forward_cell(a, terrain))
+	a.global_position += Vector2(float(a.direction) * cs, 0.0)
+	_remaining -= 1
 
 func _cutter_forward_cell(a: Ant, terrain: Terrain) -> Vector2i:
 	var cs: int = terrain.cell_size

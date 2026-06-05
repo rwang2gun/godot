@@ -1,9 +1,9 @@
 class_name PlantDebris extends Node2D
 
-# Cutter가 덩쿨(plant) cell을 flood-fill로 잘라낼 때, 잘린 각 cell 자리에 스폰되는 **순수 시각** 디브리.
+# Cutter가 덩쿨(plant) cell을 세로 1열로 잘라낼 때, 잘린 각 cell 자리에 스폰되는 **순수 시각** 디브리.
 # 충돌·점유·score 0 영향 (Node2D + Sprite2D 조각들만, collision body 없음). 잘린 plant 텍스처를 여러 조각으로
 # 흩뜨려 중력으로 지면을 향해 떨어뜨리고 회전·축소·페이드아웃시킨 뒤 자가 free한다.
-# Terrain.shatter_connected_plants가 destroy_tile_at 직전(원본 Sprite가 살아있을 때) 텍스처를 캡처해 setup 호출.
+# Terrain.shatter_plant_column이 destroy_tile_at 직전(원본 Sprite가 살아있을 때) 텍스처를 캡처해 setup 호출.
 
 const GRAVITY: float = 1100.0          # px/s² — 개미 낙하보다 약간 빠르게 떨어져 "툭 떨어지는" 무게감.
 const LIFETIME: float = 0.8            # 전체 수명(초). 이후 queue_free.

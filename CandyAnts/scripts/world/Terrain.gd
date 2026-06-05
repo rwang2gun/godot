@@ -105,34 +105,31 @@ func destroy_tile_at(
 	_stair_cells.erase(cell)          # 계단 타일이면 stair registry도 정리 (아니면 no-op)
 	return true
 
-# Phase 19 (2026-06-04 개정) — Cutter 전용 덩쿨 일괄 절단. start_cell에서 4-방향으로 연결된 모든 "plant" cell을
-# flood-fill로 찾아 한 번에 파괴하고, 각 cell 자리에 떨어져 부서지는 디브리(PlantDebris)를 스폰한다. 반환: 제거 수.
-# 전파는 kind=="plant"만 — earth/cookie/공기는 경계가 되어 전파를 멈춘다(cross-mechanic 침범 차단, EdgeStop 보존).
+# Cutter 전용 덩쿨 절단 (2026-06-05 개정) — start_cell이 속한 **세로 1열**(같은 x)의 연속 "plant" cell만
+# 위·아래로 훑어 파괴하고, 각 cell 자리에 떨어져 부서지는 디브리(PlantDebris)를 스폰한다. 반환: 제거 수.
+# 구 flood-fill 일괄 절단(4-방향 연결 클러스터 전체)을 폐기하고 1열 단위로 분해 — WorkerState cutter가
+# 전방으로 1열씩 최대 5열까지 march하며 이 함수를 열마다 호출한다. 세로 연속만 수집하므로 가로로 붙은
+# 옆 열은 이 호출에서 건드리지 않는다(다음 열은 다음 tick에서 처리).
+# 연속 판정은 kind=="plant"만 — earth/cookie/공기를 만나면 그 방향 수집을 멈춘다(cross-mechanic 침범 차단).
 # destroy_tile_at(["plant"])로 실제 제거하므로 hazard registry·정적/동적 invariant는 기존 atomic 경로 그대로 따른다.
-# _SHATTER_MAX_CELLS로 BFS 폭주를 방어적으로 상한.
+# _SHATTER_MAX_CELLS로 폭주를 방어적으로 상한.
 const _SHATTER_MAX_CELLS: int = 256
 # preload로 참조 — class_name 글로벌 캐시(.godot import) 의존 없이 헤드리스에서도 안정 (SkillRegistry 패턴).
 const PlantDebrisScript := preload("res://scripts/world/PlantDebris.gd")
 
-func shatter_connected_plants(start_cell: Vector2i) -> int:
+func shatter_plant_column(start_cell: Vector2i) -> int:
 	if get_cell_kind(start_cell) != "plant":
 		return 0
-	# 1) flood-fill로 연결 plant 클러스터 수집 (4-이웃, seen으로 중복 방지).
-	var cells: Array[Vector2i] = []
-	var seen: Dictionary = {start_cell: true}
-	var stack: Array[Vector2i] = [start_cell]
-	while not stack.is_empty() and cells.size() < _SHATTER_MAX_CELLS:
-		var c: Vector2i = stack.pop_back()
-		if get_cell_kind(c) != "plant":
-			continue
-		cells.append(c)
-		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			var n: Vector2i = c + d
-			if seen.has(n):
-				continue
-			seen[n] = true
-			if get_cell_kind(n) == "plant":
-				stack.append(n)
+	# 1) start_cell이 속한 세로 1열의 연속 plant 수집 (위·아래로 첫 비-plant까지).
+	var cells: Array[Vector2i] = [start_cell]
+	var up: Vector2i = start_cell + Vector2i(0, -1)
+	while get_cell_kind(up) == "plant" and cells.size() < _SHATTER_MAX_CELLS:
+		cells.append(up)
+		up += Vector2i(0, -1)
+	var down: Vector2i = start_cell + Vector2i(0, 1)
+	while get_cell_kind(down) == "plant" and cells.size() < _SHATTER_MAX_CELLS:
+		cells.append(down)
+		down += Vector2i(0, 1)
 	# 2) 각 cell: destroy 전 원본 Sprite 텍스처 캡처 → 디브리 스폰 → 파괴.
 	var removed: int = 0
 	for c in cells:
