@@ -8,10 +8,14 @@ script = ExtResource("1")
 id = 2
 display_name = "오르막"
 layout = ExtResource("1_layout")
-total_ants = 6
+total_ants = 7
 candy_hp = 5
 time_limit_seconds = 100.0
-available_skills = ["climber", "floater"]
-skill_inventory = { "climber": 6, "floater": 1 }
+available_skills = Array[String](["climber", "floater", "blocker"])
+skill_inventory = {
+"blocker": 1,
+"climber": 6,
+"floater": 1
+}
 release_rate_initial = 30
 star_thresholds = Array[float]([0.5, 0.75, 1.0])

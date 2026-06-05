@@ -147,7 +147,7 @@ class GridPreview:
 		for hazard_key in hazard_map.keys():
 			var hazard_cell := _cell_from_key(str(hazard_key))
 			if _is_cell_in_bounds(hazard_cell):
-				_draw_hazard(_cell_rect(hazard_cell).grow(-1.0), str(hazard_map[hazard_key]))
+				_draw_hazard(_cell_rect(hazard_cell).grow(-1.0), str(hazard_map[hazard_key]), hazard_cell)
 
 		for x in range(cols + 1):
 			var x_pos := float(x * preview_cell_size)
@@ -245,13 +245,19 @@ class GridPreview:
 			draw_rect(rect, fill, true)
 			draw_rect(rect, border, false, 1.0)
 
-	func _draw_hazard(rect: Rect2, hazard_type: String) -> void:
+	func _draw_hazard(rect: Rect2, hazard_type: String, cell: Vector2i) -> void:
 		if hazard_type == TILE_STICKY:
 			draw_rect(rect, Color(0.82, 0.52, 0.16, 0.55), true)
 			draw_rect(rect, Color(0.55, 0.32, 0.08, 0.9), false, 1.0)
 		else:
-			draw_rect(rect, Color(0.20, 0.52, 1.0, 0.5), true)
-			draw_rect(rect, Color(0.12, 0.32, 0.7, 0.9), false, 1.0)
+			# 수면(surface)=밝게 / 심부(deep, 바로 위도 물)=어둡게 — 런타임 soda surface/inner 구분과 일치.
+			var above_is_water := str(hazard_map.get(_cell_key(Vector2i(cell.x, cell.y - 1)), "")) == TILE_WATER
+			if above_is_water:
+				draw_rect(rect, Color(0.10, 0.34, 0.78, 0.55), true)
+				draw_rect(rect, Color(0.08, 0.22, 0.55, 0.9), false, 1.0)
+			else:
+				draw_rect(rect, Color(0.30, 0.62, 1.0, 0.5), true)
+				draw_rect(rect, Color(0.12, 0.32, 0.7, 0.9), false, 1.0)
 
 	func _draw_marker(cell: Vector2i, color: Color, label: String) -> void:
 		if not _is_cell_in_bounds(cell):
@@ -338,6 +344,7 @@ var _settlement_y_spin: SpinBox
 var _star_override_check: CheckBox
 var _star_spins: Array[SpinBox] = []
 var _hazard_map: Dictionary = {}
+var _water_line_spin: SpinBox
 var _cell_size_spin: SpinBox
 var _home_cell_x_spin: SpinBox
 var _home_cell_y_spin: SpinBox
@@ -353,6 +360,19 @@ var _grid_window_preview: GridPreview
 var _template_option: OptionButton
 var _status_label: Label
 var _syncing_grid := false
+# 직전 저장에서 빈 스핀으로 인한 스킬 전멸을 막아 디스크 인벤토리를 보존했는지.
+var _skills_preserved_on_save := false
+# 스킬 편집의 진실원천(SoT)은 "Load한 스테이지의 스냅샷 + 스핀 편집"이다.
+# 스핀 위젯은 _ready에서 0으로 초기화되므로, Load 없이 저장하면 스핀이 스테이지의 스킬을
+# 대표하지 못한다. 어떤 스테이지를 Load했는지(_loaded_stage_id)와 그때의 전체 인벤토리
+# 스냅샷(_loaded_skill_inventory: SKILL_IDS 밖 미지 스킬 포함)·표시 순서(_loaded_available_skills)를
+# 보관해, 저장 시 스냅샷 위에 스핀 편집만 머지한다. -1 = 아직 아무 스테이지도 Load 안 함.
+var _loaded_stage_id := -1
+var _loaded_skill_inventory: Dictionary = {}
+var _loaded_available_skills: Array = []
+# 사용자가 직접 값을 바꾼 스킬 id 집합(skill_id -> true). Load 시 비움.
+# 저장 시 이 집합에 든 스킬만 스핀 값으로 갱신/제거하고, 나머지는 스냅샷 값을 유지한다.
+var _skill_user_edited: Dictionary = {}
 
 func _ready() -> void:
 	name = "CandyAnts Level"
@@ -451,6 +471,17 @@ func _ready() -> void:
 	_brush_option.item_selected.connect(_on_brush_selected)
 	add_child(_labeled_control("Brush", _brush_option))
 
+	_add_section("Auto Water (수위선)")
+	var water_fill_hint := Label.new()
+	water_fill_hint.text = "수위선 y 이하 ~ 레벨 바닥까지, 지면/해저드가 없는 빈 칸을 물로 채웁니다. (좌우·하단 범위 = 지면 경계 상자, Home/Candy/분배자 셀 제외)"
+	water_fill_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(water_fill_hint)
+	_water_line_spin = _add_spin("Water Line Y", 10, -200, 200, 1)
+	var fill_water_button := Button.new()
+	fill_water_button.text = "수위선 아래 빈 공간 물 채우기"
+	fill_water_button.pressed.connect(_fill_water_below_line)
+	add_child(fill_water_button)
+
 	_add_section("Grid Preview")
 	var grid_hint := Label.new()
 	grid_hint.text = "좌클릭=칠 / 우클릭=지움. 시안 사각형 = 플레이어 화면(카메라). 초록 세로선 = 레벨 원점(col 0). 그 왼쪽(음수 칸)도 칠할 수 있음."
@@ -511,6 +542,11 @@ func _add_spin(label_text: String, value: float, min_value: float, max_value: fl
 	spin.max_value = max_value
 	spin.step = step
 	spin.value = value
+	# CRITICAL: 기본값(false)이면 타이핑한 숫자가 Enter/포커스이탈 전까지 .value 에 반영되지 않는다.
+	# Save 가 .value 를 직접 읽으므로, 사용자가 스킬/파라미터를 타이핑한 뒤 곧바로 Save 를 누르면
+	# 미커밋 값(직전 값, 흔히 0)이 저장돼 스킬 인벤토리가 통째로 비워진다(=스킬 HUD 사라짐).
+	# true 로 켜서 키 입력마다 즉시 .value 갱신.
+	spin.update_on_text_changed = true
 	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(_labeled_control(label_text, spin))
 	return spin
@@ -525,7 +561,16 @@ func _labeled_control(label_text: String, control: Control) -> HBoxContainer:
 	row.add_child(control)
 	return row
 
+# Save 직전, 아직 커밋되지 않은 SpinBox 타이핑(포커스가 spin 안에 남아 있는 경우)을 강제 반영.
+# update_on_text_changed=true 와 중복이지만, 어떤 경로로든 미커밋 값이 .value 로 새지 않도록 이중 방어.
+func _commit_pending_spins(node: Node) -> void:
+	for child in node.get_children():
+		if child is SpinBox:
+			(child as SpinBox).apply()
+		_commit_pending_spins(child)
+
 func _save_stage(overwrite: bool) -> void:
+	_commit_pending_spins(self)
 	var stage_id := int(_id_spin.value)
 	var stage_name := _name_edit.text.strip_edges()
 	if stage_name.is_empty():
@@ -539,6 +584,14 @@ func _save_stage(overwrite: bool) -> void:
 		_set_status("Stage %02d already exists." % stage_id, true)
 		return
 
+	# 사전검증: Load하지 않은 기존 stage를 덮어쓸 때(= 저장 시 스킬을 디스크에서 보존해야 하는 (B) 경로),
+	# 그 파일이 손상돼 읽을 수 없으면 스킬을 안전하게 보존할 수 없다. 어떤 파일도 쓰기 전에 중단해
+	# layout만 갱신되는 부분 저장을 막는다. (_build_stage_data 의 null 반환은 방어선으로 유지.)
+	if (_loaded_stage_id != stage_id) and ResourceLoader.exists(data_path):
+		if ResourceLoader.load(data_path, "", ResourceLoader.CACHE_MODE_IGNORE) == null:
+			_set_status("기존 Stage%02d 데이터를 읽을 수 없어 저장을 중단했습니다(스킬 손실 방지). 파일을 확인하거나 먼저 Load 하세요." % stage_id, true)
+			return
+
 	var layout_data := _build_layout_data()
 	if layout_data.platform_cells.is_empty():
 		_set_status("At least one platform cell is required.", true)
@@ -550,6 +603,10 @@ func _save_stage(overwrite: bool) -> void:
 		return
 
 	var stage_data := _build_stage_data(stage_id, stage_name, scene_path, layout_path, data_path)
+	if stage_data == null:
+		# 기존 Stage 파일을 못 읽어 스킬을 안전하게 보존할 수 없음 → 빈 값 덮어쓰기 방지로 중단.
+		_set_status("기존 Stage%02d 데이터를 읽을 수 없어 저장을 중단했습니다(스킬 손실 방지). 파일을 확인하거나 먼저 Load 하세요." % stage_id, true)
+		return
 	var data_result := _save_resource(stage_data, data_path)
 	if data_result != OK:
 		_set_status("Failed to save %s: %s" % [data_path, error_string(data_result)], true)
@@ -572,7 +629,10 @@ func _save_stage(overwrite: bool) -> void:
 		editor_interface.get_resource_filesystem().scan()
 		editor_interface.open_scene_from_path(scene_path)
 
-	_set_status("%s Stage%02d." % ["Saved" if overwrite else "Created", stage_id], false)
+	var status_text := "%s Stage%02d." % ["Saved" if overwrite else "Created", stage_id]
+	if _skills_preserved_on_save:
+		status_text += " (이 스테이지를 Load하지 않아 기존 스킬 인벤토리를 그대로 보존함 — 스킬을 편집하려면 먼저 Load Stage 후 저장하세요.)"
+	_set_status(status_text, false)
 	_set_dirty(false)
 
 func _save_resource(resource: Resource, path: String) -> int:
@@ -603,6 +663,14 @@ func _load_stage() -> void:
 	var inventory: Dictionary = stage_data.skill_inventory if "skill_inventory" in stage_data else {}
 	for skill_id: String in SKILL_IDS:
 		_skill_spins[skill_id].value = int(inventory.get(skill_id, 0))
+	# 저장 시 머지 기준이 될 로드-시점 스냅샷. 캐시 리소스가 이후 손상돼도 이 값은 불변.
+	# 전체 인벤토리(미지 스킬 포함)와 표시 순서를 깊은 복사로 분리 보관한다.
+	_loaded_stage_id = stage_id
+	_loaded_skill_inventory = inventory.duplicate(true)
+	var loaded_skills: Array = stage_data.available_skills if "available_skills" in stage_data else []
+	_loaded_available_skills = loaded_skills.duplicate()
+	# 방금 Load한 값은 사용자 편집이 아니므로 편집 추적을 리셋한다.
+	_skill_user_edited.clear()
 
 	var stars: Array = stage_data.star_thresholds if "star_thresholds" in stage_data else []
 	_star_override_check.button_pressed = not stars.is_empty()
@@ -631,11 +699,81 @@ func _build_stage_data(stage_id: int, stage_name: String, _scene_path: String, l
 	stage_data.time_limit_seconds = float(_time_limit_spin.value)
 	stage_data.release_rate_initial = int(_release_rate_spin.value)
 	stage_data.release_rate_min = 1
-	stage_data.skill_inventory = {}
-	var empty_skills: Array[String] = []
-	stage_data.available_skills = empty_skills
-	for skill_id: String in SKILL_IDS:
-		_add_skill(stage_data, skill_id, int(_skill_spins[skill_id].value))
+	# 스킬 인벤토리 — 데이터 손실 방지가 최우선. 판정 기준 = "이 stage 를 Load했는가 + 대상 파일이 존재하는가".
+	# 스킬 스핀/스냅샷/편집추적은 '마지막에 Load한 스테이지'에 대해서만 유효하다(다른 ID로 저장 시 무의미).
+	# (A) 이 stage_id 를 Load했으면 → 로드 스냅샷 위에 '사용자가 실제 건드린' 스킬만 머지.
+	#     스냅샷 시작점이라 SKILL_IDS 밖 미지 스킬(은퇴 distributor·미래 스킬) 보존, 안 건드린 스킬은 스냅샷 유지
+	#     (허위 0으로 인한 오삭제 방지). 건드린 스킬은 >0 갱신 / 0 제거(= '스킬 없는 스테이지'도 정상 저작).
+	#     순서 = 기존 순서 우선 + 새 known 스킬 append + 잔여 미지 스킬 append.
+	# (B) Load 안 한 기존 파일(target_exists) → 디스크의 스킬 필드를 통째로 보존(스핀·스냅샷 전부 무시).
+	#     '로드하지 않은 스테이지를 다른 ID로 덮어쓰기'가 디스크 스킬을 오염·전멸시키는 사고를 막는다.
+	# (C) Load 안 한 신규 파일 → raw 스핀 값(>0)을 그대로 기록(보존할 디스크 데이터가 없음).
+	_skills_preserved_on_save = false
+	var loaded_this_stage := (_loaded_stage_id == stage_id)
+	var target_exists := ResourceLoader.exists(data_path)
+	if loaded_this_stage:
+		# (A) 스냅샷 + 편집 머지.
+		var base_inventory: Dictionary = _loaded_skill_inventory.duplicate(true)
+		var base_order: Array = _loaded_available_skills.duplicate()
+		for skill_id: String in SKILL_IDS:
+			if not _skill_user_edited.get(skill_id, false):
+				continue  # 안 건드린 스킬은 스냅샷 값 유지.
+			var count := int(_skill_spins[skill_id].value)
+			if count > 0:
+				base_inventory[skill_id] = count
+			else:
+				base_inventory.erase(skill_id)
+		var ordered_skills: Array[String] = []
+		for raw in base_order:  # 기존 표시 순서 유지(보존된 스킬만).
+			var sid := str(raw)
+			if base_inventory.has(sid) and not ordered_skills.has(sid):
+				ordered_skills.append(sid)
+		for skill_id: String in SKILL_IDS:  # 새로 추가된 known 스킬.
+			if base_inventory.has(skill_id) and not ordered_skills.has(skill_id):
+				ordered_skills.append(skill_id)
+		for raw_key in base_inventory.keys():  # 순서에 없던 미지 스킬도 누락 없이 보존.
+			var kid := str(raw_key)
+			if not ordered_skills.has(kid):
+				ordered_skills.append(kid)
+		stage_data.skill_inventory = base_inventory
+		stage_data.available_skills = ordered_skills
+	elif target_exists:
+		# (B) 보존 — 캐시가 아닌 디스크 원본을 다시 읽어(CACHE_MODE_IGNORE) 스킬 필드를 신뢰성 있게 보존한다.
+		# (캐시된 stage_data 는 직전 손상 저장으로 빈 값일 수 있어 디스크 진실과 다를 수 있음.)
+		# 기존 파일이 손상돼 못 읽으면 빈 값으로 덮어써 데이터를 잃으므로 저장을 중단한다(null 반환).
+		var disk_copy: Resource = ResourceLoader.load(data_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+		if disk_copy == null:
+			return null
+		var disk_inventory: Dictionary = (disk_copy.skill_inventory.duplicate(true)
+			if ("skill_inventory" in disk_copy and disk_copy.skill_inventory is Dictionary) else {})
+		var disk_order: Array = (disk_copy.available_skills
+			if ("available_skills" in disk_copy and disk_copy.available_skills is Array) else [])
+		# 인벤토리 기준으로 순서를 정규화(디스크 순서 우선 + 누락 키 append) → 손상/불일치 데이터도 유효하게 보존.
+		var preserved_skills: Array[String] = []
+		for raw in disk_order:
+			var sid := str(raw)
+			if disk_inventory.has(sid) and not preserved_skills.has(sid):
+				preserved_skills.append(sid)
+		for raw_key in disk_inventory.keys():
+			var kid := str(raw_key)
+			if not preserved_skills.has(kid):
+				preserved_skills.append(kid)
+		stage_data.skill_inventory = disk_inventory
+		stage_data.available_skills = preserved_skills
+		_skills_preserved_on_save = true
+	else:
+		# (C) 신규 파일 → 현재 스핀 값 그대로(= 보이는 대로 생성). 보존할 디스크 데이터가 없다.
+		# 주의(deferred): 다른 stage를 Load한 뒤 새 ID로 Create하면 스냅샷의 SKILL_IDS 밖 미지 스킬은
+		# 복제되지 않는다(스핀은 SKILL_IDS만 표현). 현재 데이터에 미지 스킬이 없어 무해.
+		var spin_inventory := {}
+		var new_skills: Array[String] = []
+		for skill_id: String in SKILL_IDS:
+			var count := int(_skill_spins[skill_id].value)
+			if count > 0:
+				spin_inventory[skill_id] = count
+				new_skills.append(skill_id)
+		stage_data.skill_inventory = spin_inventory
+		stage_data.available_skills = new_skills
 	if _star_override_check.button_pressed:
 		var stars: Array[float] = []
 		for star_spin: SpinBox in _star_spins:
@@ -732,12 +870,6 @@ func _apply_layout_data(layout_data: Resource) -> void:
 
 	_sync_grid_from_controls()
 
-func _add_skill(stage_data: Resource, skill_id: String, count: int) -> void:
-	if count <= 0:
-		return
-	stage_data.available_skills.append(skill_id)
-	stage_data.skill_inventory[skill_id] = count
-
 func _build_stage_scene(stage_data: Resource) -> Node:
 	var root := Node.new()
 	root.name = "StageRunner"
@@ -828,13 +960,25 @@ func _add_terrain(world: Node2D) -> void:
 func _add_hazards(world: Node2D, layout_data: Resource) -> void:
 	if not "hazard_map" in layout_data:
 		return
-	for key in layout_data.hazard_map.keys():
+	var hazard_map: Dictionary = layout_data.hazard_map
+	for key in hazard_map.keys():
 		var cell := _cell_from_key(str(key))
-		var hazard_type := str(layout_data.hazard_map[key])
-		var scene_path := "res://scenes/entities/hazards/Sticky.tscn" if hazard_type == GridPreview.TILE_STICKY else "res://scenes/entities/hazards/Water.tscn"
-		var node_prefix := "Sticky" if hazard_type == GridPreview.TILE_STICKY else "Water"
-		var node_name := "%s_%d_%d" % [node_prefix, cell.x, cell.y]
-		_add_entity(world, scene_path, node_name, layout_data.cell_to_world(cell))
+		var hazard_type := str(hazard_map[key])
+		if hazard_type == GridPreview.TILE_STICKY:
+			_add_entity(world, "res://scenes/entities/hazards/Sticky.tscn", "Sticky_%d_%d" % [cell.x, cell.y], layout_data.cell_to_world(cell))
+			continue
+		# 물 — 같은 열에서 바로 위 칸도 물이면 심부(deep=soda inner), 아니면 수면(surface).
+		# WaterHazard.gd 컨벤션("표면 1행 + 그 아래 심부 N행")과 일치. deep은 _ready가 읽으므로
+		# add_child(=_ready 실행) 전에 설정해야 한다.
+		var deep := _is_water_cell(hazard_map, Vector2i(cell.x, cell.y - 1))
+		var water := _instance_scene("res://scenes/entities/hazards/Water.tscn", "Water_%d_%d" % [cell.x, cell.y]) as Node2D
+		water.set("deep", deep)
+		water.position = layout_data.cell_to_world(cell)
+		world.add_child(water)
+		water.owner = world.owner
+
+func _is_water_cell(hazard_map: Dictionary, cell: Vector2i) -> bool:
+	return str(hazard_map.get(_cell_key(cell), "")) == GridPreview.TILE_WATER
 
 func _add_camera(world: Node2D, layout_data: Resource) -> void:
 	var camera := Camera2D.new()
@@ -1005,6 +1149,13 @@ func _mark_dirty() -> void:
 	if not _dirty:
 		_set_dirty(true)
 
+# 스킬 SpinBox 값 변경 핸들러. value_changed(value) 뒤에 skill_id 가 bind 로 붙는다.
+# 사용자가 직접 건드린 스킬만 기록(Load 중 _suppress_dirty 일 때는 프로그램적 변경이라 제외).
+func _on_skill_spin_changed(_value: float, skill_id: String) -> void:
+	if not _suppress_dirty:
+		_skill_user_edited[skill_id] = true
+	_mark_dirty()
+
 func _set_dirty(value: bool) -> void:
 	_dirty = value
 	if _title_label != null:
@@ -1020,7 +1171,7 @@ func _connect_dirty_tracking() -> void:
 	]:
 		spin.value_changed.connect(func(_v: float) -> void: _mark_dirty())
 	for skill_id: String in SKILL_IDS:
-		_skill_spins[skill_id].value_changed.connect(func(_v: float) -> void: _mark_dirty())
+		_skill_spins[skill_id].value_changed.connect(_on_skill_spin_changed.bind(skill_id))
 	for star_spin: SpinBox in _star_spins:
 		star_spin.value_changed.connect(func(_v: float) -> void: _mark_dirty())
 	_name_edit.text_changed.connect(func(_t: String) -> void: _mark_dirty())
@@ -1079,6 +1230,55 @@ func _on_grid_hazard_map_changed(hazard_map: Dictionary) -> void:
 	_hazard_map = hazard_map.duplicate()
 	_sync_grid_from_controls()
 	_mark_dirty()
+
+# "수위선 아래 빈 공간 물 채우기" — 수위선(y) 이하 ~ 레벨 바닥까지, 지면 경계 상자(좌우·하단)
+# 안에서 지면/기존 해저드가 없는 빈 칸을 hazard_map에 water로 채운다. 사이드뷰라 하늘(수위선 위)은
+# 채우지 않고, Home/Candy/분배자 마커 셀은 엔티티 앵커이므로 건너뛴다. 멱등(idempotent) —
+# 이미 물/해저드인 칸은 재칠하지 않으므로 지면 수정 후 재실행해도 안전하다.
+func _fill_water_below_line() -> void:
+	var tile_map := _parse_tile_map(_platform_text.text)
+	if tile_map.is_empty():
+		_set_status("지면 타일이 없어 수위 범위를 정할 수 없습니다. 먼저 지면을 그리세요.", true)
+		return
+	var water_line := int(_water_line_spin.value)
+	# 콘텐츠(지면 + 기존 해저드) 경계 상자로 수평/하단 범위를 정해 무한 확장을 막는다.
+	var min_x := 1 << 30
+	var max_x := -(1 << 30)
+	var max_y := -(1 << 30)
+	for key in tile_map.keys():
+		var cell := _cell_from_key(str(key))
+		min_x = mini(min_x, cell.x)
+		max_x = maxi(max_x, cell.x)
+		max_y = maxi(max_y, cell.y)
+	for key in _hazard_map.keys():
+		var cell := _cell_from_key(str(key))
+		min_x = mini(min_x, cell.x)
+		max_x = maxi(max_x, cell.x)
+		max_y = maxi(max_y, cell.y)
+	if water_line > max_y:
+		_set_status("수위선(y=%d)이 레벨 바닥(y=%d)보다 아래라 채울 칸이 없습니다." % [water_line, max_y], true)
+		return
+	# 엔티티 앵커 셀(Home/Candy/분배자)은 물을 칠하지 않는다.
+	var skip_cells := {}
+	skip_cells[_cell_key(Vector2i(int(_home_cell_x_spin.value), int(_home_cell_y_spin.value)))] = true
+	skip_cells[_cell_key(Vector2i(int(_candy_cell_x_spin.value), int(_candy_cell_y_spin.value)))] = true
+	var settle := _current_settlement_cell()
+	if settle.x >= 0:
+		skip_cells[_cell_key(settle)] = true
+	var added := 0
+	for y in range(water_line, max_y + 1):
+		for x in range(min_x, max_x + 1):
+			var key := _cell_key(Vector2i(x, y))
+			if tile_map.has(key) or _hazard_map.has(key) or skip_cells.has(key):
+				continue
+			_hazard_map[key] = GridPreview.TILE_WATER
+			added += 1
+	if added > 0:
+		_sync_grid_from_controls()
+		_mark_dirty()
+		_set_status("수위선 y=%d 아래 빈 칸 %d개를 물로 채웠습니다." % [water_line, added], false)
+	else:
+		_set_status("채울 빈 칸이 없습니다 (범위 내 빈 칸이 이미 채워졌거나 없음).", false)
 
 func _on_settlement_toggled(pressed: bool) -> void:
 	_settlement_x_spin.editable = pressed
