@@ -8,6 +8,8 @@ class_name SkillToolbar extends CanvasLayer
 
 const GameAction := preload("res://scripts/input/GameAction.gd")
 const SkillSlotScene: PackedScene = preload("res://scenes/ui/atoms/SkillSlot.tscn")
+# 표지판(설치형 발동) — class_name 글로벌 캐시 의존 없이 헤드리스 안정성 위해 preload 참조(SkillRegistry 패턴).
+const SkillSignScript := preload("res://scripts/world/SkillSign.gd")
 # 터치/클릭 스킬 부여 판정 반경. 기준점은 개미 충돌 원점(발)이 아니라 보이는 캐릭터 중심
 # (Ant.tap_target_position) — 스프라이트가 원점보다 ~44px 위에 그려져, 원점+48 반경이면
 # 캐릭터 아래 절반만 덮어 머리 터치가 빠졌다(2026-06-04 버그). 중심 기준 + 반경 64로
@@ -187,6 +189,12 @@ func _clear_selection() -> void:
 func _try_assign(world: Vector2) -> void:
 	if _pending_skill_id == "":
 		return
+	# 설치형(표지판) 스킬은 개미가 아니라 타일에 표지판을 설치 — 첫 도착 개미가 자동 발동.
+	# 유효 셀이 아니면(점유/지형 없음) 선택 유지(빈 공간 오클릭 보호, ant==null 분기와 대칭).
+	if SkillSignScript.SIGN_SKILLS.has(_pending_skill_id):
+		if _place_sign(_pending_skill_id, world):
+			_clear_selection()
+		return
 	var ant: Ant = _find_closest_ant(world)
 	if ant == null:
 		return
@@ -198,6 +206,11 @@ func _try_assign(world: Vector2) -> void:
 # (월드 드래그를 부여로 오해하지 않도록, 드래그는 반드시 SkillSlot에서 시작해야 데이터가 실린다.)
 func try_assign_dragged(id: String, world: Vector2) -> void:
 	if _all_disabled:
+		return
+	# 설치형(표지판) 스킬은 드롭 지점 타일에 표지판 설치 (클릭 흐름과 동일).
+	if SkillSignScript.SIGN_SKILLS.has(id):
+		_place_sign(id, world)
+		_clear_selection()
 		return
 	var ant: Ant = _find_closest_ant(world)
 	if ant == null:
@@ -223,6 +236,48 @@ func _apply_skill(id: String, ant: Ant) -> bool:
 	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
 	print("[SkillToolbar] applied=", id, " to=", ant.name, " remaining=", _inventory[id])
 	return true
+
+# 설치형 스킬을 world 위치의 타일 셀에 표지판으로 설치 — 성공 시 인벤토리 차감 + true.
+# 점유 셀(벽/타일)·지형 없음·재고 0이면 false(설치 안 함, 선택 유지).
+func _place_sign(id: String, world: Vector2) -> bool:
+	if id == "" or not _slots.has(id):
+		return false
+	if int(_inventory.get(id, 0)) <= 0:
+		return false
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return false
+	var parent: Node = terrain.get_parent()
+	if parent == null:
+		return false
+	var cs: int = terrain.cell_size
+	var cell: Vector2i = Vector2i(int(floor(world.x / cs)), int(floor(world.y / cs)))
+	if terrain.is_cell_occupied(cell):
+		return false
+	var sign: SkillSign = SkillSignScript.new() as SkillSign
+	# setup을 add_child 앞에 — _ready()/_build_visual()이 skill_id·cell·terrain을 사용하므로 먼저 채운다.
+	sign.setup(id, cell, terrain)
+	parent.add_child(sign)
+	_inventory[id] = int(_inventory[id]) - 1
+	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
+	print("[SkillToolbar] sign placed=", id, " cell=", cell, " remaining=", _inventory[id])
+	return true
+
+# Terrain 탐색 — 툴바는 CanvasLayer라 World 트리 밖. 현재 씬 트리에서 Terrain 노드를 찾는다.
+func _find_terrain() -> Terrain:
+	var root: Node = get_tree().current_scene
+	if root == null:
+		return null
+	return _search_terrain(root)
+
+func _search_terrain(n: Node) -> Terrain:
+	if n is Terrain:
+		return n as Terrain
+	for c in n.get_children():
+		var t: Terrain = _search_terrain(c)
+		if t != null:
+			return t
+	return null
 
 func _select_by_slot(slot_idx: int) -> void:
 	if stage_data == null:
