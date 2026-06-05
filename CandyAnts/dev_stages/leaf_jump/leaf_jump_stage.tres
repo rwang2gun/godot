@@ -1,0 +1,17 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/StageData.gd" id="1_stage_data"]
+
+[resource]
+script = ExtResource("1_stage_data")
+id = 912
+display_name = "dev-leaf-jump-test"
+total_ants = 1
+candy_hp = 1
+time_limit_seconds = 90.0
+available_skills = ["leaf_jump"]
+skill_inventory = {
+"leaf_jump": 1
+}
+release_rate_initial = 30
+release_rate_min = 1

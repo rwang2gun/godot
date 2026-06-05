@@ -55,6 +55,7 @@ const _SKILL_NAMES: Dictionary = {
 	"basher": "벽 부수기",
 	"digger": "땅파기",
 	"cutter": "식물 자르기",
+	"leaf_jump": "나뭇잎 점프대",
 }
 
 # key로 문자열 조회. args 비어있지 않으면 `%` format 적용.

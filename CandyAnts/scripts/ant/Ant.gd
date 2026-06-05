@@ -123,6 +123,12 @@ var _sticky_badge: Sprite2D = null
 # stale 값을 denominator로 잡지 않도록 한다.
 var _sticky_max: float = 0.0
 var _sticky_bar: Sprite2D = null
+
+# 나뭇잎 점프대(leaf_jump, 2026-06-05) — 포물선 비행(LeafJumpState) 동안 끈끈이 면역.
+# _leaf_jumping은 발사(leaf_jump_launch) 시 true, 착지(LeafJumpState→end_leaf_jump) 시 false.
+# leaf_landing_cell이 "착지면 없음"을 알릴 때 쓰는 sentinel도 함께 둔다.
+const LEAF_NO_LANDING: Vector2i = Vector2i(2147483647, 2147483647)
+var _leaf_jumping: bool = false
 # Phase 20 (P-D5 / R1-H3) — _update_sprite의 `anim != _last_anim` 분기가 unstuck 후 동일 anim
 # (예: walk→walk)일 때 play() 미호출 → 영구 pause 위험. flag로 stuck 진입 시 pause + unstuck 시
 # 명시 play(_last_anim) 재호출 트리거.
@@ -307,6 +313,9 @@ func _update_sprite() -> void:
 	elif s is FallerState:
 		# 낙하산(floater) 트레잇 보유 시 낙하산 강하 모션, 아니면 일반 낙하.
 		anim = "floater" if has_trait(&"floater") else "fall"
+	elif s is LeafJumpState:
+		# 나뭇잎 점프대 포물선 비행 — 낙하 모션 재사용(상승·하강 구간 모두 fall).
+		anim = "fall"
 	elif s is ClimberState:
 		# 등반 꼭대기(surface 타일 90%+) 또는 mantle 중에는 climb 대신 walk/carry로 전환(시각만).
 		if (s as ClimberState).near_surface_top(self):
@@ -532,6 +541,57 @@ func cliff_ahead() -> bool:
 	var forward: Vector2i = body_cell + Vector2i(direction, 0)
 	var forward_down: Vector2i = body_cell + Vector2i(direction, 1)
 	return not terrain.is_cell_occupied(forward) and not terrain.is_cell_occupied(forward_down)
+
+# 나뭇잎 점프대(leaf_jump) 홉 착지 셀 — 전방 cells칸 열에서 "빈 셀 + 바로 아래 점유(=바닥)"인 착지면을
+# 찾는다. 현재 몸 셀 높이에 가까운 행 우선(같은 높이 → 한두 칸 하강 → 한 칸 상승). 없으면 LEAF_NO_LANDING.
+# 하단 끈끈이(StickyHazard)는 _placed/_static_occupancy 점유가 아니므로 is_cell_occupied에 안 잡힌다 →
+# 착지 후보 셀로 선택되지 않는다(끈끈이 위가 아니라 그 너머 바닥에 내린다).
+func leaf_landing_cell(cells: int) -> Vector2i:
+	if state_machine == null or direction == 0 or not is_on_floor():
+		return LEAF_NO_LANDING
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return LEAF_NO_LANDING
+	var cs: int = terrain.cell_size
+	var body_cell: Vector2i = Vector2i(
+		int(floor(global_position.x / cs)),
+		int(floor((global_position.y - 2.0) / cs))
+	)
+	var tx: int = body_cell.x + direction * cells
+	for dy: int in [0, 1, 2, 3, -1]:
+		var c: Vector2i = Vector2i(tx, body_cell.y + dy)
+		if not terrain.is_cell_occupied(c) and terrain.is_cell_occupied(c + Vector2i(0, 1)):
+			return c
+	return LEAF_NO_LANDING
+
+# 나뭇잎 점프대 발동 — 전방 cells타일을 포물선으로 비행(LeafJumpState). 정점 2타일·사거리 cells타일
+# (평지) 조건으로 초기 속도를 산출한다. 유도(평지, launch=land 높이 동일):
+#   정점 h = v_up²/(2g) = 2·cs           → v_up = 2·√(g·cs)
+#   체공 t = 2·v_up/g = 4·√(cs/g)
+#   사거리 = vx·t = cells·cs             → vx = (cells/4)·√(g·cs)
+# 모션은 낙하(fall) 애니. 비행 내내 끈끈이 면역(_leaf_jumping). can_apply가 착지면을 선제 검증하므로
+# 정상 경로에선 허공/벽으로 날지 않는다.
+func leaf_jump_launch(cells: int) -> bool:
+	if state_machine == null:
+		return false
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return false
+	var cs: int = terrain.cell_size
+	var base: float = sqrt(gravity * float(cs))   # = √(g·cs)
+	var v_up: float = 2.0 * base
+	var vx: float = (float(cells) / 4.0) * base * float(direction)
+	_leaf_jumping = true
+	state_machine.change_state(LeafJumpState.new(vx, -v_up))
+	return true
+
+# LeafJumpState가 착지 시 호출 — 끈끈이 면역 해제. (발사~착지 사이에만 면역.)
+func end_leaf_jump() -> void:
+	_leaf_jumping = false
+
+# 나뭇잎 점프대 비행 중 면역 — StickyHazard가 apply_sticky 전 검사(포물선으로 넘는 동안 끈끈이 무효).
+func is_jump_immune() -> bool:
+	return _leaf_jumping
 
 # 계단(STAIR) 부드러운 45° 등반 게이트 — 단일 SoT. Walker/Carrying 진입(dir=direction)과
 # StairClimbState 연속 스텝(dir=_dir lock) 양쪽이 공유. dir_override=0이면 self.direction 사용.

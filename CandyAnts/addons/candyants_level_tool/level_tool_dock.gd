@@ -293,10 +293,12 @@ var _dirty := false
 var _suppress_dirty := true  # _ready/로드 중 프로그램적 값 변경이 dirty로 오인되지 않도록.
 var _title_label: Label
 
-# SkillRegistry.SKILL_SCRIPTS에 등록된 9종(= validate_stage 통과). distributor는 미등록이라 제외.
+# SkillRegistry.SKILL_SCRIPTS에 등록된 10종(= validate_stage 통과). distributor는 미등록이라 제외.
+# leaf_jump(나뭇잎 점프대)은 설치형(SkillSign.SIGN_SKILLS)이지만 인벤토리 지급 방식은 일반 스킬과 동일 —
+# Count>0이면 available_skills+skill_inventory에 등록되고 에디터 저장 시에도 보존된다.
 const SKILL_IDS: Array[String] = [
 	"builder", "blocker", "climber", "floater", "sand_mound",
-	"bridge", "basher", "digger", "cutter",
+	"bridge", "basher", "digger", "cutter", "leaf_jump",
 ]
 const THEME_NAMES: Array[String] = [
 	"cookie_crust", "cookie_segment", "thin_floor", "cookie_bridge_tile", "thin_bridge",

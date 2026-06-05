@@ -15,6 +15,10 @@ func _ready() -> void:
 	body_exited.connect(_on_body_exited)
 
 func _handle_ant_entry(ant: Ant) -> void:
+	# 나뭇잎 점프대(leaf_jump) 홉 직후 면역 — 점프로 끈끈이를 넘는 동안엔 정지시키지 않는다.
+	# (홉은 끈끈이 너머 바닥에 착지하므로 보통 overlap 자체가 없지만, 착지 프레임 잔여 overlap 방어.)
+	if ant.is_jump_immune():
+		return
 	var frame: int = Engine.get_physics_frames()
 	var aid: int = ant.get_instance_id()
 	# 같은 frame 중복 발화 skip (set_deferred/signal 순서 race 대응).

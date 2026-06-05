@@ -43,7 +43,8 @@
 | **bridge** | `BridgeSkill.gd` | `bridge/`, `bridge_over_overlap/`, `bridge_over_water/`, `bridge_reject/`, `bridge_too_long/`, `sand_bridge_overlap/` | — | `tests/Bridge*` |
 | **basher** | `BasherSkill.gd` | `basher_wall/`, `basher_digger_chain/` | `dev_basher_edge_stop_layout.tres`, `dev_earth_plant_separation_layout.tres` | `tests/Basher*` |
 | **digger** | `DiggerSkill.gd` | `digger_pillar/`, `basher_digger_chain/` | — | `tests/Digger*` |
-| **cutter** | `CutterSkill.gd` | `cutter_vine/` | `dev_cutter_edge_stop_layout.tres`, `dev_cutter_over_hazard_layout.tres`, `dev_earth_plant_separation_layout.tres` | `tests/Cutter*` |
+| **cutter** (전방 1열씩 최대 5열 march) | `CutterSkill.gd`, `WorkerState.gd`(`_update_cutter`/`_cut_cutter_column`, `Terrain.shatter_plant_column`) | `cutter_vine/` | `dev_cutter_edge_stop_layout.tres`, `dev_cutter_over_hazard_layout.tres`, `dev_earth_plant_separation_layout.tres`, `dev_cutter_shatter_vine_layout.tres`, `dev_cutter_wide_vine_layout.tres` | `tests/Cutter*` |
+| **leaf_jump** (설치형·재사용 점프대) | `LeafJumpSkill.gd`, `scripts/ant/states/LeafJumpState.gd`(포물선 비행·낙하 모션) (+`scripts/world/SkillSign.gd` 재사용 발동, `Ant.leaf_jump_launch`/`leaf_landing_cell`/`is_jump_immune`/`end_leaf_jump`) | `leaf_jump/` | — | `tests/LeafJumpSignTest*` |
 
 > "추가 레이아웃 fixture"는 씬이 없고 `tests/*.gd`가 `preload`로 직접 로드하는 레이아웃이라 `data/stage_layouts/`에 잔류(클러스터 아님).
 
@@ -82,6 +83,7 @@
 | `water` | WaterTest.tscn | water hazard |
 | `water_after_candy` | WaterAfterCandyTest.tscn | water hazard |
 | `water_sticky_overlap` | WaterStickyOverlapTest.tscn | water · sticky |
+| `leaf_jump` | LeafJumpTest.tscn | leaf_jump · sticky (점프대로 끈끈이 넘기) |
 | `sticky` | StickyTest.tscn | sticky hazard |
 | `sticky_settle` | StickySettleTest.tscn | sticky · settlement |
 | `settle` | SettleTest.tscn | settlement |

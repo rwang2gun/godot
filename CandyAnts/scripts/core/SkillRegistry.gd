@@ -10,6 +10,7 @@ const SKILL_SCRIPTS: Array[Script] = [
 	preload("res://scripts/skills/BasherSkill.gd"),
 	preload("res://scripts/skills/DiggerSkill.gd"),
 	preload("res://scripts/skills/CutterSkill.gd"),
+	preload("res://scripts/skills/LeafJumpSkill.gd"),
 ]
 
 var _skills: Dictionary = {}
