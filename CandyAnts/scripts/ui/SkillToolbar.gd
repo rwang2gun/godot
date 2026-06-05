@@ -251,8 +251,11 @@ func _place_sign(id: String, world: Vector2) -> bool:
 	if parent == null:
 		return false
 	var cs: int = terrain.cell_size
-	var cell: Vector2i = Vector2i(int(floor(world.x / cs)), int(floor(world.y / cs)))
-	if terrain.is_cell_occupied(cell):
+	var clicked: Vector2i = Vector2i(int(floor(world.x / cs)), int(floor(world.y / cs)))
+	# 허공 배치 방지 — 클릭 열을 아래로 훑어 지면(바닥 타일) 바로 위 셀로 스냅한다. 지형 내부를 클릭했거나
+	# 클릭 열 아래에 바닥이 없으면(낭떠러지 위 허공) 설치 거부 → 선택 유지(빈 공간 오클릭 보호와 동일).
+	var cell: Vector2i = _ground_cell_for_sign(terrain, clicked)
+	if cell == Vector2i.MAX:
 		return false
 	var sign: SkillSign = SkillSignScript.new() as SkillSign
 	# setup을 add_child 앞에 — _ready()/_build_visual()이 skill_id·cell·terrain을 사용하므로 먼저 채운다.
@@ -262,6 +265,19 @@ func _place_sign(id: String, world: Vector2) -> bool:
 	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
 	print("[SkillToolbar] sign placed=", id, " cell=", cell, " remaining=", _inventory[id])
 	return true
+
+# 설치형 표지판이 허공에 뜨지 않도록 클릭 셀을 같은 열의 지면 위로 스냅 — 아래로 훑어 첫 바닥 타일을
+# 만나면 그 바로 위(빈 셀)를 반환. 클릭 셀이 지형 내부(점유)거나 아래에 바닥이 없으면 Vector2i.MAX(=실패).
+# 표지판 발동은 열(cell.x) 기준이라 수직 스냅은 트리거 동작에 영향 없음(시각/지면 정합만 보정).
+const _SIGN_SNAP_MAX_CELLS: int = 64
+
+func _ground_cell_for_sign(terrain: Terrain, cell: Vector2i) -> Vector2i:
+	if terrain.is_cell_occupied(cell):
+		return Vector2i.MAX
+	for dy: int in range(1, _SIGN_SNAP_MAX_CELLS + 1):
+		if terrain.is_cell_occupied(cell + Vector2i(0, dy)):
+			return cell + Vector2i(0, dy - 1)
+	return Vector2i.MAX
 
 # Terrain 탐색 — 툴바는 CanvasLayer라 World 트리 밖. 현재 씬 트리에서 Terrain 노드를 찾는다.
 func _find_terrain() -> Terrain:
