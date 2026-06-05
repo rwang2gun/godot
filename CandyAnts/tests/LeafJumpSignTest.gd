@@ -1,8 +1,8 @@
 extends Node
 
-# 나뭇잎 점프대 프로토타입 검증 (2026-06-05).
-# 끈끈이(셀 15 @ cs=32) 직전 셀 14에 leaf_jump 점프대를 SkillToolbar._place_sign로 설치 →
-# 그 열에 도착한 개미가 SkillSign._physics_process(재사용 발동)에서 Ant.leaf_jump_launch(4타일)로
+# 나뭇잎 점프대 검증.
+# 끈끈이(셀 15 @ cs=32) 직전 셀 14에 leaf_jump 점프대를 SkillToolbar._place_leaf_jump_pad로 직접 설치 →
+# 그 열에 도착한 개미가 LeafJumpPad에서 Ant.leaf_jump_launch(4타일)로
 # LeafJumpState 포물선 비행(낙하 모션) → 끈끈이를 공중으로 넘어(면역) 후방 사탕(x=816) 방향으로 착지·통과.
 #
 # PASS 조건(통과 시점에 즉시 quit): 점프대 설치 성공 AND 포물선 비행(LeafJumpState) 감지 AND 개미가
@@ -37,7 +37,7 @@ func _physics_process(_delta: float) -> void:
 	_poll()
 	if _frame > DEADLINE_FRAMES:
 		_fail("deadline — placed=%s jumped=%s crossed=%s signs=%d ant_x=%.1f" % [
-			str(_placed), str(_jumped), str(_crossed), _sign_count(), _ant_x()])
+			str(_placed), str(_jumped), str(_crossed), _pad_count(), _ant_x()])
 
 func _ensure_refs() -> void:
 	if _stage == null:
@@ -61,13 +61,13 @@ func _place_when_ready() -> void:
 	# 개미가 점프대 열에 도달하기 전에 미리 설치 (끈끈이 직전에 점프대를 세워두는 흐름).
 	if _ant.global_position.x >= TRIGGER_X:
 		return
-	var ok: bool = _toolbar._place_sign("leaf_jump", Vector2(TRIGGER_X, _ant.global_position.y))
+	var ok: bool = _toolbar._place_leaf_jump_pad(Vector2(TRIGGER_X, _ant.global_position.y))
 	if not ok:
-		_fail("_place_sign returned false (cell occupied / no terrain)")
+		_fail("_place_leaf_jump_pad returned false (cell occupied / no terrain)")
 		return
 	_placed = true
-	print("[LeafJumpSignTest] pad placed at frame=%d ant_x=%.1f signs=%d" % [
-		_frame, _ant.global_position.x, _sign_count()])
+	print("[LeafJumpSignTest] pad placed at frame=%d ant_x=%.1f pads=%d" % [
+		_frame, _ant.global_position.x, _pad_count()])
 
 func _poll() -> void:
 	if _ant == null or not is_instance_valid(_ant):
@@ -92,15 +92,15 @@ func _poll() -> void:
 func _ant_x() -> float:
 	return _ant.global_position.x if (_ant != null and is_instance_valid(_ant)) else -1.0
 
-func _sign_count() -> int:
+func _pad_count() -> int:
 	if _stage == null:
 		return -1
-	return _count_signs(_stage)
+	return _count_pads(_stage)
 
-func _count_signs(n: Node) -> int:
-	var c: int = 1 if n is SkillSign else 0
+func _count_pads(n: Node) -> int:
+	var c: int = 1 if n is LeafJumpPad else 0
 	for child in n.get_children():
-		c += _count_signs(child)
+		c += _count_pads(child)
 	return c
 
 func _on_failed(result: Dictionary) -> void:

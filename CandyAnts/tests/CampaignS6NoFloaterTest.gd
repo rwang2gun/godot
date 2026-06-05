@@ -1,10 +1,11 @@
 extends Node
 
-# Campaign S6 음성 — floater 미부여(digger만, "개척자 1 + 무리 공유" 전략) → 클리어 불가 (공유 갱도 floater 필수성).
-# 핵심: digger 개미는 **굴착(WorkerState) 상태로 낙하**하므로 깊이 무관 안전 → 개척자 1마리는 floater 없이 자력
-# 하강·귀가(saved 1). 그러나 그 개척자가 판 수직 갱도로 **떨어지는 후속 개미는 FallerState 자유낙하 → 7칸 → 기절**
-# → 회수 실패. 따라서 무리가 개척자 갱도를 공유하는 전략은 floater 없이는 candy_hp(4)를 못 채운다.
-# (cf. 각 개미가 *개별* 굴착하면 floater 없이도 안전 — 그건 별도 해법이고 본 테스트 범위 밖. inventory가 지원.)
+# Campaign S6 음성 — digger만 부여(floater 미부여) → 클리어 불가 (깊은 강하 floater 필수성).
+# 핵심(2026-06-06 digger 자유낙하 기절 수정 = Design B 재설계): digger는 흙 캡(천장)을 뚫는 역할일 뿐,
+# 캡을 뚫은 개미는 그 아래 **깊은 공동(7칸)을 자유낙하** → FallerState → 기절(DeadState)한다. 굴착 모션 낙하
+# 면역이 폐기되어 개척자도 floater 없이는 공동 강하에서 살아남지 못한다(구 "개척자 자력 안전강하" 폐기).
+# 따라서 digger로 캡을 열어도 floater 없이는 아무도 챔버에 안착·회수하지 못한다(saved 0).
+# floater/distributor는 절대 두지 않는다 → 캡을 뚫은 개미는 전원 공동에서 기절.
 # PASS: (stage_failed && saved < candy_hp) 또는 deadline(미클리어). FAIL: stage_cleared.
 
 const DEADLINE_FRAMES: int = 12000
@@ -25,7 +26,8 @@ func _physics_process(_delta: float) -> void:
 	if _done:
 		return
 	_frame += 1
-	# digger만 — 메사 top에서 우향 보행 개미에 굴착. floater는 절대 부여하지 않는다.
+	# digger만 — 메사 top에서 우향 보행 개미에 굴착(캡 천장 뚫기). floater는 절대 부여하지 않는다.
+	# 캡을 뚫은 개미는 깊은 공동을 자유낙하 → 전원 기절(floater 부재). 전원 굴착해도 saved 0.
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
 		if a == null or not is_instance_valid(a) or a.state_machine == null:
@@ -57,7 +59,7 @@ func _on_failed(result: Dictionary) -> void:
 	var saved: int = int(result.get("saved", -1))
 	var orig: int = int(result.get("original_hp", -1))
 	if saved < orig:
-		print("[CampaignS6NoFloaterTest] PASS stage_failed reason=%s saved=%d/%d picks=%d digs=%d (shared-shaft needs floater) frame=%d" % [
+		print("[CampaignS6NoFloaterTest] PASS stage_failed reason=%s saved=%d/%d picks=%d digs=%d (deep drop needs floater) frame=%d" % [
 			str(result.get("reason", "?")), saved, orig, _picks, _digs, _frame])
 		get_tree().quit(0)
 	else:

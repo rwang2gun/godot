@@ -32,9 +32,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 32
-theme_override_constants/margin_top = 32
+theme_override_constants/margin_top = 96
 theme_override_constants/margin_right = 32
-theme_override_constants/margin_bottom = 32
+theme_override_constants/margin_bottom = 96
 
 [node name="VBox" type="VBoxContainer" parent="MarginContainer"]
 theme_override_constants/separation = 24
@@ -47,15 +47,15 @@ custom_minimum_size = Vector2(120, 48)
 text = "← 메뉴"
 kind = 2
 
-[node name="Spacer" type="Control" parent="MarginContainer/VBox/Header"]
-size_flags_horizontal = 3
-
 [node name="Title" type="Label" parent="MarginContainer/VBox/Header"]
+size_flags_horizontal = 3
 text = "스테이지 선택"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 32
 
-[node name="Spacer2" type="Control" parent="MarginContainer/VBox/Header"]
-size_flags_horizontal = 3
+[node name="RightBalance" type="Control" parent="MarginContainer/VBox/Header"]
+custom_minimum_size = Vector2(120, 48)
 
 [node name="SlotGrid" type="GridContainer" parent="MarginContainer/VBox"]
 columns = 5
@@ -69,6 +69,7 @@ alignment = 1
 
 [node name="TotalStarsLabel" type="Label" parent="MarginContainer/VBox/Footer"]
 text = "수확한 별 ★ 0 / 30"
-theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 30
 
 [node name="ComingSoonOverlay" parent="." instance=ExtResource("3_cs")]

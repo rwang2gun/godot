@@ -10,6 +10,31 @@
 
 ---
 
+## 2026-06-06
+
+> digger 표지판화 + digger 자유낙하 기절 수정 + S6 "땅굴" 재설계 세션. 스킬을 "적용 방식(푯말/정착·이탈/무장·자동발동/장치 설치)" 축으로 분류하는 작업의 일환으로 digger를 표지판 스킬로 편입했고, 그 과정에서 발견한 "굴착 모션으로 떨어져 기절 미발동" 버그를 수정하며 의존 스테이지 S6를 재설계했다.
+
+### Fixed
+
+#### F-13. digger 발동 표지판(설치형) 편입 — sand_mound/basher/cutter와 통일 ([[#F-12]] 확장)
+- **요청**: 지형 작업 스킬을 "타일에 푯말 설치 → 첫 도착 개미가 그 자리서 작동" 방식으로 통일. digger만 직접-탭(즉시 발동)으로 남아 있었음.
+- **수정**: [SkillSign.gd](../scripts/world/SkillSign.gd) `SIGN_SKILLS`에 `"digger"` 추가(+ 발동 의미 주석). 클릭/드래그 양 경로가 `SkillSignScript.SIGN_SKILLS.has(id)` 단일 SoT([SkillToolbar.gd](../scripts/ui/SkillToolbar.gd) `_try_assign`/`try_assign_dragged`)를 타므로 자동으로 푯말 배치로 라우팅. digger 발동은 sand_mound와 대칭(제자리 발동 — 무장/지연 분기 없이 `DiggerSkill.apply`가 즉시 `WorkerState("digger")` 전이). 표지판 비주얼은 기존 `digger.png` 재사용.
+- **검증**: `SkillToolbarCutterIntegration`/`SkillToolbarReentry`/`SkillToolbarPositionGuard` PASS. digger 발동 자체 회귀는 `DiggerVerticalTunnel`(흙 연속 굴착)·`DiggerFallThroughUpperAnt` PASS.
+
+#### F-14. digger 자유낙하 = 굴착 모션 대신 FallerState(기절 대상) + S6 "땅굴" Design B 재설계
+- **증상(사용자 보고)**: digger가 마지막 굴착 후 **굴착 모션(WorkerState) 그대로 떨어져** 기절 판정을 건너뜀(낙하 동작이 아니라 땅파기 동작으로 추락).
+- **원인**: 구 digger는 off-floor 중에도 WorkerState를 유지(`DIGGER_OFF_FLOOR_LIMIT=180` void timeout, Phase18 v4 "Option A")해, 갱도가 빈 공간으로 뚫린 뒤의 자유낙하도 WorkerState에서 일어나 FallerState의 기절 거리 측정을 영영 거치지 않았다.
+- **수정(코어)**: [WorkerState.gd](../scripts/ant/states/WorkerState.gd) `_update_digger` — off-floor 진입 첫 frame에 앵커(`_dig_fall_anchor_y`) 기록 후, 앵커 대비 `DIGGER_FREEFALL_CELLS(1.5칸)`를 넘게 떨어지면 갱도가 뚫린 자유낙하로 보고 `FallerState`로 이양(앵커를 넘겨 이미 떨어진 거리까지 포함해 기절 거리 정확 측정). **굴착 사이 1칸 인접 드롭(연속 터널)은 임계 미달 → WorkerState 유지**. 구 `DIGGER_OFF_FLOOR_LIMIT`/`_off_floor_frames` 폐기. [FallerState.gd](../scripts/ant/states/FallerState.gd)에 낙하 시작 y override(`_init(start_y_override := NAN)`) 추가(기본 NAN=enter 시점 y, 기존 모든 호출 경로 무영향).
+- **S6 재설계 (Design B)**: 이 수정으로 S6 개척자의 "공동 7칸 자유낙하 자력 안전강하"(구 굴착낙하 면역)가 깨져, **"digger=흙 캡 천장 뚫기, 깊은 공동 강하는 모두(개척자 포함) floater 필요"**로 의미 변경. 지오메트리는 무변경(공동 air 유지) — 누구든 공동에 진입하면 7칸 자유낙하 → 기절(floater 없으면)이라 "느린 개척자에 후속이 올라타 생존"하던 Design A(공동 흙 채우기) 결함도 회피. **사용자 결정**: 수정 적용 + S6 재설계(A안).
+- **검증**: `StunFall`/`CarryFallState`(FallerState 하위호환) PASS. `DiggerVerticalTunnel`(흙 연속 굴착=자유낙하 미발동) PASS. `DiggerFallThroughUpperAnt` 재작성(구 D11 180-timeout 박제 → 자유낙하 핸드오프: destroy 후 짧은 창 내 FallerState 진입) PASS — [[#K-4]] 선재실패 1건 해소. S6 3종: `CampaignS6Clear`(digger+분배자 floater → saved 4/4 lost 0)·`CampaignS6NoFloater`(digger만 → 공동 기절 saved 0 → 미클리어)·`CampaignS6NoDigger`(캡 못 뚫음 picks 0) PASS. 회귀: S1/S2/S4/S5/S7/S8/S9 Clear + bridge 4종 PASS([[#K-9]] S3 제외=무관 선재실패).
+
+### Known issues
+
+#### K-9. S3 "사탕 호수" 선재 회귀 — `BRIDGE_MAX_LENGTH`(5) < 갭(8칸) → 미클리어
+- **내용**: `CampaignS3ClearTest`가 `stage_failed reason=no_more_ants saved=0`. S3 갭은 cols 9–16(8칸)인데 [WorkerState.gd](../scripts/ant/states/WorkerState.gd) `BRIDGE_MAX_LENGTH`/[PlacementPreview.gd](../scripts/world/PlacementPreview.gd) `BRIDGE_MAX`가 [[#F-9]] 인근(2026-06-04, 구 8→5)에서 5로 축소돼, 단일 다리가 갭을 못 건너 개미가 물에 빠진다. **세션 시작 git status상 S3 파일 미변경 = 커밋된 HEAD에서 이미 실패하는 선재 회귀**(본 세션 digger 작업과 무관 — bridge 코어 4종·FallerState 하위호환 전부 green으로 격리 확인).
+- **왜 안 고쳤나**: digger 표지판/기절 수정 범위 밖. 수정은 설계 결정이 필요(① S3 갭을 ≤5칸으로 축소 ② S3 전용으로 bridge max 환원/스테이지별 캡 ③ 2단 다리 전제로 재저작·테스트 갱신).
+- **고친다면**: 위 중 하나 선택 후 `stage03_layout.tres` 또는 bridge 캡 + `CampaignS3ClearTest`/`GameFlowTest` Scenario B 갱신.
+
 ## 2026-06-05
 
 > iPad Mini 타겟 대응 + UI/UX 폴리싱 + 무장 스킬(armed) 메커니즘 확장 세션. 커밋엔 세션 전부터 작업 중이던
@@ -152,6 +177,6 @@
 #### K-4. 선재 테스트 실패 (내 변경과 무관 — pristine HEAD에서도 실패)
 - **내용**: F-2 회귀 검증 중 `git stash`로 내 변경 제거 후에도 동일 실패 실증. 핸드오프 노트의 "pristine 선재 실패 4건" 중:
   - `FloaterTraitTest`(deadline)·`DistributorSettleTest`(정착 x drift 31.5px) — **둘 다 F-3에서 삭제됨**(FloaterTraitTest=자기강하 폐기로 obsolete+TraitCombined와 중복 / DistributorSettleTest=DistributorSkill 은퇴). 더는 스위트에 없음.
-  - **남은 선재 실패 2건**: `ClimberTraitTest`(mantle 0.07px 경계), `DiggerFallThroughUpperAnt`. F-3와 무관, 별도 트랙에서 점검.
+  - **남은 선재 실패**: `ClimberTraitTest`(mantle 0.07px 경계). (`DiggerFallThroughUpperAnt`는 2026-06-06 [[#F-14]]에서 재작성·해소.) F-3와 무관, 별도 트랙에서 점검.
 - **왜 안 고쳤나**: F-2 요청 범위 밖의 선재 결함. 메모리 핸드오프 노트에도 "pristine HEAD 선재 실패 4건(ClimberTrait mantle / DiggerFallThroughUpperAnt / DistributorSettle / FloaterTrait)"으로 이미 기록돼 있음.
-- **고친다면**: 별도 버그 수정 작업으로 ① `FloaterTraitTest` 데드라인/측정 윈도우 재조정(또는 `TraitCombinedTest`로 커버되니 폐기 검토) ② `DistributorSettleTest`는 marker.x 대비 허용오차를 넓히거나, 정착 트리거 시 x를 marker.x로 스냅(`SettledState.enter`에서 `_settle_pos.x = marker.x`)할지 설계 결정 필요. **남은 선재 실패 2건**(`ClimberTraitTest` mantle 0.07px 경계, `DiggerFallThroughUpperAnt`)도 같은 트랙에서 함께 점검.
+- **고친다면**: 별도 버그 수정 작업으로 ① `FloaterTraitTest` 데드라인/측정 윈도우 재조정(또는 `TraitCombinedTest`로 커버되니 폐기 검토) ② `DistributorSettleTest`는 marker.x 대비 허용오차를 넓히거나, 정착 트리거 시 x를 marker.x로 스냅(`SettledState.enter`에서 `_settle_pos.x = marker.x`)할지 설계 결정 필요. **남은 선재 실패**(`ClimberTraitTest` mantle 0.07px 경계)도 같은 트랙에서 함께 점검. (`DiggerFallThroughUpperAnt`는 [[#F-14]]에서 해소.)

@@ -1,9 +1,16 @@
-[gd_scene load_steps=4 format=3 uid="uid://b6huiphase11"]
+[gd_scene load_steps=5 format=3 uid="uid://b6huiphase11"]
 
 [ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atoms/Counter.tscn" id="3_counter"]
 [ext_resource type="Script" path="res://scripts/ui/SpeedBtn.gd" id="4_speedbtn"]
 [ext_resource type="Script" path="res://scripts/ui/PauseBtn.gd" id="5_pausebtn"]
+
+[sub_resource type="StyleBoxFlat" id="btn_shadow"]
+bg_color = Color(0.227, 0.165, 0.110, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
 
 [node name="HUD" type="CanvasLayer"]
 layer = 10
@@ -20,8 +27,8 @@ mouse_filter = 2
 [node name="TopLeft" type="HBoxContainer" parent="Root"]
 offset_left = 32.0
 offset_top = 32.0
-offset_right = 532.0
-offset_bottom = 116.0
+offset_right = 600.0
+offset_bottom = 136.0
 theme_override_constants/separation = 12
 mouse_filter = 2
 
@@ -48,12 +55,13 @@ bottom_label_ko = "잃음"
 [node name="TopRight" type="HBoxContainer" parent="Root"]
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -432.0
+offset_left = -454.0
 offset_top = 32.0
 offset_right = -32.0
-offset_bottom = 116.0
+offset_bottom = 136.0
 grow_horizontal = 0
 theme_override_constants/separation = 12
+alignment = 2
 mouse_filter = 2
 
 [node name="CounterTime" parent="Root/TopRight" instance=ExtResource("3_counter")]
@@ -63,10 +71,39 @@ bottom_label_ko = "남은 시간"
 
 [node name="SpeedBtn" type="Button" parent="Root/TopRight"]
 custom_minimum_size = Vector2(56, 56)
+theme_override_font_sizes/font_size = 24
 script = ExtResource("4_speedbtn")
 kind = 2
+
+[node name="ShadowBG" type="Panel" parent="Root/TopRight/SpeedBtn"]
+show_behind_parent = true
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 4.0
+offset_bottom = 4.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("btn_shadow")
 
 [node name="PauseBtn" type="Button" parent="Root/TopRight"]
 custom_minimum_size = Vector2(56, 56)
 script = ExtResource("5_pausebtn")
 kind = 2
+
+[node name="ShadowBG" type="Panel" parent="Root/TopRight/PauseBtn"]
+show_behind_parent = true
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 4.0
+offset_bottom = 4.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("btn_shadow")

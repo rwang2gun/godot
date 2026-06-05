@@ -25,7 +25,7 @@ corner_radius_bottom_right = 24
 corner_radius_bottom_left = 24
 
 [sub_resource type="LabelSettings" id="label_subtle"]
-font_size = 13
+font_size = 20
 font_color = Color(0.361, 0.271, 0.188, 1)
 
 [node name="StageDialog" type="Control"]
@@ -82,11 +82,12 @@ theme_override_constants/margin_bottom = 18
 
 [node name="VBox" type="VBoxContainer" parent="CardWrapper/Card/Main/Margin"]
 theme_override_constants/separation = 12
+alignment = 1
 
 [node name="Title" type="Label" parent="CardWrapper/Card/Main/Margin/VBox"]
 text = "스테이지 결과"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 32
 
 [node name="Subtitle" type="Label" parent="CardWrapper/Card/Main/Margin/VBox"]
 text = "Result"

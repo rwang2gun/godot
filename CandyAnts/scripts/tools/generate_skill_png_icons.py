@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "assets" / "icons" / "skills"
 CURSOR_OUT = OUT / "cursors"
 SPRITES = ROOT / "assets" / "sprites" / "characters" / "ant_pajama_girl"
+TERRAIN = ROOT / "assets" / "sprites" / "terrain"
 SIZE = 128
 SCALE = 4
 
@@ -32,6 +33,13 @@ def load_sprite(anim: str, frame: int) -> Image.Image:
         return src
     return src.crop(bbox)
 
+def load_terrain(rel_path: str) -> Image.Image:
+    src = Image.open(TERRAIN / rel_path).convert("RGBA")
+    bbox = src.getbbox()
+    if bbox is None:
+        return src
+    return src.crop(bbox)
+
 def fit_sprite(sprite: Image.Image, height: int) -> Image.Image:
     ratio = height / sprite.height
     return sprite.resize((max(1, int(sprite.width * ratio)), height), Image.Resampling.LANCZOS)
@@ -39,6 +47,14 @@ def fit_sprite(sprite: Image.Image, height: int) -> Image.Image:
 def paste_center(canvas: Image.Image, sprite: Image.Image, cx: int, bottom: int) -> None:
     x = s(cx) - sprite.width // 2
     y = s(bottom) - sprite.height
+    canvas.alpha_composite(sprite, (x, y))
+
+def paste_at(canvas: Image.Image, sprite: Image.Image, x: int, y: int) -> None:
+    canvas.alpha_composite(sprite, (s(x), s(y)))
+
+def paste_center_at(canvas: Image.Image, sprite: Image.Image, cx: int, cy: int) -> None:
+    x = s(cx) - sprite.width // 2
+    y = s(cy) - sprite.height // 2
     canvas.alpha_composite(sprite, (x, y))
 
 def line(d: ImageDraw.ImageDraw, points: list[tuple[int, int]], fill=INK, width=5) -> None:
@@ -103,22 +119,37 @@ def draw_wafer_plank(d: ImageDraw.ImageDraw, x: int, y: int, w: int = 45, h: int
     for offset in range(4, w - 4, 6):
         d.line([(s(x + offset), s(y + 2)), (s(x + offset + 3), s(y + h - 2))], fill=(195, 140, 75, 255), width=s(1))
 
-# Skill-specific themes (Inner light color, Outer saturated color)
-THEMES = {
-    "climber": ((220, 245, 230, 255), (116, 184, 147, 255)),     # Mint Green
-    "floater": ((225, 242, 250, 255), (116, 181, 216, 255)),     # Soda Blue
-    "blocker": ((255, 235, 238, 255), (244, 143, 177, 255)),     # Strawberry Pink
-    "builder": ((255, 248, 220, 255), (224, 184, 102, 255)),     # Cookie Gold
-    "distributor": ((224, 250, 240, 255), (116, 195, 170, 255)), # Mint Cyan
-    "sand_mound": ((254, 248, 225, 255), (230, 195, 120, 255)),  # Sugar Yellow
-    "bridge": ((255, 245, 230, 255), (224, 180, 110, 255)),      # Biscuit Orange
-    "basher": ((245, 235, 225, 255), (160, 115, 85, 255)),       # Chocolate Brown
-    "digger": ((240, 230, 220, 255), (145, 95, 65, 255)),        # Earth Ginger
-    "cutter": ((235, 245, 225, 255), (140, 185, 120, 255)),      # Leaf Green
+# Category themes (inner light color, outer saturated color).
+# These match the UX categories in SkillSign/direct-tap behavior:
+# - sign_install: basher, digger, cutter, sand_mound
+# - settle_exit: blocker, floater
+# - armed_auto: climber, bridge, builder
+# - device_install: leaf_jump
+CATEGORY_THEMES = {
+    "sign_install": ((255, 246, 224, 255), (231, 142, 79, 255)),
+    "settle_exit": ((232, 245, 255, 255), (105, 169, 218, 255)),
+    "armed_auto": ((238, 234, 255, 255), (138, 112, 205, 255)),
+    "device_install": ((231, 248, 225, 255), (105, 176, 112, 255)),
 }
 
+SKILL_CATEGORIES = {
+    "basher": "sign_install",
+    "digger": "sign_install",
+    "cutter": "sign_install",
+    "sand_mound": "sign_install",
+    "blocker": "settle_exit",
+    "floater": "settle_exit",
+    "climber": "armed_auto",
+    "bridge": "armed_auto",
+    "builder": "armed_auto",
+    "leaf_jump": "device_install",
+}
+
+def theme_for(skill_id: str):
+    return CATEGORY_THEMES[SKILL_CATEGORIES[skill_id]]
+
 def blocker(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["blocker"])
+    draw_candy_badge_bg(img, d, *theme_for("blocker"))
     # Lollipop shield
     s_size = SIZE * SCALE
     cx, cy = s_size // 2, s_size // 2
@@ -132,15 +163,17 @@ def blocker(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
     paste_center(img, ant, 60, 105)
 
 def builder(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["builder"])
-    # Planks
-    for i, y in enumerate([91, 77, 63]):
-        draw_wafer_plank(d, 45 + i * 8, y, 42, 11)
-    ant = fit_sprite(load_sprite("build", 1), s(80))
-    paste_center(img, ant, 51, 105)
+    draw_candy_badge_bg(img, d, *theme_for("builder"))
+    # Builder uses the biscuit stair concept terrain directly.
+    d.rectangle(rect((32, 98, 50, 108)), fill=(91, 57, 38, 255))
+    d.rectangle(rect((96, 52, 111, 108)), fill=(91, 57, 38, 255))
+    stair = fit_sprite(load_terrain("biscuit_stair_45_concept_01.png"), s(38))
+    paste_center_at(img, stair, 72, 76)
+    ant = fit_sprite(load_sprite("build", 1), s(58))
+    paste_center(img, ant, 43, 104)
 
 def climber(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["climber"])
+    draw_candy_badge_bg(img, d, *theme_for("climber"))
     # Candy cane ladder side rails
     for x in [83, 95]:
         d.rounded_rectangle(rect((x - 1, 26, x + 1, 105)), radius=s(1), fill=CREAM, outline=INK, width=s(1.5))
@@ -155,18 +188,15 @@ def climber(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
     paste_center(img, ant, 59, 105)
 
 def floater(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["floater"])
-    # Cotton candy umbrella
-    d.pieslice(rect((25, 22, 103, 78)), 180, 360, fill=(244, 143, 177, 255), outline=INK, width=s(3.5))
-    # White swirl highlights
-    d.arc(rect((35, 32, 93, 78)), 180, 360, fill=WHITE, width=s(2))
-    line(d, [(64, 62), (64, 84)], fill=INK, width=2.5)
-    
-    ant = fit_sprite(load_sprite("fall", 1), s(58))
-    paste_center(img, ant, 65, 108)
+    draw_candy_badge_bg(img, d, *theme_for("floater"))
+    # Match the in-game floater silhouette instead of drawing a separate umbrella symbol.
+    for p in [(34, 82), (43, 92), (91, 84), (100, 94)]:
+        d.ellipse(rect((p[0] - 2, p[1] - 2, p[0] + 2, p[1] + 2)), fill=(255, 255, 255, 170))
+    ant = fit_sprite(load_sprite("floater", 0), s(96))
+    paste_center(img, ant, 64, 112)
 
 def distributor(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["distributor"])
+    draw_candy_badge_bg(img, d, (224, 250, 240, 255), (116, 195, 170, 255))
     # Lollipop flags
     for p in [(34, 39), (64, 27), (94, 40)]:
         line(d, [(64, 70), p], fill=INK, width=2)
@@ -176,27 +206,37 @@ def distributor(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
     paste_center(img, ant, 64, 108)
 
 def sand_mound(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["sand_mound"])
-    # Sugar sand mound
-    d.polygon([tuple(map(s, p)) for p in [(27, 103), (44, 65), (57, 91), (73, 55), (103, 103)]], fill=(230, 195, 120, 255))
-    line(d, [(27, 103), (44, 65), (57, 91), (73, 55), (103, 103), (27, 103)], fill=INK, width=3.2)
-    # Sprinkles on sand
-    for p in [(44, 87), (61, 78), (80, 86)]:
-        d.ellipse(rect((p[0] - 2, p[1] - 2, p[0] + 2, p[1] + 2)), fill=(244, 143, 177, 255))
-    ant = fit_sprite(load_sprite("build", 3), s(68))
-    paste_center(img, ant, 49, 100)
+    draw_candy_badge_bg(img, d, *theme_for("sand_mound"))
+    # Sand mound is the vertical biscuit-ladder terrain.
+    root = fit_sprite(load_terrain("usable_square/biscuit_ladder_root_square.png"), s(20))
+    middle = fit_sprite(load_terrain("usable_square/biscuit_ladder_middle_square.png"), s(25))
+    top = fit_sprite(load_terrain("usable_square/biscuit_ladder_top_square.png"), s(20))
+    paste_center(img, root, 84, 101)
+    paste_center(img, middle, 84, 81)
+    paste_center(img, middle, 84, 62)
+    paste_center(img, top, 84, 42)
+    ant = fit_sprite(load_sprite("build", 3), s(58))
+    paste_center(img, ant, 45, 104)
+
+def leaf_jump(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
+    draw_candy_badge_bg(img, d, *theme_for("leaf_jump"))
+    pad = fit_sprite(load_terrain("leaf_jump_pad.png"), s(58))
+    paste_center(img, pad, 66, 82)
+    # A small arc hints at the jump direction without turning the pad into a sign.
+    line(d, [(40, 66), (54, 48), (76, 43), (92, 57)], fill=(255, 255, 255, 210), width=3)
+    d.polygon([tuple(map(s, p)) for p in [(92, 57), (84, 55), (89, 49)]], fill=(255, 255, 255, 230))
 
 def bridge(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["bridge"])
-    # Biscuits bridge
-    for x in [28, 51, 74]:
-        draw_wafer_plank(d, x, 75, 30, 12)
-    line(d, [(30, 88), (98, 88)], fill=INK, width=3)
-    ant = fit_sprite(load_sprite("build", 0), s(70))
-    paste_center(img, ant, 55, 104)
+    draw_candy_badge_bg(img, d, *theme_for("bridge"))
+    # Bridge places horizontal biscuit terrain.
+    bridge_tile = fit_sprite(load_terrain("biscuit_bridge_middle_horizontal_concept_01.png"), s(20))
+    paste_at(img, bridge_tile, 48, 78)
+    paste_at(img, bridge_tile, 70, 78)
+    ant = fit_sprite(load_sprite("build", 0), s(60))
+    paste_center(img, ant, 45, 106)
 
 def basher(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["basher"])
+    draw_candy_badge_bg(img, d, *theme_for("basher"))
     # Cookie tunnel background
     d.rounded_rectangle(rect((76, 38, 104, 96)), radius=s(8), fill=(109, 76, 65, 255), outline=INK, width=s(3))
     # Cookie crumbs
@@ -206,7 +246,7 @@ def basher(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
     paste_center(img, ant, 54, 106)
 
 def digger(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["digger"])
+    draw_candy_badge_bg(img, d, *theme_for("digger"))
     # Chocolate cookie ground hole
     d.rounded_rectangle(rect((43, 82, 88, 106)), radius=s(8), fill=(109, 76, 65, 255), outline=INK, width=s(3))
     d.polygon([tuple(map(s, p)) for p in [(66, 111), (43, 96), (88, 96)]], fill=(109, 76, 65, 255))
@@ -215,7 +255,7 @@ def digger(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
     paste_center(img, ant, 64, 103)
 
 def cutter(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
-    draw_candy_badge_bg(img, d, *THEMES["cutter"])
+    draw_candy_badge_bg(img, d, *theme_for("cutter"))
     # Peppermint leaf and candy shears
     d.ellipse(rect((76, 38, 104, 64)), fill=(129, 199, 132, 255), outline=INK, width=s(3))
     d.ellipse(rect((84, 69, 110, 94)), fill=(129, 199, 132, 255), outline=INK, width=s(3))
@@ -258,10 +298,11 @@ def main() -> None:
         "basher": basher,
         "digger": digger,
         "cutter": cutter,
+        "leaf_jump": leaf_jump,
     }
     for name, painter in painters.items():
         draw_icon(name, painter)
-    print("Successfully generated all 10 premium skill PNG icons!")
+    print("Successfully generated %d premium skill PNG icons!" % len(painters))
 
 if __name__ == "__main__":
     main()

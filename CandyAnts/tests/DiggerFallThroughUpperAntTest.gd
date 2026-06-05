@@ -1,6 +1,6 @@
 extends Node
 
-# Phase 18 essential test — D1 자연 분기 + D11 void termination 검증.
+# Phase 18 essential test — D1 자연 분기 + Digger 자유낙하 핸드오프 검증 (2026-06-06 갱신).
 #
 # 시나리오 (plan v10 §6.3):
 # - Layout dev_basher_digger_chain_layout — upper floor y=22 + lower floor y=27 with column 10 hole.
@@ -10,24 +10,23 @@ extends Node
 # - ant_B의 digger가 cell (10,22)을 frame N에 destroy → ant_A가 그 다음 physics tick 이후 (10,22)
 #   위 진입 시 is_on_floor=false → WalkerState.update의 `_frame > 1 and not is_on_floor` 분기 →
 #   FallerState (D1 자연 분기).
-# - ant_B는 falling 중 WorkerState("digger") 유지(Option A). column 10 lower floor (10,27) hole이라
-#   ant_B는 _off_floor_frames > DIGGER_OFF_FLOOR_LIMIT(=180) 초과 시 _aborted + FallerState 직접
-#   전이 (D11 void termination).
+# - ant_B는 (10,22) 굴착 후 column 10 lower floor (10,27) hole이라 아래가 빈 공간 → 자유낙하.
+#   2026-06-06 digger 수정: 굴착 사이 1칸 드롭은 WorkerState 유지하지만, DIGGER_FREEFALL_CELLS(1.5칸)를
+#   넘는 자유낙하가 시작되면 즉시 FallerState로 이양한다(구 DIGGER_OFF_FLOOR_LIMIT=180 void timeout 폐기 —
+#   굴착 모션 자유낙하가 기절 판정을 건너뛰던 버그 수정). 따라서 ant_B는 destroy 직후 짧은 창 안에 FallerState.
 #
-# PASS (30s 내) — 5 criteria 모두 충족 시 quit(0). 위반 시 explicit reason _fail() + quit(1):
+# PASS (30s 내) — 3 criteria 모두 충족 시 quit(0). 위반 시 explicit reason _fail() + quit(1):
 #  (1) cell_destroy_frame 기록 (대상 cell (10,22) literal — Mode A로 column 10 결정론적 보장)
-#  (2) destroy+5 frame 시점 ant_B.state == WorkerState (Option A enforcement — falling 중 유지)
-#  (3) ant_b_faller_frame 기록 (D11 void timeout으로 FallerState 전이)
-#  (4) ant_b_faller_frame ∈ [destroy + DIGGER_OFF_FLOOR_LIMIT − 5, destroy + DIGGER_OFF_FLOOR_LIMIT + 5]
-#      (D11 timing 정확도, ±5 frame)
-#  (5) ant_a_faller_frame > cell_destroy_frame (D1 자연 분기 — 위쪽 ant fall-through)
+#  (2) ant_b_faller_frame ∈ (destroy, destroy + FREEFALL_HANDOFF_MAX] (자유낙하 핸드오프 — 구 180 timeout 아님)
+#  (3) ant_a_faller_frame > cell_destroy_frame (D1 자연 분기 — 위쪽 ant fall-through)
 
 const ANT_SCENE: PackedScene = preload("res://scenes/entities/Ant.tscn")
 const PASS_TIMEOUT_FRAMES: int = 1800   # 30s @ 60fps — runner --quit-after 18000(=5min) 보다 짧음
 const ANT_B_SPAWN_DELAY_FRAMES: int = 60   # 1.0s @ 60fps
 const ANT_B_BODY_CELL: Vector2i = Vector2i(10, 21)
 const TARGET_DESTROY_CELL: Vector2i = Vector2i(10, 22)
-const FALLER_FRAME_TOLERANCE: int = 5
+# 자유낙하 핸드오프 최대 지연(frame) — 1.5칸 낙하에 걸리는 시간 + 여유. 구 180 timeout과 명확히 구분되는 짧은 창.
+const FREEFALL_HANDOFF_MAX: int = 60
 
 var _frame: int = 0
 var _result_emitted: bool = false
@@ -38,12 +37,8 @@ var _ant_b: Ant = null
 var _digger_applied: bool = false
 var _ant_b_spawned: bool = false
 var _cell_destroy_frame: int = -1
-var _ant_b_state_at_destroy_plus_5_checked: bool = false
-var _ant_b_state_at_destroy_plus_5_ok: bool = false
 var _ant_b_faller_frame: int = -1
 var _ant_a_faller_frame: int = -1
-var _ant_a_prev_state: AntState = null
-var _ant_b_prev_state: AntState = null
 
 func _ready() -> void:
 	print("[DiggerFallThroughUpperAntTest] driver ready")
@@ -58,8 +53,8 @@ func _physics_process(_delta: float) -> void:
 	_observe_state_transitions()
 	_poll_pass()
 	if _frame > PASS_TIMEOUT_FRAMES:
-		_fail("hard timeout (30s) — destroy_frame=%d ant_b_faller=%d ant_a_faller=%d state_check=%s" % [
-			_cell_destroy_frame, _ant_b_faller_frame, _ant_a_faller_frame, str(_ant_b_state_at_destroy_plus_5_ok)
+		_fail("hard timeout (30s) — destroy_frame=%d ant_b_faller=%d ant_a_faller=%d" % [
+			_cell_destroy_frame, _ant_b_faller_frame, _ant_a_faller_frame
 		])
 
 func _ensure_refs() -> void:
@@ -135,15 +130,7 @@ func _observe_destroy() -> void:
 		print("[DiggerFallThroughUpperAntTest] cell (10,22) destroy detected at frame=%d" % _frame)
 
 func _observe_state_transitions() -> void:
-	# ant_B Option A enforcement — destroy+5 frame 시점 WorkerState 검사.
-	if _digger_applied and _cell_destroy_frame >= 0 and not _ant_b_state_at_destroy_plus_5_checked:
-		if _frame >= _cell_destroy_frame + 5:
-			if _ant_b != null and is_instance_valid(_ant_b) and _ant_b.state_machine != null:
-				_ant_b_state_at_destroy_plus_5_ok = (_ant_b.state_machine.current_state is WorkerState)
-			_ant_b_state_at_destroy_plus_5_checked = true
-			print("[DiggerFallThroughUpperAntTest] destroy+5 ant_b state WorkerState=%s" % str(_ant_b_state_at_destroy_plus_5_ok))
-
-	# ant_B FallerState 진입 frame 추적 (D11 void timeout).
+	# ant_B FallerState 진입 frame 추적 (자유낙하 핸드오프 — (10,22) 굴착 후 빈 갱도로 떨어지면 FallerState 이양).
 	if _ant_b_faller_frame < 0 and _ant_b != null and is_instance_valid(_ant_b) and _ant_b.state_machine != null:
 		var s_b: AntState = _ant_b.state_machine.current_state
 		if s_b is FallerState:
@@ -158,31 +145,23 @@ func _observe_state_transitions() -> void:
 			print("[DiggerFallThroughUpperAntTest] ant_a → FallerState at frame=%d" % _frame)
 
 func _poll_pass() -> void:
-	# 5 criteria 모두 충족 시 PASS.
+	# 3 criteria 모두 충족 시 PASS.
 	if _cell_destroy_frame < 0:
-		return
-	if not _ant_b_state_at_destroy_plus_5_checked:
 		return
 	if _ant_b_faller_frame < 0:
 		return
 	if _ant_a_faller_frame < 0:
 		return
 	# 모든 데이터 수집 완료 — gate 검사.
-	# (2) destroy+5 ant_b WorkerState
-	if not _ant_b_state_at_destroy_plus_5_ok:
-		_fail("(2) destroy+5 frame 시점 ant_b state != WorkerState — Option A 위반")
-		return
-	# (4) ant_b_faller_frame ∈ [destroy + LIMIT − 5, destroy + LIMIT + 5]
-	var limit_target: int = _cell_destroy_frame + WorkerState.DIGGER_OFF_FLOOR_LIMIT
-	if _ant_b_faller_frame < limit_target - FALLER_FRAME_TOLERANCE or _ant_b_faller_frame > limit_target + FALLER_FRAME_TOLERANCE:
-		_fail("(4) ant_b_faller_frame=%d outside [%d, %d] (destroy=%d LIMIT=%d) — D11 enforcement 위반" % [
-			_ant_b_faller_frame, limit_target - FALLER_FRAME_TOLERANCE, limit_target + FALLER_FRAME_TOLERANCE,
-			_cell_destroy_frame, WorkerState.DIGGER_OFF_FLOOR_LIMIT
+	# (2) ant_b_faller_frame ∈ (destroy, destroy + FREEFALL_HANDOFF_MAX] — 자유낙하 핸드오프(구 180 timeout 아님).
+	if _ant_b_faller_frame <= _cell_destroy_frame or _ant_b_faller_frame > _cell_destroy_frame + FREEFALL_HANDOFF_MAX:
+		_fail("(2) ant_b_faller_frame=%d outside (%d, %d] (destroy=%d) — 자유낙하 핸드오프 위반" % [
+			_ant_b_faller_frame, _cell_destroy_frame, _cell_destroy_frame + FREEFALL_HANDOFF_MAX, _cell_destroy_frame
 		])
 		return
-	# (5) ant_a_faller_frame > cell_destroy_frame
+	# (3) ant_a_faller_frame > cell_destroy_frame
 	if _ant_a_faller_frame <= _cell_destroy_frame:
-		_fail("(5) ant_a_faller_frame=%d <= cell_destroy_frame=%d — D1 자연 분기 위반" % [
+		_fail("(3) ant_a_faller_frame=%d <= cell_destroy_frame=%d — D1 자연 분기 위반" % [
 			_ant_a_faller_frame, _cell_destroy_frame
 		])
 		return

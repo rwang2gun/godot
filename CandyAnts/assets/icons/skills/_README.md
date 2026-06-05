@@ -14,7 +14,15 @@ Current registered skill icon set:
 - `digger.png`
 - `distributor.png`
 - `floater.png`
+- `leaf_jump.png`
 - `sand_mound.png`
+
+Button background colors are grouped by skill category:
+
+- Sign install: `basher`, `digger`, `cutter`, `sand_mound`
+- Settle/exit: `blocker`, `floater`
+- Armed auto-trigger: `climber`, `bridge`, `builder`
+- Device install: `leaf_jump`
 
 The older SVG placeholders remain in this directory as archived reference assets, but runtime code should use PNG icons.
 

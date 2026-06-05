@@ -5,8 +5,9 @@ extends Node
 #  선두 1마리를 메사 top spawn 경로에 분배자로 정착시키고 후속 개미가 마커를 통과해 floater를 받아 강하.)
 # 플레이어 모사:
 #   (1) 선두 grounded walker 1마리에 floater 부여 → 메사 top에 정착(희생) → 지나는 개미에 floater 분배.
-#   (2) 후속 개미(메사 top 보행)에 digger 시전 → 흙 캡 수직 굴착 → 공동 강하. 개척자는 굴착 낙하라 무-floater 안전,
-#       공유 갱도로 떨어지는 후속은 분배받은 floater로 7칸 공동을 안전 강하 → 챔버(쿠키) 도달.
+#   (2) 후속 개미(메사 top 보행)에 digger 시전 → 흙 캡 수직 굴착(천장 뚫기) → 공동 강하. 2026-06-06 Design B:
+#       digger는 캡을 뚫을 뿐 공동 7칸 자유낙하는 기절 대상이라, 굴착 개미도 분배자 마커를 통과해 받은 floater로
+#       공동을 안전 강하해야 챔버에 안착한다(구 "개척자 무-floater 자력 안전강하" 폐기 — digger 굴착낙하 면역 제거).
 # candy_hp 4 → 4마리 회수+귀가. PASS: stage_cleared && saved>=4 && lost==0.
 # FAIL: stage_failed / deadline / saved<4 / lost>0.
 

@@ -41,7 +41,7 @@ var _progress: Dictionary = {}
 @onready var _focus_halo: Panel = $FocusHalo
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(200, 140)
+	custom_minimum_size = Vector2(200, 175)
 	_apply_shadow_style()
 	_apply_focus_halo_style()
 	_apply_state()

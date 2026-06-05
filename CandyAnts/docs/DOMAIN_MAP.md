@@ -48,6 +48,23 @@
 
 > "추가 레이아웃 fixture"는 씬이 없고 `tests/*.gd`가 `preload`로 직접 로드하는 레이아웃이라 `data/stage_layouts/`에 잔류(클러스터 아님).
 
+### 2.1 적용 방식 분류 (플레이어 상호작용 축) — 2026-06-06
+
+스킬을 **"플레이어가 어떻게 발동하나"(입력 모델)**로 4분류한다. 아이콘 카테고리·UX의 기준 축. (효과 축=통행/건설/파괴/제어와는 직교 — 맨 아래 비고.)
+
+| # | 카테고리 | 스킬 | 입력 흐름 |
+|---|---|---|---|
+| ① | **푯말 설치형** (Action Sign) | `basher` · `digger` · `cutter` · `sand_mound` | 타일에 푯말(`SkillSign`) 설치 → 그 열에 처음 도착한 적격 개미가 그 자리서 지형 작업. 1회 발동 후 소비. |
+| ② | **정착·이탈형** (Settle/Remove) | `blocker` · `floater` | 개미를 탭 → 그 자리에 영구 고정, 일행에서 이탈(스테이지 끝까지). blocker=정지+충돌 개미 반전, floater=정착해 지나는 개미에 느린낙하 분배. |
+| ③ | **무장·자동발동형** (Armed/Auto) | `climber` · `bridge` · `builder` | 개미를 탭 → 능력을 들고 보행하다 조건 위치 도달 시 자동 발동. climber=벽→등반, bridge=낭떠러지→수평 다리, builder=낭떠러지→대각 계단. |
+| ④ | **장치 설치형** (Device) | `leaf_jump` | 타일에 물리 장치(나뭇잎 점프대) 설치 → 장치 자체가 도착 개미를 포물선 발사. 재사용형(`REUSABLE_SIGNS`, 무리 반복 통행). |
+
+- **푯말(①) vs 장치(④)**: 둘 다 `SkillSign`(타일 설치) 인프라를 공유하나 — **①은 "개미에게 작업 지시"**(개미가 일하고 1회 소비), **④는 "장치가 개미에게 작용"**(장치가 발사·재사용). 플레이어 체감·아이콘 모티프가 갈려 별도 분류.
+- **①의 armed는 내부 구현**: basher/cutter는 푯말이 호출한 `apply()`가 전방 열림이면 `*_armed`로 무장(벽까지 보행 후 작동)·벽 직면이면 즉시 작동하는 분기를 갖지만, **플레이어 입력은 항상 푯말 설치**(`SIGN_SKILLS`라 직접 탭-무장 경로 없음). digger/sand_mound는 제자리 즉시 발동. (bridge/builder/basher/cutter 4종은 한 개미에 동시 무장 불가 — 상호 배타.)
+- **라우팅 SoT**: `SkillSign.SIGN_SKILLS`(=①+④) ↔ 그 외(②③ = 개미 직접 탭). `SkillToolbar._try_assign`/`try_assign_dragged`가 이 한 줄로 분기.
+- **효과 축(직교 참고)**: 통행(climber/floater/leaf_jump) · 건설(bridge/builder/sand_mound) · 파괴(basher/digger/cutter) · 제어(blocker). 위 입력 모델 분류와 교차한다(예: basher=입력①·효과 파괴 / bridge=입력③·효과 건설).
+- ※ `distributor`는 F-3(2026-06-03)에서 은퇴 — 위 §2 표의 distributor 행은 stale(`SKILL_SCRIPTS` 미등록, 현재 등록 스킬 10종).
+
 ---
 
 ## 3. 레벨 (Levels)

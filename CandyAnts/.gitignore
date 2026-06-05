@@ -31,3 +31,6 @@ scripts/hooks/.tdd_bypass
 
 # Claude Code 런타임 락 — ScheduleWakeup 등 세션 런타임 산출물(커밋 금지).
 **/.claude/scheduled_tasks.lock
+
+# 웹 맵에디터 잔여 npm 트리 (ab0df41에서 제거됨, 로컬만)
+tools/map_editor/

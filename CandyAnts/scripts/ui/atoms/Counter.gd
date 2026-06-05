@@ -5,7 +5,7 @@ extends Control
 # HUD 카운터 카드 (110×84). ColorDot + TopLabel(EN) / BigNumber / KoLabel 3-라인.
 # set_value(n) 호출 시 caPop tween 발화. H-1 fix: 이전 tween을 atom-local kill guard로 정리.
 
-const _SIZE := Vector2(110, 84)
+const _SIZE := Vector2(132, 104)
 const _RADIUS := 16
 const _BORDER_WIDTH := 3
 const _SHADOW_OFFSET := 4.0

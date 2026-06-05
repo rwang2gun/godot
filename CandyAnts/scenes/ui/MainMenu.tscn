@@ -38,38 +38,47 @@ theme_override_constants/separation = 16
 alignment = 1
 
 [node name="LogoPanel" parent="Center/VBox" instance=ExtResource("2_logo")]
-custom_minimum_size = Vector2(600, 360)
+custom_minimum_size = Vector2(600, 500)
+
+[node name="Wordmark" parent="Center/VBox/LogoPanel/VBox" index="0"]
+custom_minimum_size = Vector2(540, 270)
 
 [node name="Spacer" type="Control" parent="Center/VBox"]
 custom_minimum_size = Vector2(0, 32)
 
 [node name="PlayBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
 custom_minimum_size = Vector2(280, 56)
+theme_override_font_sizes/font_size = 30
 text = "새 게임"
 
 [node name="ContinueBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
 custom_minimum_size = Vector2(280, 56)
+theme_override_font_sizes/font_size = 30
 text = "이어 하기"
 
 [node name="StageSelectBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
 custom_minimum_size = Vector2(280, 56)
+theme_override_font_sizes/font_size = 30
 text = "스테이지 선택"
 kind = 1
 
 [node name="SettingsBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
 visible = false
 custom_minimum_size = Vector2(280, 48)
+theme_override_font_sizes/font_size = 30
 text = "설정"
 kind = 2
 
 [node name="CreditsBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
 visible = false
 custom_minimum_size = Vector2(280, 48)
+theme_override_font_sizes/font_size = 30
 text = "크레딧"
 kind = 2
 
 [node name="QuitBtn" parent="Center/VBox" instance=ExtResource("3_btn")]
 custom_minimum_size = Vector2(280, 48)
+theme_override_font_sizes/font_size = 30
 text = "종료"
 kind = 2
 

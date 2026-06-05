@@ -77,3 +77,12 @@ func _apply_text() -> void:
 		return
 	_label_text.text = label
 	_value_text.text = value
+	_fit_to_content()
+
+# 칩 Control을 내용(알약 배경 = MainPanel)의 최소 크기에 맞춰 키운다. 루트 Control은 기본적으로
+# 자식 min을 반영하지 않아, 폰트를 키우면 MainPanel만 커져 알약이 Control 밖으로 흘러나오고(인접 칩
+# 겹침) 세로로도 이웃 행을 침범한다. 내용 크기를 Control의 custom_minimum_size로 끌어와 컨테이너가
+# 올바른 공간을 예약하게 한다. (기본 하한 80x28은 유지.)
+func _fit_to_content() -> void:
+	var content: Vector2 = _main.get_combined_minimum_size()
+	custom_minimum_size = Vector2(maxf(content.x, 80.0), maxf(content.y, 28.0))

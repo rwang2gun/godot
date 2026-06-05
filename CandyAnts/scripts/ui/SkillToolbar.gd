@@ -10,6 +10,7 @@ const GameAction := preload("res://scripts/input/GameAction.gd")
 const SkillSlotScene: PackedScene = preload("res://scenes/ui/atoms/SkillSlot.tscn")
 # 표지판(설치형 발동) — class_name 글로벌 캐시 의존 없이 헤드리스 안정성 위해 preload 참조(SkillRegistry 패턴).
 const SkillSignScript := preload("res://scripts/world/SkillSign.gd")
+const LeafJumpPadScript := preload("res://scripts/world/LeafJumpPad.gd")
 # 터치/클릭 스킬 부여 판정 반경. 기준점은 개미 충돌 원점(발)이 아니라 보이는 캐릭터 중심
 # (Ant.tap_target_position) — 스프라이트가 원점보다 ~44px 위에 그려져, 원점+48 반경이면
 # 캐릭터 아래 절반만 덮어 머리 터치가 빠졌다(2026-06-04 버그). 중심 기준 + 반경 64로
@@ -36,6 +37,7 @@ const ICONS: Dictionary = {
 	"basher": preload("res://assets/icons/skills/basher.png"),
 	"digger": preload("res://assets/icons/skills/digger.png"),
 	"cutter": preload("res://assets/icons/skills/cutter.png"),
+	"leaf_jump": preload("res://assets/icons/skills/leaf_jump.png"),
 }
 const CURSOR_ICONS: Dictionary = {
 	"blocker": preload("res://assets/icons/skills/cursors/blocker.png"),
@@ -47,6 +49,7 @@ const CURSOR_ICONS: Dictionary = {
 	"basher": preload("res://assets/icons/skills/cursors/basher.png"),
 	"digger": preload("res://assets/icons/skills/cursors/digger.png"),
 	"cutter": preload("res://assets/icons/skills/cursors/cutter.png"),
+	"leaf_jump": preload("res://assets/icons/skills/cursors/leaf_jump.png"),
 }
 # 스킬 한글 라벨은 Strings 오토로드로 이관(2026-06-02). Strings.skill_label(id) 사용.
 
@@ -189,6 +192,10 @@ func _clear_selection() -> void:
 func _try_assign(world: Vector2) -> void:
 	if _pending_skill_id == "":
 		return
+	if _pending_skill_id == "leaf_jump":
+		if _place_leaf_jump_pad(world):
+			_clear_selection()
+		return
 	# 설치형(표지판) 스킬은 개미가 아니라 타일에 표지판을 설치 — 첫 도착 개미가 자동 발동.
 	# 유효 셀이 아니면(점유/지형 없음) 선택 유지(빈 공간 오클릭 보호, ant==null 분기와 대칭).
 	if SkillSignScript.SIGN_SKILLS.has(_pending_skill_id):
@@ -206,6 +213,10 @@ func _try_assign(world: Vector2) -> void:
 # (월드 드래그를 부여로 오해하지 않도록, 드래그는 반드시 SkillSlot에서 시작해야 데이터가 실린다.)
 func try_assign_dragged(id: String, world: Vector2) -> void:
 	if _all_disabled:
+		return
+	if id == "leaf_jump":
+		_place_leaf_jump_pad(world)
+		_clear_selection()
 		return
 	# 설치형(표지판) 스킬은 드롭 지점 타일에 표지판 설치 (클릭 흐름과 동일).
 	if SkillSignScript.SIGN_SKILLS.has(id):
@@ -265,6 +276,41 @@ func _place_sign(id: String, world: Vector2) -> bool:
 	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
 	print("[SkillToolbar] sign placed=", id, " cell=", cell, " remaining=", _inventory[id])
 	return true
+
+# 나뭇잎 점프는 표지판 없이 점프대 자체를 지면 위에 직접 배치한다.
+func _place_leaf_jump_pad(world: Vector2) -> bool:
+	var id := "leaf_jump"
+	if not _slots.has(id):
+		return false
+	if int(_inventory.get(id, 0)) <= 0:
+		return false
+	var terrain: Terrain = _find_terrain()
+	if terrain == null:
+		return false
+	var parent: Node = terrain.get_parent()
+	if parent == null:
+		return false
+	var cs: int = terrain.cell_size
+	var clicked: Vector2i = Vector2i(int(floor(world.x / cs)), int(floor(world.y / cs)))
+	var cell: Vector2i = _ground_cell_for_sign(terrain, clicked)
+	if cell == Vector2i.MAX:
+		return false
+	if _leaf_jump_pad_exists(parent, cell):
+		return false
+	var pad: LeafJumpPad = LeafJumpPadScript.new() as LeafJumpPad
+	pad.setup(cell, terrain)
+	parent.add_child(pad)
+	_inventory[id] = int(_inventory[id]) - 1
+	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
+	print("[SkillToolbar] leaf jump pad placed cell=", cell, " remaining=", _inventory[id])
+	return true
+
+func _leaf_jump_pad_exists(parent: Node, cell: Vector2i) -> bool:
+	for child in parent.get_children():
+		var pad: LeafJumpPad = child as LeafJumpPad
+		if pad != null and pad.cell == cell:
+			return true
+	return false
 
 # 설치형 표지판이 허공에 뜨지 않도록 클릭 셀을 같은 열의 지면 위로 스냅 — 아래로 훑어 첫 바닥 타일을
 # 만나면 그 바로 위(빈 셀)를 반환. 클릭 셀이 지형 내부(점유)거나 아래에 바닥이 없으면 Vector2i.MAX(=실패).

@@ -17,8 +17,9 @@ const BRIDGE_TICK: float = 0.20
 const BRIDGE_MAX_LENGTH: int = 5
 
 # Phase 18 — Basher(수평 굴착) + Digger(수직 굴착) 상수.
-# DIGGER_OFF_FLOOR_LIMIT: void 무한 낙하 안전망 (D11, codex R1 H1). 3초 @ 60fps.
-# 정상 1~5 cell drop(1~60 frames)에서 trigger X. hazard도 없는 완전한 void에서만 발동.
+# DIGGER_FREEFALL_CELLS (2026-06-06): 굴착 사이 정상 1칸 드롭(연속 터널)과 갱도가 빈 공간으로 뚫린 뒤의
+#   자유낙하를 가르는 임계(칸). 1칸 인접 드롭은 WorkerState 유지(연속 굴착), 임계 초과 낙하는 자유낙하로 보고
+#   FallerState로 이양해 기절 판정을 받게 한다(구 DIGGER_OFF_FLOOR_LIMIT void timeout + 무조건 WorkerState 유지 폐기).
 const BASHER_TICK: float = 0.18
 # 전방 굴착 최대 칸수 — 5칸 캡 (2026-06-05 요청, 구 12). 무장 basher가 흙 벽 도달 시 전방 5칸까지 뚫고 해제.
 # 벽이 5칸보다 얇으면 공기 만나 자연 종료(_basher_forward_has_earth=false). 기존 정본 스테이지 벽은 모두 ≤5칸
@@ -26,7 +27,9 @@ const BASHER_TICK: float = 0.18
 const BASHER_MAX_CELLS: int = 5
 const DIGGER_TICK: float = 0.20
 const DIGGER_MAX_CELLS: int = 12
-const DIGGER_OFF_FLOOR_LIMIT: int = 180
+# 굴착 사이 정상 1칸 드롭과 빈 공간 자유낙하를 가르는 임계(칸). 1.5칸 = 인접 굴착 드롭(1칸)은 안 넘고,
+# 갱도가 뚫린 자유낙하만 초과 → FallerState 이양(앵커 넘겨 기절 거리 정확 측정).
+const DIGGER_FREEFALL_CELLS: float = 1.5
 
 # Cutter 전방 열 절단 (2026-06-05 개정). Basher(전방 흙 5칸 굴착)의 식물 버전 — 매 tick 전방 plant 1열
 # (그 열의 연속 세로 덩쿨, Terrain.shatter_plant_column)을 제거하고 1 cell 전진하며, CUTTER_MAX_COLUMNS까지
@@ -47,10 +50,13 @@ var _ladder_root_done: bool = false
 # tile placement는 항상 off-floor frame에서 차단(grace frame은 return으로 skip, abort frame은
 # placement loop 진입 전 종료). 진짜 fall은 연속 off-floor 2 frame으로 즉시 abort.
 var _bridge_floor_grace_used: bool = false
-# Phase 18 — Digger off-floor 누적 카운터. on_floor 시 0 reset, off-floor 시 +1.
-# DIGGER_OFF_FLOOR_LIMIT 초과 시 _aborted + FallerState 직접 전이 (D11 void termination).
-# basher 모드에서는 미사용 (off-floor 즉시 _aborted라 카운팅 불필요).
-var _off_floor_frames: int = 0
+# Phase 18 → 2026-06-06 개정 — Digger 자유낙하 감지용 off-floor 앵커.
+# off-floor 진입 첫 frame에 그 시점 y를 _dig_fall_anchor_y에 기록하고, 이후 낙하 거리가 DIGGER_FREEFALL_CELLS를
+# 넘으면 갱도가 빈 공간으로 뚫린 자유낙하로 보고 FallerState로 이양한다(앵커를 넘겨 기절 거리 정확 측정).
+# on_floor 복귀 시 _dig_off_floor=false로 리셋해 다음 off-floor cycle에 앵커를 다시 잡는다.
+# basher 모드에서는 미사용 (off-floor 즉시 _aborted라 앵커 불필요).
+var _dig_off_floor: bool = false
+var _dig_fall_anchor_y: float = 0.0
 # Builder up-first (2026-06-03): 첫 계단 타일은 절벽 끝 위에 수직 배치(이후 대각). 절벽에 flush하게
 # 시작해 floating 갭 제거 + 목표 플랫폼과 같은 높이로 끝나도록 한다.
 var _builder_first_tile: bool = false
@@ -116,7 +122,7 @@ func _enter_digger(a: Ant) -> void:
 	_remaining = DIGGER_MAX_CELLS
 	_tick_accum = 0.0
 	_aborted = false
-	_off_floor_frames = 0
+	_dig_off_floor = false
 	a.velocity = Vector2.ZERO
 
 func _enter_cutter(a: Ant) -> void:
@@ -457,10 +463,11 @@ func _update_basher(a: Ant, delta: float) -> void:
 	if _aborted or _remaining <= 0:
 		a.return_to_walking()
 
-# Phase 18 — Digger 수직 굴착. ant 바로 아래 floor row cell을 DIGGER_MAX_CELLS까지 tick 단위 제거.
+# Phase 18 → 2026-06-06 — Digger 수직 굴착. ant 바로 아래 floor row cell을 DIGGER_MAX_CELLS까지 tick 단위 제거.
 # ant 위치는 갱신 안 함 — 다음 physics tick에 is_on_floor=false → 중력으로 자연 낙하.
-# off-floor 중에도 WorkerState 유지 (vertical tunnel 연속 굴착, v4 Option A). DIGGER_OFF_FLOOR_LIMIT
-# 초과 시 _aborted + FallerState 직접 전이 (D11 void termination 안전망).
+# 굴착 사이 1칸 드롭(연속 터널)은 WorkerState 유지하지만, 갱도가 빈 공간으로 뚫려 DIGGER_FREEFALL_CELLS를
+# 넘는 자유낙하가 시작되면 FallerState로 이양한다(굴착 모션 자유낙하가 기절 판정을 건너뛰던 버그 수정 —
+# 구 v4 Option A의 무조건 WorkerState 유지 + DIGGER_OFF_FLOOR_LIMIT void timeout 폐기).
 func _update_digger(a: Ant, delta: float) -> void:
 	if _aborted or _remaining <= 0:
 		a.return_to_walking()
@@ -469,14 +476,20 @@ func _update_digger(a: Ant, delta: float) -> void:
 	a.velocity.x = 0.0
 	a.move_and_slide()
 	if not a.is_on_floor():
-		_off_floor_frames += 1
-		if _off_floor_frames > DIGGER_OFF_FLOOR_LIMIT:
-			# D11 void termination — Walker 우회하지 않고 FallerState 직접 전이.
+		# off-floor 진입 첫 frame에 앵커 기록 — 굴착 사이 1칸 드롭(연속 터널)의 기준점.
+		if not _dig_off_floor:
+			_dig_off_floor = true
+			_dig_fall_anchor_y = a.global_position.y
+		# 앵커 대비 DIGGER_FREEFALL_CELLS(1.5칸)를 넘게 떨어지면 갱도가 빈 공간으로 뚫린 자유낙하 → FallerState 이양.
+		# 앵커를 넘겨 이미 떨어진 거리까지 포함해 기절 거리를 정확히 측정한다. 1칸 이하 인접 드롭은 임계 미달 →
+		# WorkerState 유지로 연속 굴착(다음 earth 셀에 안착 후 tick 재개).
+		var cs: int = _digger_cell_size(a)
+		if a.global_position.y - _dig_fall_anchor_y > float(cs) * DIGGER_FREEFALL_CELLS:
 			_aborted = true
-			a.state_machine.change_state(FallerState.new())
+			a.state_machine.change_state(FallerState.new(_dig_fall_anchor_y))
 		return
-	# on_floor — counter reset 후 tick 소비.
-	_off_floor_frames = 0
+	# on_floor — 앵커 리셋 후 tick 소비.
+	_dig_off_floor = false
 	_tick_accum += delta
 	while _tick_accum >= DIGGER_TICK and _remaining > 0 and not _aborted:
 		_tick_accum -= DIGGER_TICK
@@ -559,6 +572,11 @@ func _digger_below_has_earth(a: Ant) -> bool:
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
 	return terrain.get_cell_kind(body_cell + Vector2i(0, 1)) == "earth"
+
+# Digger 자유낙하 임계 계산용 cell_size — terrain 부재 시 48 기본(다른 placement helper와 동일 fallback).
+func _digger_cell_size(a: Ant) -> int:
+	var terrain: Terrain = _find_terrain(a)
+	return terrain.cell_size if terrain != null else 48
 
 # Cutter 전방 열 절단 march (2026-06-05 개정, Basher 동형). 매 tick 전방 plant 1열(세로 연속 덩쿨)을 제거하고
 # 1 cell 전진하며 CUTTER_MAX_COLUMNS까지 나아간다. 전방 열에 plant 없으면(벽 끝/공기/earth) 자연 종료 → Walker.

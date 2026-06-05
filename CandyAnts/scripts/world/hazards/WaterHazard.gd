@@ -1,3 +1,4 @@
+@tool
 class_name WaterHazard extends HazardBase
 
 # Phase 17 — Water hazard. body_entered → 개미 물 진입 처리.
@@ -12,7 +13,11 @@ class_name WaterHazard extends HazardBase
 @export var deep: bool = false
 
 func _ready() -> void:
+	# @tool — 에디터에서도 surface/inner 텍스처가 deep 값대로 보이도록 변형 텍스처를 먼저 적용한다.
+	# (이전엔 런타임 _ready에서만 적용돼 에디터에선 모든 물이 Water.tscn 기본 texture(surface)로 보였다.)
 	_apply_variant_texture()
+	if Engine.is_editor_hint():
+		return   # 에디터에선 텍스처만 갱신 — body_entered·terrain 등록 등 런타임 로직은 실행하지 않는다.
 	super()   # HazardBase._ready — cell 등록 (physics_frame await)
 
 # Terrain._bridge_tile_texture와 동일한 lazy load 패턴 — class_name 스크립트가
