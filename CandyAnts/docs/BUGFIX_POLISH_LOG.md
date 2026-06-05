@@ -60,7 +60,18 @@
 - [Strings.gd](../scripts/core/Strings.gd) 스킬 라벨을 더 직관적으로 리네임(등반→**벽 오르기**, 굴착→**벽 부수기**, 절단→**식물 자르기**, 계단→경사면, 차단→길 막기, 다리→다리만들기, sand_mound→막대세우기, floater→낙하산 분배). 라벨을 직접 단언하던 테스트 2개([StringsTableTest](../tests/StringsTableTest.gd) climber, [SkillToolbarCutterIntegrationTest](../tests/SkillToolbarCutterIntegrationTest.gd) cutter)를 새 라벨로 동기화(stale 해소).
 - **검증**: 두 테스트 PASS.
 
+#### F-12. basher/cutter/sand_mound 발동 표지판(설치형) — "빠른 탭" 난이도 완화
+- **요청**: basher·cutter·sand_mound는 타일 앞에서 (움직이는 개미를) 빠르게 탭해야 발동돼 난이도가 과함. 타일에 발동 표지판을 설치하고, 그 타일에 **처음 도착한 개미**가 자동 발동하도록.
+- **수정**: [SkillSign.gd](../scripts/world/SkillSign.gd) **신규** — 표지판 노드(설치·시각·도착 감지·발동·소비). `SIGN_SKILLS=[sand_mound, basher, cutter]`, 표지판 열(column)에 처음 도착한 적격 개미(`can_apply` 통과)에 `skill.apply` 호출 후 `queue_free`. basher/cutter는 [[#F-9]] armed 분기([BasherSkill](../scripts/skills/BasherSkill.gd)/[CutterSkill](../scripts/skills/CutterSkill.gd).apply: 전방 열림→armed, 벽 직면→즉시 작동)를 **그대로 재사용** → 흙벽/식물벽 "앞 셀"에 설치하면 도착 개미가 armed 후 벽에서 자동 작동. sand_mound는 표지판 자리(빈 바닥)에서 그대로 사다리 건설. [SkillToolbar.gd](../scripts/ui/SkillToolbar.gd) sign-skill이면 개미 탭(`_find_closest_ant`) 대신 `_place_sign`으로 분기(클릭·드롭 공통) — 현재 씬 트리에서 Terrain 탐색, 빈(비점유) 셀에만 설치, 설치 시 인벤토리 차감(`can_apply`는 발동 시점 재검사).
+- **검증**: 신규 헤드리스 `SandMound/Basher/CutterSignTest`(설치→발동→벽 제거/사다리 건설→표지판 소비) 전부 PASS + 기존 탭/드롭(`SkillDropAssignTest`/`PausedAssignTest`)·각 스킬 통합(`BasherTunnelThroughWall`/`BasherEdgeStop`/`BasherOnPlantRejected`/`CutterCutThroughVine`/`CutterEdgeStop`/`CutterOnEarthRejected`/`SandMound*`) 회귀 없음. 커밋 `2d07b31`.
+- **⚠ 프로토타입**: 정식 Phase·adversarial-review 미적용("먼저 빠른 프로토타입으로 손맛 확인" 합의). 후속 [[#K-8]].
+
 ### Known issues (미수정 — 효율/스코프 사유로 보류)
+
+#### K-8. 표지판(F-12) 프로토타입 잔여 항목
+- **내용**: ① 도착 판정이 `같은 x열 + is_on_floor` 단순식 → 같은 열 다층 지형에서 오발동 가능. ② [PlacementPreview.gd](../scripts/world/PlacementPreview.gd)는 아직 ant 기반 ghost(sand_mound)라 표지판 위치 미리보기와 불일치(dev 씬엔 미배선이라 현재 충돌 없음, Stage01 적용 시 필요). ③ 표지판 회수/취소 불가(설치 시 인벤토리 차감, 미발동 시 낭비). ④ 시각은 폴+아이콘 임시 표식(전용 스프라이트 미정). ⑤ 메인 Stage01~03 미적용(dev 씬에서만 검증).
+- **왜 안 고쳤나**: "먼저 빠른 프로토타입으로 손맛 확인" 후 정식 Phase화 합의(스코프 분리).
+- **고친다면**: `/harness` 정식 Phase로 ①~⑤ + adversarial-review 일괄 처리.
 
 #### K-7. release_rate 키보드 단축키가 UI 없이 잔존
 - **내용**: F-7로 방출속도 스테퍼 UI는 제거했으나, 입력 액션 `release_rate_up`/`release_rate_down`(`[`/`]`)은 `GameActionContractTest`의 canonical InputMap 계약에 묶여 있어 **바인딩은 유지**. UI 없이 스폰 주기를 조용히 바꾼다(무해, 스포너는 release_rate를 내부 스폰 주기로 계속 사용).
