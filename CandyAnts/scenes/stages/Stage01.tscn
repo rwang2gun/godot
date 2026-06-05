@@ -1,23 +1,307 @@
 [gd_scene format=3 uid="uid://xbm2r5058th"]
 
 [ext_resource type="Script" uid="uid://cwyda6pumd634" path="res://scripts/core/StageRunner.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="99_toolbar"]
+[ext_resource type="Script" path="res://scripts/world/PlacementPreview.gd" id="98_preview"]
 [ext_resource type="Script" uid="uid://dad1jc4eea6qx" path="res://scripts/core/AntSpawner.gd" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/entities/Home.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/entities/Candy.tscn" id="4"]
 [ext_resource type="Script" uid="uid://5lh5rplnitdd" path="res://scripts/world/Terrain.gd" id="4_mx7fg"]
 [ext_resource type="PackedScene" path="res://scenes/entities/Ant.tscn" id="5"]
 [ext_resource type="PackedScene" uid="uid://b6huiphase11" path="res://scenes/ui/HUD.tscn" id="6"]
+[ext_resource type="Texture2D" uid="uid://mfcnd2xwno6t" path="res://assets/sprites/terrain/usable_square/cookie_surface_square_03.png" id="6_2gtal"]
 [ext_resource type="Script" uid="uid://jimgqvwcqixp" path="res://scripts/world/Home.gd" id="6_hwgo4"]
 [ext_resource type="Resource" uid="uid://t0c36pl5a6rl" path="res://data/stages/stage01.tres" id="7"]
+[ext_resource type="Texture2D" uid="uid://cnbdtvgw3fsa4" path="res://assets/sprites/terrain/usable_square/cookie_surface_square_02.png" id="7_kub80"]
 [ext_resource type="PackedScene" path="res://scenes/world/StageBackground.tscn" id="8"]
+[ext_resource type="Texture2D" uid="uid://b6ct36jwdbbgu" path="res://assets/sprites/terrain/usable_square/cookie_surface_square_04.png" id="8_hrnie"]
 [ext_resource type="Script" uid="uid://bvuiwb8sa2bym" path="res://scripts/world/Candy.gd" id="8_s25jr"]
+[ext_resource type="Texture2D" uid="uid://b3io8cgsq6yre" path="res://assets/sprites/terrain/usable_square/cookie_surface_square_01.png" id="9_sc2we"]
+[ext_resource type="Texture2D" uid="uid://cv877fhbc0a7s" path="res://assets/sprites/terrain/usable_square/cookie_solid_rotatable_square_03.png" id="10_n8a1n"]
+[ext_resource type="Texture2D" uid="uid://dre4cdkvn45ek" path="res://assets/sprites/terrain/usable_square/cookie_solid_rotatable_square_02.png" id="11_6yvsm"]
+[ext_resource type="Texture2D" uid="uid://ciwljeoa6uppk" path="res://assets/sprites/terrain/usable_square/cookie_solid_rotatable_square_01.png" id="12_2vp6h"]
 [ext_resource type="Script" uid="uid://x77gqhuulxg6" path="res://scripts/ui/HUD.gd" id="12_mcttg"]
-[ext_resource type="Script" path="res://scripts/world/StageLayoutBuilder.gd" id="13_layout_builder"]
-[ext_resource type="Resource" path="res://data/stage_layouts/stage01_layout.tres" id="14_stage_layout"]
-[ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="15_toolbar"]
-[ext_resource type="Script" path="res://scripts/world/PlacementPreview.gd" id="16_placement_preview"]
+[ext_resource type="Texture2D" uid="uid://bnkn8pwmimq3k" path="res://assets/sprites/terrain/usable_square/cookie_solid_rotatable_square_04.png" id="13_avkq2"]
+[ext_resource type="Script" uid="uid://bbjsqafe5twd" path="res://scripts/world/StageLayoutBuilder.gd" id="13_layout_builder"]
+[ext_resource type="Resource" uid="uid://c4biunfs8bbbd" path="res://data/stage_layouts/stage01_layout.tres" id="14_stage_layout"]
 
-[node name="StageRunner" type="Node" unique_id=1186068382]
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_okexh"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_e8c5p"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_kjn0l"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_8vjsy"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_7orp2"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_5cctn"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_jmnha"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_mwroc"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_pljgr"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_jmcs1"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_dcq0d"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_uakjs"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_yuedo"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ncux3"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_dlvgg"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bf1db"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_vf8ks"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_mfghc"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_0itj2"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cr5qs"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_xmups"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_nungc"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bepx0"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_4o36d"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_5pxuq"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_fkgop"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_r21jv"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bloxj"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cp6dj"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_eq8jt"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ioji4"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ebvo5"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_mlvyc"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_rle2q"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_o6c5g"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_a6xam"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_g3ldj"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_amtlt"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_dnj0t"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_64k5q"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_03wh8"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_go1u4"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ge1iy"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_csqcw"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_mpbxk"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_372q3"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3kiw5"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_buo6t"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_6xjua"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_m3a85"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_y5csj"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bymfl"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_t2mq6"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_pcw17"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hgi2h"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_vdvvt"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bkpkm"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ipev0"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ld5i3"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_iwsgu"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_7dta4"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_sws4c"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_n8wp4"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_lxice"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_0keqt"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_s1ivm"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_is5fw"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_2dj27"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1nof8"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_4d2av"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_8vviq"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_j2870"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_16ew5"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_h02ha"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_rlflg"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_b4vox"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ko8tu"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_qd32n"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_krs0j"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_5dy2v"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_s5joa"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cy8dn"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ma7no"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_j52x7"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_kfomc"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_djc53"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ryy52"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bs3iq"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cv1w8"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_r87vp"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_mhfgt"]
+size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_vua2c"]
+size = Vector2(48, 48)
+
+[node name="StageRunner" type="Node" unique_id=1928653525]
 script = ExtResource("1")
 stage_data = ExtResource("7")
 candy_path = NodePath("World/Candy")
@@ -28,49 +312,1400 @@ toolbar_path = NodePath("SkillToolbar")
 ant_scene = ExtResource("5")
 spawn_parent_path = NodePath("World")
 
-[node name="World" type="Node2D" parent="." unique_id=1720878857]
+[node name="World" type="Node2D" parent="." unique_id=2085056834]
 
-[node name="StageLayoutBuilder" type="Node2D" parent="World"]
+[node name="StageLayoutBuilder" type="Node2D" parent="World" unique_id=1536359178]
 script = ExtResource("13_layout_builder")
 layout = ExtResource("14_stage_layout")
 
-[node name="Terrain" type="Node2D" parent="World" unique_id=372110664]
+[node name="Cell_0_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=790716781]
+position = Vector2(24, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_0_10" unique_id=543815153]
+shape = SubResource("RectangleShape2D_okexh")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_0_10" unique_id=1245307659]
+texture = ExtResource("6_2gtal")
+
+[node name="Cell_1_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1308110830]
+position = Vector2(72, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_1_10" unique_id=1418614952]
+shape = SubResource("RectangleShape2D_e8c5p")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_1_10" unique_id=1650931723]
+texture = ExtResource("7_kub80")
+
+[node name="Cell_2_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=785140442]
+position = Vector2(120, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_2_10" unique_id=356970003]
+shape = SubResource("RectangleShape2D_kjn0l")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_2_10" unique_id=2018676785]
+texture = ExtResource("8_hrnie")
+
+[node name="Cell_3_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=2136524250]
+position = Vector2(168, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_3_10" unique_id=2012310870]
+shape = SubResource("RectangleShape2D_8vjsy")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_3_10" unique_id=992704971]
+texture = ExtResource("7_kub80")
+
+[node name="Cell_4_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1421153602]
+position = Vector2(216, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_4_10" unique_id=659445082]
+shape = SubResource("RectangleShape2D_7orp2")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_4_10" unique_id=958614028]
+texture = ExtResource("7_kub80")
+
+[node name="Cell_5_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=61896329]
+position = Vector2(264, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_5_10" unique_id=1438214844]
+shape = SubResource("RectangleShape2D_5cctn")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_5_10" unique_id=1625403870]
+texture = ExtResource("9_sc2we")
+
+[node name="Cell_6_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1721659886]
+position = Vector2(312, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_6_10" unique_id=662671924]
+shape = SubResource("RectangleShape2D_jmnha")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_6_10" unique_id=1708950395]
+texture = ExtResource("8_hrnie")
+
+[node name="Cell_11_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1549555116]
+position = Vector2(552, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_11_10" unique_id=1858668093]
+shape = SubResource("RectangleShape2D_mwroc")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_11_10" unique_id=239756878]
+texture = ExtResource("9_sc2we")
+
+[node name="Cell_12_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=909762996]
+position = Vector2(600, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_12_10" unique_id=1596197352]
+shape = SubResource("RectangleShape2D_pljgr")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_12_10" unique_id=1357608632]
+texture = ExtResource("6_2gtal")
+
+[node name="Cell_13_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1621533996]
+position = Vector2(648, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_13_10" unique_id=1458875599]
+shape = SubResource("RectangleShape2D_jmcs1")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_13_10" unique_id=2107101021]
+texture = ExtResource("7_kub80")
+
+[node name="Cell_14_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1370452145]
+position = Vector2(696, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_14_10" unique_id=1645469854]
+shape = SubResource("RectangleShape2D_dcq0d")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_14_10" unique_id=215914844]
+texture = ExtResource("7_kub80")
+
+[node name="Cell_15_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1189758411]
+position = Vector2(744, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_15_10" unique_id=1329426989]
+shape = SubResource("RectangleShape2D_uakjs")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_15_10" unique_id=288518778]
+texture = ExtResource("8_hrnie")
+
+[node name="Cell_16_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1456651301]
+position = Vector2(792, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_16_10" unique_id=538071140]
+shape = SubResource("RectangleShape2D_yuedo")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_16_10" unique_id=21037041]
+texture = ExtResource("6_2gtal")
+
+[node name="Cell_17_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1017833518]
+position = Vector2(840, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_17_10" unique_id=1782533156]
+shape = SubResource("RectangleShape2D_ncux3")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_17_10" unique_id=1042980509]
+texture = ExtResource("9_sc2we")
+
+[node name="Cell_18_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=2125331635]
+position = Vector2(888, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_18_10" unique_id=1063518477]
+shape = SubResource("RectangleShape2D_dlvgg")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_18_10" unique_id=962902635]
+texture = ExtResource("9_sc2we")
+
+[node name="Cell_19_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=376070434]
+position = Vector2(936, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_19_10" unique_id=1052889846]
+shape = SubResource("RectangleShape2D_bf1db")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_19_10" unique_id=2019815766]
+texture = ExtResource("8_hrnie")
+
+[node name="Cell_20_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=31470953]
+position = Vector2(984, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_20_10" unique_id=1939204405]
+shape = SubResource("RectangleShape2D_vf8ks")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_20_10" unique_id=110111466]
+texture = ExtResource("6_2gtal")
+
+[node name="Cell_21_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=995826824]
+position = Vector2(1032, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_21_10" unique_id=2141323100]
+shape = SubResource("RectangleShape2D_mfghc")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_21_10" unique_id=1784148052]
+texture = ExtResource("7_kub80")
+
+[node name="Cell_22_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=609246703]
+position = Vector2(1080, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_22_10" unique_id=184946985]
+shape = SubResource("RectangleShape2D_0itj2")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_22_10" unique_id=1928277676]
+texture = ExtResource("6_2gtal")
+
+[node name="Cell_23_10" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1067314343]
+position = Vector2(1128, 504)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_23_10" unique_id=479769835]
+shape = SubResource("RectangleShape2D_cr5qs")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_23_10" unique_id=1295291281]
+texture = ExtResource("7_kub80")
+
+[node name="Cell_0_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1721166931]
+position = Vector2(24, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_0_11" unique_id=501428041]
+shape = SubResource("RectangleShape2D_xmups")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_0_11" unique_id=340046797]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_1_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=510222252]
+position = Vector2(72, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_1_11" unique_id=920788681]
+shape = SubResource("RectangleShape2D_nungc")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_1_11" unique_id=438467632]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_2_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1221136780]
+position = Vector2(120, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_2_11" unique_id=310917174]
+shape = SubResource("RectangleShape2D_bepx0")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_2_11" unique_id=508172892]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_3_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=273288984]
+position = Vector2(168, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_3_11" unique_id=2116136807]
+shape = SubResource("RectangleShape2D_4o36d")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_3_11" unique_id=767282056]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_4_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=642653713]
+position = Vector2(216, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_4_11" unique_id=804768909]
+shape = SubResource("RectangleShape2D_5pxuq")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_4_11" unique_id=2144734387]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_5_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=194036377]
+position = Vector2(264, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_5_11" unique_id=395181443]
+shape = SubResource("RectangleShape2D_fkgop")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_5_11" unique_id=80727286]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_6_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1845994318]
+position = Vector2(312, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_6_11" unique_id=1577624250]
+shape = SubResource("RectangleShape2D_r21jv")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_6_11" unique_id=770024476]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_7_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=603119697]
+position = Vector2(360, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_7_11" unique_id=350253734]
+shape = SubResource("RectangleShape2D_bloxj")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_7_11" unique_id=1403899310]
+texture = ExtResource("9_sc2we")
+
+[node name="Cell_8_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=2125413339]
+position = Vector2(408, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_8_11" unique_id=1829015676]
+shape = SubResource("RectangleShape2D_cp6dj")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_8_11" unique_id=1666253370]
+texture = ExtResource("7_kub80")
+
+[node name="Cell_9_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1442675392]
+position = Vector2(456, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_9_11" unique_id=1931231728]
+shape = SubResource("RectangleShape2D_eq8jt")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_9_11" unique_id=180997275]
+texture = ExtResource("9_sc2we")
+
+[node name="Cell_10_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1212543414]
+position = Vector2(504, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_10_11" unique_id=325844376]
+shape = SubResource("RectangleShape2D_ioji4")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_10_11" unique_id=1035948553]
+texture = ExtResource("7_kub80")
+
+[node name="Cell_11_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1321815111]
+position = Vector2(552, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_11_11" unique_id=1508263881]
+shape = SubResource("RectangleShape2D_ebvo5")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_11_11" unique_id=37105942]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_12_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=109250452]
+position = Vector2(600, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_12_11" unique_id=1564381312]
+shape = SubResource("RectangleShape2D_mlvyc")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_12_11" unique_id=1723510554]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_13_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1578286318]
+position = Vector2(648, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_13_11" unique_id=1660358810]
+shape = SubResource("RectangleShape2D_rle2q")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_13_11" unique_id=2097441346]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_14_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1718833157]
+position = Vector2(696, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_14_11" unique_id=1016652292]
+shape = SubResource("RectangleShape2D_o6c5g")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_14_11" unique_id=1076616613]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_15_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=414547991]
+position = Vector2(744, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_15_11" unique_id=2122420317]
+shape = SubResource("RectangleShape2D_a6xam")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_15_11" unique_id=2011352056]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_16_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1241315315]
+position = Vector2(792, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_16_11" unique_id=1921306374]
+shape = SubResource("RectangleShape2D_g3ldj")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_16_11" unique_id=931541015]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_17_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=2102037212]
+position = Vector2(840, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_17_11" unique_id=597946544]
+shape = SubResource("RectangleShape2D_amtlt")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_17_11" unique_id=349718837]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_18_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1322009239]
+position = Vector2(888, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_18_11" unique_id=848140156]
+shape = SubResource("RectangleShape2D_dnj0t")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_18_11" unique_id=629714239]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_19_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=802185742]
+position = Vector2(936, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_19_11" unique_id=615695376]
+shape = SubResource("RectangleShape2D_64k5q")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_19_11" unique_id=216988193]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_20_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1895983665]
+position = Vector2(984, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_20_11" unique_id=1405910007]
+shape = SubResource("RectangleShape2D_03wh8")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_20_11" unique_id=897964174]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_21_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1373414056]
+position = Vector2(1032, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_21_11" unique_id=1974707435]
+shape = SubResource("RectangleShape2D_go1u4")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_21_11" unique_id=1476196486]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_22_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1846254026]
+position = Vector2(1080, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_22_11" unique_id=1628127622]
+shape = SubResource("RectangleShape2D_ge1iy")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_22_11" unique_id=264926924]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_23_11" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1843890969]
+position = Vector2(1128, 552)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_23_11" unique_id=1145341164]
+shape = SubResource("RectangleShape2D_csqcw")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_23_11" unique_id=433407029]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_0_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=581825682]
+position = Vector2(24, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_0_12" unique_id=1652130133]
+shape = SubResource("RectangleShape2D_mpbxk")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_0_12" unique_id=1143080727]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_1_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=732048112]
+position = Vector2(72, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_1_12" unique_id=1163979222]
+shape = SubResource("RectangleShape2D_372q3")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_1_12" unique_id=298695333]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_2_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=260243832]
+position = Vector2(120, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_2_12" unique_id=1883295720]
+shape = SubResource("RectangleShape2D_3kiw5")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_2_12" unique_id=411621820]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_3_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1171586428]
+position = Vector2(168, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_3_12" unique_id=1250102469]
+shape = SubResource("RectangleShape2D_buo6t")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_3_12" unique_id=2028315414]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_4_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=69838464]
+position = Vector2(216, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_4_12" unique_id=148236742]
+shape = SubResource("RectangleShape2D_6xjua")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_4_12" unique_id=252948760]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_5_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1004923130]
+position = Vector2(264, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_5_12" unique_id=10165871]
+shape = SubResource("RectangleShape2D_m3a85")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_5_12" unique_id=52972738]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_6_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1512540015]
+position = Vector2(312, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_6_12" unique_id=556895792]
+shape = SubResource("RectangleShape2D_y5csj")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_6_12" unique_id=1083269568]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_7_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1036988126]
+position = Vector2(360, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_7_12" unique_id=518150798]
+shape = SubResource("RectangleShape2D_bymfl")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_7_12" unique_id=1007809428]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_8_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1788136137]
+position = Vector2(408, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_8_12" unique_id=1625450788]
+shape = SubResource("RectangleShape2D_t2mq6")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_8_12" unique_id=196358449]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_9_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=197529911]
+position = Vector2(456, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_9_12" unique_id=837418669]
+shape = SubResource("RectangleShape2D_pcw17")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_9_12" unique_id=167619100]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_10_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=839930363]
+position = Vector2(504, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_10_12" unique_id=305460261]
+shape = SubResource("RectangleShape2D_hgi2h")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_10_12" unique_id=1836290943]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_11_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1692031869]
+position = Vector2(552, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_11_12" unique_id=548825008]
+shape = SubResource("RectangleShape2D_vdvvt")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_11_12" unique_id=1785285792]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_12_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1706775816]
+position = Vector2(600, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_12_12" unique_id=1345603459]
+shape = SubResource("RectangleShape2D_bkpkm")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_12_12" unique_id=263648825]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_13_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1960553029]
+position = Vector2(648, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_13_12" unique_id=1521123514]
+shape = SubResource("RectangleShape2D_ipev0")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_13_12" unique_id=552870893]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_14_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=556740693]
+position = Vector2(696, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_14_12" unique_id=394972628]
+shape = SubResource("RectangleShape2D_ld5i3")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_14_12" unique_id=1383364282]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_15_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1085250638]
+position = Vector2(744, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_15_12" unique_id=2146664607]
+shape = SubResource("RectangleShape2D_iwsgu")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_15_12" unique_id=1703388022]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_16_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1532475718]
+position = Vector2(792, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_16_12" unique_id=1160907242]
+shape = SubResource("RectangleShape2D_7dta4")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_16_12" unique_id=1458970886]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_17_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1193019601]
+position = Vector2(840, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_17_12" unique_id=1667456403]
+shape = SubResource("RectangleShape2D_sws4c")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_17_12" unique_id=1401870028]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_18_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1056371693]
+position = Vector2(888, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_18_12" unique_id=224486338]
+shape = SubResource("RectangleShape2D_n8wp4")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_18_12" unique_id=1635237005]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_19_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1473266292]
+position = Vector2(936, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_19_12" unique_id=1194968471]
+shape = SubResource("RectangleShape2D_lxice")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_19_12" unique_id=355690179]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_20_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=78388500]
+position = Vector2(984, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_20_12" unique_id=170063758]
+shape = SubResource("RectangleShape2D_0keqt")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_20_12" unique_id=430731451]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_21_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=43784729]
+position = Vector2(1032, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_21_12" unique_id=325668190]
+shape = SubResource("RectangleShape2D_s1ivm")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_21_12" unique_id=1231108828]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_22_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1145502922]
+position = Vector2(1080, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_22_12" unique_id=217850550]
+shape = SubResource("RectangleShape2D_is5fw")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_22_12" unique_id=372578463]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_23_12" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=997101525]
+position = Vector2(1128, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_23_12" unique_id=1451009687]
+shape = SubResource("RectangleShape2D_2dj27")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_23_12" unique_id=979871175]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_0_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1447586300]
+position = Vector2(24, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_0_13" unique_id=928624239]
+shape = SubResource("RectangleShape2D_1nof8")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_0_13" unique_id=391859224]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_1_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1814076420]
+position = Vector2(72, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_1_13" unique_id=709227865]
+shape = SubResource("RectangleShape2D_4d2av")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_1_13" unique_id=788731768]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_2_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=587247549]
+position = Vector2(120, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_2_13" unique_id=282580744]
+shape = SubResource("RectangleShape2D_8vviq")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_2_13" unique_id=1766800615]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_3_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1345394146]
+position = Vector2(168, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_3_13" unique_id=1441814731]
+shape = SubResource("RectangleShape2D_j2870")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_3_13" unique_id=331645471]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_4_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1380226476]
+position = Vector2(216, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_4_13" unique_id=1231910098]
+shape = SubResource("RectangleShape2D_16ew5")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_4_13" unique_id=1253120636]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_5_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1711904661]
+position = Vector2(264, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_5_13" unique_id=28406911]
+shape = SubResource("RectangleShape2D_h02ha")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_5_13" unique_id=620410689]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_6_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=839542562]
+position = Vector2(312, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_6_13" unique_id=203191768]
+shape = SubResource("RectangleShape2D_rlflg")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_6_13" unique_id=1323410950]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_7_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1508035838]
+position = Vector2(360, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_7_13" unique_id=182733143]
+shape = SubResource("RectangleShape2D_b4vox")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_7_13" unique_id=1825623770]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_8_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=736722567]
+position = Vector2(408, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_8_13" unique_id=43340766]
+shape = SubResource("RectangleShape2D_ko8tu")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_8_13" unique_id=91524173]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_9_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=813907114]
+position = Vector2(456, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_9_13" unique_id=397728332]
+shape = SubResource("RectangleShape2D_qd32n")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_9_13" unique_id=170330894]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_10_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1548938948]
+position = Vector2(504, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_10_13" unique_id=1116658884]
+shape = SubResource("RectangleShape2D_krs0j")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_10_13" unique_id=1226125053]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_11_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=945722623]
+position = Vector2(552, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_11_13" unique_id=2114384517]
+shape = SubResource("RectangleShape2D_5dy2v")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_11_13" unique_id=774306649]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_12_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=941083135]
+position = Vector2(600, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_12_13" unique_id=1187884]
+shape = SubResource("RectangleShape2D_s5joa")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_12_13" unique_id=702519337]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_13_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1742104100]
+position = Vector2(648, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_13_13" unique_id=853796639]
+shape = SubResource("RectangleShape2D_cy8dn")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_13_13" unique_id=1747082834]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_14_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=650959322]
+position = Vector2(696, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_14_13" unique_id=115631875]
+shape = SubResource("RectangleShape2D_ma7no")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_14_13" unique_id=1050422579]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_15_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1849720932]
+position = Vector2(744, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_15_13" unique_id=995403336]
+shape = SubResource("RectangleShape2D_j52x7")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_15_13" unique_id=1008828705]
+texture = ExtResource("11_6yvsm")
+
+[node name="Cell_16_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=793082966]
+position = Vector2(792, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_16_13" unique_id=642901614]
+shape = SubResource("RectangleShape2D_kfomc")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_16_13" unique_id=723765708]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_17_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=576411987]
+position = Vector2(840, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_17_13" unique_id=362090921]
+shape = SubResource("RectangleShape2D_djc53")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_17_13" unique_id=351310340]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_18_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1684727466]
+position = Vector2(888, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_18_13" unique_id=603425720]
+shape = SubResource("RectangleShape2D_ryy52")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_18_13" unique_id=1999405173]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_19_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=590243651]
+position = Vector2(936, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_19_13" unique_id=832868785]
+shape = SubResource("RectangleShape2D_bs3iq")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_19_13" unique_id=294093823]
+texture = ExtResource("12_2vp6h")
+
+[node name="Cell_20_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1474797897]
+position = Vector2(984, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_20_13" unique_id=779523133]
+shape = SubResource("RectangleShape2D_cv1w8")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_20_13" unique_id=1862275192]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_21_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1272327857]
+position = Vector2(1032, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_21_13" unique_id=1511849869]
+shape = SubResource("RectangleShape2D_r87vp")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_21_13" unique_id=174790502]
+texture = ExtResource("13_avkq2")
+
+[node name="Cell_22_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1546500649]
+position = Vector2(1080, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_22_13" unique_id=1780563165]
+shape = SubResource("RectangleShape2D_mhfgt")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_22_13" unique_id=314101255]
+texture = ExtResource("10_n8a1n")
+
+[node name="Cell_23_13" type="StaticBody2D" parent="World/StageLayoutBuilder" unique_id=1934887777]
+position = Vector2(1128, 648)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/StageLayoutBuilder/Cell_23_13" unique_id=2127841368]
+shape = SubResource("RectangleShape2D_vua2c")
+
+[node name="BaseSprite" type="Sprite2D" parent="World/StageLayoutBuilder/Cell_23_13" unique_id=395971670]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_0_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1053898189]
+position = Vector2(24, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_0_14" unique_id=803240593]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_1_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1080607997]
+position = Vector2(72, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_1_14" unique_id=1442130765]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_2_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=452243425]
+position = Vector2(120, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_2_14" unique_id=1030859154]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_3_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1287226986]
+position = Vector2(168, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_3_14" unique_id=321719186]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_4_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1431168882]
+position = Vector2(216, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_4_14" unique_id=309526383]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_5_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1972891899]
+position = Vector2(264, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_5_14" unique_id=2005197899]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_6_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=397926585]
+position = Vector2(312, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_6_14" unique_id=1358411098]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_7_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1927014202]
+position = Vector2(360, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_7_14" unique_id=2135108216]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_8_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1251784123]
+position = Vector2(408, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_8_14" unique_id=1977341687]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_9_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=2106122097]
+position = Vector2(456, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_9_14" unique_id=1971027066]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_10_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1571736515]
+position = Vector2(504, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_10_14" unique_id=46422527]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_11_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1740106011]
+position = Vector2(552, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_11_14" unique_id=1869435458]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_12_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=572536534]
+position = Vector2(600, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_12_14" unique_id=1238180829]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_13_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=844589936]
+position = Vector2(648, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_13_14" unique_id=1180043605]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_14_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1478201448]
+position = Vector2(696, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_14_14" unique_id=649491402]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_15_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=601277124]
+position = Vector2(744, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_15_14" unique_id=1596930759]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_16_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=861747800]
+position = Vector2(792, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_16_14" unique_id=451491277]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_17_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=870067463]
+position = Vector2(840, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_17_14" unique_id=1305183449]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_18_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=324539280]
+position = Vector2(888, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_18_14" unique_id=2028742038]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_19_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1977615482]
+position = Vector2(936, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_19_14" unique_id=1859742468]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_20_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=855644565]
+position = Vector2(984, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_20_14" unique_id=1380512055]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_21_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1299103660]
+position = Vector2(1032, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_21_14" unique_id=980048464]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_22_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1298232279]
+position = Vector2(1080, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_22_14" unique_id=1319574924]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_23_14" type="Node2D" parent="World/StageLayoutBuilder" unique_id=120317652]
+position = Vector2(1128, 696)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_23_14" unique_id=800012171]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_0_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=2078781185]
+position = Vector2(24, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_0_15" unique_id=853017689]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_1_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1364231164]
+position = Vector2(72, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_1_15" unique_id=1237757423]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_2_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1952547758]
+position = Vector2(120, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_2_15" unique_id=430127358]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_3_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1543230104]
+position = Vector2(168, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_3_15" unique_id=1974185625]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_4_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1797737608]
+position = Vector2(216, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_4_15" unique_id=1594307188]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_5_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=61704933]
+position = Vector2(264, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_5_15" unique_id=986707179]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_6_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=172035343]
+position = Vector2(312, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_6_15" unique_id=807386055]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_7_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1186289433]
+position = Vector2(360, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_7_15" unique_id=1500350022]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_8_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1437580597]
+position = Vector2(408, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_8_15" unique_id=1916560302]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_9_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=680016144]
+position = Vector2(456, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_9_15" unique_id=1452215790]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_10_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1551784397]
+position = Vector2(504, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_10_15" unique_id=1604427770]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_11_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1227260501]
+position = Vector2(552, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_11_15" unique_id=765717237]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_12_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=953724249]
+position = Vector2(600, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_12_15" unique_id=1960122770]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_13_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=343519582]
+position = Vector2(648, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_13_15" unique_id=1001069921]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_14_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1587532214]
+position = Vector2(696, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_14_15" unique_id=607132081]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_15_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=363788348]
+position = Vector2(744, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_15_15" unique_id=1978246852]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_16_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1296843281]
+position = Vector2(792, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_16_15" unique_id=1426549073]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_17_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=923418431]
+position = Vector2(840, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_17_15" unique_id=366733860]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_18_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1382708759]
+position = Vector2(888, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_18_15" unique_id=945587630]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_19_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1848088876]
+position = Vector2(936, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_19_15" unique_id=889918126]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_20_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1417291656]
+position = Vector2(984, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_20_15" unique_id=359072632]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_21_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1940765652]
+position = Vector2(1032, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_21_15" unique_id=658770940]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_22_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=423870375]
+position = Vector2(1080, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_22_15" unique_id=108907457]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_23_15" type="Node2D" parent="World/StageLayoutBuilder" unique_id=547363939]
+position = Vector2(1128, 744)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_23_15" unique_id=634246727]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_0_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1768702673]
+position = Vector2(24, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_0_16" unique_id=1471210795]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_1_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1255130186]
+position = Vector2(72, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_1_16" unique_id=877236253]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_2_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=6442629]
+position = Vector2(120, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_2_16" unique_id=733606734]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_3_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1474692883]
+position = Vector2(168, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_3_16" unique_id=477112801]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_4_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=2092855178]
+position = Vector2(216, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_4_16" unique_id=1963699914]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_5_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1012352450]
+position = Vector2(264, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_5_16" unique_id=568197602]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_6_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1219916016]
+position = Vector2(312, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_6_16" unique_id=859808966]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_7_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1067704526]
+position = Vector2(360, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_7_16" unique_id=55332530]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_8_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=978142197]
+position = Vector2(408, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_8_16" unique_id=10483566]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_9_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1886124385]
+position = Vector2(456, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_9_16" unique_id=1687468252]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_10_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1418898757]
+position = Vector2(504, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_10_16" unique_id=885721802]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_11_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1225221998]
+position = Vector2(552, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_11_16" unique_id=2008084310]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_12_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1107821272]
+position = Vector2(600, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_12_16" unique_id=781793386]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_13_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=225417727]
+position = Vector2(648, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_13_16" unique_id=527988166]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_14_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1323958605]
+position = Vector2(696, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_14_16" unique_id=76685088]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_15_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=866023199]
+position = Vector2(744, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_15_16" unique_id=399036488]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_16_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1747183995]
+position = Vector2(792, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_16_16" unique_id=457843390]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_17_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1893364816]
+position = Vector2(840, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_17_16" unique_id=1799687918]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_18_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1312447763]
+position = Vector2(888, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_18_16" unique_id=548755585]
+texture = ExtResource("13_avkq2")
+
+[node name="Visual_19_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=436051006]
+position = Vector2(936, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_19_16" unique_id=423699867]
+texture = ExtResource("11_6yvsm")
+
+[node name="Visual_20_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=179137225]
+position = Vector2(984, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_20_16" unique_id=340214032]
+texture = ExtResource("10_n8a1n")
+
+[node name="Visual_21_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=707422070]
+position = Vector2(1032, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_21_16" unique_id=605420250]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_22_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=1482420687]
+position = Vector2(1080, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_22_16" unique_id=1883615197]
+texture = ExtResource("12_2vp6h")
+
+[node name="Visual_23_16" type="Node2D" parent="World/StageLayoutBuilder" unique_id=923943832]
+position = Vector2(1128, 792)
+
+[node name="Sprite" type="Sprite2D" parent="World/StageLayoutBuilder/Visual_23_16" unique_id=1869774928]
+texture = ExtResource("13_avkq2")
+
+[node name="Terrain" type="Node2D" parent="World" unique_id=288043232]
 script = ExtResource("4_mx7fg")
 
 [node name="PlacementPreview" type="Node2D" parent="World"]
-script = ExtResource("16_placement_preview")
+script = ExtResource("98_preview")
 toolbar_path = NodePath("../../SkillToolbar")
 terrain_path = NodePath("../Terrain")
 
-[node name="Home" type="Area2D" parent="World" unique_id=417351329 instance=ExtResource("3")]
+[node name="Home" type="Area2D" parent="World" unique_id=893509949 instance=ExtResource("3")]
 position = Vector2(120, 480)
 collision_layer = 32
 collision_mask = 4
 script = ExtResource("6_hwgo4")
 
-[node name="Candy" type="Area2D" parent="World" unique_id=626248616 instance=ExtResource("4")]
+[node name="Candy" type="Area2D" parent="World" unique_id=1382759006 instance=ExtResource("4")]
 position = Vector2(888, 480)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("8_s25jr")
 hp = 5
 
-[node name="Camera2D" type="Camera2D" parent="World" unique_id=1743745614]
-position = Vector2(576, 300)
+[node name="Camera2D" type="Camera2D" parent="World" unique_id=1045854507]
+position = Vector2(552, 312)
 
-[node name="StageBackground" type="CanvasLayer" parent="." unique_id=1775082482 instance=ExtResource("8")]
+[node name="StageBackground" type="CanvasLayer" parent="." unique_id=2097831760 instance=ExtResource("8")]
 layer = -100
 
-[node name="Spawner" type="Node" parent="." unique_id=612305499]
+[node name="Spawner" type="Node" parent="." unique_id=2001643220]
 script = ExtResource("2")
 spawn_position = Vector2(120, 472.5)
-total = 8
+total = 5
 release_rate = 30
-spawn_direction = 1
 
-[node name="HUD" type="CanvasLayer" parent="." unique_id=899628604 instance=ExtResource("6")]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1009662804 instance=ExtResource("6")]
 layer = 10
 script = ExtResource("12_mcttg")
 
-[node name="SkillToolbar" parent="." instance=ExtResource("15_toolbar")]
+[node name="SkillToolbar" parent="." instance=ExtResource("99_toolbar")]
 stage_data = ExtResource("7")

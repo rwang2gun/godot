@@ -1,18 +1,17 @@
 [gd_resource type="Resource" script_class="StageData" format=3 uid="uid://t0c36pl5a6r2"]
 
 [ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="1"]
-[ext_resource type="Resource" uid="uid://b2candyants02ly" path="res://data/stage_layouts/stage02_layout.tres" id="1_layout"]
+[ext_resource type="Resource" uid="uid://sk06x2kjf2oc" path="res://data/stage_layouts/stage02_layout.tres" id="1_layout"]
 
 [resource]
 script = ExtResource("1")
 id = 2
 display_name = "오르막"
 layout = ExtResource("1_layout")
-total_ants = 8
+total_ants = 6
 candy_hp = 5
 time_limit_seconds = 100.0
 available_skills = ["climber", "floater"]
 skill_inventory = { "climber": 6, "floater": 1 }
 release_rate_initial = 30
-release_rate_min = 1
 star_thresholds = Array[float]([0.5, 0.75, 1.0])
