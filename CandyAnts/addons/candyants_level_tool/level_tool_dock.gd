@@ -759,8 +759,11 @@ func _build_stage_scene(stage_data: Resource) -> Node:
 
 	_add_layout_builder(world, stage_data.layout)
 	_add_terrain(world)
-	_add_entity(world, "res://scenes/entities/Home.tscn", "Home", stage_data.layout.cell_to_world(stage_data.layout.home_cell))
-	var candy := _add_entity(world, "res://scenes/entities/Candy.tscn", "Candy", stage_data.layout.cell_to_world(stage_data.layout.candy_cell))
+	_add_placement_preview(world)
+	# Home/Candy는 원점이 바닥인 엔티티(충돌이 위로 뻗음) → 셀 중심(cell_to_world)이 아니라
+	# 셀 바닥(=지면 표면)에 배치해야 지면에 닿는다. _cell_to_surface 사용 (정상 Stage04 패턴).
+	_add_entity(world, "res://scenes/entities/Home.tscn", "Home", _cell_to_surface(stage_data.layout, stage_data.layout.home_cell))
+	var candy := _add_entity(world, "res://scenes/entities/Candy.tscn", "Candy", _cell_to_surface(stage_data.layout, stage_data.layout.candy_cell))
 	candy.hp = int(_candy_hp_spin.value)
 	_add_hazards(world, stage_data.layout)
 	_add_camera(world, stage_data.layout)
@@ -783,6 +786,24 @@ func _add_entity(parent: Node, path: String, node_name: String, position: Vector
 	parent.add_child(node)
 	node.owner = parent.owner
 	return node
+
+# 셀의 가로 중심 + 세로 바닥 모서리(=지면 표면). 바닥 앵커 엔티티(Home/Candy) 배치용.
+# cell_to_world(중심)와 달리 Y를 (cell.y+1)*cell_size로 내려 지면에 닿게 한다.
+func _cell_to_surface(layout: Resource, cell: Vector2i) -> Vector2:
+	var center: Vector2 = layout.cell_to_world(cell)
+	var cs: int = int(layout.cell_size)
+	return Vector2(center.x, float((cell.y + 1) * cs))
+
+# 설치형 스킬 ghost 미리보기 노드. SkillToolbar가 없어도 _process가 null-guard로 무해.
+# (toolbar_path/terrain_path는 런타임 _ready에서 해석되므로 노드 추가 순서와 무관)
+func _add_placement_preview(world: Node2D) -> void:
+	var preview := Node2D.new()
+	preview.name = "PlacementPreview"
+	preview.set_script(load("res://scripts/world/PlacementPreview.gd"))
+	world.add_child(preview)
+	preview.owner = world.owner
+	preview.set("toolbar_path", NodePath("../../SkillToolbar"))
+	preview.set("terrain_path", NodePath("../Terrain"))
 
 func _add_layout_builder(world: Node2D, layout_data: Resource) -> void:
 	var builder := Node2D.new()
@@ -824,7 +845,7 @@ func _add_spawner(root: Node, layout_data: Resource) -> void:
 	var spawner := Node.new()
 	spawner.name = "Spawner"
 	spawner.set_script(load("res://scripts/core/AntSpawner.gd"))
-	spawner.spawn_position = layout_data.cell_to_world(layout_data.home_cell) + Vector2(0, -5)
+	spawner.spawn_position = _cell_to_surface(layout_data, layout_data.home_cell) + Vector2(0, -7.5)
 	spawner.total = int(_total_ants_spin.value)
 	spawner.release_rate = int(_release_rate_spin.value)
 	spawner.spawn_direction = layout_data.spawn_direction
@@ -842,6 +863,8 @@ func _add_skill_toolbar(root: Node, stage_data: Resource) -> void:
 	toolbar.stage_data = stage_data
 	root.add_child(toolbar)
 	toolbar.owner = root
+	# StageRunner._disable_toolbar(스테이지 클리어 시)가 toolbar를 찾도록 경로 연결.
+	root.toolbar_path = NodePath("SkillToolbar")
 
 func _set_scene_owner(node: Node, scene_owner: Node) -> void:
 	if node == null or scene_owner == null:
