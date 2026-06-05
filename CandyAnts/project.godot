@@ -32,7 +32,6 @@ window/size/viewport_height=1080
 window/size/window_width_override=1133
 window/size/window_height_override=744
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
 window/handheld/orientation="landscape"
 
 [editor_plugins]
