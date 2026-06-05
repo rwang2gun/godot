@@ -60,7 +60,7 @@
 | Stage02 | `scenes/stages/Stage02.tscn` | `data/stages/stage02.tres` | `data/stage_layouts/stage02_layout.tres` |
 | Stage03 | `scenes/stages/Stage03.tscn` | `data/stages/stage03.tres` | `data/stage_layouts/stage03_layout.tres` |
 
-라우팅/진행: `scripts/core/SceneFlow.gd`. 레벨 에디터(Godot dock): `addons/candyants_level_tool/` — `run_level_editor.bat`(또는 `python scripts/run_editor.py`)로 프로젝트를 에디터로 열어 하단 패널 `CandyAnts Level` 사용. 별도 Node 웹 에디터: `tools/map_editor/`(`run_map_editor.bat`).
+라우팅/진행: `scripts/core/SceneFlow.gd`. 레벨 에디터(Godot dock): `addons/candyants_level_tool/` — `run_level_editor.bat`(또는 `python scripts/run_editor.py`)로 프로젝트를 에디터로 열어 하단 패널 `CandyAnts Level` 사용. (구 Node 웹 에디터 `tools/map_editor/`는 9종 스킬 미지원으로 데이터 유실을 일으켜 제거됨 — 스테이지 편집은 Godot dock만 사용)
 
 ### 3.2 dev 테스트 레벨 — ✅ 콜로케이트됨 (`dev_stages/<slug>/`)
 각 폴더 = `씬.tscn` + `stage.tres`(StageData) + `layout.tres`(StageLayoutData). 실행: `python scripts/run_test.py dev_stages/<slug>/<Scene>.tscn`.

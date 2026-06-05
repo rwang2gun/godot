@@ -3,10 +3,19 @@
 ## 목적
 인게임/에디터 내 스테이지 맵 에디터 툴. Godot 에디터 플러그인 기반 long-running 트랙.
 
-## 현재 상태 (2026-06-04 기준)
+## 현재 상태 (2026-06-05 기준)
 **텍스트 좌표 입력 + Grid preview + 별도 큰 Grid Editor 창 + slope tile 타입 + 전체 스킬/해저드/메타 저작** 단계.
 플랫폼 칸은 GUI 모눈에서 직접 그리기/지우기(solid/slope_right/slope_left), 해저드(water/sticky)도 같은 모눈에서 페인팅 가능.
 스킬은 SkillRegistry 등록 9종 전부를 횟수와 함께 설정하고, spawn 방향·theme·정착 cell·별 기준(star_thresholds)도 GUI로 편집한다.
+
+### 2026-06-05 추가 (scene-gen-fixes) — `_build_stage_scene` 결함 3종 수정
+저장된 씬이 깨지던 근본 원인을 애드온 생성 로직에서 수정. 정상 Stage04~06 배치 공식 기준.
+- **엔티티 지면 정렬**: `_cell_to_surface()` 헬퍼 추가 — Home/Candy/Spawner를 셀 중심이 아니라 셀 바닥(`(cell.y+1)*cell_size`=지면 표면)에 배치. (기존엔 셀 절반=24px 떠 캔디 도달 불가)
+- **PlacementPreview 항상 생성**: `_add_placement_preview()` (설치형 스킬 ghost). SkillToolbar 없어도 `_process` null-guard로 무해.
+- **toolbar_path 연결**: `_add_skill_toolbar`에서 `root.toolbar_path = NodePath("SkillToolbar")` (클리어 시 toolbar 비활성화).
+- 일회성 복구: 이미 손상된 Stage01~03 .tres(스킬)·.tscn(툴바/preview/지면정렬) 수동 보정.
+- 웹 에디터 `tools/map_editor/` 제거(9종 미지원 → 사용자 요청). 스테이지 편집 = Godot dock 단일화.
+- 헤드리스 검증: 애드온 빌드 직접 호출 + Stage01~03 인스턴스화 + Candy reach=true + SKILL_ASSIGN OK. 세션 로그: [2026-06-05-scene-gen-fixes.md](2026-06-05-scene-gen-fixes.md).
 
 ### 2026-06-04 추가 (skills-hazards-meta)
 - 스킬 9종(builder/blocker/climber/floater/sand_mound/bridge/basher/digger/cutter) × 횟수 SpinBox. distributor는 미등록이라 제외.

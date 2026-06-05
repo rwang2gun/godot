@@ -24,11 +24,6 @@ scripts/hooks/.tdd_bypass
 .env
 .env.local
 
-# 외부 도구 (codex map-editor 트랙)
-tools/map_editor/node_modules/
-# 상위 .gitignore의 *.html 패턴 예외 — map-editor public asset
-!tools/map_editor/public/*.html
-
 # Claude Code worktrees — 다른 프로젝트/세션의 임시 작업 트리. phase complete 흐름에서
 # scripts/execute.py가 untracked path 분류 시 거부하지 않도록 명시적 ignore.
 # (phase 14 plan adversarial-review Round 2 MEDIUM 대응)
