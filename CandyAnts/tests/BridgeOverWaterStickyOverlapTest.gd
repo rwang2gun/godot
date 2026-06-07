@@ -63,7 +63,7 @@ func _apply_bridge_when_ready() -> void:
 			continue
 		if a.has_candy:
 			continue
-		if a.is_stuck():
+		if a.is_slowed():
 			continue
 		if a.global_position.x < 360.0 or a.global_position.x > 380.0:
 			continue

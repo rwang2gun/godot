@@ -11,14 +11,7 @@ func update(delta: float) -> void:
 	if a == null:
 		return
 
-	# Phase 17 — sticky stuck 시 carrying 유지(has_candy=true 그대로) + 좌우 정지.
-	# climber/faller 전이 skip. timer 만료 후 carry 정상 재개.
-	if a.is_stuck():
-		a.velocity.x = 0.0
-		a.velocity.y += a.gravity * delta
-		a.move_and_slide()
-		return
-
+	# 끈끈이는 감속 존 — carrying 유지(has_candy 보존) + 정지 분기 없이 effective_speed로 느리게 운반 보행.
 	a.velocity.y += a.gravity * delta
 	a.velocity.x = float(a.direction) * a.effective_speed()
 

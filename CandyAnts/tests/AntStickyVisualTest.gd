@@ -1,10 +1,10 @@
 extends Node
 
-# Phase 20 — P-D4 / P-D5 / R1-H3 / R1-M3 회귀 가드.
-# (1) StickyTimerBar.visible toggle (stuck 중 true / 해제 후 false)
-# (2) StickyTimerBar.scale.x 단조 감소 (=`_sticky_remaining/_sticky_max`)
-# (3) R1-H3: stuck 진입 시 _sprite.pause(), 해제 후 명시 _sprite.play(_last_anim) 재개
-# (4) R1-M3: timer 만료 후 fresh apply_sticky의 _sticky_max가 정확히 새 dur로 reset
+# 끈끈이 = 감속 존(2026-06-07 재설계) 시각/상태 가드. 과거 "정지 + 카운트다운 게이지 + sprite pause" 폐기.
+# (1) enter_sticky → is_slowed()==true, effective_speed가 STICKY_SPEED_MULT배로 감소
+# (2) exit_sticky → is_slowed()==false, effective_speed 복원
+# (3) 다중 소스(인접 끈끈이 띠) — 한 소스만 빠져도 여전히 감속, 전부 빠지면 해제
+# (4) 머리 위 StickyBadge 아이콘은 상시 숨김 / 카운트다운 게이지(StickyTimerBar) 미사용(상시 숨김)
 
 const AntScene := preload("res://scenes/entities/Ant.tscn")
 
@@ -12,14 +12,11 @@ var _failed: bool = false
 var _ant: Ant = null
 
 func _ready() -> void:
-	# (1)/(2) stuck 진입 + bar 시각 + sprite pause
-	await _case_a_basic_visual()
+	await _case_a_slow_toggle()
 	if _failed: return
-	# (3) sprite resume 검증
-	await _case_b_sprite_resume()
+	await _case_b_multi_source()
 	if _failed: return
-	# (4) R1-M3 _sticky_max reset 검증
-	await _case_c_max_reset()
+	await _case_c_badges_hidden()
 	if _failed: return
 	print("[AntStickyVisualTest] PASS")
 	get_tree().quit(0)
@@ -27,110 +24,68 @@ func _ready() -> void:
 func _spawn_ant() -> Ant:
 	var a: Ant = AntScene.instantiate()
 	add_child(a)
-	a.global_position = Vector2(100, 100)   # 임의 위치 (floor 무관 — _physics_process만 검증)
+	a.global_position = Vector2(100, 100)
 	await get_tree().physics_frame
-	await get_tree().physics_frame   # _ready 완료 후 1 frame 추가
+	await get_tree().physics_frame
 	return a
 
-func _case_a_basic_visual() -> void:
+# (1)/(2) 감속 토글 + effective_speed 배율.
+func _case_a_slow_toggle() -> void:
 	_ant = await _spawn_ant()
-	var bar: Sprite2D = _ant.get_node("TraitBadges/StickyTimerBar") as Sprite2D
-	if bar == null:
-		_fail("case A: StickyTimerBar 노드 없음 (Ant.tscn 갱신 누락?)")
+	var base_speed: float = _ant.effective_speed()
+	if _ant.is_slowed():
+		_fail("case A: 초기 is_slowed expected false")
 		return
-	# 초기엔 invisible
-	if bar.visible:
-		_fail("case A: 초기 bar.visible expected false, got true")
+	_ant.enter_sticky(111)
+	if not _ant.is_slowed():
+		_fail("case A: enter_sticky 후 is_slowed expected true")
 		return
-	# apply_sticky(3.0) — fresh entry
-	_ant.apply_sticky(3.0)
-	await get_tree().physics_frame
-	await get_tree().physics_frame
-	if not bar.visible:
-		_fail("case A: apply_sticky 후 bar.visible expected true")
+	var slow_speed: float = _ant.effective_speed()
+	var expected: float = base_speed * Ant.STICKY_SPEED_MULT
+	if not is_equal_approx(slow_speed, expected):
+		_fail("case A: 감속 속도 %f expected %f (base %f × %f)" % [slow_speed, expected, base_speed, Ant.STICKY_SPEED_MULT])
 		return
-	if bar.scale.x > 1.05 or bar.scale.x < 0.85:
-		_fail("case A: 첫 frame bar.scale.x expected ≈ 1.0, got %f" % bar.scale.x)
+	_ant.exit_sticky(111)
+	if _ant.is_slowed():
+		_fail("case A: exit_sticky 후 is_slowed expected false")
 		return
-	# sprite pause 검증 (R1-H3)
-	var sprite: AnimatedSprite2D = _ant.get_node("Sprite") as AnimatedSprite2D
-	if sprite.is_playing():
-		_fail("case A: stuck 중 sprite.is_playing expected false (pause), got true")
-		return
-	# stuck 해제 대기
-	var deadline: int = 0
-	while _ant.is_stuck() and deadline < 400:
-		await get_tree().physics_frame
-		deadline += 1
-	if _ant.is_stuck():
-		_fail("case A: 400 frame 후에도 is_stuck=true (apply_sticky decay 실패)")
-		return
-	# 해제 후 bar invisible
-	await get_tree().physics_frame
-	if bar.visible:
-		_fail("case A: stuck 해제 후 bar.visible expected false")
+	if not is_equal_approx(_ant.effective_speed(), base_speed):
+		_fail("case A: exit 후 속도 복원 실패 %f != %f" % [_ant.effective_speed(), base_speed])
 		return
 	_ant.queue_free()
 	await get_tree().process_frame
 
-func _case_b_sprite_resume() -> void:
-	# R1-H3 회귀 가드 — stuck 해제 직후 1~2 frame 내 sprite.is_playing == true.
-	# unstuck 후 anim이 stuck 전과 동일(walk→walk)이라도 명시 play() 재호출 발화.
+# (3) 다중 소스 — 인접 끈끈이 띠를 지나며 겹침이 겹칠 때 한 칸만 빠져도 감속 유지.
+func _case_b_multi_source() -> void:
 	_ant = await _spawn_ant()
-	var sprite: AnimatedSprite2D = _ant.get_node("Sprite") as AnimatedSprite2D
-	_ant.apply_sticky(2.0)
-	await get_tree().physics_frame
-	if sprite.is_playing():
-		_fail("case B: stuck 중 is_playing expected false")
+	_ant.enter_sticky(1)
+	_ant.enter_sticky(2)
+	if not _ant.is_slowed():
+		_fail("case B: 2 소스 진입 후 is_slowed expected true")
 		return
-	# 해제 대기
-	var deadline: int = 0
-	while _ant.is_stuck() and deadline < 300:
-		await get_tree().physics_frame
-		deadline += 1
-	if _ant.is_stuck():
-		_fail("case B: deadline 초과 — sticky decay 실패")
+	_ant.exit_sticky(1)
+	if not _ant.is_slowed():
+		_fail("case B: 1/2 소스만 빠졌는데 is_slowed false (남은 소스 무시)")
 		return
-	# unstuck 직후 1~3 frame 안에 명시 play() 재호출돼야 함
-	var resumed: bool = false
-	for i in 5:
-		await get_tree().physics_frame
-		if sprite.is_playing():
-			resumed = true
-			break
-	if not resumed:
-		_fail("case B: stuck 해제 후 5 frame 내 sprite.is_playing == true 미관찰 — R1-H3 회귀")
+	_ant.exit_sticky(2)
+	if _ant.is_slowed():
+		_fail("case B: 모든 소스 빠진 뒤에도 is_slowed true")
 		return
 	_ant.queue_free()
 	await get_tree().process_frame
 
-func _case_c_max_reset() -> void:
-	# R1-M3 회귀 가드 — apply_sticky(3.0) 만료 후 apply_sticky(1.0) → 첫 frame scale.x ≈ 1.0
-	# (3.0 stale denominator가 잡혔으면 scale.x ≈ 0.33).
+# (4) 머리 위 아이콘/게이지 상시 숨김.
+func _case_c_badges_hidden() -> void:
 	_ant = await _spawn_ant()
-	var bar: Sprite2D = _ant.get_node("TraitBadges/StickyTimerBar") as Sprite2D
-	_ant.apply_sticky(0.2)   # 짧게 — 빨리 만료
+	_ant.enter_sticky(9)
 	await get_tree().physics_frame
-	# 만료까지 대기 (0.2초 = 12 frame at 60fps + 여유)
-	var deadline: int = 0
-	while _ant.is_stuck() and deadline < 60:
-		await get_tree().physics_frame
-		deadline += 1
-	if _ant.is_stuck():
-		_fail("case C: deadline 초과 — sticky decay 실패")
+	var badge: Sprite2D = _ant.get_node_or_null("TraitBadges/StickyBadge") as Sprite2D
+	if badge != null and badge.visible:
+		_fail("case C: 감속 중 StickyBadge 아이콘이 보임(상시 숨김이어야 함)")
 		return
-	# 만료 후 _sticky_max == 0 (R1-M3) — 직접 검증 가능
-	if _ant._sticky_max != 0.0:
-		_fail("case C: 만료 후 _sticky_max expected 0.0, got %f" % _ant._sticky_max)
-		return
-	# fresh apply_sticky(1.0)
-	_ant.apply_sticky(1.0)
-	await get_tree().physics_frame
-	if _ant._sticky_max != 1.0:
-		_fail("case C: fresh apply 후 _sticky_max expected 1.0, got %f (R1-M3 회귀)" % _ant._sticky_max)
-		return
-	if bar.scale.x < 0.85:
-		_fail("case C: fresh apply 첫 frame bar.scale.x expected ≈ 1.0 (stale 0.2 denominator 안 잡힘), got %f" % bar.scale.x)
+	var bar: Sprite2D = _ant.get_node_or_null("TraitBadges/StickyTimerBar") as Sprite2D
+	if bar != null and bar.visible:
+		_fail("case C: 감속 중 StickyTimerBar 게이지가 보임(감속 존은 게이지 미사용)")
 		return
 	_ant.queue_free()
 	await get_tree().process_frame

@@ -1,7 +1,7 @@
 extends Node
 
 # Phase 17 — codex R1-H2 회귀 가드. 같은 cell의 Water + Sticky 진입 시 Godot signal queue
-# 순서는 비결정이지만 terminal은 결정론. _sticky_remaining 값은 검증 안 함.
+# 순서는 비결정이지만 terminal은 결정론. 끈끈이 감속 상태(is_slowed)는 검증 안 함.
 # 2026-06-04 — 물 동작 개편(즉사 → 수면 표류). terminal이 LostState(queue_free)에서
 # AdriftState(표류·미제거)로 바뀜 → '전원 AdriftState'로 판정(과거: alive==0).
 #

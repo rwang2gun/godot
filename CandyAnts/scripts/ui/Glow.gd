@@ -18,7 +18,9 @@ const ELIGIBLE_COLOR: Color = Tokens.LEMON_500
 
 # 노드에 outline 머티리얼을 부착(있으면 uniform 갱신만). pulse_alpha=1.0 정적.
 # 첫 부착 시 기존 material을 백업해 clear가 원복할 수 있게 한다.
-static func apply(node: CanvasItem, color: Color = ELIGIBLE_COLOR, width: float = 2.0) -> void:
+# inner_ratio>0 이면 캐릭터에 붙은 안쪽 띠를 inner_color로 칠해 어두운 캐릭터와 글로우 경계를 분리(2026-06-07).
+# 기본값(inner_ratio=0)은 단일 밴드 — surface 글로우·기존 호출부 동작 불변.
+static func apply(node: CanvasItem, color: Color = ELIGIBLE_COLOR, width: float = 2.0, inner_color: Color = Color.WHITE, inner_ratio: float = 0.0) -> void:
 	if node == null:
 		return
 	var mat: ShaderMaterial = node.get_meta(META_KEY) if node.has_meta(META_KEY) else null
@@ -30,6 +32,8 @@ static func apply(node: CanvasItem, color: Color = ELIGIBLE_COLOR, width: float 
 		node.set_meta(META_KEY, mat)
 	mat.set_shader_parameter("outline_color", color)
 	mat.set_shader_parameter("outline_width", width)
+	mat.set_shader_parameter("inner_color", inner_color)
+	mat.set_shader_parameter("inner_ratio", inner_ratio)
 	mat.set_shader_parameter("pulse_alpha", 1.0)
 
 # 글로우 머티리얼 제거.

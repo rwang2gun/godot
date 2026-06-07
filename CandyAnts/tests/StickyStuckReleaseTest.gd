@@ -1,11 +1,9 @@
 extends Node
 
-# Phase 17 — StickyHazard stuck + 시간 경과 자동 해방 검증.
-# 첫 ant가 Sticky cell 진입 → is_stuck()==true + velocity.x≈0 약 3초.
-# 3.5초 후 is_stuck()==false → candy 도달 → home 회수.
+# 끈끈이 감속 존 검증(2026-06-07 재설계). 첫 ant가 Sticky cell과 겹치면 is_slowed()==true +
+# velocity.x가 평소(walk_speed)보다 느려짐(정지 아님). 끈끈이를 벗어나면 정상 속도 → candy 도달 → home 회수.
 #
 # PASS: quit(0). FAIL: quit(1).
-# DEADLINE: 30초.
 
 const DEADLINE_FRAMES: int = 5000   # 약 83초 — ant 왕복 시 sticky cell 2회 stuck 시간 포함
 
@@ -59,24 +57,25 @@ func _observe() -> void:
 			if first != null:
 				break
 		if first != null:
-			print("[Sticky.debug] frame=%d ant.pos=%s stuck=%s remaining=%.2f vel=%s state=%s" % [_frame_count, first.global_position, first.is_stuck(), first._sticky_remaining, first.velocity, first.state_machine.current_state.get_script().resource_path.get_file() if first.state_machine and first.state_machine.current_state else "null"])
-	# 임의의 ant가 stuck 상태인지 확인.
+			print("[Sticky.debug] frame=%d ant.pos=%s slowed=%s vel=%s state=%s" % [_frame_count, first.global_position, first.is_slowed(), first.velocity, first.state_machine.current_state.get_script().resource_path.get_file() if first.state_machine and first.state_machine.current_state else "null"])
+	# 임의의 ant가 끈끈이로 감속 중인지 확인.
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
 		if a == null or not is_instance_valid(a):
 			continue
-		if a.is_stuck():
+		if a.is_slowed():
 			if _stuck_first_frame < 0:
 				_stuck_first_frame = _frame_count
-				print("[StickyStuckReleaseTest] stuck observed at frame=%d _sticky_remaining=%.2f" % [_frame_count, a._sticky_remaining])
+				print("[StickyStuckReleaseTest] slowed observed at frame=%d vel.x=%.2f" % [_frame_count, a.velocity.x])
 			_ever_stuck = true
-			# stuck 중 velocity.x ≈ 0 확인 (느슨 — 중력 가속도로 y는 변동).
-			if absf(a.velocity.x) > 1.0:
-				_fail("stuck ant velocity.x non-zero: %.2f" % a.velocity.x)
+			# 감속 중 |velocity.x| 가 평소(walk_speed)보다 느려짐 확인 — 정지가 아니라 느린 보행.
+			# 슬로우 속도 = walk_speed * STICKY_SPEED_MULT (carry면 더 느림) → 상한에 여유 1.0px 추가.
+			if absf(a.velocity.x) > a.walk_speed * Ant.STICKY_SPEED_MULT + 1.0:
+				_fail("slowed ant velocity.x not reduced: %.2f (expected <= %.2f)" % [a.velocity.x, a.walk_speed * Ant.STICKY_SPEED_MULT + 1.0])
 				return
-	# saved 도달 시 PASS (적어도 1 ant가 stuck → 해방 → candy → home 완주 검증).
+	# saved 도달 시 PASS (적어도 1 ant가 감속 → 통과 → candy → home 완주 검증).
 	if _ever_stuck and _score.saved_pieces >= 1:
-		print("[StickyStuckReleaseTest] PASS frame=%d saved=%d lost=%d stuck_first=%d" % [_frame_count, _score.saved_pieces, _score.lost_pieces, _stuck_first_frame])
+		print("[StickyStuckReleaseTest] PASS frame=%d saved=%d lost=%d slowed_first=%d" % [_frame_count, _score.saved_pieces, _score.lost_pieces, _stuck_first_frame])
 		_result_emitted = true
 		get_tree().quit(0)
 

@@ -114,25 +114,18 @@ var _cutter_badge: Sprite2D = null
 # Phase 15 — 정착 시각 표식. visible toggle은 _update_trait_badges()에서 state 기반.
 var _settle_badge: Sprite2D = null
 
-# Phase 17 — 끈끈이(StickyHazard) timer. apply_sticky로 설정, _physics_process에서 매 frame 감소.
-# WalkerState/CarryingState update가 is_stuck() 분기로 좌우 정지.
-var _sticky_remaining: float = 0.0
-var _sticky_badge: Sprite2D = null
-# Phase 20 (P-D4 / R1-M3) — progress bar denominator. apply_sticky fresh entry는 새 dur로 set,
-# 진행 중 재진입은 max(old, new) 보존. timer 만료(==0 도달) 시 0으로 reset해 다음 fresh entry가
-# stale 값을 denominator로 잡지 않도록 한다.
-var _sticky_max: float = 0.0
-var _sticky_bar: Sprite2D = null
+# 끈끈이(StickyHazard) = 감속 존(2026-06-07 재설계, HTML 원안). 과거 "N초 완전정지 + 카운트다운 게이지" 폐기 —
+# 끈끈이 셀과 겹쳐있는 동안 effective_speed에 STICKY_SPEED_MULT를 곱해 느리게 기어가게 한다(정지 아님).
+# overlap 집합은 StickyHazard body_entered/exited가 enter_sticky/exit_sticky로 갱신(셀별 hazard instance_id).
+const STICKY_SPEED_MULT: float = 0.35   # 끈끈이 겹침 중 이동 속도 배율
+var _sticky_sources: Dictionary = {}    # 겹쳐있는 StickyHazard instance_id 집합(Set처럼 사용)
+var _sticky_badge: Sprite2D = null      # 머리 위 끈끈이 아이콘 — 상시 숨김(노드만 보존)
 
 # 나뭇잎 점프대(leaf_jump, 2026-06-05) — 포물선 비행(LeafJumpState) 동안 끈끈이 면역.
 # _leaf_jumping은 발사(leaf_jump_launch) 시 true, 착지(LeafJumpState→end_leaf_jump) 시 false.
 # leaf_landing_cell이 "착지면 없음"을 알릴 때 쓰는 sentinel도 함께 둔다.
 const LEAF_NO_LANDING: Vector2i = Vector2i(2147483647, 2147483647)
 var _leaf_jumping: bool = false
-# Phase 20 (P-D5 / R1-H3) — _update_sprite의 `anim != _last_anim` 분기가 unstuck 후 동일 anim
-# (예: walk→walk)일 때 play() 미호출 → 영구 pause 위험. flag로 stuck 진입 시 pause + unstuck 시
-# 명시 play(_last_anim) 재호출 트리거.
-var _sprite_paused_for_sticky: bool = false
 
 func _ready() -> void:
 	_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
@@ -165,8 +158,6 @@ func _ready() -> void:
 	if _trait_badges != null:
 		_settle_badge = _trait_badges.get_node_or_null("SettleBadge") as Sprite2D
 		_sticky_badge = _trait_badges.get_node_or_null("StickyBadge") as Sprite2D
-		# Phase 20 — StickyTimerBar (Sprite2D). 미보유 .tscn에서는 null로 안전 fall-back.
-		_sticky_bar = _trait_badges.get_node_or_null("StickyTimerBar") as Sprite2D
 	_resolve_mantle_distance()
 	state_machine.change_state(WalkerState.new())
 
@@ -242,66 +233,30 @@ func _check_out_of_bounds() -> void:
 	state_machine.change_state(LostState.new())
 
 func _physics_process(delta: float) -> void:
-	# Phase 17 — sticky timer decay. state_machine.update 이전에 처리 (Walker/Carrying이
-	# is_stuck()을 같은 frame에 읽음).
-	if _sticky_remaining > 0.0:
-		_sticky_remaining = max(0.0, _sticky_remaining - delta)
-		# Phase 20 (R1-M3) — timer 만료 시 denominator 같이 reset해 다음 fresh entry가 stale 값
-		# 사용 안 하도록.
-		if _sticky_remaining == 0.0:
-			_sticky_max = 0.0
+	# 끈끈이는 감속 존(타이머 없음) — overlap 동안 effective_speed가 감속. 여기선 별도 처리 불필요.
 	if state_machine != null:
 		state_machine.update(delta)
 	_check_out_of_bounds()   # 플레이 영역 밑 낙하 → LostState (state.update 이후, 시각 갱신 이전).
 	_update_sprite()
 	_update_trait_badges()
-	_update_sticky_bar()   # Phase 20 — bar scale + visible toggle (1 호출, 시각 전용).
 
-# Phase 17 — StickyHazard.body_entered가 호출. 멱등 — 더 긴 timer 우선(중복 entry 시 더 큰 값 보존).
-# Phase 20 (R1-M3) — `_sticky_max` lifecycle: fresh entry(== 0 도달 후)면 새 dur로 set,
-# 진행 중 재진입은 max(old, new) 보존. 단조 감소 보장 — 2회 apply_sticky(3.0 → 1.0) 시 first 만료
-# 후 second는 정확히 1.0/1.0=1.0 부터 시작.
-func apply_sticky(dur: float) -> void:
-	if dur > _sticky_remaining:
-		_sticky_remaining = dur
-	if _sticky_max == 0.0:
-		_sticky_max = dur
-	else:
-		_sticky_max = max(_sticky_max, dur)
+# StickyHazard body_entered/exited가 호출 — 겹친 끈끈이 셀 집합을 갱신(멱등). 같은 hazard 중복 enter는 무해.
+func enter_sticky(source_id: int) -> void:
+	_sticky_sources[source_id] = true
 
-# Phase 20 — StickyTimerBar 시각 갱신. 시각 전용, 게임 로직 무영향.
-# bar.scale.x = _sticky_remaining / _sticky_max (범위 [0, 1]). visible은 stuck 중에만 true.
-func _update_sticky_bar() -> void:
-	if _sticky_bar == null:
-		return
-	if _sticky_remaining > 0.0 and _sticky_max > 0.0:
-		_sticky_bar.scale.x = clamp(_sticky_remaining / _sticky_max, 0.0, 1.0)
-		_sticky_bar.visible = true
-	else:
-		_sticky_bar.visible = false
+func exit_sticky(source_id: int) -> void:
+	_sticky_sources.erase(source_id)
 
-# Phase 17 — Walker/Carrying State update가 첫 줄에서 검사하여 좌우 정지 분기.
-func is_stuck() -> bool:
-	return _sticky_remaining > 0.0
+# 끈끈이 셀과 겹쳐있는 동안 true — Walker/Carrying이 effective_speed로 감속(완전정지 아님).
+func is_slowed() -> bool:
+	return not _sticky_sources.is_empty()
 
 func _update_sprite() -> void:
 	# 시각 갱신만 — state 분기 읽어서 animation 매핑 + direction에 따른 flip_h.
 	# 게임 로직(state/collision/direction)과 무관, 본 함수 실패해도 시뮬레이션 진행.
 	if _sprite == null or state_machine == null:
 		return
-	# Phase 20 (R1-H3) — stuck 진입 시 sprite pause, unstuck 시 명시 play(_last_anim) 재호출.
-	# `anim != _last_anim` 분기가 unstuck 후 동일 anim(예: walk→walk)에서 play() 미호출 →
-	# 영구 pause 위험을 flag로 차단.
-	if is_stuck():
-		if _sprite is AnimatedSprite2D and not _sprite_paused_for_sticky:
-			(_sprite as AnimatedSprite2D).pause()
-			_sprite_paused_for_sticky = true
-		return
-	if _sprite_paused_for_sticky:
-		# unstuck 직후 명시 play() 재개. _last_anim이 비어있으면 안전 skip (다음 anim 변경에서 play() 발화).
-		if _sprite is AnimatedSprite2D and not _last_anim.is_empty():
-			(_sprite as AnimatedSprite2D).play(_last_anim)
-		_sprite_paused_for_sticky = false
+	# 끈끈이는 감속 존 — 개미가 느리게나마 계속 걸으므로 sprite pause 없음(걷기 애니 유지).
 	var s: AntState = state_machine.current_state
 	var anim: String = "idle"
 	if s is DeadState:
@@ -415,9 +370,9 @@ func _update_trait_badges() -> void:
 	# 일원화하면서, 머리 위 작은 SettleBadge는 중복이라 상시 숨김(노드는 보존).
 	if _settle_badge != null:
 		_settle_badge.visible = false
-	# Phase 17 — sticky stuck 표식. _sticky_remaining timer 기반 (state 무관 — Walker/Carrying 모두 stuck 가능).
+	# 끈끈이 표식 — 머리 위 아이콘은 상시 숨김(노드는 보존, 2026-06-07 요청). 감속 존이라 별도 게이지/표식 없음.
 	if _sticky_badge != null:
-		_sticky_badge.visible = is_stuck()
+		_sticky_badge.visible = false
 
 func _is_blocker_state() -> bool:
 	# WorkerState의 work_type이 "blocker"일 때만 true. _update_sprite의 _work_type 접근 패턴 답습.
@@ -589,7 +544,7 @@ func leaf_jump_launch(cells: int) -> bool:
 func end_leaf_jump() -> void:
 	_leaf_jumping = false
 
-# 나뭇잎 점프대 비행 중 면역 — StickyHazard가 apply_sticky 전 검사(포물선으로 넘는 동안 끈끈이 무효).
+# 나뭇잎 점프대 비행 중 면역 — StickyHazard가 enter_sticky 전 검사(포물선으로 넘는 동안 끈끈이 감속 무효).
 func is_jump_immune() -> bool:
 	return _leaf_jumping
 
@@ -700,8 +655,11 @@ func tap_target_position() -> Vector2:
 	return global_position
 
 func effective_speed() -> float:
-	# 사탕 보유 = 0.78배. state가 Faller/Walker로 잠시 빠져도 속도 페널티 유지.
-	return walk_speed * (carrying_speed_multiplier if has_candy else 1.0)
+	# 사탕 보유 = 0.78배(state가 Faller/Walker로 잠시 빠져도 페널티 유지) + 끈끈이 겹침 = STICKY_SPEED_MULT배(감속 존).
+	var mult: float = (carrying_speed_multiplier if has_candy else 1.0)
+	if is_slowed():
+		mult *= STICKY_SPEED_MULT
+	return walk_speed * mult
 
 func stun_fall_threshold() -> float:
 	# 기절 임계 낙하 거리(px). FallerState 착지 시 (착지y − 시작y) >= 이 값 + floater 미보유 → DeadState(기절).

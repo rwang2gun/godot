@@ -6,8 +6,8 @@ extends Node
 # LeafJumpState 포물선 비행(낙하 모션) → 끈끈이를 공중으로 넘어(면역) 후방 사탕(x=816) 방향으로 착지·통과.
 #
 # PASS 조건(통과 시점에 즉시 quit): 점프대 설치 성공 AND 포물선 비행(LeafJumpState) 감지 AND 개미가
-# 끈끈이 너머(x>=CROSS_X)로 전진 AND 통과 전까지 한 번도 is_stuck()이 아니었음.
-# (점프 실패 시 개미가 끈끈이 셀 15를 밟아 is_stuck → 즉시 FAIL로 구분된다.)
+# 끈끈이 너머(x>=CROSS_X)로 전진 AND 통과 전까지 한 번도 is_slowed()이 아니었음.
+# (점프 실패 시 개미가 끈끈이 셀 15를 밟아 감속(is_slowed) → 즉시 FAIL로 구분된다.)
 
 const DEADLINE_FRAMES: int = 2400
 const CELL_SIZE: int = 32
@@ -73,9 +73,9 @@ func _poll() -> void:
 	if _ant == null or not is_instance_valid(_ant):
 		return
 	var x: float = _ant.global_position.x
-	# 통과(crossed) 전 끈끈이 정지는 점프 실패 신호 → FAIL.
-	if not _crossed and _ant.is_stuck():
-		_fail("ant stuck on sticky before crossing — leaf jump failed (x=%.1f frame=%d)" % [x, _frame])
+	# 통과(crossed) 전 끈끈이 감속은 점프 실패 신호 → FAIL.
+	if not _crossed and _ant.is_slowed():
+		_fail("ant slowed on sticky before crossing — leaf jump failed (x=%.1f frame=%d)" % [x, _frame])
 		return
 	# 포물선 비행(LeafJumpState) 진입 = 점프대 발동 증거.
 	if _ant.state_machine != null and _ant.state_machine.current_state is LeafJumpState:

@@ -10,6 +10,54 @@
 
 ---
 
+## 2026-06-07 — 스킬 어포던스 UX 폴리싱 (표지판/커서/끈끈이/글로우)
+
+> 스킬 선택·설치 어포던스의 시각/체감 폴리싱 세션. 푯말→표지판 용어 통일, SIGN/DEVICE 커서·설치물 크기, 끈끈이 메커니즘(정지→감속) 재설계, 스킬 선택 캐릭터 글로우 가시성(두께·색·경계). **커밋/푸시는 별도 세션에서 일괄 처리 예정 — 이 세션은 기록만.** 워킹트리에는 이 세션 변경 + 별도 세션의 "세부 가이드 팝업"(`scripts/core/GuidePage.gd`·`assets/guide/`·`StageGuideData.gd`·`StageIntroCard` 등) 변경이 섞여 있음. 각 항목은 헤드리스 테스트로 검증(글로우는 비-headless 실렌더 캡처로 육안 검증).
+
+### Fixed
+
+#### F-16. '푯말' → '표지판' 용어 통일
+- **증상**: 코드베이스 대부분은 이미 "표지판"을 쓰는데 플레이어 노출 가이드 카피([Strings.gd](../scripts/core/Strings.gd))만 "푯말"이라 불일치.
+- **수정**: `guide.badge.sign` + S5/S6/S7 스킬 설명 4건을 표지판으로 교체. 활성 소스 주석(SkillAffordance/PlacementPreview/SignPlacement/SkillToolbar)·CursorKindByCategoryTest 주석도 정렬. docs/phases 등 역사 기록은 미변경(스코프).
+- **검증**: `StringsTable`/`StageGuideDataRender` PASS(Strings.t() 파생 비교라 값 변경에 안전).
+
+#### F-17. 표지판(①SIGN)·장치(④DEVICE) 커서 2배 + 아이콘 패널 맞춤
+- **증상**: 스킬 선택 시 마우스 커서(표지판/점프대 모양)가 너무 작아 무엇을 어디 놓는지 분간 어려움. + 표지판 보드 안 아이콘이 패널 밖으로 넘침.
+- **원인**: 커서 소스(보드/점프대 48px)에 `CURSOR_SCALE=0.5` → 24px(ICON 64px보다 작음). OS 커서는 뷰포트 스트레치 미적용이라 더 작게 보임. 아이콘 스케일 0.60이 패널(24×15px) 초과.
+- **수정**([SkillToolbar.gd](../scripts/ui/SkillToolbar.gd)): `SIGN_DEVICE_CURSOR_SCALE=2.0`(보드 48→96px, 설치 표지판과 동일 크기). 보드 텍스처 패널 영역 픽셀 측정(크림 24×15, 중심 y −0.188) → `SkillSign.PANEL_ICON_FRAC=0.30`/`PANEL_ICON_CENTER_Y_FRAC=-0.188` 상수로 설치 표지판·커서 합성 양쪽 아이콘을 패널 안에 맞춤(상수 공유).
+- **검증**: `CursorKindByCategory`/Sign 계열/Strings PASS + 합성 커서 PNG 렌더 육안 확인.
+
+#### F-18. 표지판 설치물 2배 + 지면 매립 / 나뭇잎 점프대는 1배 유지
+- **표지판**([SkillSign.gd](../scripts/world/SkillSign.gd)): `DISPLAY_SCALE=2.0`(셀의 2배) + `EMBED_DEPTH_FRAC=0.40`(기둥 밑동을 surface 안으로 0.4셀 매립 → "꽂힌" 모습; z_index=120이라 지형 위에 그려짐). 발동은 열(x) 기준이라 시각만 변하고 게임플레이 불변.
+- **점프대**([LeafJumpPad.gd](../scripts/world/LeafJumpPad.gd)): 사용자 요청으로 **설치물은 1배 원복**(평패드라 자연스러움), 커서만 2배 유지(F-17).
+- **검증**: SandMound/Basher/Cutter SignTest·SignGroundSnap·LeafJumpSign PASS.
+
+#### F-19. 끈끈이(StickyHazard) = 감속 존 재설계 (정지+카운트다운 폐기)
+- **증상(사용자 보고)**: 끈끈이 멈춤 시 머리 위 (블로커류) 아이콘이 떠서 거슬림 + 게이지바가 "감소 애니를 반복 재생"하는 느낌.
+- **원인**: S8 끈끈이 셀 3개가 인접(`Sticky_4_9/5_9/6_9`) → 칸마다 3초 재고착 → 게이지 리셋 반복(단일 셀은 정상). 사용자 결정 = **HTML 원안대로 감속 존**으로 전환 + 게이지 제거.
+- **수정**:
+  - [Ant.gd](../scripts/ant/Ant.gd): 타이머(`_sticky_remaining/_sticky_max`)·게이지·sprite pause·머리 아이콘 폐기 → `enter_sticky`/`exit_sticky`/`is_slowed()` 오버랩 집합 + `STICKY_SPEED_MULT=0.35`. `effective_speed()`가 끈끈이 겹침 시 ×0.35.
+  - [WalkerState](../scripts/ant/states/WalkerState.gd)/[CarryingState](../scripts/ant/states/CarryingState.gd): 정지 분기 제거(느리게 계속 보행).
+  - [StickyHazard.gd](../scripts/world/hazards/StickyHazard.gd): body_entered/exited → enter/exit. `set_active(false)` 시 겹친 개미 감속 소스 정리(monitoring off가 body_exited 미발화) 안전장치.
+  - [Sticky.tscn](../scenes/entities/hazards/Sticky.tscn): 무의미해진 `duration` 제거. [Strings.gd](../scripts/core/Strings.gd): S8 가이드 "3초 멈춰요"→"느려져요".
+- **부수효과**: 감속이 정지보다 덜 가혹 → S8 약간 쉬워짐(여전히 cutter 필수·클리어 정상). is_stuck→is_slowed로 테스트 6종 마이그레이션 + AntStickyVisualTest 재작성.
+- **검증**: 끈끈이 11종(AntStickyVisual/StickyStuckRelease/StickyCarryingPreserved/LeafJumpSign/BridgeOverWaterSticky/CutterOverHazard/WaterStickyOverlap/**CampaignS8Clear 5/5**/S8NoCutter/Strings/StageGuideData) + S1~S7 캠페인 클리어 회귀 전부 PASS.
+
+#### F-20. 스킬 선택 캐릭터 외곽선 글로우 — 가시성(두께·색·경계) + 셰이더 버그
+- **증상(사용자 보고, 순차)**: ① 외곽선이 너무 얇아 안 보임 → ② (수정 후) 글로우 자체가 아예 안 보임 → ③ 노란색이 파스텔 배경에 묻힘 → ④ 보라가 검은 캐릭터와 붙어 경계 안 보임.
+- **원인/수정**(누적):
+  1. **두께**: 개미 Sprite가 400×431 PNG를 scale 0.24로 축소 → 외곽선 텍셀 단위라 2텍셀≈0.48px(사실상 안 보임). [outline.gdshader](../assets/shaders/outline.gdshader) 8탭→**24방향 단일 링**(큰 폭에서도 솔리드) + [AffordanceGlowController](../scripts/world/AffordanceGlowController.gd)가 `화면 3.5px ÷ scale`로 환산한 텍셀 폭 전달.
+  2. **★셰이더 컴파일 버그**: 내가 추가한 `const float TAU`가 **Godot 내장 상수 TAU와 충돌**(`Redefinition of TAU`) → 셰이더 미컴파일 → 글로우 전혀 안 그려짐. **헤드리스 테스트는 GPU 컴파일을 안 해 못 잡음.** 내장 TAU 사용으로 수정.
+  3. **색**: 레몬(#F0D77B)이 파스텔 배경에 묻힘 → `ANT_GLOW_COLOR = Tokens.GRAPE_700`(보라).
+  4. **경계**: 보라가 검은 캐릭터에 붙어 안 보임 → 셰이더 **2-밴드**화(`inner_color`/`inner_ratio` uniform): 캐릭터에 닿는 안쪽 띠=흰색, 바깥=보라. [Glow.apply](../scripts/ui/Glow.gd)에 inner 선택 인자(기본 비활성=하위호환). 개미: 흰띠 `inner_ratio=0.45`.
+- **검증**: 글로우 테스트 4종(OutlineGlowSmoke/TapTargetGlowAnt/Surface/Integration) PASS + **Godot 비-headless 실렌더 캡처**로 흰띠+보라 2단 외곽선이 파스텔 배경에서 또렷함을 육안 확인.
+- **교훈**: `--headless`는 셰이더 GPU 컴파일을 검증 못 함(리소스 로드/uniform만). 셰이더 변경은 비-headless 렌더 캡처로 검증할 것.
+
+### 조정 가능한 튜닝 상수 (이 세션 산출)
+- 커서 배율 `SkillToolbar.SIGN_DEVICE_CURSOR_SCALE`(2.0) · 표지판 매립 `SkillSign.EMBED_DEPTH_FRAC`(0.40) · 끈끈이 감속 `Ant.STICKY_SPEED_MULT`(0.35) · 글로우 두께 `AffordanceGlowController.ANT_GLOW_SCREEN_PX`(3.5) · 흰띠 비율 `ANT_GLOW_INNER_RATIO`(0.45) · 색 `ANT_GLOW_COLOR`(GRAPE_700).
+
+---
+
 ## 2026-06-07
 
 > 맵에디터로 S3~S9 레벨 재저작(지형·파라미터 조정) 후 9스테이지 전수 클리어 검증 + climber 천정 충돌 방향 버그 수정 + 현재 버전 웹빌드(itch.io zip) 산출 세션.

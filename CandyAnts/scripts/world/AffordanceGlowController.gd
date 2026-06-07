@@ -8,9 +8,15 @@ extends Node2D
 # 폴링 패턴은 PlacementPreview 답습(toolbar._pending_skill_id + 커서). 부적격은 무표시.
 
 const ANT_SPRITE_NODE := "Sprite"                    # Ant.tscn의 시각 노드(AnimatedSprite2D)
-const ANT_GLOW_COLOR: Color = Glow.ELIGIBLE_COLOR    # 개미 = 레몬(적격)
+const ANT_GLOW_COLOR: Color = Tokens.GRAPE_700       # 개미 = 포도(보라). 레몬은 파스텔 배경에 묻혀 교체(2026-06-07 요청)
+# 캐릭터(검정)와 보라 글로우가 붙으면 경계가 안 보여 → 캐릭터에 닿는 안쪽 띠를 흰색으로 분리(2026-06-07 요청).
+const ANT_GLOW_INNER_COLOR: Color = Color.WHITE
+const ANT_GLOW_INNER_RATIO: float = 0.45             # 전체 외곽선 중 안쪽 흰 띠 비율
 const SURFACE_GLOW_COLOR: Color = Tokens.MINT_500    # 타일 = 민트(개미와 시각 구분)
 const SURFACE_BORDER_RATIO: float = 0.10
+# 개미 외곽선 글로우 화면 목표 두께(px). outline_width는 텍셀 단위 + 개미 스프라이트가 scale 0.24로 축소
+# 표시돼 2텍셀이면 화면 0.5px(거의 안 보임) → 화면 px ÷ scale 로 환산해 굵게 넘긴다(2026-06-07 요청).
+const ANT_GLOW_SCREEN_PX: float = 3.5
 
 @export var toolbar_path: NodePath
 @export var terrain_path: NodePath
@@ -77,8 +83,16 @@ func _update_ant_glow(skill_id: String) -> void:
 		var a: Ant = elig_ids[id]
 		var vis: CanvasItem = a.get_node_or_null(ANT_SPRITE_NODE) as CanvasItem
 		if vis != null:
-			Glow.apply(vis, ANT_GLOW_COLOR)
+			Glow.apply(vis, ANT_GLOW_COLOR, _ant_glow_width(vis), ANT_GLOW_INNER_COLOR, ANT_GLOW_INNER_RATIO)
 			_glowing_ants[id] = a
+
+# 화면 목표 두께(px)를 스프라이트 scale로 나눠 텍셀 단위 outline_width로 환산.
+# 개미 Sprite는 scale ≈ 0.24 → 3.5px ÷ 0.24 ≈ 14.6 텍셀. scale 0이면 안전 기본값.
+func _ant_glow_width(vis: CanvasItem) -> float:
+	var sx: float = absf(vis.scale.x)
+	if sx <= 0.0001:
+		return 14.0
+	return ANT_GLOW_SCREEN_PX / sx
 
 func _remove_ant_glow(id) -> void:
 	var a: Ant = _glowing_ants.get(id) as Ant

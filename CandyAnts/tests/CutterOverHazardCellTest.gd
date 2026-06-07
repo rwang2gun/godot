@@ -7,12 +7,12 @@ extends Node
 # 추가 hazard: Sticky.tscn instance at cell_to_world((10,21)) — 같은 cell 점유.
 # Driver: ant body_cell (9,21) (x=304, y=699), direction=+1.
 # cutter 적용 → 첫 tick(~0.18s) forward (10,21) plant destroy → ant.x += 32 (= 336)
-# → 같은 frame 또는 다음 frame body_entered → ant.apply_sticky(3.0) → is_stuck()==true.
+# → 같은 frame 또는 다음 frame body_entered → ant.enter_sticky → is_slowed()==true(감속 존).
 #
 # PASS (30s 내):
 #  (1) cutter destroy 성공 후 terrain.get_cell_kind((10,21)) == "" + has_tile((10,21)) == false
 #  (2) hazard 노드 monitoring == true 유지 (kind erase가 hazard registry 영향 0)
-#  (3) ant 통과 시 is_stuck() == true (Sticky 자연 발화)
+#  (3) ant 통과 시 is_slowed() == true (Sticky 자연 발화 — 감속)
 
 const ANT_SCENE: PackedScene = preload("res://scenes/entities/Ant.tscn")
 const STICKY_SCENE: PackedScene = preload("res://scenes/entities/hazards/Sticky.tscn")
@@ -71,8 +71,8 @@ func _physics_process(_delta: float) -> void:
 	_apply_when_ready()
 	_poll_pass()
 	if _frame > DEADLINE_FRAMES:
-		_fail("deadline exceeded — applied=%s destroy=%s stuck=%s" % [
-			str(_applied), str(_destroy_seen), str(_ant.is_stuck() if _ant != null else false)
+		_fail("deadline exceeded — applied=%s destroy=%s slowed=%s" % [
+			str(_applied), str(_destroy_seen), str(_ant.is_slowed() if _ant != null else false)
 		])
 
 func _apply_when_ready() -> void:
@@ -106,10 +106,10 @@ func _poll_pass() -> void:
 	if not _sticky.monitoring:
 		_fail("(2) sticky.monitoring=false — kind erase가 hazard registry 영향 (D4 invariant 위반)")
 		return
-	# (3) ant 통과 후 is_stuck() true.
-	if _ant.is_stuck():
-		print("[CutterOverHazardCellTest] PASS frame=%d ant_pos=%s sticky_remaining=%f" % [
-			_frame, _ant.global_position, _ant._sticky_remaining
+	# (3) ant 통과 후 is_slowed() true.
+	if _ant.is_slowed():
+		print("[CutterOverHazardCellTest] PASS frame=%d ant_pos=%s slowed=true" % [
+			_frame, _ant.global_position
 		])
 		_result_emitted = true
 		get_tree().quit(0)

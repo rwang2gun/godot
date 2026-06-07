@@ -62,20 +62,20 @@ func _observe() -> void:
 	if not inv_ok:
 		_fail("ScoreSystem invariant broken")
 		return
-	# carrying stuck 시점 캡처: has_candy=true && is_stuck=true.
+	# carrying 감속 시점 캡처: has_candy=true && is_slowed=true.
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
 		if a == null or not is_instance_valid(a):
 			continue
-		if a.has_candy and a.is_stuck():
+		if a.has_candy and a.is_slowed():
 			if not _stuck_carrying_seen:
-				print("[StickyCarryingPreservedTest] carrying stuck observed frame=%d ant=%s in_transit=%d" % [
+				print("[StickyCarryingPreservedTest] carrying slowed observed frame=%d ant=%s in_transit=%d" % [
 					_frame_count, a.name, _score.in_transit_pieces,
 				])
 			_stuck_carrying_seen = true
-			# carrying stuck 중 in_transit_pieces == 1 이상 + lost_pieces 무변.
+			# carrying 감속 중 in_transit_pieces == 1 이상 + lost_pieces 무변.
 			if _score.in_transit_pieces < 1:
-				_fail("carrying stuck observed but in_transit_pieces=%d (expected >=1)" % _score.in_transit_pieces)
+				_fail("carrying slowed observed but in_transit_pieces=%d (expected >=1)" % _score.in_transit_pieces)
 				return
 	# PASS: 1+ carrying stuck 관찰 + saved >= 1 (carry 정상 재개 + home 도달).
 	if _stuck_carrying_seen and _score.saved_pieces >= 1:
