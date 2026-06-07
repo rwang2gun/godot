@@ -84,11 +84,17 @@ text = "스테이지"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 34
 
-[node name="Body" type="Label" parent="CardWrapper/Card/Main/Margin/VBox"]
+[node name="Goal" type="Label" parent="CardWrapper/Card/Main/Margin/VBox"]
 text = ""
 horizontal_alignment = 1
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 22
+
+[node name="SkillList" type="VBoxContainer" parent="CardWrapper/Card/Main/Margin/VBox"]
+theme_override_constants/separation = 14
+
+[node name="HazardList" type="VBoxContainer" parent="CardWrapper/Card/Main/Margin/VBox"]
+theme_override_constants/separation = 8
 
 [node name="ButtonRow" type="HBoxContainer" parent="CardWrapper/Card/Main/Margin/VBox"]
 alignment = 1

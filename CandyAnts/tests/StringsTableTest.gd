@@ -20,7 +20,21 @@ const MIGRATED_KEYS := [
 
 const SKILL_IDS := [
 	"climber", "floater", "blocker", "builder", "sand_mound",
-	"bridge", "basher", "digger", "cutter",
+	"bridge", "basher", "digger", "cutter", "leaf_jump",
+]
+
+# Phase 5 — 인트로 카드 가이드 카피 + 입력모델 배지 4종(STAGE_GUIDE_PLAN §4·§0.8.6).
+const GUIDE_KEYS := [
+	"guide.intro_title", "guide.intro_body_placeholder",
+	"guide.badge.ant_armed", "guide.badge.ant_settle", "guide.badge.sign", "guide.badge.device",
+	"guide.s1.goal", "guide.s1.climber_desc",
+	"guide.s2.goal", "guide.s2.floater_desc", "guide.s2.blocker_desc", "guide.s2.hazard_stun",
+	"guide.s3.goal", "guide.s3.bridge_desc", "guide.s3.hazard_water",
+	"guide.s4.goal", "guide.s4.builder_desc",
+	"guide.s5.goal", "guide.s5.sand_mound_desc",
+	"guide.s6.goal", "guide.s6.digger_desc",
+	"guide.s7.goal", "guide.s7.basher_desc",
+	"guide.s8.goal", "guide.s8.cutter_desc", "guide.s8.leaf_jump_desc", "guide.s8.hazard_sticky",
 ]
 
 func _ready() -> void:
@@ -56,10 +70,16 @@ func _ready() -> void:
 		if not Strings.has_key(key):
 			failures.append("(5) missing migrated key: %s" % key)
 
+	# (6) 가이드 카피 + 배지 key 존재(Phase 5).
+	for key in GUIDE_KEYS:
+		if not Strings.has_key(key):
+			failures.append("(6) missing guide key: %s" % key)
+
 	if failures.size() > 0:
 		push_error("StringsTableTest FAIL\n" + "\n".join(failures))
 		print("[StringsTableTest] FAIL\n", "\n".join(failures))
 		get_tree().quit(1)
 	else:
-		print("[StringsTableTest] PASS - %d keys + %d skills verified" % [MIGRATED_KEYS.size(), SKILL_IDS.size()])
+		print("[StringsTableTest] PASS - %d keys + %d guide keys + %d skills verified" % [
+			MIGRATED_KEYS.size(), GUIDE_KEYS.size(), SKILL_IDS.size()])
 		get_tree().quit(0)

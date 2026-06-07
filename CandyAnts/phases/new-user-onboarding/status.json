@@ -53,10 +53,10 @@
       "name": "guide-data-copy",
       "duration_estimate": 10800,
       "verify": "python scripts/run_test.py tests/StageGuideDataRenderTest.tscn && python scripts/run_test.py tests/GuideSkillSubsetDriftGuardTest.tscn && python scripts/run_test.py tests/StringsTableTest.tscn",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-06-07T16:51:28",
+      "completed_at": "2026-06-07T17:34:56",
+      "duration_seconds": 2608
     },
     {
       "id": 6,
