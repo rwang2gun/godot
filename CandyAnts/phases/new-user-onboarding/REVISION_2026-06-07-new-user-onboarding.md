@@ -33,26 +33,29 @@
 | SIGN (①) | sand_mound·basher·cutter·digger | surface 타일 | 푯말 |
 | DEVICE (④) | leaf_jump | surface 타일 | 장치 |
 
-## 0. 다음 세션 진입 (HANDOFF — 2026-06-07)
+## 0. 다음 세션 진입 (HANDOFF — 2026-06-07 갱신)
 
-> **이 task는 plan-stage 완료, 구현 미시작 상태로 멈춤.** 다음 세션은 여기부터.
+> **Phase 1~5 완료·커밋. 다음 = Phase 6 guide-card-ui-restructure(인트로 카드 문단 간격 재구성).**
 
 **진입 명령**:
 ```
 /harness new-user-onboarding
 # 또는
-python scripts/execute.py new-user-onboarding next   # → Phase 1 출력(sot/sot_aux)
+python scripts/execute.py new-user-onboarding next   # → Phase 6 guide-card-ui-restructure 출력
 ```
 
-**현재 상태**:
-- plan-stage **종결(clean)**: codex 적대적 리뷰 R1(HIGH1+MED2)→수정→R2(HIGH0+MED2)→수정. 최종 HIGH 0. 로그 `reviews/plan-review.md`.
-- 7 phase 전부 **pending**. status.json ↔ frontmatter 정합(`validate` ✓, `sync-status` 완료).
-- **다음 작업 = Phase 1 구현**: `SkillAffordance.gd`(카테고리 SoT) + `assets/shaders/outline.gdshader` + `scripts/ui/Glow.gd` + `tests/SkillAffordanceCategoryTest` + `tests/OutlineGlowSmokeTest`. 게임 배선 없는 기반.
+**현재 상태 (2026-06-07)**:
+- **Phase 1~5 완료·커밋**: P1=`403ba6e` P2=`feb8ba2` P3=`e20b890` P4=`973a706` **P5=`ee4c31c`** + 카드 사이징 폴리시 `cc9903f`. plan-setup=`8a00629`.
+- **8 phase**(05b 서브페이즈 삽입으로 +1): 1~5 완료, **6 guide-card-ui-restructure**(신규, 다음) / 7 input-mode-polish / 8 skill-guide-asset-contract pending. `validate` ✓.
+- 워킹트리: status.json + phase05b 파일은 커밋 예정. **`assets/guide/Guide_Carry01.png`는 병렬 아트 트랙 산출물(내 작업 아님) — 별도 처리.**
 
-**⚠ 미커밋 (워킹트리 — 다음 세션 시작 시 존재)**:
-- 신규: `phases/new-user-onboarding/**`(metadata·REVISION·phase01~07·status.json·reviews/plan-review.md), `docs/STAGE_GUIDE_PLAN.md`
-- 수정: `docs/LEVEL_REDESIGN_STATUS.md`(§0.6 스냅샷), `docs/DOMAIN_MAP.md`(§3.1 Stage01~09), `data/stages/stage01.tres`(blocker 제거)
-- **gotcha**: 위 plan-setup을 **먼저 별도 커밋**(`chore(onboarding): plan-stage setup + S1 blocker fix`)으로 남기는 게 깔끔. 안 그러면 Phase 1 `complete`가 docs/stage01.tres를 whitelist 밖으로 보고 abort할 수 있음(terrain-tier 선례). complete 전 plan-setup 커밋 권장.
+**다음 작업 = Phase 6 (guide-card-ui-restructure)** — `phases/new-user-onboarding/phase05b-guide-card-ui-restructure.md`가 스펙 SoT:
+- **목적**: 사용자 피드백(문단 간격 좁아 가독성↓) → 인트로 카드에 **명시적 문단 공백**(타이틀+소개 / 2줄 / 스킬들[정보+사용법, 스킬 간 1줄] / 2줄 / 버튼). 해저드 배치 결정 필요(스킬 뒤 1줄→해저드→2줄→버튼 제안).
+- **구현 방향**(탐색 완료): VBox separation 0 + 스페이서 Control 4종(TG/GS/SH/HB) + SkillList sep 30. SkillList/HazardList child_count 유지(render 테스트). 자동 확대(`_resize_to_content`)가 스페이서 높이 포함 → 카드 높이 자동 성장.
+- **건드리지 말 것**(Phase 5 완료): 카드 자동 확대·autowrap OFF 단일 라인·≥22pt·inspector raw 반환. 본 phase는 세로 간격만.
+- **시각 검증 필수**: 헤드리스 캡처 불가 → 창모드 godot + `get_viewport().get_texture().get_image().save_png(user://)`로 S1/S3/S8 육안 확인(`%APPDATA%/Godot/app_userdata/CandyAnts/`).
+
+**S2 blocker 결정 박제(P5)**: §4 초안은 floater만 신규였으나 blocker도 S2 첫등장+exact-fit 소비 → 사용자 결정으로 카드 추가. 드리프트 가드를 **집합동등**(new_skill_ids==first_introduced)으로 강화(codex 3R approve). §4 S2 SoT 정정 완료.
 
 **구현 시 의존하는 검증된 코어 사실**:
 - **carry-consume 1:1**: 운반 개미는 배달 즉시 소비(`Home.gd` carrying→`SavedState`→`queue_free`). N조각 = N마리 배달. 왕복 없음. (CampaignS1ClearTest 로그 실증)
