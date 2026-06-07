@@ -29,6 +29,10 @@ const SEPARATION_BASE: float = 14.0
 # 텍스처 원본 px를 그대로 OS 커서로 그린다(128px 원본 → 화면 128px). 그래서 다운스케일한
 # ImageTexture를 넘겨 크기를 줄인다. 0.5 = 50% 축소.
 const CURSOR_SCALE: float = 0.5
+# 표지판(①SIGN)·장치(④DEVICE) 커서는 "내가 놓을 결과물" 모양이라 크게 보여야 한다(2026-06-07 요청).
+# 소스(보드/점프대)가 48px로 작고 OS 커서는 게임 뷰포트 스트레치를 안 타서, 다운스케일 대신 원본의 2배(=96px)로
+# 키워 화면에 설치되는 표지판(96px)과 시각 크기를 맞춘다. ICON(③)/SETTLE_FORM(②)은 기존 CURSOR_SCALE 유지.
+const SIGN_DEVICE_CURSOR_SCALE: float = 2.0
 
 # Registered skill PNG icons — reused by SkillSlot.icon_texture and the custom mouse cursor.
 const ICONS: Dictionary = {
@@ -168,7 +172,7 @@ func _select(id: String) -> void:
 		Input.set_custom_mouse_cursor(icon, Input.CURSOR_ARROW, Vector2.ZERO)
 	print("[SkillToolbar] pending=", id)
 
-# 커서 = "결과물 모양" (§0.8.2). 소스는 cursor_kind 카테고리 파생 — ICON(③ 아이콘)/SIGN(① 푯말 합성)/
+# 커서 = "결과물 모양" (§0.8.2). 소스는 cursor_kind 카테고리 파생 — ICON(③ 아이콘)/SIGN(① 표지판 합성)/
 # DEVICE(④ 점프대)/SETTLE_FORM(② 정착폼, 아트는 Phase 7 — 현재 아이콘 fall-back).
 func _cursor_source(id: String) -> Texture2D:
 	match SkillAffordance.cursor_kind_of(id):
@@ -181,7 +185,7 @@ func _cursor_source(id: String) -> Texture2D:
 		_:  # ICON (③) + fall-back
 			return CURSOR_ICONS.get(id) as Texture2D
 
-# SIGN(①) 커서 = 푯말 보드 + 스킬 아이콘 합성(1회 생성 캐시).
+# SIGN(①) 커서 = 표지판 보드 + 스킬 아이콘 합성(1회 생성 캐시).
 func _sign_cursor_texture(id: String) -> Texture2D:
 	if _sign_cursor_cache.has(id):
 		return _sign_cursor_cache[id] as Texture2D
@@ -201,11 +205,16 @@ func _sign_cursor_texture(id: String) -> Texture2D:
 			iimg = iimg.duplicate()
 			if iimg.get_format() != Image.FORMAT_RGBA8:
 				iimg.convert(Image.FORMAT_RGBA8)
+			# 아이콘 크기·위치는 설치 표지판과 동일하게 SkillSign 패널 상수 공유(넘침 방지 + 일관성).
 			var bw: int = bimg.get_width()
-			var target: int = maxi(1, int(round(float(bw) * 0.60)))
+			var bh: int = bimg.get_height()
+			var target: int = maxi(1, int(round(float(bw) * SkillSignScript.PANEL_ICON_FRAC)))
 			iimg.resize(target, target, Image.INTERPOLATE_LANCZOS)
-			var ox: int = int((bw - target) / 2)
-			var oy: int = int(round(float(bimg.get_height()) * 0.10))
+			# 패널 중심(보드 중심 기준 fraction)에 아이콘 중심을 맞춘다.
+			var ccx: float = float(bw) / 2.0
+			var ccy: float = float(bh) / 2.0 + SkillSignScript.PANEL_ICON_CENTER_Y_FRAC * float(bh)
+			var ox: int = int(round(ccx - float(target) / 2.0))
+			var oy: int = int(round(ccy - float(target) / 2.0))
 			# 아이콘 알파를 보드 위에 블렌드(투명 보존).
 			bimg.blend_rect(iimg, Rect2i(0, 0, target, target), Vector2i(ox, oy))
 	var tex: ImageTexture = ImageTexture.create_from_image(bimg)
@@ -223,12 +232,21 @@ func _cursor_texture(id: String) -> Texture2D:
 	var img: Image = src.get_image()
 	if img == null:
 		return src   # get_image 실패 시 원본 fall-back (커서는 크게 뜨더라도 동작 유지)
-	var w: int = maxi(1, int(round(float(img.get_width()) * CURSOR_SCALE)))
-	var h: int = maxi(1, int(round(float(img.get_height()) * CURSOR_SCALE)))
+	var scale: float = _cursor_scale_for(id)
+	var w: int = maxi(1, int(round(float(img.get_width()) * scale)))
+	var h: int = maxi(1, int(round(float(img.get_height()) * scale)))
 	img.resize(w, h, Image.INTERPOLATE_LANCZOS)
 	var tex: ImageTexture = ImageTexture.create_from_image(img)
 	_scaled_cursor_cache[id] = tex
 	return tex
+
+# 커서 다운스케일 배율 — SIGN(①)·DEVICE(④)만 2배(SIGN_DEVICE_CURSOR_SCALE), 그 외(ICON③/SETTLE_FORM②)는 기본.
+func _cursor_scale_for(id: String) -> float:
+	match SkillAffordance.cursor_kind_of(id):
+		SkillAffordance.CursorKind.SIGN, SkillAffordance.CursorKind.DEVICE:
+			return SIGN_DEVICE_CURSOR_SCALE
+		_:
+			return CURSOR_SCALE
 
 func _clear_selection() -> void:
 	if _pending_skill_id != "" and _slots.has(_pending_skill_id):

@@ -105,3 +105,46 @@ text = "시작"
 [node name="SkipBtn" parent="CardWrapper/Card/Main/Margin/VBox/ButtonRow" instance=ExtResource("3_cbutton")]
 kind = 2
 text = "건너뛰기"
+
+[node name="PageRoot" type="VBoxContainer" parent="CardWrapper/Card/Main/Margin"]
+visible = false
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="ImageWrap" type="Control" parent="CardWrapper/Card/Main/Margin/PageRoot"]
+custom_minimum_size = Vector2(640, 400)
+clip_contents = true
+
+[node name="NavRow" type="HBoxContainer" parent="CardWrapper/Card/Main/Margin/PageRoot"]
+theme_override_constants/separation = 8
+
+[node name="LeftZone" type="HBoxContainer" parent="CardWrapper/Card/Main/Margin/PageRoot/NavRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 0
+
+[node name="PrevBtn" parent="CardWrapper/Card/Main/Margin/PageRoot/NavRow/LeftZone" instance=ExtResource("3_cbutton")]
+kind = 2
+text = "‹ 이전"
+
+[node name="Dots" type="HBoxContainer" parent="CardWrapper/Card/Main/Margin/PageRoot/NavRow"]
+custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 4
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="RightZone" type="HBoxContainer" parent="CardWrapper/Card/Main/Margin/PageRoot/NavRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="NextBtn" parent="CardWrapper/Card/Main/Margin/PageRoot/NavRow/RightZone" instance=ExtResource("3_cbutton")]
+text = "다음 ›"
+
+[node name="StartBtnP" parent="CardWrapper/Card/Main/Margin/PageRoot/NavRow/RightZone" instance=ExtResource("3_cbutton")]
+text = "시작"
+
+[node name="SkipBtnP" parent="CardWrapper/Card/Main/Margin/PageRoot/NavRow/RightZone" instance=ExtResource("3_cbutton")]
+kind = 2
+text = "건너뛰기"

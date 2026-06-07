@@ -1,6 +1,23 @@
-[gd_resource type="Resource" script_class="StageGuideData" format=3]
+[gd_resource type="Resource" script_class="StageGuideData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/StageGuideData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/core/GuidePage.gd" id="2"]
+
+[sub_resource type="Resource" id="page_digger"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_digger.png"
+title_key = "guide.s6.page_digger_title"
+body_key = "guide.s6.page_digger_body"
+text_x = 0.015
+text_y = 0.62
+text_width = 0.95
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
 
 [resource]
 script = ExtResource("1")
@@ -9,3 +26,4 @@ goal_key = "guide.s6.goal"
 new_skill_ids = Array[String](["digger"])
 skill_desc_keys = Array[String](["guide.s6.digger_desc"])
 hazard_keys = Array[String]([])
+pages = Array[Resource]([SubResource("page_digger")])

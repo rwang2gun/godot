@@ -51,53 +51,91 @@ const _TABLE: Dictionary = {
 	# "개미 탭 / 땅 탭"으로 ②③↔①④의 2지선다를 앞세우고(§0.8.4), 카테고리별 결과를 덧붙인다.
 	"guide.badge.ant_armed": "개미 탭 → 자동 발동",
 	"guide.badge.ant_settle": "개미 탭 → 정착",
-	"guide.badge.sign": "땅 탭 → 푯말",
+	"guide.badge.sign": "땅 탭 → 표지판",
 	"guide.badge.device": "땅 탭 → 장치",
 
 	# 스테이지별 가이드 카피 (STAGE_GUIDE_PLAN §4). data/guides/stageNN_guide.tres가 key로 참조.
 	# S1 · 첫 마실 — climber(③) + 글로벌 기본기.
 	"guide.s1.goal": "사탕을 한 조각씩 집으로 옮겨요. 5조각을 다 옮기면 성공!",
 	"guide.s1.climber_desc": "개미를 탭하면 벽 오르기를 들고 걸어요. 벽을 만나면 스스로 타고 올라가요.",
+	# 페이징 카드 페이지 카피 (guide-card-ui-restructure, 스크린샷 위 오버레이). 3페이지: 획득→운반→벽오르기.
+	"guide.s1.page_carry_title": "사탕 조각을 얻어요",
+	"guide.s1.page_carry_body": "개미가 사탕에 도착하면 작은 조각을 쪼개 들고 가요.\n개미가 사탕을 쪼갤수록 사탕이 점점 작아져요.",
+	"guide.s1.page_deliver_title": "집으로 운반해요",
+	"guide.s1.page_deliver_body": "사탕 조각을 집까지 안전하게 옮겨야 해요.\n모든 사탕 조각을 집으로 옮기면 성공!",
+	"guide.s1.page_climber_title": "벽 오르기",
+	"guide.s1.page_climber_body": "벽 오르기 스킬을 개미에게 주면 벽을 오를 수 있어요.\n벽을 만나면 스스로 타고 올라가요.",
 	# S2 · 오르막 — floater(②)·blocker(②, 첫 등장) + 기절 규칙.
 	"guide.s2.goal": "높이 올라간 사탕을 가지러 가요. 그런데 내려올 때가 위험해요.",
 	"guide.s2.floater_desc": "개미를 탭해 낙하산을 정착시키면, 지나가는 동료들이 낙하산을 받아 높은 곳에서도 안전하게 내려와요.",
 	"guide.s2.blocker_desc": "개미를 탭해 길 막기를 정착시키면, 그 자리에 버티고 서서 부딪힌 동료의 방향을 되돌려보내요.",
 	"guide.s2.hazard_stun": "⚠ 너무 높이서 떨어지면(6칸↑) 개미가 기절해 사라져요. 낙하산이 있으면 괜찮아요.",
+	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 3페이지: 낙하위험→낙하산→길막기.
+	"guide.s2.page_danger_title": "높은 곳은 위험해요",
+	"guide.s2.page_danger_body": "너무 높은 곳에서 떨어지면, 움직일 수 없어요.",
+	"guide.s2.page_floater_title": "낙하산을 나눠줘요",
+	"guide.s2.page_floater_body": "낙하산 나눠주기 스킬로 다른 개미를 지켜줄 수 있어요.\n낙하산을 받은 개미는 안전하게 내려갈 수 있어요.",
+	"guide.s2.page_blocker_title": "위험을 막아줘요",
+	"guide.s2.page_blocker_body": "길막기 스킬을 사용하면 자리를 지키고 위험을 알려줘요.\n절벽이나 함정으로 동료들이 가지 못하게 막아요.",
 	# S3 · 사탕 호수 — bridge(③) + 소다물 해저드.
 	"guide.s3.goal": "사탕 호수 건너편의 사탕을 가져와요. 물에 빠지면 안 돼요.",
 	"guide.s3.bridge_desc": "개미에게 다리만들기를 주면, 낭떠러지에 닿았을 때 스스로 수평 다리를 놓아요. 한 번 놓으면 모두가 건너요.",
 	"guide.s3.hazard_water": "⚠ 소다물에 닿으면 그 즉시 잃어요. 다리로 건너세요.",
+	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 2페이지: 물위험→다리.
+	"guide.s3.page_water_title": "물에 빠지면 위험해요",
+	"guide.s3.page_water_body": "물에 빠지면 다시 올라올 수 없어요.",
+	"guide.s3.page_bridge_title": "다리를 놓아요",
+	"guide.s3.page_bridge_body": "과자 다리 스킬을 주면 절벽에서 다리를 만들어요.\n다리는 다른 동료도 사용할 수 있어요.",
 	# S4 · 계단 공사 — builder(③, 대각 계단).
 	"guide.s4.goal": "높은 단 위의 사탕으로 올라가는 계단을 만들어요.",
 	"guide.s4.builder_desc": "경사면을 주면 낭떠러지에서 비스듬한 계단을 쌓아 올라가요. 다리는 평평하게, 계단은 위로.",
-	# S5 · 막대과자 탑 — sand_mound(①, 첫 푯말 설치형).
+	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 1페이지: 경사면.
+	"guide.s4.page_builder_title": "경사면으로 올라가요",
+	"guide.s4.page_builder_body": "경사면 스킬로, 높은 곳까지 오르는 다리를 만들 수 있어요.",
+	# S5 · 막대과자 탑 — sand_mound(①, 첫 표지판 설치형).
 	"guide.s5.goal": "막대과자 사다리를 세워 탑 위 사탕에 닿아요. 내려올 땐 낙하산으로.",
-	"guide.s5.sand_mound_desc": "이제는 땅에 푯말을 놓아요. 막대과자 사다리가 세워지고, 무리가 타고 올라가요.",
+	"guide.s5.sand_mound_desc": "이제는 땅에 표지판을 놓아요. 막대과자 사다리가 세워지고, 무리가 타고 올라가요.",
+	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 1페이지: 과자 사다리.
+	"guide.s5.page_sandmound_title": "과자 사다리",
+	"guide.s5.page_sandmound_body": "과자 사다리를 놓을 곳에 표지판을 세우면 사다리를 설치해요.\n과자 사다리로 위층으로 올라갈 수 있어요.",
 	# S6 · 땅굴 — digger(①, 수직 아래). 동반 climber는 복습이라 카드 생략(§1: floater 아님 — 안전강하 카피 금지).
 	"guide.s6.goal": "땅을 파고 내려가 지하의 사탕을 가져와요.",
-	"guide.s6.digger_desc": "땅에 땅파기 푯말을 놓으면, 도착한 개미가 아래로 굴을 파요. 한 번 뚫린 굴은 모두가 써요.",
+	"guide.s6.digger_desc": "땅에 땅파기 표지판을 놓으면, 도착한 개미가 아래로 굴을 파요. 한 번 뚫린 굴은 모두가 써요.",
+	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 1페이지: 땅파기.
+	"guide.s6.page_digger_title": "땅파기",
+	"guide.s6.page_digger_body": "땅파기 표지판을 세워두면 땅을 파서 아래층으로 내려갈 수 있어요.",
 	# S7 · 옆파기 — basher(①, 수평 앞).
 	"guide.s7.goal": "앞을 가로막은 과자 벽을 옆으로 뚫어 길을 내요.",
-	"guide.s7.basher_desc": "벽 앞 땅에 벽 부수기 푯말을 놓으면 수평 통로를 파요. 땅파기는 아래로, 벽 부수기는 앞으로.",
+	"guide.s7.basher_desc": "벽 앞 땅에 벽 부수기 표지판을 놓으면 수평 통로를 파요. 땅파기는 아래로, 벽 부수기는 앞으로.",
+	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 1페이지: 벽 부수기.
+	"guide.s7.page_basher_title": "벽 부수기",
+	"guide.s7.page_basher_body": "벽 부수기 표지판을 세워두면 벽을 부숴 터널을 만들어요.\n터널을 지나 반대편으로 이동할 수 있어요.",
 	# S8 · 박하 덤불 — cutter(①) + leaf_jump(④, 첫 장치) + 끈끈이 해저드.
 	"guide.s8.goal": "박하 덤불을 자르고, 끈끈이를 점프대로 건너 사탕에 닿아요. 서둘러요!",
 	"guide.s8.cutter_desc": "식물 자르기는 식물 벽 전용이에요(흙 벽엔 안 통해요).",
 	"guide.s8.leaf_jump_desc": "나뭇잎 점프대는 땅에 놓는 장치예요 — 개미가 도착하면 폴짝 띄워줘요. 여러 번 써요.",
-	"guide.s8.hazard_sticky": "⚠ 끈끈이를 밟으면 3초 멈춰요(잃지는 않아요). 점프대로 건너뛰세요.",
+	"guide.s8.hazard_sticky": "⚠ 끈끈이를 밟으면 느려져요(잃지는 않아요). 점프대로 건너뛰세요.",
+	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 3페이지: 끈끈이→점프대→덩굴자르기.
+	"guide.s8.page_sticky_title": "카라멜 끈끈이",
+	"guide.s8.page_sticky_body": "끈적한 카라멜 끈끈이가 이동을 방해해요.",
+	"guide.s8.page_jump_title": "나뭇잎 점프대",
+	"guide.s8.page_jump_body": "점프대를 이용하면 장애물을 뛰어넘을 수 있어요.",
+	"guide.s8.page_cutter_title": "덩굴 자르기",
+	"guide.s8.page_cutter_body": "덩굴 자르기 표지판을 세워두면 앞에 있는 덩굴을 잘라 길을 만들어요.",
 }
 
 # 스킬 id -> 한글 라벨. 구 SkillToolbar.KO_LABELS를 이관.
 # 미등록 id는 skill_label()이 영문 id를 그대로 반환(구 `.get(id, id)` 동작 보존).
 const _SKILL_NAMES: Dictionary = {
 	"climber": "벽 오르기",
-	"floater": "낙하산 분배",
-	"blocker": "길 막기",
-	"builder": "경사면",
-	"sand_mound": "막대세우기",
-	"bridge": "다리만들기",
+	"floater": "낙하산 나눠주기",
+	"blocker": "길막기",
+	"builder": "과자 경사면",
+	"sand_mound": "과자 사다리",
+	"bridge": "과자 다리",
 	"basher": "벽 부수기",
 	"digger": "땅파기",
-	"cutter": "식물 자르기",
+	"cutter": "덩굴 자르기",
 	"leaf_jump": "나뭇잎 점프대",
 }
 

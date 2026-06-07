@@ -1,7 +1,7 @@
 class_name SignPlacement
 extends RefCounted
 
-# 설치형(①푯말) · 장치(④) 스킬의 **공유 배치 검증 API** (STAGE_GUIDE_PLAN §0.8.2, codex R1 MEDIUM).
+# 설치형(①표지판) · 장치(④) 스킬의 **공유 배치 검증 API** (STAGE_GUIDE_PLAN §0.8.2, codex R1 MEDIUM).
 # 기존 SkillToolbar._ground_cell_for_sign(점유 거부 + 아래 64칸 스냅) + _leaf_jump_pad_exists(중복 거부)
 # 로직을 추출해 단일 출처화. 글로우("어디가 클릭 성공 셀인가")와 실제 배치가 같은 규칙을 쓰도록 보장.
 # ⚠ 트리거 규칙(SkillSign._ant_at_cell = "걷는 개미가 나중에 발동")과 다름 — 여긴 "지금 클릭 성공" 셀.

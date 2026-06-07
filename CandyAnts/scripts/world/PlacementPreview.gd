@@ -4,7 +4,7 @@ class_name PlacementPreview extends Node2D
 # 대상은 카테고리 SoT 파생 — PLACEMENT_SKILLS 하드코딩 리스트 제거:
 #   - ANT_ARMED(③ climber/bridge/builder): 무장이라 발동 위치가 나중 결정 → 탭-타임 ghost 없음.
 #   - ANT_SETTLE(②): 정착폼 ghost(아트 Phase 7) → 현재 없음.
-#   - SIGN(① sand_mound/basher/cutter/digger): **deferred 푯말 — 결과 ghost 없음**. 푯말은 열(x)에 설치되고
+#   - SIGN(① sand_mound/basher/cutter/digger): **deferred 표지판 — 결과 ghost 없음**. 표지판은 열(x)에 설치되고
 #     실제 작업은 그 열에 처음 도착한 개미의 body_cell에서 일어나(SkillSign._ant_at_cell + WorkerState),
 #     설치 셀 ≠ 빌드 셀이 될 수 있다(다중 표면 컬럼). 설치 위치는 surface 글로우(Phase 2)가, 종류는
 #     SIGN 커서가 표시하므로 결과 ghost는 오히려 위치를 오도 → 폐지(codex R1 MEDIUM, plan §0.8.2 "옵션").

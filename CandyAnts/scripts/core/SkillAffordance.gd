@@ -22,7 +22,7 @@ const SKILL_CATEGORY := {
 	"builder":    Category.ANT_ARMED,
 	"blocker":    Category.ANT_SETTLE,  # ② 정착·이탈
 	"floater":    Category.ANT_SETTLE,
-	"sand_mound": Category.SIGN,        # ① 푯말 설치
+	"sand_mound": Category.SIGN,        # ① 표지판 설치
 	"basher":     Category.SIGN,
 	"cutter":     Category.SIGN,
 	"digger":     Category.SIGN,

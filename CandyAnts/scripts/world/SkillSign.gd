@@ -7,6 +7,16 @@ class_name SkillSign extends Node2D
 # 과거 const SIGN_SKILLS 하드코딩 리스트는 제거 — 라우팅은 SkillAffordance.category_of() 파생.
 
 const SIGN_BOARD_TEXTURE: Texture2D = preload("res://assets/sprites/world/skill_sign_board.png")
+# 표지판 표시 배율 — 셀 크기의 2배(2026-06-07 요청). 발동 트리거는 열(x) 기준이라 시각만 커지고 게임플레이는 불변.
+const DISPLAY_SCALE: float = 2.0
+# 보드 텍스처 내 패널(글씨칸) 영역 — skill_sign_board.png 크림 내부 측정값(2026-06-07): 24×15px, 중심 y −0.188(보드 중심 기준).
+# 아이콘이 패널 밖으로 넘치지 않도록 이 비율에 맞춘다. 정사각 아이콘이라 패널 높이(15px)가 한계 → FRAC 0.30(0.30×48≈14.4<15).
+# SIGN 커서 합성(SkillToolbar._sign_cursor_texture)도 이 상수를 공유해 동일 배치.
+const PANEL_ICON_FRAC: float = 0.30             # 아이콘 변 길이 ÷ 보드 폭
+const PANEL_ICON_CENTER_Y_FRAC: float = -0.188  # 아이콘 중심 y ÷ 보드 높이 (패널 중심)
+# 기둥 밑동을 surface 위 가장자리에 딱 붙이지 않고 지면 안으로 살짝 묻어 "꽂힌" 느낌을 준다(2026-06-07 요청).
+# z_index=120이라 지형 위에 그려져 기둥·그림자가 surface 타일을 덮는다. 발동은 열(x) 기준이라 시각만 변함.
+const EMBED_DEPTH_FRAC: float = 0.40            # surface 안으로 내릴 깊이 ÷ 셀
 
 var skill_id: String = ""
 var cell: Vector2i = Vector2i.ZERO
@@ -29,9 +39,15 @@ func _ready() -> void:
 
 func _build_visual() -> void:
 	var cs: int = _terrain.cell_size if _terrain != null else 48
+	# 2배로 키우되 바닥을 surface 위 가장자리에 맞춘 뒤(lift) embed만큼 지면 안으로 내려 겹치게 한다.
+	var lift: float = float(cs) * (DISPLAY_SCALE - 1.0) / 2.0
+	var embed: float = float(cs) * EMBED_DEPTH_FRAC
+	var board_center_y: float = -lift + embed   # 보드 로컬 중심 y (셀 중심 기준)
+	var board_h: float = float(cs) * DISPLAY_SCALE
 	var board := Sprite2D.new()
 	board.texture = SIGN_BOARD_TEXTURE
-	board.scale = Vector2.ONE * (float(cs) / float(SIGN_BOARD_TEXTURE.get_width()))
+	board.scale = Vector2.ONE * (float(cs) * DISPLAY_SCALE / float(SIGN_BOARD_TEXTURE.get_width()))
+	board.position = Vector2(0, board_center_y)
 	add_child(board)
 
 	var icon_tex: Texture2D = load("res://assets/icons/skills/%s.png" % skill_id) as Texture2D
@@ -41,9 +57,10 @@ func _build_visual() -> void:
 	spr.texture = icon_tex
 	var w: float = float(icon_tex.get_width())
 	if w > 0.0:
-		# 아이콘을 보드 위에 얹는 스케일 — 기존 0.30의 2배(0.60)로 키워 가독성 향상.
-		spr.scale = Vector2.ONE * (float(cs) * 0.60 / w)
-	spr.position = Vector2(0, -float(cs) * 0.23)
+		# 아이콘을 보드 패널 안에 맞춘다 — 패널 높이가 한계라 PANEL_ICON_FRAC(0.30)로 축소(넘침 방지).
+		spr.scale = Vector2.ONE * (float(cs) * DISPLAY_SCALE * PANEL_ICON_FRAC / w)
+	# 아이콘 중심 = 보드 중심 + 패널 중심 fraction.
+	spr.position = Vector2(0, board_center_y + board_h * PANEL_ICON_CENTER_Y_FRAC)
 	add_child(spr)
 
 func _physics_process(_delta: float) -> void:

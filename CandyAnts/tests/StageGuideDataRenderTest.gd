@@ -72,10 +72,15 @@ func _check_stage(n: int, expect_skills: Array, expect_hazards: int) -> void:
 	if card.hazard_texts().size() != expect_hazards:
 		_fail("S%d: hazard count %d expected %d" % [n, card.hazard_texts().size(), expect_hazards])
 
-	# 칩 노드가 실제로 SkillList에 렌더됐는지(빈 inspector ↔ 빈 UI 괴리 차단).
-	var skill_list: VBoxContainer = card.get_node("CardWrapper/Card/Main/Margin/VBox/SkillList")
-	if skill_list.get_child_count() != expect_skills.size():
-		_fail("S%d: SkillList child count %d expected %d" % [n, skill_list.get_child_count(), expect_skills.size()])
+	# 페이징 카드(pages 저작 스테이지)는 스킬 칩 대신 페이지 스택을 렌더 → 페이지 수로 검증.
+	# 단일 카드 스테이지는 칩 노드가 실제로 SkillList에 렌더됐는지(빈 inspector ↔ 빈 UI 괴리 차단).
+	if card.page_count() > 0:
+		if guide.pages.size() != card.page_count():
+			_fail("S%d: page_count %d expected %d" % [n, card.page_count(), guide.pages.size()])
+	else:
+		var skill_list: VBoxContainer = card.get_node("CardWrapper/Card/Main/Margin/VBox/SkillList")
+		if skill_list.get_child_count() != expect_skills.size():
+			_fail("S%d: SkillList child count %d expected %d" % [n, skill_list.get_child_count(), expect_skills.size()])
 
 	card.queue_free()
 	await get_tree().process_frame

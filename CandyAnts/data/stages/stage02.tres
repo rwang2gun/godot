@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 id = 2
-display_name = "오르막"
+display_name = "절벽 아래로"
 layout = ExtResource("1_layout")
 total_ants = 7
 candy_hp = 5

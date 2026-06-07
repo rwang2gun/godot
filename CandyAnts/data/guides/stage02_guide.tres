@@ -1,6 +1,55 @@
-[gd_resource type="Resource" script_class="StageGuideData" format=3]
+[gd_resource type="Resource" script_class="StageGuideData" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/StageGuideData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/core/GuidePage.gd" id="2"]
+
+[sub_resource type="Resource" id="page_danger"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_drop.png"
+title_key = "guide.s2.page_danger_title"
+body_key = "guide.s2.page_danger_body"
+text_x = 0.04
+text_y = 0.04
+text_width = 0.92
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
+
+[sub_resource type="Resource" id="page_floater"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_floater.png"
+title_key = "guide.s2.page_floater_title"
+body_key = "guide.s2.page_floater_body"
+text_x = 0.04
+text_y = 0.62
+text_width = 0.92
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
+
+[sub_resource type="Resource" id="page_blocker"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_blocker.png"
+title_key = "guide.s2.page_blocker_title"
+body_key = "guide.s2.page_blocker_body"
+text_x = 0.0
+text_y = 0.53
+text_width = 1.0
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
 
 [resource]
 script = ExtResource("1")
@@ -9,3 +58,4 @@ goal_key = "guide.s2.goal"
 new_skill_ids = Array[String](["floater", "blocker"])
 skill_desc_keys = Array[String](["guide.s2.floater_desc", "guide.s2.blocker_desc"])
 hazard_keys = Array[String](["guide.s2.hazard_stun"])
+pages = Array[Resource]([SubResource("page_danger"), SubResource("page_floater"), SubResource("page_blocker")])

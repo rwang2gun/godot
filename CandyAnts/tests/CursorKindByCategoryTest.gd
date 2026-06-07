@@ -1,7 +1,7 @@
 extends Node
 
 # Phase 3 — 커서 = 결과물 모양. cursor_kind 카테고리 파생 소스 선택 단언.
-# ICON(③)=per-skill 아이콘 / DEVICE(④)=점프대 / SIGN(①)=푯말 보드 합성 / SETTLE_FORM(②)=아이콘 fallback(Phase7).
+# ICON(③)=per-skill 아이콘 / DEVICE(④)=점프대 / SIGN(①)=표지판 보드 합성 / SETTLE_FORM(②)=아이콘 fallback(Phase7).
 
 func _ready() -> void:
 	var failures: Array[String] = []
@@ -18,7 +18,7 @@ func _ready() -> void:
 	if tb._cursor_source("leaf_jump") != tb.LEAF_PAD_TEXTURE:
 		failures.append("leaf_jump(DEVICE) cursor != leaf pad texture")
 
-	# SIGN (①) — 푯말 보드 합성(아이콘과 다름, 보드 폭과 동일).
+	# SIGN (①) — 표지판 보드 합성(아이콘과 다름, 보드 폭과 동일).
 	var sign_cur: Texture2D = tb._cursor_source("basher")
 	if sign_cur == tb.ICONS["basher"]:
 		failures.append("basher(SIGN) cursor should be a board composite, not the plain icon")

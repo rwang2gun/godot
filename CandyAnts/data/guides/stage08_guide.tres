@@ -1,6 +1,55 @@
-[gd_resource type="Resource" script_class="StageGuideData" format=3]
+[gd_resource type="Resource" script_class="StageGuideData" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/StageGuideData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/core/GuidePage.gd" id="2"]
+
+[sub_resource type="Resource" id="page_sticky"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_caramel.png"
+title_key = "guide.s8.page_sticky_title"
+body_key = "guide.s8.page_sticky_body"
+text_x = 0.0
+text_y = 0.005
+text_width = 1.0
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
+
+[sub_resource type="Resource" id="page_jump"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_jump.png"
+title_key = "guide.s8.page_jump_title"
+body_key = "guide.s8.page_jump_body"
+text_x = 0.04
+text_y = 0.04
+text_width = 0.92
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
+
+[sub_resource type="Resource" id="page_cutter"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_cutter.png"
+title_key = "guide.s8.page_cutter_title"
+body_key = "guide.s8.page_cutter_body"
+text_x = 0.0
+text_y = 0.0
+text_width = 1.0
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
 
 [resource]
 script = ExtResource("1")
@@ -9,3 +58,4 @@ goal_key = "guide.s8.goal"
 new_skill_ids = Array[String](["cutter", "leaf_jump"])
 skill_desc_keys = Array[String](["guide.s8.cutter_desc", "guide.s8.leaf_jump_desc"])
 hazard_keys = Array[String](["guide.s8.hazard_sticky"])
+pages = Array[Resource]([SubResource("page_sticky"), SubResource("page_jump"), SubResource("page_cutter")])

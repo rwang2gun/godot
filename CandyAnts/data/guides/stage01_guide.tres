@@ -1,6 +1,55 @@
-[gd_resource type="Resource" script_class="StageGuideData" format=3]
+[gd_resource type="Resource" script_class="StageGuideData" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/StageGuideData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/core/GuidePage.gd" id="2"]
+
+[sub_resource type="Resource" id="page_carry"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_carry.png"
+title_key = "guide.s1.page_carry_title"
+body_key = "guide.s1.page_carry_body"
+text_x = 0.04
+text_y = 0.04
+text_width = 0.92
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
+
+[sub_resource type="Resource" id="page_deliver"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_goal.png"
+title_key = "guide.s1.page_deliver_title"
+body_key = "guide.s1.page_deliver_body"
+text_x = 0.04
+text_y = 0.04
+text_width = 0.92
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
+
+[sub_resource type="Resource" id="page_climber"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_climbing.png"
+title_key = "guide.s1.page_climber_title"
+body_key = "guide.s1.page_climber_body"
+text_x = 0.0
+text_y = 0.04
+text_width = 1.0
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
 
 [resource]
 script = ExtResource("1")
@@ -9,3 +58,4 @@ goal_key = "guide.s1.goal"
 new_skill_ids = Array[String](["climber"])
 skill_desc_keys = Array[String](["guide.s1.climber_desc"])
 hazard_keys = Array[String]([])
+pages = Array[Resource]([SubResource("page_carry"), SubResource("page_deliver"), SubResource("page_climber")])

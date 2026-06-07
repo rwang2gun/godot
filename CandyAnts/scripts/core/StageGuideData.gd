@@ -25,3 +25,9 @@ class_name StageGuideData extends Resource
 
 # 해저드 경고 카피 key 목록 (Strings). 0~n개. 카피는 ⚠ 프리픽스 포함.
 @export var hazard_keys: Array[String] = []
+
+# guide-card-ui-restructure — 가이드 항목별 페이지(스크린샷 + 오버레이 제목/본문). 스테이지마다 직접 저작.
+# 비어 있으면 기존 단일 카드(목표+스킬칩+해저드)로 렌더. 채워져 있으면 페이징 카드로 렌더.
+# 위 텍스트 키 필드(goal_key/new_skill_ids/skill_desc_keys/hazard_keys)는 페이징 모드에서도 유지한다 —
+# 드리프트 가드(new_skill_ids ⊆ available_skills, 첫 등장 완전성)와 카드 inspector가 계속 의존하기 때문.
+@export var pages: Array[GuidePage] = []
