@@ -69,6 +69,10 @@ const STAGE_SELECT_SCENE := "res://scenes/ui/StageSelect.tscn"
 @export var overlay_path: NodePath
 @export var virtual_cursor_path: NodePath
 @export var cursor_targeting_resolver_path: NodePath
+# Phase 4 (intro-card-infra) — 스테이지 진입 인트로 카드. 비어 있으면(미배선) 카드 없이 즉시 begin.
+@export var intro_card_path: NodePath
+# 카드 노출 토글. false면 항상 스킵(즉시 begin). 헤드리스는 별도로 자동 스킵(_intro_enabled).
+@export var show_intro_cards: bool = true
 # Phase 13 — SceneFlowBootBypassTest 전용 (plan Δ10). production 부트는 0 → TITLE.
 # add_child(main) 전에 export 설정해야 _ready에서 인식. 0이면 정상 title 부트.
 @export var boot_to_stage_id: int = 0
@@ -79,6 +83,11 @@ var _current_stage_id: int = 0
 var _current_stage_node: Node = null
 var _resolver: Node = null
 var _last_result: Dictionary = {}
+# Phase 4 — 인트로 카드 + begin() 게이트.
+var _intro_card: Node = null
+var _pending_intro_stage: Node = null
+# 테스트 seam: 헤드리스에서도 카드 노출 경로(게이트→dismiss→begin)를 검증하려고 헤드리스 스킵을 우회.
+var _test_force_intro: bool = false
 
 var current_screen: ScreenState = ScreenState.TITLE
 
@@ -86,6 +95,8 @@ func _ready() -> void:
 	ensure_stage_scan()
 	_current_stage_root = get_node(current_stage_root_path)
 	_overlay = get_node(overlay_path)
+	if not intro_card_path.is_empty():
+		_intro_card = get_node_or_null(intro_card_path)
 
 	if not virtual_cursor_path.is_empty():
 		var cursor: Control = get_node_or_null(virtual_cursor_path) as Control
@@ -106,6 +117,13 @@ func _ready() -> void:
 	EventBus.action_triggered.connect(_on_action_triggered)
 
 	_boot()
+
+func _exit_tree() -> void:
+	# Phase 4 — 카드 표시 중 SceneFlow(Main) teardown 시 InputRouter(autoload) 인트로 게이트가
+	# true로 남는 leak 방어. 다음 SceneFlow가 blocked로 시작하지 않도록 자기 게이트만 해제.
+	if _pending_intro_stage != null:
+		_set_intro_pause_block(false)
+		_pending_intro_stage = null
 
 func _boot() -> void:
 	if boot_to_stage_id > 0 and STAGE_SCENES.has(boot_to_stage_id):
@@ -153,12 +171,72 @@ func load_stage(stage_id: int) -> void:
 	_unload_current_screen()
 	_last_result = {}
 	var stage_node: Node = scene.instantiate()
+	# Phase 4 — 인트로 카드 게이트. 카드를 띄울 땐 add_child(=_ready) 전에 auto_begin=false로 둬서
+	# _ready가 spawn을 시작하지 않게 하고, 카드 dismiss 후 begin()을 호출한다. has_method 가드로
+	# begin()이 없는 비-StageRunner 루트는 자연히 즉시 시작(set()은 미존재 시 무해한 no-op).
+	var gate_with_card: bool = _intro_enabled() and stage_node.has_method("begin")
+	if gate_with_card:
+		stage_node.set("auto_begin", false)
 	_current_stage_root.add_child(stage_node)
 	_current_stage_node = stage_node
 	_current_stage_id = stage_id
 	current_screen = ScreenState.STAGE
 	if _resolver != null and _resolver.has_method("set_active_stage_root"):
 		_resolver.set_active_stage_root(stage_node)
+	if gate_with_card:
+		_show_intro_card(stage_node)
+
+# ─── Phase 4: 인트로 카드 게이트 ────────────────────────────────
+# 카드를 띄울지 여부. show_intro_cards 토글 + 카드 배선 + (헤드리스 자동 스킵 | 테스트 강제) 조합.
+func _intro_enabled() -> bool:
+	if not show_intro_cards:
+		return false
+	if _intro_card == null:
+		return false
+	if _test_force_intro:
+		return true
+	# 헤드리스(자동 테스트·서버)는 카드 스킵 → 즉시 begin. 기존 SceneFlow 구동 헤드리스 테스트 회귀 0.
+	return DisplayServer.get_name() != "headless"
+
+func _show_intro_card(stage_node: Node) -> void:
+	_pending_intro_stage = stage_node
+	if not _intro_card.intro_dismissed.is_connected(_on_intro_dismissed):
+		_intro_card.intro_dismissed.connect(_on_intro_dismissed, CONNECT_ONE_SHOT)
+	var stage_data: StageData = null
+	if "stage_data" in stage_node:
+		stage_data = stage_node.stage_data
+	_intro_card.show_intro(stage_data)
+	# codex impl-review R1 MEDIUM — 카드 표시 중 pause/step/restart 입력을 중앙 게이트에서 차단.
+	# StepFrame의 tree.paused 토글 + PauseMenu 표시 둘 다 PAUSE_TOGGLE emit에 의존하므로 InputRouter
+	# 단일 지점에서 막으면 "begin 전 모달 스택" 전체를 봉쇄한다(카드 Esc는 _unhandled_input이라 무영향).
+	_set_intro_pause_block(true)
+
+func _on_intro_dismissed() -> void:
+	var node: Node = _pending_intro_stage
+	_pending_intro_stage = null
+	_set_intro_pause_block(false)
+	# 카드가 닫혔을 때의 현재 스테이지가 게이트한 노드와 동일할 때만 begin (전환 race 방어).
+	if node != null and is_instance_valid(node) and node == _current_stage_node and node.has_method("begin"):
+		node.begin()
+
+func _reset_intro_card() -> void:
+	if _intro_card == null:
+		return
+	if _intro_card.intro_dismissed.is_connected(_on_intro_dismissed):
+		_intro_card.intro_dismissed.disconnect(_on_intro_dismissed)
+	if _intro_card.has_method("hide_intro"):
+		_intro_card.hide_intro()
+	# 카드 구간이 열려 있었으면(pending 존재) pause block을 닫는다 — 메뉴 전환 후 stuck 차단.
+	if _pending_intro_stage != null:
+		_set_intro_pause_block(false)
+	_pending_intro_stage = null
+
+# 카드 표시 동안 pause-affecting action(PAUSE_TOGGLE/STEP_FRAME/RESTART_STAGE) emit을 막는다.
+# InputRouter의 인트로 전용 게이트(StepFrame과 독립)를 토글 → in-flight StepFrame continuation의
+# release가 카드 block을 clobber하지 못함(codex impl-review R2 MEDIUM 해소).
+func _set_intro_pause_block(blocked: bool) -> void:
+	if InputRouter != null and InputRouter.has_method("set_intro_pause_blocked"):
+		InputRouter.set_intro_pause_blocked(blocked)
 
 func load_next_stage() -> void:
 	var next_id: int = _current_stage_id + 1
@@ -188,6 +266,8 @@ func get_active_stage_node() -> Node:
 # CurrentStageRoot 자체 process_mode를 INHERIT으로 복귀하면서 메뉴 진입 후 frozen
 # 잔존 차단 (frozen된 채 메뉴 _process가 안 도는 버그 차단).
 func _unload_current_screen() -> void:
+	# Phase 4 — 화면 파괴 전 인트로 카드도 강제 정리(카드 표시 중 replay/menu 전환 시 stale begin 차단).
+	_reset_intro_card()
 	var children: Array = _current_stage_root.get_children()
 	for child in children:
 		_current_stage_root.remove_child(child)

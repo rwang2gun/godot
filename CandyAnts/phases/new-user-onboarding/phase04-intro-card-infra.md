@@ -1,7 +1,7 @@
 ---
 name: intro-card-infra
 duration_estimate: 9000
-verify: python scripts/run_test.py tests/StageIntroCardShowTest.tscn && python scripts/run_test.py tests/StageRunnerBeginGateTest.tscn && python scripts/run_test.py tests/StageIntroCardHeadlessSkipTest.tscn
+verify: python scripts/run_test.py tests/StageIntroCardShowTest.tscn && python scripts/run_test.py tests/StageRunnerBeginGateTest.tscn && python scripts/run_test.py tests/StageIntroCardHeadlessSkipTest.tscn && python scripts/run_test.py tests/IntroPauseBlockOwnershipTest.tscn
 large_change_ok: false
 sot: docs/STAGE_GUIDE_PLAN.md
 sot_aux: [scripts/ui/StageDialog.gd, scripts/core/StageRunner.gd, scripts/core/SceneFlow.gd, phases/new-user-onboarding/REVISION_2026-06-07-new-user-onboarding.md]

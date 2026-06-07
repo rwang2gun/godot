@@ -41,11 +41,11 @@
       "file": "phase04-intro-card-infra.md",
       "name": "intro-card-infra",
       "duration_estimate": 9000,
-      "verify": "python scripts/run_test.py tests/StageIntroCardShowTest.tscn && python scripts/run_test.py tests/StageRunnerBeginGateTest.tscn && python scripts/run_test.py tests/StageIntroCardHeadlessSkipTest.tscn",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "verify": "python scripts/run_test.py tests/StageIntroCardShowTest.tscn && python scripts/run_test.py tests/StageRunnerBeginGateTest.tscn && python scripts/run_test.py tests/StageIntroCardHeadlessSkipTest.tscn && python scripts/run_test.py tests/IntroPauseBlockOwnershipTest.tscn",
+      "state": "completed",
+      "started_at": "2026-06-07T15:54:48",
+      "completed_at": "2026-06-07T16:39:34",
+      "duration_seconds": 2686
     },
     {
       "id": 5,

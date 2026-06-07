@@ -41,6 +41,10 @@ var _last_prev_emit_msec: int = -1000
 # StepFrame.acquire/release gate에서 토글, _dispatch_input_map_action / _on_pad_b /
 # _tick_b_button에서 검사. SceneFlow는 direct EventBus emit에 대해 2차 guard로 사용.
 var _pause_actions_blocked: bool = false
+# Phase 4 (intro-card-infra) — 인트로 카드 표시 구간 별도 소유 게이트. StepFrame과 같은 bool을
+# 공유하면 in-flight StepFrame continuation의 _release_gate()가 카드 block을 clobber할 수 있어
+# (codex impl-review R2 MEDIUM) 소유권을 분리한다. 둘 중 하나라도 true면 차단(_pause_blocked OR).
+var _intro_pause_blocked: bool = false
 
 
 func _ready() -> void:
@@ -75,7 +79,7 @@ func _dispatch_input_map_action(event: InputEvent) -> void:
 			continue
 		# Phase 8 — StepFrame await 중 pause-affecting action은 차단 + handled 처리.
 		# emit 자체를 skip하므로 throttle/coordinate 부수효과도 발생하지 않는다.
-		if _pause_actions_blocked and _is_pause_affecting_action(name):
+		if _pause_blocked() and _is_pause_affecting_action(name):
 			var vp_gate: Viewport = get_viewport()
 			if vp_gate != null:
 				vp_gate.set_input_as_handled()
@@ -99,12 +103,22 @@ func _is_pause_affecting_action(name: StringName) -> bool:
 
 
 func set_pause_actions_blocked(blocked: bool) -> void:
-	# Phase 8 — StepFrame이 stepping 시작/종료 시 호출.
+	# Phase 8 — StepFrame이 stepping 시작/종료 시 호출. StepFrame 소유 게이트만 토글.
 	_pause_actions_blocked = blocked
 
 
+# Phase 4 — 인트로 카드(SceneFlow) 소유 게이트. StepFrame과 독립 → 상호 clobber 불가.
+func set_intro_pause_blocked(blocked: bool) -> void:
+	_intro_pause_blocked = blocked
+
+
+# 두 게이트(StepFrame · 인트로 카드) 중 하나라도 true면 pause-affecting action 차단.
+func _pause_blocked() -> bool:
+	return _pause_actions_blocked or _intro_pause_blocked
+
+
 func are_pause_actions_blocked() -> bool:
-	return _pause_actions_blocked
+	return _pause_blocked()
 
 
 func _emit_positional(action: StringName, event: InputEvent) -> void:
@@ -258,7 +272,8 @@ func _tick_b_button(delta: float) -> void:
 		_b_pressed = false
 		_b_press_time = 0.0
 		# Phase 8 — StepFrame await 중이면 emit 자체를 skip (hold 상태는 이미 위에서 정리).
-		if _pause_actions_blocked:
+		# Phase 4 — 인트로 카드 표시 중에도 차단(_pause_blocked OR).
+		if _pause_blocked():
 			return
 		EventBus.action_triggered.emit(GameAction.RESTART_STAGE, {})
 

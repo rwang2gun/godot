@@ -41,6 +41,10 @@ const _TABLE: Dictionary = {
 	# TitleScene — scripts/ui/TitleScene.gd
 	"title.hint_pad": "버튼을 눌러 주세요",
 	"title.hint_key": "아무 키나 눌러 주세요",
+
+	# StageIntroCard — scripts/ui/StageIntroCard.gd (Phase 4 placeholder, 내용은 Phase 5에서 확정)
+	"guide.intro_title": "스테이지",
+	"guide.intro_body_placeholder": "곧 시작해요!",
 }
 
 # 스킬 id -> 한글 라벨. 구 SkillToolbar.KO_LABELS를 이관.

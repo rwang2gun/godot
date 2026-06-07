@@ -11,6 +11,12 @@ const RR_STEP: int = 5
 @export var toolbar_path: NodePath
 @export var ant_scene: PackedScene = null
 @export var spawn_parent_path: NodePath
+# Phase 4 (intro-card-infra, STAGE_GUIDE_PLAN §2.3 방식2) — 스폰/타이머 시작 게이트.
+# true(기본): _ready 끝에서 즉시 begin() — 직접 로드(헤드리스 테스트·플레이테스트 F6)·인트로 카드
+#   없는 경로. 기존 모든 stage 씬·테스트가 이 기본값으로 종전과 동일하게 자동 시작한다.
+# false: SceneFlow가 인트로 카드로 게이트할 때 add_child 전에 설정 → _ready가 spawn을 시작하지
+#   않고, 카드 intro_dismissed 후 SceneFlow가 begin()을 호출한다.
+@export var auto_begin: bool = true
 
 var score_system: ScoreSystem = null
 
@@ -24,6 +30,9 @@ var _spawn_parent: Node = null
 var _time_left: float = 0.0
 var _completed: bool = false
 var _spawner_finished: bool = false
+# Phase 4 — begin() 게이트. 카드 표시 중에는 false라 _process가 타이머/종료 판정을 진행하지 않고
+# _spawner.start()도 호출되지 않는다. begin()은 멱등 — 중복 호출은 무시(정확히 1회 시작).
+var _begun: bool = false
 
 func _ready() -> void:
 	if stage_data == null:
@@ -76,9 +85,11 @@ func _ready() -> void:
 			_spawner.spawn_finished.connect(_on_spawner_finished)
 		# codex plan-review v1 MED-2: 직접 대입 대신 set_release_rate 호출 →
 		# AntSpawner가 release_rate_changed emit → ReleaseRateStepper.Value Label 동기.
-		# .tscn 기본 Value text가 빈 문자열인 risk를 첫 frame에 채움.
+		# .tscn 기본 Value text가 빈 문자열인 risk를 첫 frame에 채움. (begin 전에 둬도
+		# 안전 — set_release_rate는 spawn을 시작하지 않고 rate/HUD만 갱신.)
+		# Phase 4 — _spawner.start()는 begin()으로 분리(아래). connect는 위에서 이미 완료라
+		# CRITICAL ORDERING(connect ⊂ start 이전) 유지.
 		_spawner.set_release_rate(stage_data.release_rate_initial)
-		_spawner.start(_spawn_parent)
 
 	_time_left = stage_data.time_limit_seconds
 	_completed = false
@@ -90,10 +101,29 @@ func _ready() -> void:
 
 	# Phase 6: stage 결과 표시는 SceneFlow/Overlay 책임. StageRunner는 emit만 함.
 
-	print("[StageRunner] starting Stage ", stage_data.id, " total=", stage_data.total_ants, " hp=", stage_data.candy_hp)
+	print("[StageRunner] ready Stage ", stage_data.id, " total=", stage_data.total_ants, " hp=", stage_data.candy_hp, " auto_begin=", auto_begin)
+
+	# Phase 4 — 직접 로드(헤드리스/플레이테스트)·카드 없는 경로는 즉시 시작. SceneFlow가 카드로
+	# 게이트할 땐 auto_begin=false로 두고 intro_dismissed 후 begin() 호출.
+	if auto_begin:
+		begin()
+
+# 스폰·타이머 게이트 진입점 (Phase 4 — STAGE_GUIDE_PLAN §2.3 방식2). 멱등(중복 호출 무시 = 정확히 1회 시작).
+func begin() -> void:
+	if _begun:
+		return
+	_begun = true
+	if _spawner != null:
+		print("[StageRunner] begin Stage ", stage_data.id if stage_data != null else -1)
+		_spawner.start(_spawn_parent)
+
+# 테스트/배선 inspector — 스폰이 시작됐는지(begin 호출 후 true).
+func is_begun() -> bool:
+	return _begun
 
 func _process(delta: float) -> void:
-	if _completed or stage_data == null:
+	# Phase 4 — begin() 전(카드 표시 중)에는 타이머/종료 판정을 진행하지 않는다.
+	if not _begun or _completed or stage_data == null:
 		return
 
 	_time_left = max(0.0, _time_left - delta)
