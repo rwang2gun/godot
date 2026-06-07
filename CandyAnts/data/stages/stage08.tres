@@ -17,4 +17,3 @@ skill_inventory = {
 "leaf_jump": 3
 }
 release_rate_initial = 30
-star_thresholds = Array[float]([0.5, 0.75, 1.0])

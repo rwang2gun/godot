@@ -410,34 +410,53 @@ func _migrate(cfg: ConfigFile, from_v: int, to_v: int) -> void:
     cfg.save("user://save.cfg")
 ```
 
-### 5.3 별점 알고리즘 (v0.1) — **단일 SoT: `Scoring.compute_stars`**
+### 5.3 별점 알고리즘 (전역 고정 규칙) — **단일 SoT: `Scoring.compute_stars`**
 
-**owner**: `scripts/core/Scoring.gd` (RefCounted, 정적 헬퍼). Phase 12(stage-dialog)에서 신설. Phase 12 StageDialog와 Phase 13 SaveData.record_clear가 **모두 본 함수만 호출**. 두 곳에서 직접 계산 금지.
+**owner**: `scripts/core/Scoring.gd` (RefCounted, 정적 헬퍼). StageDialog · StageSlotCard · SaveData.record_clear · StageRunner(클리어 판정)가 **모두 본 함수만 호출**. 직접 계산 금지.
+
+**규칙 (2026-06-08 — 스테이지별 임계값 override 폐지, 전역 고정):**
+- `saved >= 1` (조각수 기준, 사탕 HP **무관**) → **1성** = 스테이지 클리어 조건
+- 비율 ≥ **50%** → 2성
+- 비율 ≥ **80%** → 3성
+- 비율 == **100%** (`is_perfect`) → 채운 별을 **보라색(GRAPE_700)**으로 표시 (결과창 + 스테이지 선택 메뉴)
+
+비율 = `saved / original_hp`.
 
 ```gdscript
 # scripts/core/Scoring.gd
 class_name Scoring
 extends RefCounted
 
-const STAR_THRESHOLDS := [0.50, 0.80, 0.95]   # ascending, 길이 = max_stars(3)
+const SECOND_STAR_RATIO := 0.50
+const THIRD_STAR_RATIO := 0.80
 
 static func compute_stars(saved: int, original_hp: int) -> int:
-    if original_hp <= 0:
+    if original_hp <= 0 or saved <= 0:
         return 0
-    var ratio := float(saved) / float(original_hp)
-    var stars := 0
-    for threshold in STAR_THRESHOLDS:
-        if ratio >= threshold:
-            stars += 1
+    return compute_stars_from_ratio(float(saved) / float(original_hp))
+
+static func compute_stars_from_ratio(ratio: float) -> int:
+    if ratio <= 0.0:
+        return 0
+    var stars := 1
+    if ratio >= SECOND_STAR_RATIO:
+        stars = 2
+    if ratio >= THIRD_STAR_RATIO:
+        stars = 3
     return stars
+
+static func is_perfect(saved: int, original_hp: int) -> bool:
+    return original_hp > 0 and saved >= original_hp
 ```
 
 | 호출자 | 위치 | 호출 |
 |---|---|---|
-| StageDialog | `scripts/ui/StageDialog.gd._on_stage_cleared` | `Scoring.compute_stars(saved, original_hp)` → 별 polygon fill 토글 |
-| SaveData    | `scripts/core/SaveData.record_clear` | `Scoring.compute_stars(saved, original_hp)` → `stage_progress[id].stars` 저장 |
+| StageDialog  | `scripts/ui/StageDialog.gd.show_result` | `compute_stars` + `is_perfect`(보라별) → 별 polygon fill 토글 |
+| StageSlotCard| `scripts/ui/atoms/StageSlotCard.gd._apply_text` | `stars` + `best_score>=1.0`(보라별) → 슬롯 카드 별 색 |
+| SaveData     | `scripts/core/SaveData.record_clear` | `compute_stars(best_saved, original_hp)` → `stage_progress[id].stars` 저장 |
+| StageRunner  | `scripts/core/StageRunner._conclude_stage` | `compute_stars(...) >= 1` → 클리어/실패 판정 |
 
-> **Freeze 정책**: `Scoring.compute_stars(saved, original_hp) -> int` 시그니처는 phase 12 완료 시 freeze. stage별 임계값 override는 v0.2(`data/stages/stageNN.tres.star_thresholds: PackedFloat32Array`)에서 도입 — 그때 본 함수에 옵션 인자 1개 추가(`stage_thresholds: Array = STAR_THRESHOLDS`).
+> **마이그레이션**: 영속 데이터(`save.cfg`)의 기존 stars는 구 비율 임계값 기준이라 신규 규칙과 desync. SaveData schema `v2→v3`(`_migrate_2_to_3`)가 저장된 `best_score`로 전 스테이지 stars를 신규 규칙으로 재계산한다 (`best_score`만으로 완전 결정: `saved>=1 ⟺ ratio>0`).
 
 ### 5.4 손상/누락 처리
 - 파일 누락 → 신규 게임 init (warn만, error 아님)

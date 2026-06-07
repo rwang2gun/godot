@@ -32,8 +32,8 @@ func _case_a_clear_emit() -> void:
 		return _fail("case A: stage1.cleared not true")
 	if int(s1.get("best_saved", 0)) != 8:
 		return _fail("case A: best_saved expected 8, got %s" % str(s1.get("best_saved")))
-	if int(s1.get("stars", 0)) != 2:    # 0.8 >= 0.5 + 0.8, < 0.95
-		return _fail("case A: stars expected 2, got %s" % str(s1.get("stars")))
+	if int(s1.get("stars", 0)) != 3:    # 8/10 = 80% → 3성 (전역 규칙)
+		return _fail("case A: stars expected 3, got %s" % str(s1.get("stars")))
 	if int(s1.get("attempts", 0)) != 1:
 		return _fail("case A: attempts expected 1, got %s" % str(s1.get("attempts")))
 	if SaveData.last_played_stage != 1:
@@ -62,7 +62,7 @@ func _case_c_repeat_clear_monotonic() -> void:
 	var s1: Dictionary = SaveData.stage_progress.get(1, {})
 	if int(s1.get("best_saved", 0)) != 8:    # 5 < 8, 보존
 		return _fail("case C: best_saved monotonic broken, got %s" % str(s1.get("best_saved")))
-	if int(s1.get("stars", 0)) != 2:    # max(2, 1) = 2
+	if int(s1.get("stars", 0)) != 3:    # best_saved=8 유지 → 80% → 3성
 		return _fail("case C: stars monotonic broken")
 	if int(s1.get("attempts", 0)) != 2:
 		return _fail("case C: attempts expected 2, got %s" % str(s1.get("attempts")))

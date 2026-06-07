@@ -64,11 +64,14 @@ func _apply_text() -> void:
 		return
 	_stage_label.text = _resolve_name()
 	var stars: int = int(_progress.get("stars", 0))
+	# 100% 회수(best_score >= 1.0) 클리어면 채운 별을 보라색(GRAPE_700)으로 표시.
+	var perfect: bool = float(_progress.get("best_score", 0.0)) >= 1.0
+	var fill_color: Color = Tokens.GRAPE_700 if perfect else Tokens.LEMON_500
 	for i in _star_polys.size():
 		var poly: Polygon2D = _star_polys[i].get_node("Poly") as Polygon2D
 		if poly == null:
 			continue
-		poly.color = Tokens.LEMON_500 if i < stars else Tokens.CREAM_200
+		poly.color = fill_color if i < stars else Tokens.CREAM_200
 	if _progress.get("cleared", false):
 		var saved: int = int(_progress.get("best_saved", 0))
 		_score_label.text = Strings.t("stage_card.best", [saved])

@@ -1,33 +1,34 @@
 class_name Scoring
 extends RefCounted
 
-# Phase 12 owner — UI_GUIDE §5.3 단일 SoT.
-# Phase 13 SaveData.record_clear도 본 함수만 호출 (자체 계산 금지).
-# Phase 20 — `thresholds: Array = []` 시그니처 확장. 빈 배열은 글로벌 fall-back.
-#  R1-M2: invalid thresholds(길이 != 3 / descending / 0..1 범위 외)는 0 star + push_warning.
+# 별 규칙 (2026-06-08 전역 고정 — 스테이지별 임계값 override 폐지).
+#   - saved >= 1   (조각수 기준, 사탕 HP 무관)   → 1성  (= 스테이지 클리어 조건)
+#   - 비율 >= 50%                                → 2성
+#   - 비율 >= 80%                                → 3성
+#   - 비율 == 100% (saved == original_hp)        → is_perfect (UI가 보라색 별로 표시)
+# 비율 = saved / original_hp. UI_GUIDE §5.3 단일 SoT.
+# SaveData.record_clear / StageDialog / StageSlotCard / StageRunner 모두 본 함수만 호출 (자체 계산 금지).
 
-const STAR_THRESHOLDS := [0.50, 0.80, 0.95]   # ascending, len = max_stars(3)
+const SECOND_STAR_RATIO := 0.50
+const THIRD_STAR_RATIO := 0.80
 
-static func compute_stars(saved: int, original_hp: int, thresholds: Array = []) -> int:
-	if original_hp <= 0:
+static func compute_stars(saved: int, original_hp: int) -> int:
+	if original_hp <= 0 or saved <= 0:
 		return 0
-	# R1-M2 — invalid thresholds 0 star + warning fall-back.
-	# 길이 ≠ 3 / descending / 0..1 범위 외는 silent corruption 차단.
-	if not thresholds.is_empty():
-		if thresholds.size() != STAR_THRESHOLDS.size():
-			push_warning("[Scoring] invalid star_thresholds length: %d (expected %d)" % [thresholds.size(), STAR_THRESHOLDS.size()])
-			return 0
-		var prev: float = -1.0
-		for t in thresholds:
-			var tf: float = float(t)
-			if tf < prev or tf < 0.0 or tf > 1.0:
-				push_warning("[Scoring] invalid star_thresholds entry %s (must be ascending in [0,1])" % str(thresholds))
-				return 0
-			prev = tf
-	var ratio := float(saved) / float(original_hp)
-	var th: Array = thresholds if not thresholds.is_empty() else STAR_THRESHOLDS
-	var stars := 0
-	for threshold in th:
-		if ratio >= threshold:
-			stars += 1
+	return compute_stars_from_ratio(float(saved) / float(original_hp))
+
+# 비율(이미 saved/original_hp로 계산된 값)만으로 별 산정. SaveData 마이그레이션이 best_score(저장된 비율)로
+# original_hp 없이 stars를 재계산할 때 사용. saved >= 1 ⟺ ratio > 0 이므로 1성 경계도 비율로 표현 가능.
+static func compute_stars_from_ratio(ratio: float) -> int:
+	if ratio <= 0.0:
+		return 0
+	var stars := 1
+	if ratio >= SECOND_STAR_RATIO:
+		stars = 2
+	if ratio >= THIRD_STAR_RATIO:
+		stars = 3
 	return stars
+
+# 100% 회수(완벽 클리어) 여부. UI가 보라색 별 토글에 사용.
+static func is_perfect(saved: int, original_hp: int) -> bool:
+	return original_hp > 0 and saved >= original_hp

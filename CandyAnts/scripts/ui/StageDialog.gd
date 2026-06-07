@@ -83,13 +83,13 @@ func show_result(result: Dictionary, is_last_stage: bool) -> void:
 	_chip_lost.set_label_value(Strings.t("dialog.chip_lost"), str(lost))
 	_chip_time.set_label_value(Strings.t("dialog.chip_time"), Strings.t("dialog.chip_time_value", [int(time_left)]))
 	# Step 4: star fill + sfx_request(star_fill) per filled star.
-	# Phase 20 — stage별 star_thresholds override 전달. 빈 배열이면 글로벌 fall-back.
-	var thresholds: Array = result.get("star_thresholds", [])
-	var stars := Scoring.compute_stars(saved, original_hp, thresholds)
+	# 전역 별 규칙(Scoring). 100% 회수면 채운 별을 보라색(GRAPE_700)으로 표시.
+	var stars := Scoring.compute_stars(saved, original_hp)
+	var fill_color: Color = Tokens.GRAPE_700 if Scoring.is_perfect(saved, original_hp) else Tokens.LEMON_500
 	var star_polys := [_star1, _star2, _star3]
 	for i in star_polys.size():
 		var filled := i < stars
-		star_polys[i].color = Tokens.LEMON_500 if filled else Tokens.CREAM_200
+		star_polys[i].color = fill_color if filled else Tokens.CREAM_200
 		if filled:
 			EventBus.sfx_request.emit(&"star_fill")
 	# Step 5: NextBtn 분기 + _next_should_be_disabled 갱신.
@@ -134,11 +134,11 @@ func is_next_disabled() -> bool:
 func is_next_visible() -> bool:
 	return _next_btn.visible
 
-# 별 채움 상태 검증 inspector (plan v6.1 §3.2 L-1 주의: 단순 color compare).
+# 별 채움 상태 검증 inspector (단순 color compare). 채운 별은 LEMON_500(일반) 또는 GRAPE_700(100% 완벽).
 func star_filled_count() -> int:
 	var n := 0
 	for poly in [_star1, _star2, _star3]:
-		if poly.color.is_equal_approx(Tokens.LEMON_500):
+		if poly.color.is_equal_approx(Tokens.LEMON_500) or poly.color.is_equal_approx(Tokens.GRAPE_700):
 			n += 1
 	return n
 

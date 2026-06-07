@@ -8,17 +8,11 @@ extends Node
 # 시그널 의미 검증은 SaveData 책임 아님 (Decoupling).
 
 const SAVE_PATH := "user://save.cfg"
-# Phase 20: schema bump v1→v2 — stage03 star_thresholds override 도입(0.55/0.85/0.97).
-# 기존 v1 영속 데이터의 stage03.stars는 글로벌 thresholds 기반이라 신규 thresholds와 desync 위험.
-# _migrate_1_to_2가 stage03 entry의 best_saved + STAGE_03_ORIGINAL_HP + 신규 thresholds로 stars recompute.
-const CURRENT_SCHEMA := 2
-
-# Phase 20 — stage03 migration 상수. stage03.tres의 candy_hp는 9 (Phase 20 무변경) +
-# star_thresholds override = [0.55, 0.85, 0.97]. 데이터 .tres 직접 로드 회피 — migration 시점에
-# resource loader가 안전하지 않을 수 있어 const 사용.
-const _STAGE_03_ID := 3
-const _STAGE_03_ORIGINAL_HP := 9
-const _STAGE_03_THRESHOLDS_V2: Array = [0.55, 0.85, 0.97]
+# schema 이력:
+#   v1→v2 (Phase 20): stage03 star_thresholds override 도입. (별 규칙 전역화로 의미 폐기 → _migrate_1_to_2 no-op.)
+#   v2→v3 (2026-06-08): 별 규칙 전역 고정(saved>=1=1성 / 50%=2성 / 80%=3성). 스테이지별 임계값 폐지.
+#     기존 영속 stars는 구 비율 임계값 기준이라 신규 규칙과 desync → best_score(저장된 비율)로 전 스테이지 recompute.
+const CURRENT_SCHEMA := 3
 
 var schema_version: int = CURRENT_SCHEMA
 var last_played_stage: int = 0
@@ -47,12 +41,10 @@ func _on_stage_cleared(result: Dictionary) -> void:
 	var stage_id: int = int(result.get("stage_id", 0))
 	if stage_id <= 0:
 		return
-	# Phase 20 — star_thresholds 전달 (R1-H2). UI(StageDialog) ↔ 영속 데이터(stage_progress.stars) 동기 보장.
 	record_clear(
 		stage_id,
 		int(result.get("saved", 0)),
 		int(result.get("original_hp", 0)),
-		result.get("star_thresholds", []),
 	)
 
 func _on_stage_failed(result: Dictionary) -> void:
@@ -146,30 +138,18 @@ func save() -> void:
 	if main_err != OK:
 		push_warning("[SaveData] tmp→main rename failed err=%d" % main_err)
 
-func record_clear(stage_id: int, saved: int, original_hp: int, thresholds: Array = []) -> void:
-	# Phase 20 — `thresholds` 4번째 인자 default 빈 배열로 기존 caller 호환 유지 (R1-H2).
-	# Phase 20 (codex impl-review R1 HIGH) — stars는 best_saved 기반으로 항상 현재 thresholds로
-	# recompute. thresholds 변경 시에도 UI ↔ SaveData stars 일치 보장.
-	# Phase 20 (codex impl-review R2 HIGH) — malformed 입력(original_hp<=0/invalid thresholds) 시
-	# Scoring.compute_stars 0 반환으로 기존 stars 영구 downgrade 위험.
-	# Phase 20 (codex impl-review R3 HIGH) — R2 fix가 stars만 보호하고 best_saved/best_score는 여전히
-	# update했음. 예: malformed(saved=999, original_hp=0) → best_saved=999 poison → 다음 valid clear
-	# (saved=5, original_hp=10) 시 stars = compute_stars(999, 10, []) → 3 star 영구 corruption.
-	# 모든 progress mutation 전에 validation: malformed면 cleared/best_saved/best_score/stars 보존,
-	# attempts만 증가 (시도 횟수는 기록 — 외부 가시).
-	# best_saved/best_score는 valid 입력에서만 monotonic 유지.
+func record_clear(stage_id: int, saved: int, original_hp: int) -> void:
+	# malformed 입력(original_hp <= 0 / saved 범위 밖)은 기존 cleared/best_saved/best_score/stars를 보존하고
+	# attempts만 증가 — 손상 입력이 진행도를 downgrade/poison하지 못하게 한다.
 	var entry: Dictionary = _get_or_init_entry(stage_id)
-	if not _is_clear_input_valid(original_hp, thresholds) or saved < 0 or saved > original_hp:
-		push_warning("[SaveData.record_clear] malformed input (stage_id=%d, saved=%d, original_hp=%d, thresholds=%s) — preserving cleared/best_saved/best_score/stars, attempts만 +1" % [stage_id, saved, original_hp, str(thresholds)])
+	if original_hp <= 0 or saved < 0 or saved > original_hp:
+		push_warning("[SaveData.record_clear] malformed input (stage_id=%d, saved=%d, original_hp=%d) — preserving progress, attempts만 +1" % [stage_id, saved, original_hp])
 		entry["attempts"] = int(entry.get("attempts", 0)) + 1
 		stage_progress[stage_id] = entry
 		last_played_stage = stage_id
 		save()
 		return
-	# 이하 valid path: 모든 progress 정상 update.
-	# Phase 20 (codex impl-review R4 HIGH 대응) — 외부 corruption(수동 .cfg 편집 등)으로 stored
-	# best_saved/best_score가 valid 범위 밖이면 신규 stars derive가 corrupted 결과 산출.
-	# valid path 진입 후 stored 값 sanitize: [0, original_hp]/[0, 1] 밖이면 corruption으로 간주.
+	# valid path — 외부 corruption(수동 .cfg 편집 등)으로 stored best_saved/best_score가 범위 밖이면 sanitize.
 	var stored_best_saved: int = int(entry.get("best_saved", 0))
 	if stored_best_saved < 0 or stored_best_saved > original_hp:
 		push_warning("[SaveData.record_clear] stored best_saved=%d out of [0, %d] for stage %d — corruption detected, resetting baseline to current saved=%d" % [stored_best_saved, original_hp, stage_id, saved])
@@ -182,30 +162,12 @@ func record_clear(stage_id: int, saved: int, original_hp: int, thresholds: Array
 	entry["cleared"] = true
 	entry["best_saved"] = max(stored_best_saved, saved)
 	entry["best_score"] = max(stored_best_score, score)
-	# stars: best_saved 기반 derive — 현재 thresholds + original_hp 사용. UI 별점과 동일 입력으로 동기.
-	entry["stars"]      = Scoring.compute_stars(int(entry["best_saved"]), original_hp, thresholds)
+	# stars: best_saved 기반 derive — UI 별점과 동일 입력(전역 Scoring 규칙)으로 동기.
+	entry["stars"]      = Scoring.compute_stars(int(entry["best_saved"]), original_hp)
 	entry["attempts"]   = int(entry.get("attempts", 0)) + 1
 	stage_progress[stage_id] = entry
 	last_played_stage = stage_id
 	save()
-
-# Phase 20 (codex impl-review R2 HIGH) — record_clear 입력 검증.
-# Scoring.compute_stars의 invalid 입력은 0 star 반환이라 SaveData가 stars overwrite하면
-# 기존값 영구 downgrade. malformed 입력은 기존 stars 보존(max() 동작 복원)을 위한 별도 검증.
-func _is_clear_input_valid(original_hp: int, thresholds: Array) -> bool:
-	if original_hp <= 0:
-		return false
-	if thresholds.is_empty():
-		return true   # 빈 배열은 글로벌 fall-back — 유효.
-	if thresholds.size() != Scoring.STAR_THRESHOLDS.size():
-		return false
-	var prev: float = -1.0
-	for t in thresholds:
-		var tf: float = float(t)
-		if tf < prev or tf < 0.0 or tf > 1.0:
-			return false
-		prev = tf
-	return true
 
 func record_attempt(stage_id: int) -> void:
 	var entry: Dictionary = _get_or_init_entry(stage_id)
@@ -302,39 +264,28 @@ func _migrate(cfg: ConfigFile, from_v: int, to_v: int) -> void:
 		match v:
 			0: _migrate_0_to_1(cfg)
 			1: _migrate_1_to_2(cfg)
+			2: _migrate_2_to_3(cfg)
 	cfg.set_value("meta", "schema_version", to_v)
 
 func _migrate_0_to_1(_cfg: ConfigFile) -> void:
 	# v0 → v1: schema_version 키만 추가 (_migrate 본체에서 처리), 데이터 변환 없음.
 	pass
 
-func _migrate_1_to_2(cfg: ConfigFile) -> void:
-	# Phase 20 — stage03 star_thresholds override 도입(codex impl-review R1 HIGH 대응).
-	# 기존 v1 데이터의 stage03.stars는 글로벌 [0.50, 0.80, 0.95] 기반으로 계산됐는데, phase 20부터
-	# stage03만 [0.55, 0.85, 0.97]로 tightening. UI(StageDialog가 신규 thresholds 사용)와
-	# SaveData.stars(stored under old rules) 불일치 회피 위해 best_saved 기반으로 stars recompute.
-	# 다른 stage(1, 2, dev_*)은 무변경 — 글로벌 fallback 그대로.
-	# Phase 20 (codex impl-review R5 HIGH 대응) — record_clear의 stored sanitize가 본 migration path를
-	# 우회하므로, migration 시점에 동일 [0, _STAGE_03_ORIGINAL_HP] 범위 sanitize 적용. corrupted
-	# best_saved(예: 수동 cfg 편집)가 recompute에 그대로 전파되어 inflate stars 산출되는 위험 차단.
-	var section := "stage_progress.%d" % _STAGE_03_ID
-	if not cfg.has_section(section):
-		return
-	var best_saved: int = _safe_int(cfg.get_value(section, "best_saved", 0))
-	# Sanitize stored best_saved — out of range는 corruption으로 간주, 0으로 reset(보수적).
-	if best_saved < 0 or best_saved > _STAGE_03_ORIGINAL_HP:
-		push_warning("[SaveData._migrate_1_to_2] stored best_saved=%d out of [0, %d] for stage 3 — corruption detected, resetting to 0 before stars recompute" % [best_saved, _STAGE_03_ORIGINAL_HP])
-		best_saved = 0
-		cfg.set_value(section, "best_saved", 0)
-	# Sanitize stored best_score — out of range는 clamp.
-	var best_score: float = _safe_float(cfg.get_value(section, "best_score", 0.0))
-	if best_score < 0.0 or best_score > 1.0:
-		push_warning("[SaveData._migrate_1_to_2] stored best_score=%f out of [0, 1] for stage 3 — clamping" % best_score)
-		cfg.set_value(section, "best_score", clampf(best_score, 0.0, 1.0))
-	# Note: original_hp는 stage_progress에 저장 안 됨. stage03.tres의 candy_hp(=9)는 phase 20에서
-	# 무변경이라 const _STAGE_03_ORIGINAL_HP 사용. 향후 stage03.candy_hp 변경 시 본 migration도 갱신 필요.
-	var recomputed: int = Scoring.compute_stars(best_saved, _STAGE_03_ORIGINAL_HP, _STAGE_03_THRESHOLDS_V2)
-	cfg.set_value(section, "stars", recomputed)
+func _migrate_1_to_2(_cfg: ConfigFile) -> void:
+	# (구) Phase 20 stage03 star_thresholds override 기반 stars recompute.
+	# 별 규칙 전역화(v2→v3)로 스테이지별 임계값이 폐지되어 의미 소멸 → no-op.
+	# v3 마이그레이션이 best_score 기준으로 전 스테이지 stars를 재계산하므로 여기서 별도 처리 불필요.
+	pass
+
+func _migrate_2_to_3(cfg: ConfigFile) -> void:
+	# 별 규칙 전역 고정(2026-06-08) — 스테이지별 star_thresholds 폐지, 전역 규칙(saved>=1=1성 / 50%=2성 / 80%=3성).
+	# 기존 영속 stars는 구 비율 임계값 기준이라 신규 규칙과 desync. best_score(=saved/hp 비율, 이미 저장됨)로
+	# 모든 스테이지 stars를 신규 규칙으로 재계산. best_score만으로 신규 규칙 완전 결정(saved>=1 ⟺ ratio>0).
+	for section in cfg.get_sections():
+		if not section.begins_with("stage_progress."):
+			continue
+		var best_score := clampf(_safe_float(cfg.get_value(section, "best_score", 0.0)), 0.0, 1.0)
+		cfg.set_value(section, "stars", Scoring.compute_stars_from_ratio(best_score))
 
 # ─── test-only (plan Δ13) ─────────────────────────────────────────
 # 테스트가 본 함수 호출:

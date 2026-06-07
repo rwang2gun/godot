@@ -155,7 +155,8 @@ func _process(delta: float) -> void:
 # 종료 시점 별점으로 클리어/실패 확정. 별 1개 이상이면 stage_cleared emit →
 # SaveData가 cleared=true 기록 → is_unlocked(다음 스테이지) true → 다음 스테이지 진입 가능.
 func _conclude_stage(fail_reason: String) -> void:
-	var cleared: bool = score_system.score() >= _one_star_threshold()
+	# 클리어 = 별 1개 이상 = 사탕 조각 1개 이상 회수 (Scoring 규칙 단일 SoT, HP 무관).
+	var cleared: bool = Scoring.compute_stars(score_system.saved_pieces, score_system.original_hp) >= 1
 	# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
 	if cleared:
 		EventBus.sfx_request.emit(&"stage_cleared")
@@ -164,14 +165,6 @@ func _conclude_stage(fail_reason: String) -> void:
 		EventBus.sfx_request.emit(&"stage_failed")
 		EventBus.stage_failed.emit(_make_result(false, fail_reason if fail_reason != "" else "incomplete"))
 	_disable_toolbar()
-
-# 1성(별 1개) 임계값. stage_data.star_thresholds[0]가 있으면 사용, 없으면 글로벌 Scoring fall-back.
-# Scoring.compute_stars(=UI/SaveData 별점)와 동일 임계를 써 "별 1개" 정의를 단일 SoT로 유지한다.
-func _one_star_threshold() -> float:
-	var th: Array = stage_data.star_thresholds
-	if th != null and not th.is_empty():
-		return float(th[0])
-	return float(Scoring.STAR_THRESHOLDS[0])
 
 func _disable_toolbar() -> void:
 	# codex plan-review v1 HIGH-2: direct ref 라우팅 — global group lookup 사용 X.
@@ -204,8 +197,6 @@ func _make_result(cleared: bool, reason: String) -> Dictionary:
 		"score": score_system.score(),
 		"time_left": _time_left,
 		"reason": reason,
-		# Phase 20 — Array[float], 빈 배열이면 글로벌 Scoring.STAR_THRESHOLDS fall-back.
-		"star_thresholds": stage_data.star_thresholds,
 	}
 
 func _living_ant_count() -> int:

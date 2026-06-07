@@ -13,4 +13,3 @@ available_skills = []
 skill_inventory = {}
 release_rate_initial = 30
 release_rate_min = 1
-star_thresholds = Array[float]([])

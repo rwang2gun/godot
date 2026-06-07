@@ -774,14 +774,7 @@ func _build_stage_data(stage_id: int, stage_name: String, _scene_path: String, l
 				new_skills.append(skill_id)
 		stage_data.skill_inventory = spin_inventory
 		stage_data.available_skills = new_skills
-	if _star_override_check.button_pressed:
-		var stars: Array[float] = []
-		for star_spin: SpinBox in _star_spins:
-			stars.append(float(star_spin.value))
-		stage_data.star_thresholds = stars
-	else:
-		var empty_stars: Array[float] = []
-		stage_data.star_thresholds = empty_stars
+	# 별 규칙 전역화(2026-06-08) — StageData.star_thresholds 필드 폐지. 별 override UI는 비활성(no-op).
 	return stage_data
 
 func _build_layout_data() -> Resource:

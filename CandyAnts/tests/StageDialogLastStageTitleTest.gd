@@ -30,7 +30,6 @@ func _case_last_cleared() -> void:
 	var result := {
 		"stage_id": 3, "cleared": true, "saved": 10, "lost": 0, "original_hp": 10,
 		"score": 1.0, "time_left": 30.0, "reason": "",
-		"star_thresholds": [0.55, 0.85, 0.97],
 	}
 	dlg.show_result(result, true)
 	await get_tree().process_frame
@@ -46,7 +45,6 @@ func _case_mid_cleared() -> void:
 	var result := {
 		"stage_id": 1, "cleared": true, "saved": 8, "lost": 2, "original_hp": 10,
 		"score": 0.8, "time_left": 30.0, "reason": "",
-		"star_thresholds": [],
 	}
 	dlg.show_result(result, false)
 	await get_tree().process_frame
@@ -62,7 +60,6 @@ func _case_failed() -> void:
 	var result := {
 		"stage_id": 1, "cleared": false, "saved": 0, "lost": 10, "original_hp": 10,
 		"score": 0.0, "time_left": 0.0, "reason": "no_more_ants",
-		"star_thresholds": [],
 	}
 	dlg.show_result(result, false)
 	await get_tree().process_frame

@@ -31,8 +31,8 @@ func _case_cleared_not_last() -> void:
 	if not dlg.visible:
 		_fail("cleared+!last: dialog not visible")
 		return
-	if dlg.star_filled_count() != 2:
-		_fail("cleared+!last: star_filled_count expected 2 got %d" % dlg.star_filled_count())
+	if dlg.star_filled_count() != 3:    # 8/10 = 80% → 3성 (전역 규칙)
+		_fail("cleared+!last: star_filled_count expected 3 got %d" % dlg.star_filled_count())
 		return
 	if not dlg.is_next_visible():
 		_fail("cleared+!last: NextBtn not visible")
