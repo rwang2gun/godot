@@ -16,6 +16,42 @@
 
 **2026-06-03 세션 8 (커밋 `e4a3f61`+`c67281d`, base `34269ac`)**: **불괴 cookie 타일 타입(코어) + S6 "땅굴" stage06 저작**(§3g가 SoT). digger 코어는 Phase 18 완비라 **데이터 저작 + 작은 코어 1건**. ⚠ 핵심: digger "안전 하강"은 굴착(WorkerState) 낙하라 깊이 무관·기절 미검사 → **개척자는 무-floater 자력 하강**, *공유 갱도 후속*만 floater 필수. 사용자 결정="깊은 하강+낙하산+개별 굴착 가능" → inventory digger6+floater6. `StageLayoutBuilder.TILE_COOKIE_SOLID`(kind="cookie", `destroy_tile_at` 거부=벽·챔버 불괴, 임시 색조, Terrain 무변경, earth backward-compat) + stage06(흙 캡 지붕→공동 7칸 floater 강하→쿠키 챔버 candy). 테스트: CookieTileGuard·CampaignS6 Clear/NoDigger/NoFloater 신규 + EarthBackwardCompat/StageSelectUnlock/MenuLayout/GameFlow ScenB 갱신. **큐레이트 18 + S6 8 전부 green, 회귀 0**. SceneFlow STAGE_SCENES[6]+LAST_STAGE_ID6, menu slot6 해금. 다음=S7 "옆파기"(basher, 현 코어 동작 예상).
 
+## 0.6. 현재 라이브 파라미터 스냅샷 (SoT 테이블 — 2026-06-07 실측)
+
+> ⚠ **이 표가 권위.** 아래 §3b~§3j의 세션별 서술은 *해당 커밋 시점*의 기록이며, 이후 밸런스 패치로 수치가 바뀌었다. **인라인 서술과 본 표가 충돌하면 본 표(`data/stages/stage0*.tres` 실측)를 따른다.** 레벨 재개정 시 이 표를 갱신할 것.
+
+| Stage | 이름 | available_skills (인벤토리) | 마리 | hp | 제한 | ★ 임계 |
+|---|---|---|---|---|---|---|
+| S1 | 첫 마실 | climber(5) | 5 | 5 | 90s | 0.6 / 0.8 / 1.0 |
+| S2 | 오르막 | climber(6), floater(1), blocker(1) | 7 | 5 | 100s | 0.5 / 0.75 / 1.0 |
+| S3 | 사탕 호수 | bridge(2) | 5 | 5 | 110s | 0.5 / 0.75 / 1.0 |
+| S4 | 계단 공사 | builder(1) | 5 | 5 | 110s | 0.5 / 0.75 / 1.0 |
+| S5 | 막대과자 탑 | sand_mound(1), floater(1) | 6 | 5 | 120s | 0.5 / 0.75 / 1.0 |
+| S6 | 땅굴 | digger(1), climber(5) | 5 | 5 | 120s | 0.5 / 0.75 / 1.0 |
+| S7 | 옆파기 | basher(2) | 5 | 5 | 120s(기본값) | 0.5 / 0.75 / 1.0 |
+| S8 | 박하 덤불 | cutter(1), leaf_jump(3) | 5 | 5 | 60s | 0.5 / 0.75 / 1.0 |
+| S9 | 종합 과자점 | bridge(1), basher(1), blocker(1), sand_mound(1) | 6 | 5 | 150s | 0.6 / 0.8 / 1.0 |
+
+**서술 → 라이브 주요 드리프트 (역사 서술이 stale한 지점)**:
+- **S1**: 서술 `total=8 / climber=8` → 라이브 `total=5 / climber=5`. (blocker는 2026-06-07 onboarding 트랙에서 제거 — exact-fit 소프트락 해소, climber 단일 튜토리얼. 첫 blocker 등장=S2.)
+- **S2**: 서술 `total=8 / climber6+floater1+distributor1` → 라이브 `total=7 / climber6+floater1+blocker1`. **distributor 제거**(F-3 은퇴 정합). floater 단독 분배.
+- **S3/S4/S7**: 인벤토리 수량 하향 — `bridge 5→2`, `builder 6→1`, `basher 4→2`.
+- **S5**: `floater 6→1`.
+- **S6**: 서술 `digger6+floater6` → 라이브 `digger1+climber5`. **동반 스킬이 floater가 아니라 climber**(F-14 보정과 교차 — 깊은 강하 안전 처리 방식이 floater 분배가 아닌 climber 경로로 바뀐 것으로 보임. 메커니즘 실기 확인 권장).
+- **S8**: 서술 `cutter4 + sticky 해저드` → 라이브 `cutter1 + leaf_jump3`. **leaf_jump(장치 설치형) 스킬 추가.** sticky는 해저드(스킬 아님)로 잔존.
+- **S9**: 서술 `hp5/8마리` → 라이브 `6마리`.
+- 전반: 인벤토리 수량이 **희소(scarce)** 방향으로 일괄 하향 = Lemmings "skill scarcity" 패턴(정밀 배치 강요). ★ 임계는 S1·S9만 `0.6/0.8/1.0`, 나머지는 `0.5/0.75/1.0`.
+
+**해저드(Water/Sticky) 실측**:
+- **Water(소다물, 즉사) Area2D 인스턴스가 9개 스테이지 전부에 존재** — 주로 가장자리(col −1 등)·바닥(rows 12~14, y≥600)에 깔린 **보편 경계 해저드**(떨어지면 lost). S1~S9 공통 안전망. `collision_layer=8`.
+- **S3 "사탕 호수"** 만 물을 **플레이 경로 중앙**(갭)에 배치해 bridge 학습의 핵심으로 삼음.
+- **S8 "박하 덤불"**: Sticky(`StickyHazard`, 3초 정지·잃지는 않음) 인스턴스 + Water. plant 벽(cutter 전용).
+- → "물은 S3 전용"이라는 서술은 부정확. **물은 보편 경계이고, S3가 그것을 퍼즐화**한 것.
+
+**입력 모델 매핑**(`docs/DOMAIN_MAP.md` §2.1 기준): ③무장=climber·bridge·builder / ②정착·이탈=blocker·floater / ①푯말=sand_mound·digger·basher·cutter / ④장치=leaf_jump. 캠페인이 4종 모두 도입(④는 S8 leaf_jump가 유일).
+
+---
+
 ## 1. 관련 문서
 - **설계 시안**: `docs/LEVEL_DESIGN_PLAN.html` (rev2, 9스테이지, 그리드 시안 포함).
   - ⚠ `.gitignore`의 `*.html`에 걸려 **git 비추적 — 로컬 디스크에만 존재**. 브라우저로 열어 확인(`start docs\LEVEL_DESIGN_PLAN.html`).

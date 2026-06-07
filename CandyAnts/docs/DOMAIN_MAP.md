@@ -72,11 +72,19 @@
 ### 3.1 메인 스테이지 — ⚠️ 경로 락 (이동 금지)
 `SceneFlow.gd`의 `STAGE_SCENES` dict + 레벨툴 애드온(`addons/candyants_level_tool/level_tool_dock.gd`)이 `stage%02d` 패턴으로 하드코딩. 폴더 이동 시 둘 다 깨짐.
 
+캠페인은 **Stage01~Stage09**(레벨 재설계 9스테이지)로 확장됨. 모두 `stage%02d` 패턴 경로 락. 스테이지별 파라미터(스킬·마리·hp·시간·★)는 `docs/LEVEL_REDESIGN_STATUS.md` §0.6 라이브 스냅샷 표가 SoT.
+
 | 레벨 | 씬 | StageData | Layout |
 |---|---|---|---|
 | Stage01 | `scenes/stages/Stage01.tscn` | `data/stages/stage01.tres` | `data/stage_layouts/stage01_layout.tres` |
 | Stage02 | `scenes/stages/Stage02.tscn` | `data/stages/stage02.tres` | `data/stage_layouts/stage02_layout.tres` |
 | Stage03 | `scenes/stages/Stage03.tscn` | `data/stages/stage03.tres` | `data/stage_layouts/stage03_layout.tres` |
+| Stage04 | `scenes/stages/Stage04.tscn` | `data/stages/stage04.tres` | `data/stage_layouts/stage04_layout.tres` |
+| Stage05 | `scenes/stages/Stage05.tscn` | `data/stages/stage05.tres` | `data/stage_layouts/stage05_layout.tres` |
+| Stage06 | `scenes/stages/Stage06.tscn` | `data/stages/stage06.tres` | `data/stage_layouts/stage06_layout.tres` |
+| Stage07 | `scenes/stages/Stage07.tscn` | `data/stages/stage07.tres` | `data/stage_layouts/stage07_layout.tres` |
+| Stage08 | `scenes/stages/Stage08.tscn` | `data/stages/stage08.tres` | `data/stage_layouts/stage08_layout.tres` |
+| Stage09 | `scenes/stages/Stage09.tscn` | `data/stages/stage09.tres` | `data/stage_layouts/stage09_layout.tres` |
 
 라우팅/진행: `scripts/core/SceneFlow.gd`. 레벨 에디터(Godot dock): `addons/candyants_level_tool/` — `run_level_editor.bat`(또는 `python scripts/run_editor.py`)로 프로젝트를 에디터로 열어 하단 패널 `CandyAnts Level` 사용. (구 Node 웹 에디터 `tools/map_editor/`는 9종 스킬 미지원으로 데이터 유실을 일으켜 제거됨 — 스테이지 편집은 Godot dock만 사용)
 

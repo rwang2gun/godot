@@ -1,0 +1,84 @@
+{
+  "task": "new-user-onboarding",
+  "started_at": "2026-06-07T12:57:42",
+  "completed_at": null,
+  "phases": [
+    {
+      "id": 1,
+      "file": "phase01-affordance-foundation.md",
+      "name": "affordance-foundation",
+      "duration_estimate": 9000,
+      "verify": "python scripts/run_test.py tests/SkillAffordanceCategoryTest.tscn && python scripts/run_test.py tests/OutlineGlowSmokeTest.tscn",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 2,
+      "file": "phase02-tap-target-glow.md",
+      "name": "tap-target-glow",
+      "duration_estimate": 9000,
+      "verify": "python scripts/run_test.py tests/TapTargetGlowAntTest.tscn && python scripts/run_test.py tests/TapTargetGlowSurfaceTest.tscn && python scripts/run_test.py tests/TapTargetGlowEligibilityTest.tscn && python scripts/run_test.py tests/SignPlacementParityTest.tscn",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 3,
+      "file": "phase03-cursor-result-preview-refactor.md",
+      "name": "cursor-result-preview-refactor",
+      "duration_estimate": 10800,
+      "verify": "python scripts/run_test.py tests/CursorKindByCategoryTest.tscn && python scripts/run_test.py tests/PlacementPreviewRefactorTest.tscn && python scripts/run_test.py tests/SkillRoutingByCategoryTest.tscn",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 4,
+      "file": "phase04-intro-card-infra.md",
+      "name": "intro-card-infra",
+      "duration_estimate": 9000,
+      "verify": "python scripts/run_test.py tests/StageIntroCardShowTest.tscn && python scripts/run_test.py tests/StageRunnerBeginGateTest.tscn && python scripts/run_test.py tests/StageIntroCardHeadlessSkipTest.tscn",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 5,
+      "file": "phase05-guide-data-copy.md",
+      "name": "guide-data-copy",
+      "duration_estimate": 10800,
+      "verify": "python scripts/run_test.py tests/StageGuideDataRenderTest.tscn && python scripts/run_test.py tests/GuideSkillSubsetDriftGuardTest.tscn && python scripts/run_test.py tests/StringsTableTest.tscn",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 6,
+      "file": "phase06-input-mode-polish.md",
+      "name": "input-mode-polish",
+      "duration_estimate": 7200,
+      "verify": "python scripts/run_test.py tests/GuideInputModeCopyTest.tscn && python scripts/run_test.py tests/OnboardingIntegrationTest.tscn",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 7,
+      "file": "phase07-skill-guide-asset-contract.md",
+      "name": "skill-guide-asset-contract",
+      "duration_estimate": 7200,
+      "verify": "python scripts/run_test.py tests/SkillGuideAssetContractTest.tscn && python scripts/run_test.py tests/SkillGuideAssetReportTest.tscn && python scripts/tools/report_skill_guide_assets.py --report-check",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
+    }
+  ]
+}

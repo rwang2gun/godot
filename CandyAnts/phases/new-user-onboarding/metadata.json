@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "task": "new-user-onboarding",
+  "active_revision": "phases/new-user-onboarding/REVISION_2026-06-07-new-user-onboarding.md",
+  "notes": [
+    "status.json is runtime state only.",
+    "local phase files are discovered dynamically from phases/<task>/phase*.md.",
+    "Post-campaign onboarding for elementary/casual players. Addresses first-build feedback: #1 leftover-ant role (resolved by exact-fit ant economy, see STAGE_GUIDE_PLAN §0.7), #2 unintuitive skill placement/operation (this task: in-game affordance + intro cards).",
+    "Design SoT: docs/STAGE_GUIDE_PLAN.md (esp. §0.8 affordance, §0.8.5 category SoT, §2-4 cards).",
+    "Out of scope (deferred): exact-fit safety net (keep current), S1 blocker budget contradiction (defer), S6 mechanic field-test."
+  ]
+}
