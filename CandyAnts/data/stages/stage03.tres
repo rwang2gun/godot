@@ -8,10 +8,12 @@ script = ExtResource("1")
 id = 3
 display_name = "사탕 호수"
 layout = ExtResource("1_layout")
-total_ants = 6
-candy_hp = 4
+total_ants = 5
+candy_hp = 5
 time_limit_seconds = 110.0
-available_skills = ["bridge"]
-skill_inventory = { "bridge": 5 }
+available_skills = Array[String](["bridge"])
+skill_inventory = {
+"bridge": 2
+}
 release_rate_initial = 30
 star_thresholds = Array[float]([0.5, 0.75, 1.0])

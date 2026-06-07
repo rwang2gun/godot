@@ -1,18 +1,18 @@
-[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://b4candyants07dt"]
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://c3m750gaw0cj6"]
 
 [ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="1"]
-[ext_resource type="Resource" uid="uid://b4candyants07ly" path="res://data/stage_layouts/stage07_layout.tres" id="1_layout"]
+[ext_resource type="Resource" uid="uid://c3m750gaw0csc" path="res://data/stage_layouts/stage07_layout.tres" id="1_layout"]
 
 [resource]
 script = ExtResource("1")
 id = 7
 display_name = "옆파기"
 layout = ExtResource("1_layout")
-total_ants = 6
-candy_hp = 4
-time_limit_seconds = 120.0
-available_skills = ["basher"]
-skill_inventory = { "basher": 4 }
+total_ants = 5
+candy_hp = 5
+available_skills = Array[String](["basher"])
+skill_inventory = {
+"basher": 2
+}
 release_rate_initial = 30
-release_rate_min = 1
 star_thresholds = Array[float]([0.5, 0.75, 1.0])
