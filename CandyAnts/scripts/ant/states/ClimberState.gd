@@ -86,6 +86,10 @@ func _update_climbing(a: Ant, _delta: float) -> void:
 	a.move_and_slide()
 
 	if a.is_on_ceiling():
+		# 천정 충돌 = 등반 실패(머리 위가 막힘). 낙하 후 이전 진행 방향의 반대로 걷도록 climb 방향을
+		# 반전한다 → exit()가 a.direction을 반전된 값으로 복원 → FallerState가 그 방향으로 표류·착지 →
+		# return_to_walking이 반대 방향 보행. (벽으로 되돌아가 같은 자리에서 재등반하는 루프 차단.)
+		_climb_direction = -_climb_direction
 		a.state_machine.change_state(FallerState.new())
 		return
 
