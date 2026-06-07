@@ -1,28 +1,17 @@
 class_name PlacementPreview extends Node2D
 
-# 설치형 스킬(sand_mound / builder / bridge) 선택 시 커서 아래 가장 가까운 ant의
-# 첫 배치 결과를 반투명 ghost로 미리보기.
-#
-# 입력:
-#   - SkillToolbar._pending_skill_id (선택된 스킬)
-#   - get_global_mouse_position() (커서 world 위치)
-#   - "ants" 그룹 (활성 후보)
-#   - Terrain (cell_size + 점유 검사)
-#
-# 출력: 자신 자식으로 Polygon2D ghost들. 매 frame _process에서 toolbar/cursor 상태 polling.
-#
-# 시뮬레이션 정확도: 첫 tile부터 차례로 add_tile reject 조건(is_cell_occupied)을 검사,
-# 첫 차단 셀에서 break. 차단된 셀이 첫 번째일 경우 빨간 1셀로 경고 표시. 그 외엔 녹색.
-
-const PLACEMENT_SKILLS: Array[String] = ["sand_mound", "builder", "bridge"]
-const CLICK_RADIUS: float = 48.0  # SkillToolbar.CLICK_RADIUS와 동일 (이중 SoT 회피 위해 향후 통합 고려)
-const SAND_MOUND_MAX: int = 5
-# 캡은 WorkerState.BUILDER_MAX_STEPS / BRIDGE_MAX_LENGTH와 이중 SoT — 함께 5로 유지 (2026-06-04).
-const BUILDER_MAX: int = 5
-const BRIDGE_MAX: int = 5
+# 장치(④) 스킬 선택 시 커서 아래 "설치 셀"에 결과 ghost 미리보기 (Phase 3 재작성).
+# 대상은 카테고리 SoT 파생 — PLACEMENT_SKILLS 하드코딩 리스트 제거:
+#   - ANT_ARMED(③ climber/bridge/builder): 무장이라 발동 위치가 나중 결정 → 탭-타임 ghost 없음.
+#   - ANT_SETTLE(②): 정착폼 ghost(아트 Phase 7) → 현재 없음.
+#   - SIGN(① sand_mound/basher/cutter/digger): **deferred 푯말 — 결과 ghost 없음**. 푯말은 열(x)에 설치되고
+#     실제 작업은 그 열에 처음 도착한 개미의 body_cell에서 일어나(SkillSign._ant_at_cell + WorkerState),
+#     설치 셀 ≠ 빌드 셀이 될 수 있다(다중 표면 컬럼). 설치 위치는 surface 글로우(Phase 2)가, 종류는
+#     SIGN 커서가 표시하므로 결과 ghost는 오히려 위치를 오도 → 폐지(codex R1 MEDIUM, plan §0.8.2 "옵션").
+#   - DEVICE(④ leaf_jump): SignPlacement.resolve_surface_install_cell 셀에 점프대 ghost 1칸. 장치는 그
+#     셀에 결정적으로 설치되어(LeafJumpPad) 설치=빌드 셀이 항상 일치 → ghost 정확.
 
 const COLOR_OK: Color = Color(0.4, 1.0, 0.4, 0.45)
-const COLOR_BLOCKED: Color = Color(1.0, 0.35, 0.35, 0.55)
 
 @export var toolbar_path: NodePath
 @export var terrain_path: NodePath
@@ -34,99 +23,39 @@ var _ghosts: Array[Polygon2D] = []
 func _ready() -> void:
 	_toolbar = get_node_or_null(toolbar_path) as SkillToolbar
 	_terrain = get_node_or_null(terrain_path) as Terrain
-	z_index = 100   # 타일 위에 표시
+	z_index = 100
 
 func _process(_delta: float) -> void:
 	if _toolbar == null or _terrain == null:
 		_hide_all()
 		return
 	var pending: String = _toolbar._pending_skill_id
-	if not PLACEMENT_SKILLS.has(pending):
+	if pending == "" or not SkillAffordance.SKILL_CATEGORY.has(pending):
 		_hide_all()
 		return
-	var cursor_world: Vector2 = get_global_mouse_position()
-	var ant: Ant = _find_closest_ant(cursor_world)
-	if ant == null:
+	var cells: Array[Vector2i] = _preview_cells(pending, get_global_mouse_position())
+	if cells.is_empty():
 		_hide_all()
 		return
-	var cs: int = _terrain.cell_size
-	var cells: Array[Vector2i] = _compute_targets(ant, pending, cs)
-	var first_blocked: bool = cells.is_empty() and _first_target_blocked(ant, pending, cs)
-	if cells.is_empty() and not first_blocked:
-		_hide_all()
-		return
-	if first_blocked:
-		var blocked_cell: Vector2i = _first_target_cell(ant, pending, cs)
-		_render([blocked_cell], cs, true)
-	else:
-		_render(cells, cs, false)
+	_render(cells, _terrain.cell_size)
 
-func _compute_targets(ant: Ant, skill_id: String, cs: int) -> Array[Vector2i]:
-	# add_tile reject 조건(is_cell_occupied)을 차례로 검사. 첫 차단 셀 이전까지만 누적.
-	# 빈 배열 반환 = 첫 셀부터 차단(별도 first_blocked 분기로 빨간 경고 표시).
-	var body: Vector2i = _body_cell(ant, cs)
+# 커서 위치 기준 결과 ghost 셀들. ghost 없는 카테고리/스킬은 빈 배열.
+# 현재 결과 ghost를 그리는 카테고리는 DEVICE(④, 결정적 장치 설치)뿐. ①SIGN은 deferred라 폐지(상단 주석),
+# ②③은 탭-타임 위치 미확정이라 없음.
+func _preview_cells(skill_id: String, cursor_world: Vector2) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	if skill_id == "sand_mound":
-		for i in SAND_MOUND_MAX:
-			var cell: Vector2i = body + Vector2i(0, -i)
-			if _terrain.is_cell_occupied(cell):
-				break
-			out.append(cell)
+	if _terrain == null:
 		return out
-	if skill_id == "builder" or skill_id == "bridge":
-		# builder = 대각선 상승(전방+위), bridge = 평지(전방+아래 floor). WorkerState._place_one_tile/_place_bridge_tile와 일치.
-		var max_count: int = BUILDER_MAX if skill_id == "builder" else BRIDGE_MAX
-		var is_builder: bool = skill_id == "builder"
-		var cur_body: Vector2i = body
-		for i in max_count:
-			if is_builder:
-				var tgt_b: Vector2i = cur_body + Vector2i(ant.direction, 0)
-				var dest_body: Vector2i = cur_body + Vector2i(ant.direction, -1)
-				if _terrain.is_cell_occupied(tgt_b) or _terrain.is_cell_occupied(dest_body):
-					break
-				out.append(tgt_b)
-				cur_body += Vector2i(ant.direction, -1)
-			else:
-				var tgt_f: Vector2i = cur_body + Vector2i(ant.direction, 1)
-				if _terrain.is_cell_occupied(tgt_f):
-					break
-				out.append(tgt_f)
-				cur_body += Vector2i(ant.direction, 0)
+	# DEVICE(④)만 결과 ghost. 그 외(ANT_ARMED③/ANT_SETTLE②/SIGN①)는 ghost 없음.
+	if SkillAffordance.category_of(skill_id) != SkillAffordance.Category.DEVICE:
 		return out
+	var parent: Node = _terrain.get_parent()
+	var res: Dictionary = SignPlacement.resolve_surface_install_cell(_terrain, skill_id, cursor_world, parent)
+	if not res.get("valid", false):
+		return out
+	# 점프대 ghost 1칸 — 장치는 이 셀에 결정적으로 설치(설치=빌드 셀 일치).
+	out.append(res["cell"])
 	return out
-
-func _first_target_cell(ant: Ant, skill_id: String, cs: int) -> Vector2i:
-	var body: Vector2i = _body_cell(ant, cs)
-	if skill_id == "sand_mound":
-		return body
-	if skill_id == "builder":
-		return body + Vector2i(ant.direction, 0)   # 대각 상승 첫 발판
-	return body + Vector2i(ant.direction, 1)        # bridge 평지
-
-func _first_target_blocked(ant: Ant, skill_id: String, cs: int) -> bool:
-	return _terrain.is_cell_occupied(_first_target_cell(ant, skill_id, cs))
-
-func _body_cell(ant: Ant, cs: int) -> Vector2i:
-	# WorkerState 공식 답습 — ant.y - 2.0 보정으로 발 끝이 아닌 body 중심 셀을 잡음.
-	return Vector2i(
-		int(floor(ant.global_position.x / cs)),
-		int(floor((ant.global_position.y - 2.0) / cs))
-	)
-
-func _find_closest_ant(world: Vector2) -> Ant:
-	# SkillToolbar._find_closest_ant 답습. CLICK_RADIUS 일치 — 동일 후보 풀.
-	var ants: Array = get_tree().get_nodes_in_group("ants")
-	var closest: Ant = null
-	var best: float = CLICK_RADIUS
-	for n in ants:
-		var a: Ant = n as Ant
-		if a == null or not a.is_alive():
-			continue
-		var d: float = a.global_position.distance_to(world)
-		if d < best:
-			best = d
-			closest = a
-	return closest
 
 func _ensure_ghost_count(n: int) -> void:
 	while _ghosts.size() < n:
@@ -134,9 +63,8 @@ func _ensure_ghost_count(n: int) -> void:
 		add_child(p)
 		_ghosts.append(p)
 
-func _render(cells: Array[Vector2i], cs: int, blocked: bool) -> void:
+func _render(cells: Array[Vector2i], cs: int) -> void:
 	_ensure_ghost_count(cells.size())
-	var color: Color = COLOR_BLOCKED if blocked else COLOR_OK
 	for i in _ghosts.size():
 		if i < cells.size():
 			var c: Vector2i = cells[i]
@@ -147,7 +75,7 @@ func _render(cells: Array[Vector2i], cs: int, blocked: bool) -> void:
 				p0 + Vector2(cs, cs),
 				p0 + Vector2(0, cs),
 			])
-			_ghosts[i].color = color
+			_ghosts[i].color = COLOR_OK
 			_ghosts[i].visible = true
 		else:
 			_ghosts[i].visible = false

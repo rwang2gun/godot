@@ -31,10 +31,10 @@
       "name": "cursor-result-preview-refactor",
       "duration_estimate": 10800,
       "verify": "python scripts/run_test.py tests/CursorKindByCategoryTest.tscn && python scripts/run_test.py tests/PlacementPreviewRefactorTest.tscn && python scripts/run_test.py tests/SkillRoutingByCategoryTest.tscn",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-06-07T15:22:49",
+      "completed_at": "2026-06-07T15:44:01",
+      "duration_seconds": 1272
     },
     {
       "id": 4,

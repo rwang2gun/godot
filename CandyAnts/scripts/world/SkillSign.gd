@@ -2,8 +2,10 @@ class_name SkillSign extends Node2D
 
 # One-shot skill sign for install-style skills. Leaf jump is intentionally excluded:
 # it places a reusable LeafJumpPad game object directly instead of a sign.
+#
+# 설치형(SIGN) 분류 SoT는 SkillAffordance.SKILL_CATEGORY(= Category.SIGN)로 단일화됨(Phase 3).
+# 과거 const SIGN_SKILLS 하드코딩 리스트는 제거 — 라우팅은 SkillAffordance.category_of() 파생.
 
-const SIGN_SKILLS: Array[String] = ["sand_mound", "basher", "cutter", "digger"]
 const SIGN_BOARD_TEXTURE: Texture2D = preload("res://assets/sprites/world/skill_sign_board.png")
 
 var skill_id: String = ""

@@ -13,6 +13,8 @@ const SkillSignScript := preload("res://scripts/world/SkillSign.gd")
 const LeafJumpPadScript := preload("res://scripts/world/LeafJumpPad.gd")
 # 설치형/장치 배치 검증 단일 출처 (Phase 2 추출) — 글로우와 동일 규칙 보장.
 const SignPlacementScript := preload("res://scripts/world/SignPlacement.gd")
+# DEVICE(④) 커서 = 점프대 장치 모양 (Phase 3 — 커서=결과물).
+const LEAF_PAD_TEXTURE: Texture2D = preload("res://assets/sprites/terrain/leaf_jump_pad.png")
 # 터치/클릭 스킬 부여 판정 반경. 기준점은 개미 충돌 원점(발)이 아니라 보이는 캐릭터 중심
 # (Ant.tap_target_position) — 스프라이트가 원점보다 ~44px 위에 그려져, 원점+48 반경이면
 # 캐릭터 아래 절반만 덮어 머리 터치가 빠졌다(2026-06-04 버그). 중심 기준 + 반경 64로
@@ -63,6 +65,7 @@ var _inventory: Dictionary = {}     # id (String) → count (int)
 var _slots: Dictionary = {}         # id (String) → SkillSlot
 var _all_disabled: bool = false
 var _scaled_cursor_cache: Dictionary = {}   # id (String) → ImageTexture (CURSOR_SCALE 축소본, 1회 생성 캐시)
+var _sign_cursor_cache: Dictionary = {}     # id (String) → ImageTexture (SIGN 커서 board+icon 합성, 1회 생성 캐시)
 
 func _ready() -> void:
 	if stage_data == null:
@@ -165,12 +168,56 @@ func _select(id: String) -> void:
 		Input.set_custom_mouse_cursor(icon, Input.CURSOR_ARROW, Vector2.ZERO)
 	print("[SkillToolbar] pending=", id)
 
-# CURSOR_ICONS 원본(128px)을 CURSOR_SCALE만큼 다운스케일한 ImageTexture를 반환(1회 생성 후 캐시).
+# 커서 = "결과물 모양" (§0.8.2). 소스는 cursor_kind 카테고리 파생 — ICON(③ 아이콘)/SIGN(① 푯말 합성)/
+# DEVICE(④ 점프대)/SETTLE_FORM(② 정착폼, 아트는 Phase 7 — 현재 아이콘 fall-back).
+func _cursor_source(id: String) -> Texture2D:
+	match SkillAffordance.cursor_kind_of(id):
+		SkillAffordance.CursorKind.DEVICE:
+			return LEAF_PAD_TEXTURE
+		SkillAffordance.CursorKind.SIGN:
+			return _sign_cursor_texture(id)
+		SkillAffordance.CursorKind.SETTLE_FORM:
+			return CURSOR_ICONS.get(id) as Texture2D   # Phase 7: 반투명 정착폼 스프라이트로 교체
+		_:  # ICON (③) + fall-back
+			return CURSOR_ICONS.get(id) as Texture2D
+
+# SIGN(①) 커서 = 푯말 보드 + 스킬 아이콘 합성(1회 생성 캐시).
+func _sign_cursor_texture(id: String) -> Texture2D:
+	if _sign_cursor_cache.has(id):
+		return _sign_cursor_cache[id] as Texture2D
+	var board: Texture2D = SkillSignScript.SIGN_BOARD_TEXTURE as Texture2D
+	var icon: Texture2D = ICONS.get(id) as Texture2D
+	if board == null:
+		return icon
+	var bimg: Image = board.get_image()
+	if bimg == null:
+		return icon
+	bimg = bimg.duplicate()
+	if bimg.get_format() != Image.FORMAT_RGBA8:
+		bimg.convert(Image.FORMAT_RGBA8)
+	if icon != null:
+		var iimg: Image = icon.get_image()
+		if iimg != null:
+			iimg = iimg.duplicate()
+			if iimg.get_format() != Image.FORMAT_RGBA8:
+				iimg.convert(Image.FORMAT_RGBA8)
+			var bw: int = bimg.get_width()
+			var target: int = maxi(1, int(round(float(bw) * 0.60)))
+			iimg.resize(target, target, Image.INTERPOLATE_LANCZOS)
+			var ox: int = int((bw - target) / 2)
+			var oy: int = int(round(float(bimg.get_height()) * 0.10))
+			# 아이콘 알파를 보드 위에 블렌드(투명 보존).
+			bimg.blend_rect(iimg, Rect2i(0, 0, target, target), Vector2i(ox, oy))
+	var tex: ImageTexture = ImageTexture.create_from_image(bimg)
+	_sign_cursor_cache[id] = tex
+	return tex
+
+# 커서 소스를 CURSOR_SCALE만큼 다운스케일한 ImageTexture를 반환(1회 생성 후 캐시).
 # set_custom_mouse_cursor가 텍스처 원본 px를 그대로 쓰므로 여기서 줄여야 화면 커서가 작아진다.
 func _cursor_texture(id: String) -> Texture2D:
 	if _scaled_cursor_cache.has(id):
 		return _scaled_cursor_cache[id] as Texture2D
-	var src: Texture2D = CURSOR_ICONS.get(id) as Texture2D
+	var src: Texture2D = _cursor_source(id)
 	if src == null:
 		return null
 	var img: Image = src.get_image()
@@ -194,21 +241,21 @@ func _clear_selection() -> void:
 func _try_assign(world: Vector2) -> void:
 	if _pending_skill_id == "":
 		return
-	if _pending_skill_id == "leaf_jump":
-		if _place_leaf_jump_pad(world):
+	# 라우팅은 카테고리 SoT 파생(단일 출처, §0.8.5) — DEVICE→점프대, SIGN→표지판, ANT_*→개미탭.
+	# 설치형/장치는 유효 셀 아니면 선택 유지(빈 공간 오클릭 보호, ant==null 분기와 대칭).
+	match SkillAffordance.category_of(_pending_skill_id):
+		SkillAffordance.Category.DEVICE:
+			if _place_leaf_jump_pad(world):
+				_clear_selection()
+		SkillAffordance.Category.SIGN:
+			if _place_sign(_pending_skill_id, world):
+				_clear_selection()
+		_:
+			var ant: Ant = _find_closest_ant(world)
+			if ant == null:
+				return
+			_apply_skill(_pending_skill_id, ant)
 			_clear_selection()
-		return
-	# 설치형(표지판) 스킬은 개미가 아니라 타일에 표지판을 설치 — 첫 도착 개미가 자동 발동.
-	# 유효 셀이 아니면(점유/지형 없음) 선택 유지(빈 공간 오클릭 보호, ant==null 분기와 대칭).
-	if SkillSignScript.SIGN_SKILLS.has(_pending_skill_id):
-		if _place_sign(_pending_skill_id, world):
-			_clear_selection()
-		return
-	var ant: Ant = _find_closest_ant(world)
-	if ant == null:
-		return
-	_apply_skill(_pending_skill_id, ant)
-	_clear_selection()
 
 # 드래그앤드롭 drop 경로 — SkillDropZone._drop_data가 호출.
 # 클릭 흐름의 _pending_skill_id와 독립: drop은 drag data dict가 운반한 id를 직접 적용한다.
@@ -216,21 +263,21 @@ func _try_assign(world: Vector2) -> void:
 func try_assign_dragged(id: String, world: Vector2) -> void:
 	if _all_disabled:
 		return
-	if id == "leaf_jump":
-		_place_leaf_jump_pad(world)
-		_clear_selection()
-		return
-	# 설치형(표지판) 스킬은 드롭 지점 타일에 표지판 설치 (클릭 흐름과 동일).
-	if SkillSignScript.SIGN_SKILLS.has(id):
-		_place_sign(id, world)
-		_clear_selection()
-		return
-	var ant: Ant = _find_closest_ant(world)
-	if ant == null:
-		return
-	_apply_skill(id, ant)
-	# 드롭으로 적용했으면 기존에 armed돼 있던 선택/커서도 초기화(stale skill 커서 방지).
-	_clear_selection()
+	# 라우팅은 카테고리 SoT 파생(클릭 흐름 _try_assign과 동일 단일 출처).
+	match SkillAffordance.category_of(id):
+		SkillAffordance.Category.DEVICE:
+			_place_leaf_jump_pad(world)
+			_clear_selection()
+		SkillAffordance.Category.SIGN:
+			_place_sign(id, world)
+			_clear_selection()
+		_:
+			var ant: Ant = _find_closest_ant(world)
+			if ant == null:
+				return
+			_apply_skill(id, ant)
+			# 드롭으로 적용했으면 기존에 armed돼 있던 선택/커서도 초기화(stale skill 커서 방지).
+			_clear_selection()
 
 # id 스킬을 ant에 적용 시도 — 성공 시 인벤토리 차감 + true 반환. 클릭/드롭 공통 코어.
 func _apply_skill(id: String, ant: Ant) -> bool:
