@@ -6,7 +6,7 @@ extends CButton
 #
 # 설계 — 상대 배수(relative multiplier):
 #   진입 시점의 Engine.time_scale을 _base_scale로 캡처하고, 그 위에 MULTIPLIERS[_idx]를 곱한다.
-#   - 실제 플레이: base=1.0 → 1× / 2× / 3×.
+#   - 실제 플레이: base=1.0 → 1배 / 2배 / 3배.
 #   - 헤드리스 테스트(GameFlowTest가 time_scale=8로 구동): idx 0이면 base*1.0=8 그대로 → 비간섭.
 #   _exit_tree에서 _base_scale로 복원 → 스테이지 이탈 시 메뉴/다음 씬이 가속되지 않음.
 
@@ -45,4 +45,5 @@ func _on_action(name: StringName, _payload: Dictionary) -> void:
 
 func _apply_scale() -> void:
 	Engine.time_scale = _base_scale * MULTIPLIERS[_idx]
-	text = "%d×" % int(MULTIPLIERS[_idx])
+	# 웹 export 폰트(Jua)에 곱셈기호(×, U+00D7) 글리프가 없어 두부로 깨짐 → 한글 "배"로 표기.
+	text = "%d배" % int(MULTIPLIERS[_idx])
