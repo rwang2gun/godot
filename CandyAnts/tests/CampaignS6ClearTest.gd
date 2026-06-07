@@ -1,20 +1,24 @@
 extends Node
 
-# Campaign S6 "땅굴" — digger로 흙 캡을 뚫고 깊은 공동을 강하 → 쿠키 챔버 candy 회수 → 귀가.
-# (2026-06-03 F-3 재작성: floater 스킬이 '자기 강하'가 아니라 '적용 즉시 정착+분배'로 바뀌어,
-#  선두 1마리를 메사 top spawn 경로에 분배자로 정착시키고 후속 개미가 마커를 통과해 floater를 받아 강하.)
+# Campaign S6 "땅굴" — digger로 row9 흙 선반(shelf)을 뚫어 공동(cavern)으로 강하 → 쿠키 챔버 candy 회수 → 귀가.
+# (2026-06-07 재작성: 구 floater-distributor 설계 폐기. 현 stage06 = digger:1 + climber:5, total5/hp5.)
+#
+# 지형(cell 48, +Y 아래): 좌 흙 기둥 cols1-4 rows5-12(Home top=row5 surface) · row9 흙 선반 cols1-22(1칸 두께,
+#   cols14-18 아래는 공동 air rows10-12) · candy(18,12) 쿠키 챔버 바닥(row13) 위.
+# 모든 낙하는 4칸(< 5칸 기절 임계)이라 floater 불필요.
+#
 # 플레이어 모사:
-#   (1) 선두 grounded walker 1마리에 floater 부여 → 메사 top에 정착(희생) → 지나는 개미에 floater 분배.
-#   (2) 후속 개미(메사 top 보행)에 digger 시전 → 흙 캡 수직 굴착(천장 뚫기) → 공동 강하. 2026-06-06 Design B:
-#       digger는 캡을 뚫을 뿐 공동 7칸 자유낙하는 기절 대상이라, 굴착 개미도 분배자 마커를 통과해 받은 floater로
-#       공동을 안전 강하해야 챔버에 안착한다(구 "개척자 무-floater 자력 안전강하" 폐기 — digger 굴착낙하 면역 제거).
-# candy_hp 4 → 4마리 회수+귀가. PASS: stage_cleared && saved>=4 && lost==0.
-# FAIL: stage_failed / deadline / saved<4 / lost>0.
+#   (1) 모든 grounded walker/carrier에 climber 부여(귀환 시 공동→기둥 top 등반 필요, climber:5 = 1마리당 1개).
+#   (2) 선두 1마리가 공동 위 선반(col16 부근, x∈[768,816))에 도달하면 digger 시전 → row9 구멍 → 4칸 강하(안전).
+#       구멍은 영구 → 후속 개미도 같은 구멍으로 4칸 강하 → candy 회수 후 climber로 귀환.
+# PASS: stage_cleared && saved>=original_hp && lost==0. FAIL: stage_failed / deadline / saved<original / lost>0.
 
-const DEADLINE_FRAMES: int = 18000
-const MESA_Y_MAX: float = 200.0   # 메사 top 영역(흙 캡 표면 y≈96). 챔버 개미(y≈600)는 제외.
+const DEADLINE_FRAMES: int = 24000
+const DIG_X_MIN: float = 672.0    # col14 — 공동(cols14-18) 서쪽 끝, col13 벽 인접.
+const DIG_X_MAX: float = 720.0    # 벽 인접 칼럼에 구멍을 뚫어야 귀환 시 col13 벽 등반 천장(shelf row9)이 구멍으로 뚫림.
 
-var _distributor_id: int = 0
+var _climbed: Dictionary = {}     # instance_id → true (climber 1회 부여 추적, 인벤토리 소모)
+var _dig_done: bool = false
 var _frame: int = 0
 var _done: bool = false
 var _picks: int = 0
@@ -31,52 +35,66 @@ func _physics_process(_delta: float) -> void:
 	if _done:
 		return
 	_frame += 1
-	# 1) 분배자 미선정 → 메사 top 선두 grounded walker에 floater 부여(정착). 마커 통과자에 floater 분배.
-	if _distributor_id == 0:
-		_apply_distributor()
-		return
-	# 2) 메사 top 보행 중(미운반)인 비분배자 개미에 digger — 흙 캡 수직 굴착.
-	_drive_digger()
+	_grant_climbers()
+	if not _dig_done:
+		_dig_done = _cast_digger()
+	if _frame % 150 == 0:
+		_dump_state()
 	if _frame > DEADLINE_FRAMES:
-		_fail("deadline — distributor=%d picks=%d digs=%d" % [_distributor_id, _picks, _digs])
+		_fail("deadline — dig=%s picks=%d digs=%d" % [_dig_done, _picks, _digs])
 
-func _apply_distributor() -> void:
-	var front: Ant = null
+# 모든 grounded WalkerState/CarryingState 개미에 climber 1회 부여(인벤토리 5 = 개미 5마리분).
+func _grant_climbers() -> void:
+	for n in get_tree().get_nodes_in_group("ants"):
+		var a: Ant = n as Ant
+		if a == null or not is_instance_valid(a) or a.state_machine == null:
+			continue
+		var id: int = a.get_instance_id()
+		if _climbed.has(id):
+			continue
+		if a.has_trait(&"climber"):
+			_climbed[id] = true
+			continue
+		var c: ClimberSkill = ClimberSkill.new()
+		if c.can_apply(a):
+			c.apply(a)
+			_climbed[id] = true
+
+# 공동 위 선반(DIG_X window) 위 grounded walker(미운반)에 digger 시전. 성공 시 true(1회).
+func _cast_digger() -> bool:
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
 		if a == null or not is_instance_valid(a) or a.state_machine == null:
 			continue
 		if not (a.state_machine.current_state is WalkerState):
 			continue
-		if not a.is_on_floor():
+		if a.has_been_carrying or a.has_candy:
 			continue
-		if a.global_position.y >= MESA_Y_MAX:
+		if a.global_position.x < DIG_X_MIN or a.global_position.x >= DIG_X_MAX:
 			continue
-		if front == null or a.global_position.x > front.global_position.x:
-			front = a
-	if front != null:
-		var f: FloaterSkill = FloaterSkill.new()
-		if f.can_apply(front):
-			f.apply(front)
-			_distributor_id = front.get_instance_id()
-			print("[CampaignS6ClearTest] floater-distributor → %s pos=%s frame=%d" % [front.name, front.global_position, _frame])
+		var digger: DiggerSkill = DiggerSkill.new()
+		if not digger.can_apply(a):
+			continue
+		digger.apply(a)
+		_digs += 1
+		print("[CampaignS6ClearTest] digger → %s pos=%s frame=%d" % [a.name, a.global_position, _frame])
+		return true
+	return false
 
-func _drive_digger() -> void:
+func _dump_state() -> void:
+	var lines: Array[String] = []
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
 		if a == null or not is_instance_valid(a) or a.state_machine == null:
 			continue
-		if a.get_instance_id() == _distributor_id:
-			continue
-		if a.has_been_carrying or a.direction != 1:
-			continue
-		if a.global_position.y >= MESA_Y_MAX:
-			continue
-		var digger: DiggerSkill = DiggerSkill.new()
-		if digger.can_apply(a):
-			digger.apply(a)
-			_digs += 1
-			print("[CampaignS6ClearTest] digger → %s pos=%s frame=%d" % [a.name, a.global_position, _frame])
+		var st: String = "?"
+		var s: Object = a.state_machine.current_state
+		if s != null and s.get_script() != null:
+			st = str(s.get_script().resource_path.get_file())
+		lines.append("%s pos=(%.0f,%.0f) dir=%d st=%s carry=%s wasCarry=%s climb=%s" % [
+			a.name, a.global_position.x, a.global_position.y, a.direction, st,
+			a.has_candy, a.has_been_carrying, a.has_trait(&"climber")])
+	print("[CampaignS6ClearTest] f=%d picks=%d digs=%d\n  %s" % [_frame, _picks, _digs, "\n  ".join(lines)])
 
 func _on_picked(_remaining_hp: int) -> void:
 	_picks += 1

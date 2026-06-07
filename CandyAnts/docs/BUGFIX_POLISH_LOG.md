@@ -42,10 +42,12 @@
 
 ### Known issues (미수정)
 
-#### K-10. S3/S6/S9 campaign clear 테스트 드라이버 stale (재저작으로 좌표/스킬셋 변경) — [[#K-5]] 연장
-- **내용**: S3=옛 단일갭 col8 캐스팅(현 이중갭은 col6/col13 필요), S6=옛 지형 좌표라 굴착 시도 못 함(digs=0 time_out), S9=옛 builder 캐스팅(현 인벤토리는 blocker+sand_mound). 셋 다 **레벨 자체는 클리어 가능**(수동·스크린샷 확인) — 테스트 드라이버만 새 지형/스킬셋에 맞춰 갱신 필요.
-- **왜 지금 안 고쳤나**: 사용자가 웹빌드+푸시 우선. 자동 커버리지 복구는 별건.
-- **고친다면**: 각 `CampaignSNClearTest` 드라이버의 캐스팅 좌표/스킬을 현 layout에 맞춰 갱신(S2/S5 분배자 드라이버 패턴 참고).
+#### K-10. S3/S6/S9 campaign clear 테스트 드라이버 stale → ✅ 해소(2026-06-07) — [[#K-5]] 연장
+- **내용**: S3=옛 단일갭 col8 캐스팅(현 이중갭은 col6/col13 필요), S6=옛 floater-분배자 모델(현 digger+climber), S9=옛 builder 캐스팅(현 bridge+basher+blocker+sand_mound). 셋 다 레벨은 클리어 가능했고, 테스트 드라이버만 stale이었음.
+- **해소**: 세 클리어 테스트 + 페어 음성 테스트를 현 지형/스킬에 맞춰 재작성. 전부 PASS(실측):
+  - **S3** Clear 5/5 — 각 갭 가장자리(col6/col13)에서 bridge 즉시 건설.
+  - **S6** Clear 5/5(digs1) — 전원 선반 강하 → col14(벽 인접) digger 1구멍(탈출 샤프트를 col13 벽에 정렬) → climber 복귀. NoDigger PASS(필수성). `CampaignS6NoFloaterTest` 삭제(현 S6에 floater 없음).
+  - **S9** Clear 5/5(bridge+basher+sand_mound+blocker 4관문 발동 단언) — bridge 물갭 → basher로 좌 기둥 관통 → 내부 방서 sand_mound로 지붕 cap → blocker로 후속 개미 사탕 쪽 유도(lost 0 확보). NoBasher·신규 NoSandMound 음성 PASS(각 필수성, 물리 위치 도달 단언). `CampaignS9NoBuilderTest`→`NoSandMoundTest` 재타깃.
 
 #### K-11. stage05/stage06 `time_limit_seconds` 명시 누락 → ✅ 해소(2026-06-07)
 - 기능은 정상이었음(`StageData` 기본값 120s 폴백 — 인게임 TIME 카운터 정상 동작). 다른 스테이지(60~150s)와 일관되게 `time_limit_seconds = 120.0` 명시 추가.

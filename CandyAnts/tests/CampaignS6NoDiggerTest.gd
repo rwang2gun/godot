@@ -1,15 +1,14 @@
 extends Node
 
-# Campaign S6 음성 — digger 미부여(낙하산 분배자만) → 흙 캡(지붕)을 못 뚫어 챔버 candy 도달 불가 (digger 필수성).
-# (2026-06-03 F-3 재작성: floater 스킬이 정착+분배이므로, '플레이어가 floater를 쓴' 상황을 분배자 1마리로 모사.)
-# 메사는 벽으로 enclosed이고 흙 캡은 정적 지형이라 walker는 좌우 pacing만 → 하강 경로 없음 → picks==0.
-# floater(분배자)를 둬도 떨어질 곳이 없어 무의미(= digger가 빠진 조각임을 격리).
+# Campaign S6 음성 — digger 미부여(climber만) → row9 흙 선반을 못 뚫어 공동 candy 도달 불가 (digger 필수성).
+# (2026-06-07 재작성: 구 floater-distributor 설계 폐기. 현 stage06 = digger:1 + climber:5, 모든 낙하 4칸=안전.)
+# 클리어 테스트와 동일하게 모든 개미에 climber를 부여하되 digger만 빼면, 개미는 선반 위(row9)에서 좌우
+# pacing만 할 뿐 candy(공동 안)로 내려갈 구멍을 못 뚫어 picks==0 → digger가 빠진 유일한 조각임을 격리한다.
 # PASS: deadline/stage_failed && picks==0. FAIL: stage_cleared / picks>0.
 
 const DEADLINE_FRAMES: int = 8000
-const MESA_Y_MAX: float = 200.0
 
-var _distributor_id: int = 0
+var _climbed: Dictionary = {}
 var _frame: int = 0
 var _done: bool = false
 var _picks: int = 0
@@ -25,24 +24,21 @@ func _physics_process(_delta: float) -> void:
 	if _done:
 		return
 	_frame += 1
-	# 낙하산 분배자 1마리만 정착(digger 없음) — digger 부재가 유일한 차이임을 보장.
-	if _distributor_id == 0:
-		var front: Ant = null
-		for n in get_tree().get_nodes_in_group("ants"):
-			var a: Ant = n as Ant
-			if a == null or not is_instance_valid(a) or a.state_machine == null:
-				continue
-			if not (a.state_machine.current_state is WalkerState):
-				continue
-			if not a.is_on_floor() or a.global_position.y >= MESA_Y_MAX:
-				continue
-			if front == null or a.global_position.x > front.global_position.x:
-				front = a
-		if front != null:
-			var floater: FloaterSkill = FloaterSkill.new()
-			if floater.can_apply(front):
-				floater.apply(front)
-				_distributor_id = front.get_instance_id()
+	# climber만 부여(digger 절대 금지) — digger 부재가 유일한 차이임을 보장.
+	for n in get_tree().get_nodes_in_group("ants"):
+		var a: Ant = n as Ant
+		if a == null or not is_instance_valid(a) or a.state_machine == null:
+			continue
+		var id: int = a.get_instance_id()
+		if _climbed.has(id):
+			continue
+		if a.has_trait(&"climber"):
+			_climbed[id] = true
+			continue
+		var c: ClimberSkill = ClimberSkill.new()
+		if c.can_apply(a):
+			c.apply(a)
+			_climbed[id] = true
 	if _frame > DEADLINE_FRAMES:
 		if _picks == 0:
 			print("[CampaignS6NoDiggerTest] PASS (deadline, no candy reached) picks=0 frame=%d" % _frame)

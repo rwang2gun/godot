@@ -1,21 +1,23 @@
 extends Node
 
-# Campaign S3 "사탕 호수" — bridge 체인 횡단 + water 클리어 검증 (레벨 재설계 rev2, 2026-06-04 다리 캡 5칸 체인 개정).
-# 플레이어 모사: 호수(갭 8칸 cols9~16) > 다리 캡 5칸이라 다리 1개로는 못 건넌다. 호수 직전 마지막 지면 cell
-#   (col8, x∈[384,432))에서 개미 2마리를 BridgeSkill 무장 → 첫 개미가 즉시 다리1(cols9~13) 건설(자기 다리 끝에서
-#   표류) → 둘째 개미가 다리1을 건너 col13 끝(낭떠러지)에서 다리2(cols14~16, 반대편 col17 도달)를 이어 건설(체인).
-#   다리는 영구 → 완성 후 후속 ant들이 candy 회수 왕복. (인벤토리 bridge:5라 2개 충분.)
-# 수면 하강(2026-06-04): 물 표면이 지면(row10)보다 두 칸 낮은 row12라 다리(row10)는 물 위 두 칸 위를 가로지른다.
-# candy_hp 4 + total 6 → 다리 개미 1~2마리가 빈손 표류해도 나머지로 4개 회수 가능. PASS: stage_cleared &&
-#   saved==original_hp && lost==0. (다리 없이는 전원 즉사 = 짝 테스트 CampaignS3NoBridgeTest로 필수성 입증.)
-# FAIL: stage_failed / deadline / saved<original / lost>0.
+# Campaign S3 "사탕 호수" — bridge 2개로 이중 갭(호수) 횡단 + water 클리어 검증 (2026-06-07 맵에디터 재저작 반영).
+# 지형(cell 48): 좌 지면 cols0-6 · 갭A cols7-10(4칸) · 섬 cols11-13 · 갭B cols14-16(3칸) · 우 지면 cols17-23.
+#   home(2,9) candy(21,9). 갭 아래는 water(즉사). 다리는 영구 → 1번 건설하면 전원 왕복.
+# 플레이어 모사(즉시 건설 = 낭떠러지에서 cast): 선두 1마리가
+#   (1) 갭A 직전 col6(x∈[288,336))에서 bridge cast → 즉시 다리A(cols7-10, 섬 col11 도달) 건설·횡단.
+#   (2) 섬을 건너 갭B 직전 col13(x∈[624,672))에서 bridge cast → 즉시 다리B(cols14-16, 우 col17 도달) 건설.
+#   같은 선두 개미가 2번 cast(bridge:2 인벤토리). 무장 모델의 "다리A 건설 후 갭B에서 무장 소진" 문제를 회피하려고
+#   각 낭떠러지에서 즉시 건설한다(armed가 아닌 cliff cast). total5/hp5 — 다리 개미도 그대로 배달(희생 없음).
+# PASS: stage_cleared && saved>=original_hp && lost==0. FAIL: stage_failed / deadline / saved<original / lost>0.
 
 const DEADLINE_FRAMES: int = 20000
-const BRIDGE_X_MIN: float = 384.0   # col8 시작 (마지막 좌측 지면 cell) — target=(col9,row10) gap 첫 셀.
-const BRIDGE_X_MAX: float = 432.0   # col9 시작 (호수) 전까지.
-const ARM_COUNT: int = 2            # 체인 — 첫 개미 즉시건설 + 둘째 개미 다리 끝 이어건설.
+const GAP_A_X_MIN: float = 288.0   # col6 (갭A 직전 마지막 좌측 지면) — 즉시 다리A 건설.
+const GAP_A_X_MAX: float = 336.0
+const GAP_B_X_MIN: float = 624.0   # col13 (갭B 직전 섬 우측 끝) — 즉시 다리B 건설.
+const GAP_B_X_MAX: float = 672.0
 
-var _armed_ids: Dictionary = {}
+var _bridge_a_done: bool = false
+var _bridge_b_done: bool = false
 var _frame: int = 0
 var _done: bool = false
 
@@ -28,34 +30,33 @@ func _physics_process(_delta: float) -> void:
 	if _done:
 		return
 	_frame += 1
-	_apply_bridge()
+	if not _bridge_a_done:
+		_bridge_a_done = _cast_at(GAP_A_X_MIN, GAP_A_X_MAX, "A")
+	elif not _bridge_b_done:
+		# 다리A 완성 후에만 갭B cast 시도 — 선두 개미가 섬을 건너 col13 낭떠러지에 도달할 때.
+		_bridge_b_done = _cast_at(GAP_B_X_MIN, GAP_B_X_MAX, "B")
 	if _frame > DEADLINE_FRAMES:
-		_fail("deadline — armed=%d" % _armed_ids.size())
+		_fail("deadline — bridgeA=%s bridgeB=%s" % [_bridge_a_done, _bridge_b_done])
 
-func _apply_bridge() -> void:
-	# col8에서 2마리 무장. 첫 개미는 낭떠러지(col9 빈칸)라 즉시 다리1 건설. 둘째 개미가 도달할 즈음엔 col9에
-	# 다리 타일이 있어 cliff_ahead=false → 무장(bridge_armed)만 → 다리1을 건너 끝(col13)에서 다리2 자동 체인.
-	if _armed_ids.size() >= ARM_COUNT:
-		return
+# 지정 x-window 안의 우향 보행 개미 중 낭떠러지(cliff_ahead) 도달자에게 bridge cast(즉시 건설). 성공 시 true.
+func _cast_at(x_min: float, x_max: float, tag: String) -> bool:
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
 		if a == null or not is_instance_valid(a) or a.state_machine == null:
 			continue
-		if _armed_ids.has(a.get_instance_id()):
+		if a.direction != 1:
 			continue
-		if a.direction != 1 or a.has_been_carrying:
+		if a.global_position.x < x_min or a.global_position.x >= x_max:
 			continue
-		if a.global_position.x < BRIDGE_X_MIN or a.global_position.x >= BRIDGE_X_MAX:
+		if not a.cliff_ahead():
 			continue
 		var bridge: BridgeSkill = BridgeSkill.new()
 		if not bridge.can_apply(a):
 			continue
 		bridge.apply(a)
-		_armed_ids[a.get_instance_id()] = true
-		print("[CampaignS3ClearTest] bridge → %s pos=%s frame=%d (total=%d)" % [
-			a.name, a.global_position, _frame, _armed_ids.size()])
-		if _armed_ids.size() >= ARM_COUNT:
-			return
+		print("[CampaignS3ClearTest] bridge %s → %s pos=%s frame=%d" % [tag, a.name, a.global_position, _frame])
+		return true
+	return false
 
 func _on_cleared(result: Dictionary) -> void:
 	if _done:
