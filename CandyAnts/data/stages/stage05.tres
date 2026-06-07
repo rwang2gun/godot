@@ -10,6 +10,7 @@ display_name = "막대과자 탑"
 layout = ExtResource("1_layout")
 total_ants = 6
 candy_hp = 5
+time_limit_seconds = 120.0
 available_skills = Array[String](["sand_mound", "floater"])
 skill_inventory = {
 "floater": 1,

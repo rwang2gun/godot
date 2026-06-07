@@ -31,8 +31,8 @@
 | S2 오르막 | 7/hp5/100s · climber6+floater1+blocker1 | 자동 PASS 5/5 |
 | S3 사탕호수 | 5/hp5/110s · bridge2 (이중갭) | 수동 클리어(스샷) · 테스트 stale |
 | S4 계단공사 | 5/hp5/110s · builder1 | 자동 PASS 5/5 |
-| S5 막대과자탑 | **6**/hp5/(시간미설정) · sand_mound1+floater1 | 자동 PASS 5/5 (마리수 5→6 교정) |
-| S6 땅굴 | 5/hp5/(시간미설정) · digger1+climber5+sand_mound1 | 수동 클리어(digger+climber) · 테스트 stale |
+| S5 막대과자탑 | **6**/hp5/120s · sand_mound1+floater1 | 자동 PASS 5/5 (마리수 5→6 교정) |
+| S6 땅굴 | 5/hp5/120s · digger1+climber5 | 수동 클리어(digger+climber) · 테스트 stale |
 | S7 옆파기 | 5/hp5/120s · basher2 | 자동 PASS 5/5 |
 | S8 박하덤불 | 5/hp5/60s · cutter1+leaf_jump3 | 자동 PASS 5/5 |
 | S9 종합과자점 | 6/hp5/150s · bridge1+basher1+blocker1+sand_mound1 | 수동 클리어(스샷) · 테스트 stale |
@@ -47,8 +47,8 @@
 - **왜 지금 안 고쳤나**: 사용자가 웹빌드+푸시 우선. 자동 커버리지 복구는 별건.
 - **고친다면**: 각 `CampaignSNClearTest` 드라이버의 캐스팅 좌표/스킬을 현 layout에 맞춰 갱신(S2/S5 분배자 드라이버 패턴 참고).
 
-#### K-11. stage05/stage06 `time_limit_seconds` 누락 → 120s 기본값 폴백
-- 다른 스테이지는 명시(60~150s). 의도면 명시 권장(맵에디터 저장 시 누락 가능성).
+#### K-11. stage05/stage06 `time_limit_seconds` 명시 누락 → ✅ 해소(2026-06-07)
+- 기능은 정상이었음(`StageData` 기본값 120s 폴백 — 인게임 TIME 카운터 정상 동작). 다른 스테이지(60~150s)와 일관되게 `time_limit_seconds = 120.0` 명시 추가.
 
 ## 2026-06-06
 
