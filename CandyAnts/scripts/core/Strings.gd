@@ -123,6 +123,19 @@ const _TABLE: Dictionary = {
 	"guide.s8.page_jump_body": "점프대를 이용하면 장애물을 뛰어넘을 수 있어요.",
 	"guide.s8.page_cutter_title": "덩굴 자르기",
 	"guide.s8.page_cutter_body": "덩굴 자르기 표지판을 세워두면 앞에 있는 덩굴을 잘라 길을 만들어요.",
+
+	# 스테이지 표시 이름 — 스트링 시트 SoT. 스테이지 선택 메뉴(StageSlotCard)와 인트로 카드 타이틀이 참조.
+	# data/menu_layout.tres·data/stages/stageNN.tres의 display_name이 아니라 여기서 관리(stage_name() 경유).
+	"stage.s1.name": "첫 나들이",
+	"stage.s2.name": "절벽 아래로",
+	"stage.s3.name": "웅덩이 넘기",
+	"stage.s4.name": "높은 곳에 닿으려면",
+	"stage.s5.name": "과자 사다리",
+	"stage.s6.name": "숨겨진 사탕",
+	"stage.s7.name": "벽 너머로",
+	"stage.s8.name": "귀찮은 식물들",
+	"stage.s9.name": "고지로!",
+	"stage.coming_soon": "준비 중",
 }
 
 # 스킬 id -> 한글 라벨. 구 SkillToolbar.KO_LABELS를 이관.
@@ -158,6 +171,10 @@ func skill_label(id: String) -> String:
 # 스킬 라벨이 명시 등록돼 있는지(영문 fallback과 구분). 스모크 테스트용.
 func has_skill_label(id: String) -> bool:
 	return _SKILL_NAMES.has(id)
+
+# 스테이지 표시 이름 (스트링 시트 SoT). 미등록 id면 "" 반환 — 소비처가 폴백("준비 중"/"스테이지 N")을 결정.
+func stage_name(id: int) -> String:
+	return _TABLE.get("stage.s%d.name" % id, "")
 
 func has_key(key: String) -> bool:
 	return _TABLE.has(key)

@@ -137,10 +137,14 @@ func _bind_content(stage_data: StageData) -> void:
 	_clear_children(_skill_list)
 	_clear_children(_hazard_list)
 
-	# 타이틀 = display_name(없으면 fallback).
+	# 타이틀 = 스테이지 이름(스트링 시트 SoT) → stageNN.tres display_name → fallback.
 	var title_text: String = Strings.t("guide.intro_title")
-	if stage_data != null and stage_data.display_name != "":
-		title_text = stage_data.display_name
+	if stage_data != null:
+		var sname: String = Strings.stage_name(stage_data.id)
+		if not sname.is_empty():
+			title_text = sname
+		elif stage_data.display_name != "":
+			title_text = stage_data.display_name
 	_title.text = title_text
 
 	var guide: StageGuideData = _load_guide(stage_data)

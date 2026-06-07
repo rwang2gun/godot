@@ -6,42 +6,42 @@
 script = ExtResource("1_layout")
 slots = [{
 "available": true,
-"display_name": "첫 나들이",
+"display_name": "",
 "stage_id": 1
 }, {
 "available": true,
-"display_name": "절벽 아래로",
+"display_name": "",
 "stage_id": 2
 }, {
 "available": true,
-"display_name": "웅덩이 넘기",
+"display_name": "",
 "stage_id": 3
 }, {
 "available": true,
-"display_name": "높은 곳에 닿으려면",
+"display_name": "",
 "stage_id": 4
 }, {
 "available": true,
-"display_name": "과자 사다리",
+"display_name": "",
 "stage_id": 5
 }, {
 "available": true,
-"display_name": "숨겨진 사탕",
+"display_name": "",
 "stage_id": 6
 }, {
 "available": true,
-"display_name": "벽 너머로",
+"display_name": "",
 "stage_id": 7
 }, {
 "available": true,
-"display_name": "귀찮은 식물들",
+"display_name": "",
 "stage_id": 8
 }, {
 "available": true,
-"display_name": "고지로!",
+"display_name": "",
 "stage_id": 9
 }, {
 "available": false,
-"display_name": "준비 중",
+"display_name": "",
 "stage_id": 10
 }]

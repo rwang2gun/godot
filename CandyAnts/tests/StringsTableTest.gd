@@ -75,6 +75,13 @@ func _ready() -> void:
 		if not Strings.has_key(key):
 			failures.append("(6) missing guide key: %s" % key)
 
+	# (7) 스테이지 이름 key 존재 + stage_name() 해석(스트링 시트 SoT).
+	for i in range(1, 10):
+		if Strings.stage_name(i).is_empty():
+			failures.append("(7) stage_name(%d) empty — stage.s%d.name 누락" % [i, i])
+	if not Strings.has_key("stage.coming_soon"):
+		failures.append("(7) missing stage.coming_soon")
+
 	if failures.size() > 0:
 		push_error("StringsTableTest FAIL\n" + "\n".join(failures))
 		print("[StringsTableTest] FAIL\n", "\n".join(failures))

@@ -62,7 +62,7 @@ func set_progress(entry: Dictionary) -> void:
 func _apply_text() -> void:
 	if _stage_label == null:
 		return
-	_stage_label.text = display_name if not display_name.is_empty() else Strings.t("stage_card.title", [stage_id])
+	_stage_label.text = _resolve_name()
 	var stars: int = int(_progress.get("stars", 0))
 	for i in _star_polys.size():
 		var poly: Polygon2D = _star_polys[i].get_node("Poly") as Polygon2D
@@ -74,6 +74,17 @@ func _apply_text() -> void:
 		_score_label.text = Strings.t("stage_card.best", [saved])
 	else:
 		_score_label.text = ""
+
+# 표시 이름 해석 — 스트링 시트(Strings.stage_name) 우선. 키 없으면 coming-soon / slot display_name / "스테이지 N" 폴백.
+func _resolve_name() -> String:
+	var n: String = Strings.stage_name(stage_id)
+	if not n.is_empty():
+		return n
+	if slot_state == SlotState.COMING_SOON:
+		return Strings.t("stage.coming_soon")
+	if not display_name.is_empty():
+		return display_name
+	return Strings.t("stage_card.title", [stage_id])
 
 func _apply_state() -> void:
 	if _main == null:

@@ -34,9 +34,10 @@ func _check_stage(n: int, expect_skills: Array, expect_hazards: int) -> void:
 	card.show_intro(stage)
 	await get_tree().process_frame
 
-	# 타이틀 = display_name.
-	if card.get_node("CardWrapper/Card/Main/Margin/VBox/Title").text != stage.display_name:
-		_fail("S%d: title mismatch got '%s'" % [n, card.get_node("CardWrapper/Card/Main/Margin/VBox/Title").text])
+	# 타이틀 = 스테이지 이름(스트링 시트 SoT, Strings.stage_name).
+	var expect_title: String = Strings.stage_name(n)
+	if card.get_node("CardWrapper/Card/Main/Margin/VBox/Title").text != expect_title:
+		_fail("S%d: title mismatch got '%s' expected '%s'" % [n, card.get_node("CardWrapper/Card/Main/Margin/VBox/Title").text, expect_title])
 
 	# shown_skill_ids.
 	var shown: Array[String] = card.shown_skill_ids()
