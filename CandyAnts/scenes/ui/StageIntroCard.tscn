@@ -46,9 +46,9 @@ anchor_bottom = 1.0
 mouse_filter = 1
 
 [node name="Card" type="Control" parent="CardWrapper"]
-custom_minimum_size = Vector2(420, 300)
+custom_minimum_size = Vector2(560, 320)
 mouse_filter = 1
-pivot_offset = Vector2(210, 150)
+pivot_offset = Vector2(280, 160)
 
 [node name="ShadowBG" type="Panel" parent="CardWrapper/Card"]
 show_behind_parent = true
@@ -87,8 +87,7 @@ theme_override_font_sizes/font_size = 34
 [node name="Goal" type="Label" parent="CardWrapper/Card/Main/Margin/VBox"]
 text = ""
 horizontal_alignment = 1
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 24
 
 [node name="SkillList" type="VBoxContainer" parent="CardWrapper/Card/Main/Margin/VBox"]
 theme_override_constants/separation = 14

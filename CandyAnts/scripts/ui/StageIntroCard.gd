@@ -24,8 +24,19 @@ const _BADGE_KEYS := {
 	SkillAffordance.Category.DEVICE:     "guide.badge.device",
 }
 
+# 본문 폰트 — 라이트 유저 가독성 위해 전부 ≥20pt(사용자 요청 2026-06-07). 카드는 콘텐츠 폭에
+# 맞춰 자동 확대되고(아래 _resize_to_content) 라벨은 autowrap을 꺼 한 줄로 렌더(줄바꿈 없음).
+const _DESC_FONT_SIZE := 22
+const _HAZARD_FONT_SIZE := 22
+const _SKILL_NAME_FONT_SIZE := 24
+# 콘텐츠 기반 카드 폭/높이 한계(px). 긴 설명 한 줄이 다 보이도록 넓게, 화면(>=1124) 안에서 캡.
+const _MIN_CARD_W := 560.0
+const _MAX_CARD_W := 1080.0
+const _MIN_CARD_H := 320.0
+
 @onready var _backdrop: ColorRect = $Backdrop
 @onready var _card: Control = $CardWrapper/Card
+@onready var _main: PanelContainer = $CardWrapper/Card/Main
 @onready var _title: Label = $CardWrapper/Card/Main/Margin/VBox/Title
 @onready var _goal: Label = $CardWrapper/Card/Main/Margin/VBox/Goal
 @onready var _skill_list: VBoxContainer = $CardWrapper/Card/Main/Margin/VBox/SkillList
@@ -39,7 +50,9 @@ var _capop_tween: Tween = null
 var _dismiss_token: int = 0
 # 카드가 광고하는 신규 스킬 id(드리프트 가드 inspector). 가이드 new_skill_ids 미러.
 var _shown_skill_ids: Array[String] = []
-# 검사 inspector 캐시(렌더 검증 테스트). 칩과 1:1 평행.
+# 검사 inspector 캐시(렌더 검증 테스트). 칩과 1:1 평행. 화면 표시는 문장 단위 줄바꿈을 적용하지만
+# inspector는 항상 raw Strings 카피를 반환(테스트가 Strings.t와 직접 대조).
+var _goal_raw: String = ""
 var _badge_labels: Array[String] = []
 var _skill_desc_texts: Array[String] = []
 var _hazard_texts: Array[String] = []
@@ -74,9 +87,17 @@ func show_intro(stage_data: StageData) -> void:
 	_capop_tween = Motion.caPop(_card)
 	EventBus.sfx_request.emit(&"dialog_open")
 
+	# 카드를 콘텐츠(가장 긴 줄) 폭/높이에 맞춰 자동 확대 — 컨테이너 min size가 한 프레임 뒤 정착하므로
+	# 다음 process_frame에 측정. 순수 시각 처리(inspector는 _bind_content에서 이미 동기 확정)라 테스트 무영향.
+	if is_inside_tree():
+		await get_tree().process_frame
+		if visible and is_node_ready():
+			_resize_to_content()
+
 # 타이틀/목표/스킬칩/해저드를 가이드 데이터로 채운다(또는 fallback).
 func _bind_content(stage_data: StageData) -> void:
 	_shown_skill_ids = []
+	_goal_raw = ""
 	_badge_labels = []
 	_skill_desc_texts = []
 	_hazard_texts = []
@@ -92,12 +113,14 @@ func _bind_content(stage_data: StageData) -> void:
 	var guide: StageGuideData = _load_guide(stage_data)
 	if guide == null:
 		# 가이드 없음 — 목표 라벨에 fallback 본문, 스킬/해저드 빈 채로(카드 생략 톤).
-		_goal.text = Strings.t("guide.intro_body_placeholder")
+		_goal_raw = Strings.t("guide.intro_body_placeholder")
+		_goal.text = _goal_raw
 		_skill_list.visible = false
 		_hazard_list.visible = false
 		return
 
-	_goal.text = Strings.t(guide.goal_key)
+	_goal_raw = Strings.t(guide.goal_key)
+	_goal.text = _goal_raw
 
 	# 스킬 칩 — 신규 스킬마다 [아이콘+라벨+배지] 헤더 + 설명 1~2줄.
 	# skill_desc_keys가 new_skill_ids보다 짧으면 빈 설명으로 안전 진행(드리프트 가드가 별도로 불일치를 잡음).
@@ -153,7 +176,7 @@ func _build_skill_row(id: String, badge_text: String, desc_text: String) -> Cont
 
 	var name_label := Label.new()
 	name_label.text = Strings.skill_label(id)
-	name_label.add_theme_font_size_override("font_size", 24)
+	name_label.add_theme_font_size_override("font_size", _SKILL_NAME_FONT_SIZE)
 	header.add_child(name_label)
 
 	var badge := _ChipScene.instantiate() as Chip
@@ -165,10 +188,10 @@ func _build_skill_row(id: String, badge_text: String, desc_text: String) -> Cont
 
 	if desc_text != "":
 		var desc := Label.new()
+		# autowrap OFF — 한 줄로 렌더(줄바꿈 없음, 사용자 요청). 카드는 _resize_to_content가 이 줄 폭에 맞춰 확대.
 		desc.text = desc_text
-		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		desc.add_theme_font_size_override("font_size", 18)
+		desc.add_theme_font_size_override("font_size", _DESC_FONT_SIZE)
 		row.add_child(desc)
 
 	return row
@@ -176,11 +199,21 @@ func _build_skill_row(id: String, badge_text: String, desc_text: String) -> Cont
 func _build_hazard_label(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_font_size_override("font_size", _HAZARD_FONT_SIZE)
 	label.add_theme_color_override("font_color", Tokens.BERRY_500)
 	return label
+
+# 카드를 콘텐츠(가장 긴 한 줄) 폭/높이에 맞춰 확대. autowrap OFF라 Main의 combined min size가
+# 가장 긴 라벨 폭을 반영 → Card에 반영하고 pivot을 중심으로 갱신(caPop 스케일 기준). [_MIN..MAX] 캡.
+func _resize_to_content() -> void:
+	if _main == null or _card == null:
+		return
+	var content: Vector2 = _main.get_combined_minimum_size()
+	var w: float = clampf(content.x, _MIN_CARD_W, _MAX_CARD_W)
+	var h: float = maxf(content.y, _MIN_CARD_H)
+	_card.custom_minimum_size = Vector2(w, h)
+	_card.pivot_offset = Vector2(w, h) * 0.5
 
 func _clear_children(container: Node) -> void:
 	for c in container.get_children():
@@ -214,7 +247,7 @@ func shown_skill_ids() -> Array[String]:
 
 # 렌더 검증 inspector(테스트) — 칩과 1:1 평행.
 func goal_text() -> String:
-	return _goal.text if _goal != null else ""
+	return _goal_raw
 
 func badge_labels() -> Array[String]:
 	return _badge_labels.duplicate()
