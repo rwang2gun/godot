@@ -198,3 +198,65 @@ Next steps:
   - M2: status.json:77 Phase7 verify가 옛 --check → **sync-status로 --report-check 반영**.
 - 확인: status.json verify가 phase02(parity)·phase07(--report-check) frontmatter와 일치. validate ✓.
 - **Plan-stage 종결**: R1 HIGH 1→해소, R1/R2 MEDIUM 4건 전부 plan 내 처리. HIGH 0 달성. 3-round cap 내(R1→fix→R2→fix) 종료, R3 불요(MEDIUM-only).
+
+---
+
+# Phase 7 (input-mode-polish) — Mid-flight Re-scope Plan Review (2026-06-07)
+
+> 별개 컨텍스트: 위 Round 1/2는 task 최초 전체 계획(Phase 1~7) 리뷰. 아래는 Phase 6
+> (guide-card-ui-restructure)가 페이지네이션 개편으로 흡수 완료된 뒤, **Phase 7을 페이지네이션
+> 현실에 맞춰 재조정**(사용자 Option A)한 plan의 별도 적대적 리뷰 사이클. 3-round cap 동일 적용.
+
+## Round 1
+
+Target: working tree diff (phase06-input-mode-polish.md re-scope)
+Verdict: needs-attention — HIGH 1 + MEDIUM 2
+
+- [HIGH] Acceptance can pass while STAGE_GUIDE_PLAN §2.6/§0.8.4 still requires the discarded
+  card-copy and badge parity work (phase06-input-mode-polish.md:21-66). Circular proof: plan
+  declares SoT obsolete then claims compliance with it before SoT/REVISION drift is resolved.
+  Rec: make SoT update a prerequisite acceptance item (gating), restate revised §2.6 invariant,
+  require REVISION to record supersession before tests count as sufficient.
+- [MEDIUM] Integration test does not prove the user-visible chain (instantiates card directly +
+  manually wires affordance) — proves components callable in sequence, not real scene wiring.
+  Rec: add seam-level test on real scene/bootstrap (headless skip overridden), or rename to
+  component-chain coverage + explicit uncovered-risk note.
+- [MEDIUM] Dead single-card path left unowned = drift trap (treated as both dead AND fallback).
+  Stale 'tap' copy/badge can show under missing/malformed guide data. Rec: delete (migrate render
+  tests off inspector) OR own as supported fallback (mode-neutral copy + pages-empty/null test).
+
+### R1 수정 요약 (2026-06-07)
+- **H1**: §0절 "SoT 정합화(게이팅)" 신설 — STAGE_GUIDE_PLAN §2.6.1 신 불변식 verbatim + §2.6/§0.8/§2/
+  §3.2 supersession 마커 + REVISION §6 박제를 **수용의 전제**로 승격. 카드 배지 은퇴는 사용자 Option A
+  결정의 박제(새 결정 아님).
+- **M1**: OnboardingIntegrationTest를 **실씬 seam**으로 재설계 — 실 Stage01(auto_begin=false)+실 카드+
+  SceneFlow 배선 모사(intro_dismissed→begin), 페이지→dismiss→is_begun+실 스폰→어포던스 적격→스킬 전이.
+  StageRunnerBeginGateTest/HeadlessSkipTest를 부트/스킵 seam 커버로 인용 + 커버리지 경계 주석.
+- **M2**: 단일카드 경로를 "지원 fallback"으로 소유 — `guide.badge.*` 모드 중립화 +
+  StageIntroCardFallbackTest(guide-null placeholder + pages-empty 렌더 잠금). `*_desc` "탭" 동사
+  중립화는 MEDIUM-residual 명시 defer(미도달+shape 잠금 근거).
+
+## Round 2
+
+Target: working tree diff (phase06 re-scope, R1 fixes applied)
+Verdict: needs-attention — **HIGH 0** + MEDIUM 2
+
+- [MEDIUM] Supported fallback can still render retired tap-copy because `guide.sN.*_desc`
+  neutralization was deferred while the path was promoted to "supported fallback"
+  (phase06-input-mode-polish.md:55-58). Internally inconsistent: supported AND allowed-to-show-stale.
+  Rec: neutralize desc strings + assert no retired verbs, OR mark fallback non-user-facing/diagnostic.
+- [MEDIUM] status.json verify omits StageIntroCardFallbackTest (status.json:80-82) → M2 guard not
+  gating if automation uses status.json. Rec: sync status.json verify to phase frontmatter.
+
+### R2 수정 요약 + 종결 (2026-06-07)
+- **M1(R2)**: "지원 fallback" 프레이밍 폐기 → 단일카드 스킬 경로를 **legacy·non-user-facing**로 재분류.
+  StageIntroCardFallbackTest를 3-part로 강화: (a) **출하 가드** = 모든 캠페인 guide(n=1..8) `pages`
+  non-empty 단언 → 단일카드 경로 캠페인 도달불가(malformed/missing-pages guide 출하 시 fail);
+  (b) guide-null → placeholder 카피-free(유일 user-facing degraded); (c) legacy pages-empty 렌더
+  shape regression 가드. → `*_desc` "탭" 동사는 **어떤 사용자에게도 미렌더**(가드로 보장)라 중립화
+  불요·defer 잔여 아님. 배지 4키는 그대로 모드 중립화(inspector 어휘 일관).
+- **M2(R2)**: phase frontmatter verify에 3번째 테스트 추가 + **status.json Phase 6 verify 수동
+  동기화**(Phase 6 완료 커스텀 필드 보존 위해 sync-status 대신 직접 편집). 일치 검증: MATCH, validate ✓.
+- **Plan-stage(Phase 7 재조정) 종결**: R1 HIGH 1 → R2 HIGH 0. MEDIUM은 전부 plan 내 처리(코덱스
+  권고 중 더 견고한 대안 채택). 정책상 "HIGH 0 + MEDIUM plan 내 처리 → 어느 라운드든 종결" 적용,
+  R3 codex 불요. 2-round(R1→fix→R2→fix)로 3-round cap 내 종료. → 구현(impl stage) 진입.

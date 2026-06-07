@@ -77,3 +77,23 @@ python scripts/execute.py new-user-onboarding next   # → Phase 6 guide-card-ui
 5. guide-data + 카피 — StageGuideData + Strings.guide.* + S1~S8 + 드리프트 가드
 6. input-mode + polish — 모드별 카피 분기 + 통합 회귀
 7. skill-guide-asset-contract — 카테고리별 가이드 에셋 계약 + 가드 테스트 + 누락 자동 제작 요청(ASSET_PRODUCTION_NEEDS) + CLAUDE.md 스킬 추가 규칙 갱신
+
+> **참고**: 05b(guide-card-ui-restructure)가 phase로 삽입되며 실제 번호는 1~5 · **5b** · 6 · 7로 +1.
+> 06=input-mode-polish는 status.json id 7, 07=skill-guide-asset-contract는 id 8.
+
+## 7. Phase 6 (input-mode-polish) 재조정 — Option A (2026-06-07)
+**배경**: 가이드 카드가 페이지네이션+스크린샷 구조로 전면 개편(`d2987b2`/`c60ed20`, Phase
+5b=guide-card-ui-restructure로 흡수)되며 원 §6 phase 6의 "카드 조작 카피 모드 분기 + 카드 입력모델
+배지 ↔ 글로우/커서 정합" 전제가 깨짐. 실측: S1~S8 전부 `guide.pages` 사용, 페이징 `_render_page`는
+배지 미표시, 카드 본문은 이미 모드 중립, 인게임 hint는 이미 모드 분기 완료.
+
+**결정(사용자 Option A)**: 카드 UI 재오픈 없이 Phase 6을 **통합 회귀 안전망 + 어포던스 시각 어휘
+Tokens/카테고리 SoT 고정 + SoT 정합화**로 재조정. **카드 입력모델 배지 칩은 은퇴**(Option B "배지
+재도입" 기각). 입력모델 학습 = (a)페이징 스크린샷 (b)인게임 어포던스 글로우/커서. 조작 동사 모드
+분기 = 인게임 `InputHintLabel` 단독.
+
+**박제**:
+- STAGE_GUIDE_PLAN §2.6.1 신 불변식 신설(§2.2/§2.6 초안·§3.2 L206·§0.8.4 L83·§0.8.6 배지 항목보다 우선).
+- 단일카드 렌더 경로 = legacy·non-user-facing. 모든 캠페인 guide `pages` 필수(StageIntroCardFallbackTest 강제).
+- `guide.badge.*` 모드 중립화("탭"→"선택"). `guide.sN.*_desc` "탭" 동사는 가드로 미도달이라 미수정.
+- plan codex 적대적 리뷰 2R(R1 HIGH1+MED2 → R2 HIGH0+MED2 → plan 내 처리 종결). 기록=`reviews/plan-review.md`.

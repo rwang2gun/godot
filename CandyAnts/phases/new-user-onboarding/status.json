@@ -64,21 +64,26 @@
       "name": "guide-card-ui-restructure",
       "duration_estimate": 5400,
       "verify": "python scripts/run_test.py tests/StageGuideDataRenderTest.tscn && python scripts/run_test.py tests/StageIntroCardShowTest.tscn && python scripts/run_test.py tests/StringsTableTest.tscn",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-06-07T17:34:56",
+      "completed_at": "2026-06-07T23:02:24",
+      "duration_seconds": 19648,
+      "note": "Superseded — implemented out-of-band by the guide-card pagination overhaul (commits d2987b2, c60ed20). Verify tests green at marking time. No separate phase commit/review.",
+      "completed_by": [
+        "d2987b2",
+        "c60ed20"
+      ]
     },
     {
       "id": 7,
       "file": "phase06-input-mode-polish.md",
       "name": "input-mode-polish",
       "duration_estimate": 7200,
-      "verify": "python scripts/run_test.py tests/GuideInputModeCopyTest.tscn && python scripts/run_test.py tests/OnboardingIntegrationTest.tscn",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "verify": "python scripts/run_test.py tests/GuideInputModeCopyTest.tscn && python scripts/run_test.py tests/OnboardingIntegrationTest.tscn && python scripts/run_test.py tests/StageIntroCardFallbackTest.tscn",
+      "state": "completed",
+      "started_at": "2026-06-07T23:14:04",
+      "completed_at": "2026-06-08T00:16:40",
+      "duration_seconds": 3756
     },
     {
       "id": 8,

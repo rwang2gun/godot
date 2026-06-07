@@ -146,6 +146,12 @@ func _bind_content(stage_data: StageData) -> void:
 	var guide: StageGuideData = _load_guide(stage_data)
 	if guide == null:
 		# 가이드 없음 — 목표 라벨에 fallback 본문, 스킬/해저드 빈 채로(카드 생략 톤).
+		# CRITICAL(codex impl R4): 같은 카드 인스턴스가 직전에 페이징 가이드(예: S8)를 보였다가
+		# 무가이드 스테이지(예: S9 allowlist)로 재사용되면, 페이징 상태를 리셋하지 않으면 _page_root에
+		# stale 페이지(직전 스크린샷)가 남아 노출된다. 단일카드 경로로 되돌리고 페이징 잔재를 비운다.
+		_use_single_card()
+		_clear_children(_image_wrap)
+		_clear_children(_dots)
 		_goal_raw = Strings.t("guide.intro_body_placeholder")
 		_goal.text = _goal_raw
 		_skill_list.visible = false

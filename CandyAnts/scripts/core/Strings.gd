@@ -48,11 +48,12 @@ const _TABLE: Dictionary = {
 	"guide.intro_body_placeholder": "곧 시작해요!",
 
 	# 입력모델 배지 4종 (SkillAffordance.Category당 1, 스킬 공유 — STAGE_GUIDE_PLAN §0.8.6).
-	# "개미 탭 / 땅 탭"으로 ②③↔①④의 2지선다를 앞세우고(§0.8.4), 카테고리별 결과를 덧붙인다.
-	"guide.badge.ant_armed": "개미 탭 → 자동 발동",
-	"guide.badge.ant_settle": "개미 탭 → 정착",
-	"guide.badge.sign": "땅 탭 → 표지판",
-	"guide.badge.device": "땅 탭 → 장치",
+	# 배지는 페이징 카드에 미표시(§2.6.1 은퇴) — inspector·legacy 단일카드 경로 전용. 조작 동사 모드
+	# 분기는 인게임 InputHintLabel(hint.*)이 담당하므로 배지는 **모드 중립**("선택")으로 유지한다.
+	"guide.badge.ant_armed": "개미 선택 → 자동 발동",
+	"guide.badge.ant_settle": "개미 선택 → 정착",
+	"guide.badge.sign": "땅 선택 → 표지판",
+	"guide.badge.device": "땅 선택 → 장치",
 
 	# 스테이지별 가이드 카피 (STAGE_GUIDE_PLAN §4). data/guides/stageNN_guide.tres가 key로 참조.
 	# S1 · 첫 마실 — climber(③) + 글로벌 기본기.
