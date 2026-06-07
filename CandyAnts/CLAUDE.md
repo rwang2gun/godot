@@ -40,6 +40,7 @@
 - CRITICAL: 사후(=phase 커밋 후) 리뷰에서 HIGH가 발견되면 즉시 후속 hot-fix 커밋(`fix: <요약> (phase NN sweep)`)으로 처리하고, 동일 impl-stage 루프(자체리뷰 → codex 재리뷰 → clean)까지 진행. 다음 phase 시작 금지. MEDIUM/LOW만 `phaseNN-deferred.md` 허용
 - 작업 진행은 `python scripts/execute.py {task-name}`로 상태 관리. 세션 시작마다 한 번 `validate` 실행, phase 추가/삭제 시 `sync-status`로 동기화. Phase 메타(`active_revision`, post-MVP 범위 등)는 `phases/{task-name}/metadata.json`이 SoT — `CLAUDE.md`에 phase 개수를 하드코딩하지 않는다
 - 헤드리스 테스트는 `python scripts/run_test.py <scene>` (예: `tests/Stage03HeadlessTest.tscn`). Godot 바이너리는 `GODOT_BIN` 환경변수 → `PATH` → 알려진 후보 순으로 자동 탐색. 새 머신/위치 사용 시 `scripts/run_test.py`의 `CANDIDATES` 갱신 또는 `GODOT_BIN` 지정
+- CRITICAL: 웹 빌드는 항상 `python scripts/build_web.py`로 한다 — Godot "Web" 프리셋 export + **itch.io 업로드용 zip(`build/web/CandyAnts-web.zip`) 생성까지 한 번에**. 수동 `--export-release "Web"`만 돌리고 zip을 빠뜨리지 말 것. zip은 `*.import`·zip 자기 자신을 제외한 `build/web/` 전체를 루트(`index.html`이 아카이브 최상단)에 평면 배치한다. godot 탐색은 `run_test.find_godot` 재사용
 - 커밋 메시지: `phase {N}: {요약}` 형식 (Phase 단위) 또는 conventional commits (feat:, fix:, refactor:)
 - Hook이 차단/경고하면 우회 금지, 의도 확인 후 정공법으로 처리
 

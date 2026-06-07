@@ -10,6 +10,46 @@
 
 ---
 
+## 2026-06-07
+
+> 맵에디터로 S3~S9 레벨 재저작(지형·파라미터 조정) 후 9스테이지 전수 클리어 검증 + climber 천정 충돌 방향 버그 수정 + 현재 버전 웹빌드(itch.io zip) 산출 세션.
+
+### Fixed
+
+#### F-15. climber 천정 충돌 시 진행 반대 방향으로 낙하
+- **증상(사용자 보고)**: 좁은 천장 아래에서 climber가 등반 중 머리가 천정에 막혀 떨어지면, **낙하 후 같은 방향으로 다시 벽으로 가 재등반** → 같은 자리에서 등반↔낙하 루프(S6 갱도 천장 등).
+- **원인**: [ClimberState.gd](../scripts/ant/states/ClimberState.gd) `_update_climbing`의 `is_on_ceiling()` 분기가 `FallerState`로만 전이하고, `exit()`가 모든 종료 경로에서 `a.direction = _climb_direction`(등반 방향)을 복원 → 낙하·착지 후 등반 방향(=벽 쪽)으로 보행 재개.
+- **수정**: 천정 분기에서 `_climb_direction = -_climb_direction`로 반전 후 전이. `exit()`가 반전된 값을 복원 → FallerState가 그 방향으로 표류·착지 → `return_to_walking`이 반대 방향 보행(벽에서 멀어짐). **천정 경로에만** 적용(mantle 완료·stall guard·blocker bounce 경로는 등반 방향 유지).
+- **검증**: 신규 `ClimberCeilingReverseTest`(천정 캡 강제 → enter dir=1 → 천정 → FallerState dir=-1 → 착지 WalkerState dir=-1, 기절 없는 짧은 낙하) PASS. 회귀: `ClimberStall`/`ClimberBlockerOverlap`/`ClimberBlockerOverlapStall`(stall-guard 복원=비반전 확인)/`TraitCombined`/`CampaignS1Clear`/`CampaignS1NoClimber` 전부 PASS. `ClimberTraitTest`(mantle 0.07px 경계)는 stash로 되돌려도 동일 실패 = pristine HEAD 선재([[#K-4]]), 무관.
+
+### Verified — S3~S9 맵에디터 재저작 클리어 전수 검증
+사용자가 맵에디터로 S3~S9 지형·파라미터를 §3a~3j 커밋(`cf7ecff` 등) 대비 재조정(인벤토리 대폭 축소 등). 현재 워킹트리 기준 9스테이지 전수 클리어 확인:
+
+| Stage | 파라미터(현행) | 검증 |
+|---|---|---|
+| S1 첫마실 | 5/hp5/90s · climber5+blocker1 · ★[.6,.8,1] | 자동 PASS 5/5 |
+| S2 오르막 | 7/hp5/100s · climber6+floater1+blocker1 | 자동 PASS 5/5 |
+| S3 사탕호수 | 5/hp5/110s · bridge2 (이중갭) | 수동 클리어(스샷) · 테스트 stale |
+| S4 계단공사 | 5/hp5/110s · builder1 | 자동 PASS 5/5 |
+| S5 막대과자탑 | **6**/hp5/(시간미설정) · sand_mound1+floater1 | 자동 PASS 5/5 (마리수 5→6 교정) |
+| S6 땅굴 | 5/hp5/(시간미설정) · digger1+climber5+sand_mound1 | 수동 클리어(digger+climber) · 테스트 stale |
+| S7 옆파기 | 5/hp5/120s · basher2 | 자동 PASS 5/5 |
+| S8 박하덤불 | 5/hp5/60s · cutter1+leaf_jump3 | 자동 PASS 5/5 |
+| S9 종합과자점 | 6/hp5/150s · bridge1+basher1+blocker1+sand_mound1 | 수동 클리어(스샷) · 테스트 stale |
+
+- **S5 마리수 교정**: `total_ants` 5→6. floater 분배자 1마리 영구 희생([[#F-3]]) → 배달 가능 4 < hp5였던 결함(saved 4/5 cap)을 6마리로 해소(`CampaignS5Clear` saved 5/5 검증).
+- 현재 버전 **웹빌드 산출**: `build/web/CandyAnts-web.zip`(itch.io 업로드용, 49.5MB) — `python scripts/build_web.py`.
+
+### Known issues (미수정)
+
+#### K-10. S3/S6/S9 campaign clear 테스트 드라이버 stale (재저작으로 좌표/스킬셋 변경) — [[#K-5]] 연장
+- **내용**: S3=옛 단일갭 col8 캐스팅(현 이중갭은 col6/col13 필요), S6=옛 지형 좌표라 굴착 시도 못 함(digs=0 time_out), S9=옛 builder 캐스팅(현 인벤토리는 blocker+sand_mound). 셋 다 **레벨 자체는 클리어 가능**(수동·스크린샷 확인) — 테스트 드라이버만 새 지형/스킬셋에 맞춰 갱신 필요.
+- **왜 지금 안 고쳤나**: 사용자가 웹빌드+푸시 우선. 자동 커버리지 복구는 별건.
+- **고친다면**: 각 `CampaignSNClearTest` 드라이버의 캐스팅 좌표/스킬을 현 layout에 맞춰 갱신(S2/S5 분배자 드라이버 패턴 참고).
+
+#### K-11. stage05/stage06 `time_limit_seconds` 누락 → 120s 기본값 폴백
+- 다른 스테이지는 명시(60~150s). 의도면 명시 권장(맵에디터 저장 시 누락 가능성).
+
 ## 2026-06-06
 
 > digger 표지판화 + digger 자유낙하 기절 수정 + S6 "땅굴" 재설계 세션. 스킬을 "적용 방식(푯말/정착·이탈/무장·자동발동/장치 설치)" 축으로 분류하는 작업의 일환으로 digger를 표지판 스킬로 편입했고, 그 과정에서 발견한 "굴착 모션으로 떨어져 기절 미발동" 버그를 수정하며 의존 스테이지 S6를 재설계했다.
