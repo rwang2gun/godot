@@ -27,6 +27,7 @@
 [ext_resource type="PackedScene" uid="uid://b6sktbphase11" path="res://scenes/ui/SkillToolbar.tscn" id="26_6yvsm"]
 [ext_resource type="Script" uid="uid://dvkw0tp37uw5h" path="res://scripts/ui/SkillToolbar.gd" id="27_2vp6h"]
 [ext_resource type="Script" uid="uid://cd6upt7hv4jo5" path="res://scripts/world/PlacementPreview.gd" id="98_preview"]
+[ext_resource type="Script" uid="uid://c6lel1jb3ls2g" path="res://scripts/world/AffordanceGlowController.gd" id="99_glow"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_avkq2"]
 size = Vector2(48, 48)
@@ -1473,6 +1474,11 @@ script = ExtResource("98_preview")
 toolbar_path = NodePath("../../SkillToolbar")
 terrain_path = NodePath("../Terrain")
 
+
+[node name="AffordanceGlowController" type="Node2D" parent="World"]
+script = ExtResource("99_glow")
+toolbar_path = NodePath("../../SkillToolbar")
+terrain_path = NodePath("../Terrain")
 [node name="Home" type="Area2D" parent="World" unique_id=1683174525 instance=ExtResource("3")]
 position = Vector2(120, 480)
 collision_layer = 32

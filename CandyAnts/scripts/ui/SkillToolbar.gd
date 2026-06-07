@@ -11,6 +11,8 @@ const SkillSlotScene: PackedScene = preload("res://scenes/ui/atoms/SkillSlot.tsc
 # 표지판(설치형 발동) — class_name 글로벌 캐시 의존 없이 헤드리스 안정성 위해 preload 참조(SkillRegistry 패턴).
 const SkillSignScript := preload("res://scripts/world/SkillSign.gd")
 const LeafJumpPadScript := preload("res://scripts/world/LeafJumpPad.gd")
+# 설치형/장치 배치 검증 단일 출처 (Phase 2 추출) — 글로우와 동일 규칙 보장.
+const SignPlacementScript := preload("res://scripts/world/SignPlacement.gd")
 # 터치/클릭 스킬 부여 판정 반경. 기준점은 개미 충돌 원점(발)이 아니라 보이는 캐릭터 중심
 # (Ant.tap_target_position) — 스프라이트가 원점보다 ~44px 위에 그려져, 원점+48 반경이면
 # 캐릭터 아래 절반만 덮어 머리 터치가 빠졌다(2026-06-04 버그). 중심 기준 + 반경 64로
@@ -261,13 +263,12 @@ func _place_sign(id: String, world: Vector2) -> bool:
 	var parent: Node = terrain.get_parent()
 	if parent == null:
 		return false
-	var cs: int = terrain.cell_size
-	var clicked: Vector2i = Vector2i(int(floor(world.x / cs)), int(floor(world.y / cs)))
-	# 허공 배치 방지 — 클릭 열을 아래로 훑어 지면(바닥 타일) 바로 위 셀로 스냅한다. 지형 내부를 클릭했거나
-	# 클릭 열 아래에 바닥이 없으면(낭떠러지 위 허공) 설치 거부 → 선택 유지(빈 공간 오클릭 보호와 동일).
-	var cell: Vector2i = _ground_cell_for_sign(terrain, clicked)
-	if cell == Vector2i.MAX:
+	# 허공/점유 배치 방지 + 아래 지면 스냅 — SignPlacement 단일 출처(글로우와 동일 규칙).
+	# 유효 셀이 아니면 선택 유지(빈 공간 오클릭 보호와 동일).
+	var res: Dictionary = SignPlacementScript.resolve_surface_install_cell(terrain, id, world, parent)
+	if not res.get("valid", false):
 		return false
+	var cell: Vector2i = res["cell"]
 	var sign: SkillSign = SkillSignScript.new() as SkillSign
 	# setup을 add_child 앞에 — _ready()/_build_visual()이 skill_id·cell·terrain을 사용하므로 먼저 채운다.
 	sign.setup(id, cell, terrain)
@@ -279,10 +280,10 @@ func _place_sign(id: String, world: Vector2) -> bool:
 
 # 나뭇잎 점프는 표지판 없이 점프대 자체를 지면 위에 직접 배치한다.
 func _place_leaf_jump_pad(world: Vector2) -> bool:
-	var id := "leaf_jump"
-	if not _slots.has(id):
+	var skill_id := "leaf_jump"
+	if not _slots.has(skill_id):
 		return false
-	if int(_inventory.get(id, 0)) <= 0:
+	if int(_inventory.get(skill_id, 0)) <= 0:
 		return false
 	var terrain: Terrain = _find_terrain()
 	if terrain == null:
@@ -290,40 +291,18 @@ func _place_leaf_jump_pad(world: Vector2) -> bool:
 	var parent: Node = terrain.get_parent()
 	if parent == null:
 		return false
-	var cs: int = terrain.cell_size
-	var clicked: Vector2i = Vector2i(int(floor(world.x / cs)), int(floor(world.y / cs)))
-	var cell: Vector2i = _ground_cell_for_sign(terrain, clicked)
-	if cell == Vector2i.MAX:
+	# 지면 스냅 + 같은 셀 중복 pad 거부 — SignPlacement 단일 출처(글로우와 동일 규칙).
+	var res: Dictionary = SignPlacementScript.resolve_surface_install_cell(terrain, skill_id, world, parent)
+	if not res.get("valid", false):
 		return false
-	if _leaf_jump_pad_exists(parent, cell):
-		return false
+	var cell: Vector2i = res["cell"]
 	var pad: LeafJumpPad = LeafJumpPadScript.new() as LeafJumpPad
 	pad.setup(cell, terrain)
 	parent.add_child(pad)
-	_inventory[id] = int(_inventory[id]) - 1
-	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
-	print("[SkillToolbar] leaf jump pad placed cell=", cell, " remaining=", _inventory[id])
+	_inventory[skill_id] = int(_inventory[skill_id]) - 1
+	(_slots[skill_id] as SkillSlot).set_count(int(_inventory[skill_id]))
+	print("[SkillToolbar] leaf jump pad placed cell=", cell, " remaining=", _inventory[skill_id])
 	return true
-
-func _leaf_jump_pad_exists(parent: Node, cell: Vector2i) -> bool:
-	for child in parent.get_children():
-		var pad: LeafJumpPad = child as LeafJumpPad
-		if pad != null and pad.cell == cell:
-			return true
-	return false
-
-# 설치형 표지판이 허공에 뜨지 않도록 클릭 셀을 같은 열의 지면 위로 스냅 — 아래로 훑어 첫 바닥 타일을
-# 만나면 그 바로 위(빈 셀)를 반환. 클릭 셀이 지형 내부(점유)거나 아래에 바닥이 없으면 Vector2i.MAX(=실패).
-# 표지판 발동은 열(cell.x) 기준이라 수직 스냅은 트리거 동작에 영향 없음(시각/지면 정합만 보정).
-const _SIGN_SNAP_MAX_CELLS: int = 64
-
-func _ground_cell_for_sign(terrain: Terrain, cell: Vector2i) -> Vector2i:
-	if terrain.is_cell_occupied(cell):
-		return Vector2i.MAX
-	for dy: int in range(1, _SIGN_SNAP_MAX_CELLS + 1):
-		if terrain.is_cell_occupied(cell + Vector2i(0, dy)):
-			return cell + Vector2i(0, dy - 1)
-	return Vector2i.MAX
 
 # Terrain 탐색 — 툴바는 CanvasLayer라 World 트리 밖. 현재 씬 트리에서 Terrain 노드를 찾는다.
 func _find_terrain() -> Terrain:

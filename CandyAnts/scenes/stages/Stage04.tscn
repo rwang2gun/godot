@@ -15,6 +15,7 @@
 [ext_resource type="Texture2D" uid="uid://ds3j82nyqka5i" path="res://assets/sprites/terrain/usable_square/cookie_solid_rotatable_square_03.png" id="13_nj8mk"]
 [ext_resource type="Script" uid="uid://5lh5rplnitdd" path="res://scripts/world/Terrain.gd" id="14_7orpv"]
 [ext_resource type="Script" uid="uid://cd6upt7hv4jo5" path="res://scripts/world/PlacementPreview.gd" id="15_asqdt"]
+[ext_resource type="Script" uid="uid://c6lel1jb3ls2g" path="res://scripts/world/AffordanceGlowController.gd" id="99_glow"]
 [ext_resource type="PackedScene" path="res://scenes/entities/Home.tscn" id="16_6mjeb"]
 [ext_resource type="Script" uid="uid://jimgqvwcqixp" path="res://scripts/world/Home.gd" id="17_baj0c"]
 [ext_resource type="PackedScene" path="res://scenes/entities/Candy.tscn" id="18_cfn17"]
@@ -2201,6 +2202,11 @@ script = ExtResource("15_asqdt")
 toolbar_path = NodePath("../../SkillToolbar")
 terrain_path = NodePath("../Terrain")
 
+
+[node name="AffordanceGlowController" type="Node2D" parent="World"]
+script = ExtResource("99_glow")
+toolbar_path = NodePath("../../SkillToolbar")
+terrain_path = NodePath("../Terrain")
 [node name="Home" type="Area2D" parent="World" unique_id=1706315056 instance=ExtResource("16_6mjeb")]
 position = Vector2(72, 480)
 collision_layer = 32

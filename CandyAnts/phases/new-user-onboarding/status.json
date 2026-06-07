@@ -20,10 +20,10 @@
       "name": "tap-target-glow",
       "duration_estimate": 9000,
       "verify": "python scripts/run_test.py tests/TapTargetGlowAntTest.tscn && python scripts/run_test.py tests/TapTargetGlowSurfaceTest.tscn && python scripts/run_test.py tests/TapTargetGlowEligibilityTest.tscn && python scripts/run_test.py tests/SignPlacementParityTest.tscn",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-06-07T14:47:15",
+      "completed_at": "2026-06-07T15:22:08",
+      "duration_seconds": 2093
     },
     {
       "id": 3,
