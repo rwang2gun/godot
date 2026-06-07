@@ -34,3 +34,6 @@ scripts/hooks/.tdd_bypass
 
 # 웹 맵에디터 잔여 npm 트리 (ab0df41에서 제거됨, 로컬만)
 tools/map_editor/
+
+# 가이드 카드 저작 툴 — 루트 .gitignore의 *.html(HTML 참조 원본) 규칙 예외로 추적.
+!tools/guide_card_editor.html

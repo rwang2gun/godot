@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CandyAnts 가이드 카드 편집기</title>
+<style>
+  :root{
+    --bg:#1a1714; --panel:#242019; --panel2:#2d2820; --ink:#f2e9da; --muted:#b8ab95;
+    --accent:#f0993f; --accent2:#ff4a9e; --green:#2fd95c; --blue:#5aa7ff;
+    --border:#3a342a; --code:#16130f; --danger:#ff4a37;
+    /* 인게임 카드 토큰 (Tokens.gd 미러) */
+    --cream:#F5EFE3; --cream50:#FBF8F1; --cream300:#D9C9AC; --inkbrown:#3A2A1C; --ink700:#5C4530;
+    --peach500:#F2A48F; --peach700:#D17A60;
+    --imgW:640px; --imgH:400px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0; font-family:"Segoe UI","Malgun Gothic",system-ui,sans-serif;
+    background:var(--bg); color:var(--ink); display:flex; flex-direction:column; height:100vh;}
+  header{background:linear-gradient(135deg,#2d2820,#1a1714); border-bottom:1px solid var(--border);
+    padding:10px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  header h1{margin:0; font-size:17px; letter-spacing:-.3px; white-space:nowrap;}
+  header h1 small{color:var(--muted); font-weight:400; font-size:12px; margin-left:6px;}
+  .toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-left:auto;}
+  .field{display:inline-flex; gap:6px; align-items:center; font-size:12px; color:var(--muted);}
+  input,select,textarea{font:inherit;}
+  input[type=text],input[type=number],select,textarea{
+    background:var(--code); border:1px solid var(--border); border-radius:7px; color:var(--ink);
+    padding:6px 9px; font-size:13px;}
+  input[type=number]{width:74px;}
+  input:focus,select:focus,textarea:focus{outline:none; border-color:var(--accent);}
+  button{font:inherit; font-size:13px; font-weight:600; cursor:pointer; border-radius:8px;
+    border:1px solid var(--border); background:var(--panel2); color:var(--ink); padding:7px 12px; transition:.12s;}
+  button:hover{border-color:var(--accent);}
+  button.primary{background:var(--accent); color:#1a1714; border-color:var(--accent);}
+  button.danger{color:var(--danger); border-color:#5a2a22;}
+  button.danger:hover{background:#3a201a;}
+  .wrap{flex:1; display:flex; min-height:0;}
+  /* 왼쪽: 페이지 목록 + 컨트롤 */
+  aside{width:360px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--border);
+    overflow:auto; padding:14px;}
+  .seclabel{font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--accent);
+    font-weight:700; margin:16px 0 8px;}
+  .seclabel:first-child{margin-top:0;}
+  .pagelist{display:flex; flex-direction:column; gap:6px;}
+  .pagerow{display:flex; align-items:center; gap:8px; background:var(--panel2); border:1px solid var(--border);
+    border-radius:8px; padding:7px 10px; cursor:pointer;}
+  .pagerow.on{border-color:var(--accent); background:#332b1f;}
+  .pagerow .idx{font-size:11px; color:var(--muted); background:var(--code); border-radius:10px; padding:1px 8px;}
+  .pagerow .ttl{flex:1; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .pagerow .mini{width:46px; height:34px; border-radius:5px; background:#000 center/cover; flex-shrink:0; border:1px solid var(--border);}
+  .pagerow .ord{display:flex; flex-direction:column; gap:2px;}
+  .pagerow .ord button{padding:0 5px; font-size:10px; line-height:13px; border-radius:4px;}
+  .ctl{display:flex; flex-direction:column; gap:5px; margin-bottom:11px;}
+  .ctl > label{font-size:12px; color:var(--muted);}
+  .ctl textarea{width:100%; min-height:60px; resize:vertical; line-height:1.4;}
+  .ctl input[type=text]{width:100%;}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .seg{display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden;}
+  .seg button{border:none; border-radius:0; background:var(--panel2); color:var(--muted); padding:6px 11px; font-size:12px;}
+  .seg button.on{background:var(--accent); color:#1a1714;}
+  .rng{display:flex; align-items:center; gap:8px;}
+  .rng input[type=range]{flex:1;}
+  .rng .val{font-size:11px; color:var(--muted); font-family:Consolas,monospace; width:42px; text-align:right;}
+  .hint{font-size:11px; color:var(--muted); line-height:1.5;}
+  /* 가운데: 프리뷰 */
+  main{flex:1; overflow:auto; padding:24px; display:flex; flex-direction:column; align-items:center; gap:14px;}
+  .stagewrap{display:flex; flex-direction:column; align-items:center; gap:14px;}
+  /* 인게임 카드 크롬 미러 */
+  .card{background:var(--cream); border:3px solid var(--inkbrown); border-radius:24px; padding:22px 26px;
+    box-shadow:6px 6px 0 rgba(58,42,28,.9); display:flex; flex-direction:column; gap:14px;}
+  .imgArea{width:var(--imgW); height:var(--imgH); position:relative; overflow:hidden; border-radius:12px;
+    background:var(--cream300);}
+  .imgArea .bgimg{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+    transform-origin:center; user-select:none; pointer-events:none;}
+  .overlay{position:absolute; border-radius:14px; padding:12px 18px 14px; cursor:grab; user-select:none;
+    color:var(--cream50);}
+  .overlay.drag{cursor:grabbing;}
+  /* 한글 어절(벽+을) 중간 끊김 방지: 띄어쓰기 단위로만 줄바꿈 + 수동 \n 존중. */
+  .overlay .ot{font-size:32px; font-weight:800; line-height:1.15; margin-bottom:0;
+    white-space:pre-wrap; word-break:keep-all; overflow-wrap:break-word;}
+  .overlay .odiv{height:2px; background:rgba(251,248,241,.55); border-radius:2px; margin:8px 0 9px;}
+  .overlay .ob{font-size:24px; font-weight:500; line-height:1.3;
+    white-space:pre-wrap; word-break:keep-all; overflow-wrap:break-word;}
+  .overlay .handle{position:absolute; top:-9px; left:-9px; font-size:10px; background:var(--accent2);
+    color:#1a1714; border-radius:6px; padding:1px 6px; font-weight:700; opacity:0; transition:.12s;}
+  .overlay:hover .handle{opacity:1;}
+  .navrow{display:flex; align-items:center; gap:8px; min-height:44px;}
+  .navrow .nz{display:flex; align-items:center; gap:10px;}
+  .navrow .nz.left{flex:1; justify-content:flex-start;}
+  .navrow .nz.right{flex:1; justify-content:flex-end;}
+  .cbtn{border-radius:14px; border:2px solid var(--inkbrown); padding:8px 18px; font-size:18px; font-weight:700;
+    box-shadow:3px 3px 0 rgba(58,42,28,.55);}
+  .cbtn.pri{background:var(--peach500); color:var(--inkbrown);}
+  .cbtn.ghost{background:var(--cream); color:var(--ink700);}
+  .dots{display:flex; gap:10px; align-items:center;}
+  .dot{width:16px; height:16px; border-radius:50%; background:var(--cream300);}
+  .dot.on{background:var(--ink700);}
+  .pvnote{font-size:11px; color:var(--muted);}
+  /* JSON 출력 */
+  .jsonbar{border-top:1px solid var(--border); background:var(--panel); padding:10px 16px; display:flex;
+    flex-direction:column; gap:8px; max-height:38vh;}
+  .jsonbar .top{display:flex; align-items:center; gap:10px;}
+  .jsonbar textarea{width:100%; flex:1; min-height:120px; background:var(--code); color:var(--green);
+    font-family:Consolas,"Cascadia Code",monospace; font-size:12px; line-height:1.45; resize:vertical;}
+  .ok{color:var(--green); font-size:12px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🍬 가이드 카드 편집기 <small>guide-card-ui-restructure · JSON 출력</small></h1>
+  <div class="toolbar">
+    <span class="field">스테이지 <input type="number" id="stageId" min="1" value="1"></span>
+    <button id="importBtn">JSON 불러오기</button>
+    <button id="copyBtn" class="primary">JSON 복사</button>
+    <button id="downloadBtn">내려받기</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="seclabel">페이지</div>
+    <div class="pagelist" id="pageList"></div>
+    <button id="addPage" style="margin-top:8px; width:100%;">+ 페이지 추가</button>
+
+    <div id="editor"></div>
+  </aside>
+
+  <main>
+    <div class="stagewrap">
+      <div class="card" id="card">
+        <div class="imgArea" id="imgArea">
+          <img class="bgimg" id="bgimg" alt="">
+          <div class="overlay" id="overlay">
+            <span class="handle">⋮⋮ 드래그</span>
+            <div class="ot" id="ovTitle"></div>
+            <div class="odiv" id="ovDiv"></div>
+            <div class="ob" id="ovBody"></div>
+          </div>
+        </div>
+        <div class="navrow" id="navrow"></div>
+      </div>
+      <div class="pvnote">미리보기는 인게임 카드(640×400 이미지 영역)와 1:1 — 텍스트 박스를 드래그해 위치를 잡으세요.</div>
+    </div>
+  </main>
+</div>
+
+<div class="jsonbar">
+  <div class="top">
+    <strong style="font-size:13px;">JSON</strong>
+    <span class="hint">엔진 배선용 — 위치/스크림/이미지 변형 포함. 복사해서 전달하세요.</span>
+    <span id="copyOk" class="ok" style="opacity:0;">복사됨!</span>
+  </div>
+  <textarea id="jsonOut" spellcheck="false" readonly></textarea>
+</div>
+
+<script>
+"use strict";
+// ── 가이드 이미지 목록 (assets/guide/*.png) ─────────────────────────────────
+const GUIDE_IMAGES = [
+  "guide_goal","guide_climbing","guide_carry","guide_drop","guide_caramel",
+  "guide_bridge","guide_stair","guide_sandmound","guide_digger","guide_basher",
+  "guide_cutter","guide_jump","guide_floater","guide_blocker","guide_water",
+];
+const IMG_DIR = "../assets/guide/";
+const resPath = (name) => name ? ("res://assets/guide/" + name + ".png") : "";
+const nameFromRes = (p) => (p||"").replace("res://assets/guide/","").replace(/\.png$/,"");
+
+const $ = (id) => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const r3 = (v) => Math.round(v*1000)/1000;
+const clearEl = (el) => { while(el.firstChild) el.removeChild(el.firstChild); };
+
+// ── 상태 ────────────────────────────────────────────────────────────────────
+function defaultPage(image, title, body){
+  return {
+    image: image || "",
+    title: title || "",
+    body: body || "",
+    text:  { x:0.04, y:0.04, width:0.92, align:"left" },
+    scrim: { enabled:true, color:"#332112", opacity:0.62 },
+    image_xform: { zoom:1.0, pan_x:0.0, pan_y:0.0 },
+  };
+}
+// S1 현재 카드로 시드.
+let state = {
+  stage_id: 1,
+  pages: [
+    defaultPage("guide_goal", "이렇게 해요", "사탕을 한 조각씩 집으로 옮겨요. 5조각을 다 옮기면 성공!"),
+    defaultPage("guide_climbing", "벽 오르기", "개미를 탭하면 벽 오르기를 들고 걸어요. 벽을 만나면 스스로 타고 올라가요."),
+  ],
+};
+let sel = 0;
+
+// ── 페이지 목록 ───────────────────────────────────────────────────────────
+function renderPageList(){
+  const el = $("pageList"); clearEl(el);
+  state.pages.forEach((p,i)=>{
+    const row = document.createElement("div");
+    row.className = "pagerow" + (i===sel ? " on" : "");
+    row.onclick = (e)=>{ if(e.target.tagName==="BUTTON") return; sel=i; renderAll(); };
+    const mini = document.createElement("div");
+    mini.className="mini";
+    if(p.image) mini.style.backgroundImage = `url('${IMG_DIR}${p.image}.png')`;
+    const idx = document.createElement("span"); idx.className="idx"; idx.textContent = i+1;
+    const ttl = document.createElement("span"); ttl.className="ttl"; ttl.textContent = p.title || "(제목 없음)";
+    const ord = document.createElement("div"); ord.className="ord";
+    const up = document.createElement("button"); up.textContent="▲"; up.title="위로";
+    up.onclick=()=>movePage(i,-1);
+    const dn = document.createElement("button"); dn.textContent="▼"; dn.title="아래로";
+    dn.onclick=()=>movePage(i,1);
+    ord.append(up,dn);
+    const del = document.createElement("button"); del.className="danger"; del.textContent="✕"; del.title="삭제";
+    del.style.padding="2px 8px";
+    del.onclick=()=>delPage(i);
+    row.append(mini, idx, ttl, ord, del);
+    el.appendChild(row);
+  });
+}
+function movePage(i,d){
+  const j=i+d; if(j<0||j>=state.pages.length) return;
+  const [pg]=state.pages.splice(i,1); state.pages.splice(j,0,pg);
+  if(sel===i) sel=j; else if(sel===j) sel=i;
+  renderAll();
+}
+function delPage(i){
+  if(state.pages.length<=1){ alert("최소 1페이지는 있어야 해요."); return; }
+  state.pages.splice(i,1); if(sel>=state.pages.length) sel=state.pages.length-1; renderAll();
+}
+
+// ── 선택 페이지 편집 컨트롤 ─────────────────────────────────────────────────
+function ctl(label, inner){
+  const d=document.createElement("div"); d.className="ctl";
+  const l=document.createElement("label"); l.textContent=label; d.appendChild(l);
+  d.appendChild(inner); return d;
+}
+function rangeCtl(label, val, min, max, step, fmt, onin){
+  const d=document.createElement("div"); d.className="ctl";
+  const l=document.createElement("label"); l.textContent=label; d.appendChild(l);
+  const wrap=document.createElement("div"); wrap.className="rng";
+  const r=document.createElement("input"); r.type="range"; r.min=min; r.max=max; r.step=step; r.value=val;
+  const v=document.createElement("span"); v.className="val"; v.textContent=fmt(val);
+  r.oninput=()=>{ v.textContent=fmt(parseFloat(r.value)); onin(parseFloat(r.value)); };
+  wrap.append(r,v); d.appendChild(wrap); return d;
+}
+function elSeclabel(t){ const d=document.createElement("div"); d.className="seclabel"; d.textContent=t; return d; }
+function elHint(t){ const d=document.createElement("div"); d.className="hint"; d.textContent=t; return d; }
+
+function renderEditor(){
+  const host=$("editor"); clearEl(host);
+  const p=state.pages[sel]; if(!p) return;
+
+  host.appendChild(elSeclabel("페이지 " + (sel+1) + " 내용"));
+
+  const imgSel=document.createElement("select");
+  const none=document.createElement("option"); none.value=""; none.textContent="(이미지 없음)"; imgSel.appendChild(none);
+  GUIDE_IMAGES.forEach(n=>{ const o=document.createElement("option"); o.value=n; o.textContent=n; if(n===p.image)o.selected=true; imgSel.appendChild(o);});
+  imgSel.onchange=()=>{ p.image=imgSel.value; renderAll(); };
+  host.appendChild(ctl("스크린샷", imgSel));
+
+  const ti=document.createElement("input"); ti.type="text"; ti.value=p.title;
+  ti.oninput=()=>{ p.title=ti.value; renderPreview(); renderPageList(); renderJson(); };
+  host.appendChild(ctl("제목", ti));
+  const bo=document.createElement("textarea"); bo.value=p.body;
+  bo.oninput=()=>{ p.body=bo.value; renderPreview(); renderJson(); };
+  host.appendChild(ctl("본문", bo));
+
+  host.appendChild(elSeclabel("텍스트 배치"));
+  const seg=document.createElement("div"); seg.className="seg";
+  [["left","좌"],["center","중앙"],["right","우"]].forEach(([v,t])=>{
+    const b=document.createElement("button"); b.textContent=t; if(p.text.align===v)b.className="on";
+    b.onclick=()=>{ p.text.align=v; renderAll(); };
+    seg.appendChild(b);
+  });
+  host.appendChild(ctl("정렬", seg));
+  host.appendChild(rangeCtl("폭", p.text.width, 0.30, 1.0, 0.01, v=>Math.round(v*100)+"%", v=>{ p.text.width=v; renderPreview(); renderJson(); }));
+  host.appendChild(rangeCtl("X 위치", p.text.x, 0, 1, 0.005, v=>Math.round(v*100)+"%", v=>{ p.text.x=v; positionOverlay(); renderJson(); }));
+  host.appendChild(rangeCtl("Y 위치", p.text.y, 0, 1, 0.005, v=>Math.round(v*100)+"%", v=>{ p.text.y=v; positionOverlay(); renderJson(); }));
+  host.appendChild(elHint("· 프리뷰의 텍스트 박스를 직접 드래그해도 X·Y가 바뀝니다."));
+
+  host.appendChild(elSeclabel("배경 패널(스크림)"));
+  const sc=document.createElement("div"); sc.className="row";
+  const chk=document.createElement("input"); chk.type="checkbox"; chk.checked=p.scrim.enabled;
+  chk.onchange=()=>{ p.scrim.enabled=chk.checked; renderAll(); };
+  const chkL=document.createElement("label"); chkL.style.fontSize="12px"; chkL.append(chk, document.createTextNode(" 사용"));
+  const col=document.createElement("input"); col.type="color"; col.value=p.scrim.color;
+  col.oninput=()=>{ p.scrim.color=col.value; renderPreview(); renderJson(); };
+  sc.append(chkL, col);
+  host.appendChild(ctl("켜기 / 색", sc));
+  host.appendChild(rangeCtl("투명도", p.scrim.opacity, 0, 1, 0.01, v=>Math.round(v*100)+"%", v=>{ p.scrim.opacity=v; renderPreview(); renderJson(); }));
+
+  host.appendChild(elSeclabel("이미지 변형 (크롭/줌/이동)"));
+  host.appendChild(rangeCtl("줌", p.image_xform.zoom, 1.0, 3.0, 0.01, v=>v.toFixed(2)+"×", v=>{ p.image_xform.zoom=v; renderPreview(); renderJson(); }));
+  host.appendChild(rangeCtl("좌우 이동", p.image_xform.pan_x, -1, 1, 0.01, v=>v.toFixed(2), v=>{ p.image_xform.pan_x=v; renderPreview(); renderJson(); }));
+  host.appendChild(rangeCtl("상하 이동", p.image_xform.pan_y, -1, 1, 0.01, v=>v.toFixed(2), v=>{ p.image_xform.pan_y=v; renderPreview(); renderJson(); }));
+}
+
+// ── 프리뷰 ──────────────────────────────────────────────────────────────────
+function renderPreview(){
+  const p=state.pages[sel]; if(!p) return;
+  const bg=$("bgimg");
+  if(p.image){ bg.style.display=""; bg.src = IMG_DIR + p.image + ".png"; }
+  else { bg.style.display="none"; bg.removeAttribute("src"); }
+  const zx=p.image_xform.zoom;
+  const tx=p.image_xform.pan_x*50, ty=p.image_xform.pan_y*50;
+  bg.style.transform = `scale(${zx}) translate(${tx}%, ${ty}%)`;
+
+  $("ovTitle").textContent = p.title;
+  $("ovBody").textContent = p.body;
+  $("ovBody").style.display = p.body ? "" : "none";
+  $("ovTitle").style.display = p.title ? "" : "none";
+  // 구분선은 제목·본문이 둘 다 있을 때만.
+  $("ovDiv").style.display = (p.title && p.body) ? "" : "none";
+  const ov=$("overlay");
+  ov.style.textAlign = p.text.align;
+  ov.style.background = p.scrim.enabled ? hexToRgba(p.scrim.color, p.scrim.opacity) : "transparent";
+  positionOverlay();
+  renderNav();
+}
+function positionOverlay(){
+  const p=state.pages[sel]; if(!p) return;
+  const ov=$("overlay");
+  ov.style.left = (p.text.x*100) + "%";
+  ov.style.top  = (p.text.y*100) + "%";
+  ov.style.width = (p.text.width*100) + "%";
+}
+function renderNav(){
+  const nav=$("navrow"); clearEl(nav);
+  const n=state.pages.length, last = sel>=n-1;
+  // 3분할: 좌(이전) · 가운데(점) · 우(다음/시작 + 건너뛰기) — 인게임 NavRow와 동일.
+  const left=document.createElement("div"); left.className="nz left";
+  const center=document.createElement("div"); center.className="nz center";
+  const right=document.createElement("div"); right.className="nz right";
+
+  if(sel>0){ const b=mkBtn("‹ 이전","ghost"); b.onclick=()=>{sel--;renderAll();}; left.appendChild(b); }
+
+  const dots=document.createElement("div"); dots.className="dots";
+  for(let i=0;i<n;i++){ const d=document.createElement("div"); d.className="dot"+(i===sel?" on":""); dots.appendChild(d); }
+  center.appendChild(dots);
+
+  if(!last){ const b=mkBtn("다음 ›","pri"); b.onclick=()=>{sel++;renderAll();}; right.appendChild(b); right.appendChild(mkBtn("건너뛰기","ghost")); }
+  if(last){ right.appendChild(mkBtn("시작","pri")); }
+
+  nav.append(left, center, right);
+}
+function mkBtn(t,kind){ const b=document.createElement("button"); b.className="cbtn "+kind; b.textContent=t; return b; }
+
+function hexToRgba(hex, a){
+  const m = hex.replace("#","");
+  const r=parseInt(m.substring(0,2),16), g=parseInt(m.substring(2,4),16), b=parseInt(m.substring(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ── 오버레이 드래그 ─────────────────────────────────────────────────────────
+(function setupDrag(){
+  const ov=$("overlay");
+  let dragging=false, gx=0, gy=0;
+  ov.addEventListener("mousedown",(e)=>{
+    dragging=true; ov.classList.add("drag");
+    const r=ov.getBoundingClientRect();
+    gx=e.clientX-r.left; gy=e.clientY-r.top;
+    e.preventDefault();
+  });
+  window.addEventListener("mousemove",(e)=>{
+    if(!dragging) return;
+    const p=state.pages[sel]; if(!p) return;
+    const area=$("imgArea").getBoundingClientRect();
+    let nx=(e.clientX-area.left-gx)/area.width;
+    let ny=(e.clientY-area.top-gy)/area.height;
+    nx=clamp(nx, 0, 1-p.text.width);
+    ny=clamp(ny, 0, 0.98);
+    p.text.x=r3(nx); p.text.y=r3(ny);
+    positionOverlay(); renderJson();
+  });
+  window.addEventListener("mouseup",()=>{ if(dragging){ dragging=false; ov.classList.remove("drag"); renderEditor(); } });
+})();
+
+// ── JSON ────────────────────────────────────────────────────────────────────
+function buildExport(){
+  return {
+    stage_id: state.stage_id,
+    pages: state.pages.map(p=>({
+      image: resPath(p.image),
+      title: p.title,
+      body: p.body,
+      text: { x:r3(p.text.x), y:r3(p.text.y), width:r3(p.text.width), align:p.text.align },
+      scrim: { enabled:p.scrim.enabled, color:p.scrim.color, opacity:r3(p.scrim.opacity) },
+      image_xform: { zoom:r3(p.image_xform.zoom), pan_x:r3(p.image_xform.pan_x), pan_y:r3(p.image_xform.pan_y) },
+    })),
+  };
+}
+function renderJson(){ $("jsonOut").value = JSON.stringify(buildExport(), null, 2); }
+
+// ── 버튼 ────────────────────────────────────────────────────────────────────
+$("stageId").oninput = ()=>{ state.stage_id = parseInt($("stageId").value,10)||1; renderJson(); };
+$("addPage").onclick = ()=>{ state.pages.push(defaultPage("", "새 페이지", "")); sel=state.pages.length-1; renderAll(); };
+$("copyBtn").onclick = ()=>{ navigator.clipboard.writeText($("jsonOut").value).then(()=>{
+  const ok=$("copyOk"); ok.style.opacity=1; setTimeout(()=>ok.style.opacity=0, 1200);
+}); };
+$("downloadBtn").onclick = ()=>{
+  const blob=new Blob([$("jsonOut").value],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`stage${String(state.stage_id).padStart(2,"0")}_guide.json`; a.click();
+};
+$("importBtn").onclick = ()=>{
+  const txt = prompt("JSON을 붙여넣으세요:");
+  if(!txt) return;
+  try{
+    const o=JSON.parse(txt);
+    state.stage_id = o.stage_id||1;
+    state.pages = (o.pages||[]).map(p=>{
+      const d=defaultPage(nameFromRes(p.image), p.title||"", p.body||"");
+      if(p.text) Object.assign(d.text, p.text);
+      if(p.scrim) Object.assign(d.scrim, p.scrim);
+      if(p.image_xform) Object.assign(d.image_xform, p.image_xform);
+      return d;
+    });
+    if(state.pages.length===0) state.pages=[defaultPage("","새 페이지","")];
+    sel=0; $("stageId").value=state.stage_id; renderAll();
+  }catch(e){ alert("JSON 파싱 실패: "+e.message); }
+};
+
+// ── 렌더 ────────────────────────────────────────────────────────────────────
+function renderAll(){ renderPageList(); renderEditor(); renderPreview(); renderJson(); }
+renderAll();
+</script>
+</body>
+</html>
