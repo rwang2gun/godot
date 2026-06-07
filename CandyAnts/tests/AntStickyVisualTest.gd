@@ -5,6 +5,7 @@ extends Node
 # (2) exit_sticky → is_slowed()==false, effective_speed 복원
 # (3) 다중 소스(인접 끈끈이 띠) — 한 소스만 빠져도 여전히 감속, 전부 빠지면 해제
 # (4) 머리 위 StickyBadge 아이콘은 상시 숨김 / 카운트다운 게이지(StickyTimerBar) 미사용(상시 숨김)
+# (5) 땀방울(SweatDrop) — 감속 중에만 표시, 이탈 시 숨김(2026-06-08 폴리싱). tween은 헤드리스 미검증.
 
 const AntScene := preload("res://scenes/entities/Ant.tscn")
 
@@ -17,6 +18,8 @@ func _ready() -> void:
 	await _case_b_multi_source()
 	if _failed: return
 	await _case_c_badges_hidden()
+	if _failed: return
+	await _case_d_sweat_toggle()
 	if _failed: return
 	print("[AntStickyVisualTest] PASS")
 	get_tree().quit(0)
@@ -86,6 +89,33 @@ func _case_c_badges_hidden() -> void:
 	var bar: Sprite2D = _ant.get_node_or_null("TraitBadges/StickyTimerBar") as Sprite2D
 	if bar != null and bar.visible:
 		_fail("case C: 감속 중 StickyTimerBar 게이지가 보임(감속 존은 게이지 미사용)")
+		return
+	_ant.queue_free()
+	await get_tree().process_frame
+
+# (5) 땀방울 — 감속 중에만 표시(가시성 토글, _update_trait_badges가 is_slowed 기반 갱신).
+func _case_d_sweat_toggle() -> void:
+	_ant = await _spawn_ant()
+	var sweat: Sprite2D = _ant.get_node_or_null("TraitBadges/SweatDrop") as Sprite2D
+	if sweat == null:
+		_fail("case D: SweatDrop 노드 없음(Ant.tscn 미배선)")
+		return
+	# 감속 아님 → 숨김.
+	_ant._update_trait_badges()
+	if sweat.visible:
+		_fail("case D: 감속 아닌데 SweatDrop 표시")
+		return
+	# 감속 진입 → 표시.
+	_ant.enter_sticky(77)
+	_ant._update_trait_badges()
+	if not sweat.visible:
+		_fail("case D: 감속 중인데 SweatDrop 미표시")
+		return
+	# 이탈 → 숨김.
+	_ant.exit_sticky(77)
+	_ant._update_trait_badges()
+	if sweat.visible:
+		_fail("case D: 감속 해제 후에도 SweatDrop 표시")
 		return
 	_ant.queue_free()
 	await get_tree().process_frame

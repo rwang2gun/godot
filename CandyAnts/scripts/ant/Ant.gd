@@ -120,6 +120,9 @@ var _settle_badge: Sprite2D = null
 const STICKY_SPEED_MULT: float = 0.35   # 끈끈이 겹침 중 이동 속도 배율
 var _sticky_sources: Dictionary = {}    # 겹쳐있는 StickyHazard instance_id 집합(Set처럼 사용)
 var _sticky_badge: Sprite2D = null      # 머리 위 끈끈이 아이콘 — 상시 숨김(노드만 보존)
+# 끈끈이 감속 중 땀 연출 — is_slowed() 동안 표시 + 가벼운 bob/fade tween(2026-06-08 요청).
+var _sweat_drop: Sprite2D = null
+var _sweat_tween: Tween = null
 
 # 나뭇잎 점프대(leaf_jump, 2026-06-05) — 포물선 비행(LeafJumpState) 동안 끈끈이 면역.
 # _leaf_jumping은 발사(leaf_jump_launch) 시 true, 착지(LeafJumpState→end_leaf_jump) 시 false.
@@ -158,6 +161,7 @@ func _ready() -> void:
 	if _trait_badges != null:
 		_settle_badge = _trait_badges.get_node_or_null("SettleBadge") as Sprite2D
 		_sticky_badge = _trait_badges.get_node_or_null("StickyBadge") as Sprite2D
+		_sweat_drop = _trait_badges.get_node_or_null("SweatDrop") as Sprite2D
 	_resolve_mantle_distance()
 	state_machine.change_state(WalkerState.new())
 
@@ -373,6 +377,38 @@ func _update_trait_badges() -> void:
 	# 끈끈이 표식 — 머리 위 아이콘은 상시 숨김(노드는 보존, 2026-06-07 요청). 감속 존이라 별도 게이지/표식 없음.
 	if _sticky_badge != null:
 		_sticky_badge.visible = false
+	_update_sweat()
+
+# 끈끈이 감속 중 땀방울 연출. is_slowed() 진입/이탈 전이에서만 tween을 켜고/끈다(매 프레임 churn 방지).
+func _update_sweat() -> void:
+	if _sweat_drop == null:
+		return
+	var sweating: bool = is_alive() and is_slowed()
+	if sweating == _sweat_drop.visible:
+		return
+	if sweating:
+		_sweat_drop.visible = true
+		_start_sweat_tween()
+	else:
+		_stop_sweat_tween()
+		_sweat_drop.visible = false
+
+func _start_sweat_tween() -> void:
+	_stop_sweat_tween()
+	var base_y: float = _sweat_drop.position.y
+	_sweat_drop.position.y = base_y
+	_sweat_drop.modulate.a = 1.0
+	# 살짝 흘러내렸다(+fade) 되돌아오는 yoyo 반복 — 가벼운 땀 연출.
+	_sweat_tween = create_tween().set_loops().set_trans(Tween.TRANS_SINE)
+	_sweat_tween.tween_property(_sweat_drop, "position:y", base_y + 4.0, 0.55)
+	_sweat_tween.parallel().tween_property(_sweat_drop, "modulate:a", 0.35, 0.55)
+	_sweat_tween.tween_property(_sweat_drop, "position:y", base_y, 0.45)
+	_sweat_tween.parallel().tween_property(_sweat_drop, "modulate:a", 1.0, 0.45)
+
+func _stop_sweat_tween() -> void:
+	if _sweat_tween != null and _sweat_tween.is_valid():
+		_sweat_tween.kill()
+	_sweat_tween = null
 
 func _is_blocker_state() -> bool:
 	# WorkerState의 work_type이 "blocker"일 때만 true. _update_sprite의 _work_type 접근 패턴 답습.

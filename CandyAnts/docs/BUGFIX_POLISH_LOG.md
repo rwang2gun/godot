@@ -10,6 +10,22 @@
 
 ---
 
+## 2026-06-08 — 끈끈이 감속 땀 연출
+
+> F-19에서 끈끈이를 "정지+게이지"에서 감속 존으로 재설계하며 머리 위 표식을 전부 제거했는데, 감속 중이라는 피드백이 시각적으로 약했다. 가벼운 땀방울 연출을 추가해 "지금 느려지는 중"을 비언어로 전달한다. **기록만 — 커밋은 사용자 확인 후.**
+
+### Fixed
+
+#### F-21. 끈끈이 감속 중 땀방울 연출 추가
+- **내용(사용자 요청)**: 끈끈이로 느려질 때(`Ant.is_slowed()`) 머리 옆에 만화풍 땀방울을 띄워 감속을 시각화. F-19로 비운 머리 위 표식 자리를 가벼운 연출로 대체.
+- **수정**:
+  - 신규 에셋 [assets/icons/sweat_drop.svg](../assets/icons/sweat_drop.svg) — 만화풍 땀방울(하늘색 + 흰 하이라이트).
+  - [Ant.tscn](../scenes/entities/Ant.tscn): `TraitBadges/SweatDrop` Sprite2D 추가(머리 중앙 (0,16)·scale 0.5·기본 숨김; 초안 (26,16) 우측 → 사용자 요청으로 중앙 정렬). 옛 정지설계 잔재 `StickyBadge`/`StickyTimerBar`는 그대로 둠(스코프).
+  - [Ant.gd](../scripts/ant/Ant.gd): `_update_trait_badges()`(매 물리프레임, 시각 전용)에서 `_update_sweat()` 호출 — `is_alive() && is_slowed()` 진입/이탈 **전이에서만** 표시 토글 + 가벼운 bob/fade yoyo tween(매 프레임 churn 방지). 운반 중 개미도 끈끈이 감속하므로 동일 적용.
+- **검증**: `AntStickyVisualTest`에 case (5) 통합(감속 중 SweatDrop 표시·이탈 시 숨김; 별도 중복 테스트 대신 기존 끈끈이 시각 가드에 합침). 끈끈이 스위트(AntStickyVisual/StickyCarryingPreserved/StickyStuckRelease/BridgeOverWaterStickyOverlap/WaterStickyOverlapLostTerminal)·CampaignS8 Clear/NoCutter·CampaignS1 Clear PASS. **tween 시각(위치/타이밍)은 헤드리스 미검증 — 창모드 실행으로 땀방울 위치 미세조정 필요할 수 있음**(현재 (26,16)·scale 0.5는 추정값).
+
+---
+
 ## 2026-06-07 — 스킬 어포던스 UX 폴리싱 (표지판/커서/끈끈이/글로우)
 
 > 스킬 선택·설치 어포던스의 시각/체감 폴리싱 세션. 푯말→표지판 용어 통일, SIGN/DEVICE 커서·설치물 크기, 끈끈이 메커니즘(정지→감속) 재설계, 스킬 선택 캐릭터 글로우 가시성(두께·색·경계). **커밋/푸시는 별도 세션에서 일괄 처리 예정 — 이 세션은 기록만.** 워킹트리에는 이 세션 변경 + 별도 세션의 "세부 가이드 팝업"(`scripts/core/GuidePage.gd`·`assets/guide/`·`StageGuideData.gd`·`StageIntroCard` 등) 변경이 섞여 있음. 각 항목은 헤드리스 테스트로 검증(글로우는 비-headless 실렌더 캡처로 육안 검증).
