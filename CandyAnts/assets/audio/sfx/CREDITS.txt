@@ -31,6 +31,7 @@ id → 원본 파일 매핑 (게임 청취 후 SFX_SPECS 한 줄로 교체 가�
   skill_assign      <- Interface/drop_001.ogg              # 부여/배치 확정(떨굼=배치)
   skill_activate    <- Interface/confirmation_002.ogg      # 설치형 발동
   footstep          <- Impact/footstep_grass_000.ogg       # 보폭 보행음(-16dB, 글로벌 쓰로틀)
+  footstep_sticky   <- Impact/footstep_carpet_000.ogg      # 끈끈이 감속 중 먹먹한 발소리(-14dB)
   skill_build       <- Impact/impactPlank_medium_000.ogg   # 건설 타일(다리/계단/사다리, -6dB)
   skill_dig         <- Impact/impactMining_000.ogg         # 굴착/절단(basher/digger/cutter, -6dB)
   ant_land          <- Impact/impactSoft_medium_000.ogg    # 착지(1.5칸↑ 비기절 낙하, -8dB)

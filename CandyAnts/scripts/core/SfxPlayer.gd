@@ -33,6 +33,7 @@ const SFX_SPECS: Dictionary = {
 	# 반복 재생음(풋스텝/공사) — 다수 개미가 동시에 보내므로 아래 THROTTLE_MS로 뭉치고 VOLUME_DB로 작게.
 	# Kenney CC0 전용 음원: footstep=발소리(grass), skill_build=판자 놓기, skill_dig=채굴음.
 	&"footstep": SFX_DIR + "/footstep.ogg",
+	&"footstep_sticky": SFX_DIR + "/footstep_sticky.ogg",  # 끈끈이 감속 중 먹먹한 발소리(carpet)
 	&"skill_build": SFX_DIR + "/skill_build.ogg",
 	&"skill_dig": SFX_DIR + "/skill_dig.ogg",
 	# 착지/낙하산 — Kenney CC0 전용 음원: ant_land=부드러운 착지, parachute=펼침 swoosh.
@@ -45,6 +46,7 @@ const SFX_SPECS: Dictionary = {
 # 단일 개미 리듬은 보존하고 다중 개미 겹침만 합친다.
 const THROTTLE_MS: Dictionary = {
 	&"footstep": 70,
+	&"footstep_sticky": 70,
 	&"skill_build": 60,
 	&"skill_dig": 60,
 	&"ant_land": 60,     # 다수 개미 동시 착지 coalesce
@@ -53,6 +55,7 @@ const THROTTLE_MS: Dictionary = {
 # 반복음 볼륨(dB). 여기 없는 id는 0 dB(기본). 풋스텝은 "작게", 공사·착지·낙하산은 약간만 낮춰 또렷하게.
 const VOLUME_DB: Dictionary = {
 	&"footstep": -16.0,
+	&"footstep_sticky": -14.0,  # 먹먹한 carpet 음이 묻히지 않게 살짝 키움
 	&"skill_build": -6.0,
 	&"skill_dig": -6.0,
 	&"ant_land": -8.0,

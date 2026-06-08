@@ -725,7 +725,12 @@ func footstep_tick() -> void:
 		return
 	if absf(global_position.x - _footstep_last_x) >= FOOTSTEP_STRIDE_PX:
 		_footstep_last_x = global_position.x
-		EventBus.sfx_request.emit(&"footstep")
+		# 끈끈이 감속 중엔 먹먹한 전용 발소리 — 거리 기반이라 보폭 간격도 자동으로 벌어진다(질척 느낌).
+		# 리터럴 emit 2개로 분기(삼항 금지) — SfxReceiverTest repo-스캐너가 두 id를 모두 잡도록.
+		if is_slowed():
+			EventBus.sfx_request.emit(&"footstep_sticky")
+		else:
+			EventBus.sfx_request.emit(&"footstep")
 
 func set_blocker_active(active: bool) -> void:
 	# 멱등 — WorkerState("blocker") enter/exit, FallerState 전이 모두 안전 호출.
