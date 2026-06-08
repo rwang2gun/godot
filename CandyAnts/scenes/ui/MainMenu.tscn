@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://b1xcui0mainmenu"]
+[gd_scene load_steps=7 format=3 uid="uid://b1xcui0mainmenu"]
 
 [ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atoms/LogoPanel.tscn" id="2_logo"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atoms/CButton.tscn" id="3_btn"]
 [ext_resource type="PackedScene" path="res://scenes/ui/ComingSoonOverlay.tscn" id="4_cs"]
 [ext_resource type="Texture2D" path="res://assets/illustrations/stage_bg_painted.png" id="5_bg"]
+[ext_resource type="SpriteFrames" path="res://assets/sprites/characters/ant_pajama_girl/AntFrames.tres" id="6_frames"]
 
 [node name="MainMenu" type="Control"]
 anchors_preset = 15
@@ -38,10 +39,14 @@ theme_override_constants/separation = 16
 alignment = 1
 
 [node name="LogoPanel" parent="Center/VBox" instance=ExtResource("2_logo")]
-custom_minimum_size = Vector2(600, 500)
+custom_minimum_size = Vector2(820, 410)
+show_mascot = false
 
 [node name="Wordmark" parent="Center/VBox/LogoPanel/VBox" index="0"]
-custom_minimum_size = Vector2(540, 270)
+custom_minimum_size = Vector2(810, 405)
+
+[node name="MidGap" type="Control" parent="Center/VBox"]
+custom_minimum_size = Vector2(0, 60)
 
 [node name="Spacer" type="Control" parent="Center/VBox"]
 custom_minimum_size = Vector2(0, 32)
@@ -81,5 +86,18 @@ custom_minimum_size = Vector2(280, 48)
 theme_override_font_sizes/font_size = 30
 text = "종료"
 kind = 2
+
+[node name="VictoryLeft" type="AnimatedSprite2D" parent="."]
+position = Vector2(250, 670)
+scale = Vector2(0.6, 0.6)
+flip_h = true
+sprite_frames = ExtResource("6_frames")
+animation = &"victory"
+
+[node name="VictoryRight" type="AnimatedSprite2D" parent="."]
+position = Vector2(1394, 670)
+scale = Vector2(0.6, 0.6)
+sprite_frames = ExtResource("6_frames")
+animation = &"victory"
 
 [node name="ComingSoonOverlay" parent="." instance=ExtResource("4_cs")]

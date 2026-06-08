@@ -16,12 +16,31 @@ extends Control
 # untyped로 두면 `show_overlay()` 호출이 dynamic dispatch + 정적 type checker가 method warning
 # 안 냄 (phase 10 lessons §2 "class_name 등록 부트스트랩" 패턴 + codex sweep 1 R1 P1 수용).
 @onready var _coming_soon = $ComingSoonOverlay
+# 메인 메뉴 마스코트 — 버튼 위 좌·우에 victory 애니메이션 캐릭터 한 쌍을 장식으로 재생.
+@onready var _victory_left: AnimatedSprite2D = $VictoryLeft
+@onready var _victory_right: AnimatedSprite2D = $VictoryRight
 
 func _ready() -> void:
 	_connect_buttons()
 	_refresh_continue_state()
+	_start_victory_mascot()
 	await get_tree().process_frame
 	_grab_initial_focus()
+
+# AntFrames.tres의 victory는 loop:false(인게임 1회 재생 의미 유지) — 공유 리소스를 건드리지 않고
+# animation_finished에서 각 스프라이트를 재시작해 메뉴에서만 연속 재생한다(중앙 + 우하단 둘 다).
+func _start_victory_mascot() -> void:
+	for s: AnimatedSprite2D in [_victory_left, _victory_right]:
+		if s == null:
+			continue
+		var cb: Callable = _on_victory_finished.bind(s)
+		if not s.animation_finished.is_connected(cb):
+			s.animation_finished.connect(cb)
+		s.play(&"victory")
+
+func _on_victory_finished(s: AnimatedSprite2D) -> void:
+	if is_instance_valid(s):
+		s.play(&"victory")
 
 func _connect_buttons() -> void:
 	_play_btn.pressed.connect(_on_play_pressed)
