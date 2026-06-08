@@ -137,6 +137,7 @@ const _TABLE: Dictionary = {
 	"stage.s7.name": "벽 너머로",
 	"stage.s8.name": "귀찮은 식물들",
 	"stage.s9.name": "고지로!",
+	"stage.s10.name": "보물찾기!",
 	"stage.coming_soon": "준비 중",
 }
 

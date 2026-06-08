@@ -76,9 +76,12 @@ func _ready() -> void:
 			failures.append("(6) missing guide key: %s" % key)
 
 	# (7) 스테이지 이름 key 존재 + stage_name() 해석(스트링 시트 SoT).
-	for i in range(1, 10):
-		if Strings.stage_name(i).is_empty():
-			failures.append("(7) stage_name(%d) empty — stage.s%d.name 누락" % [i, i])
+	#     발행된 모든 스테이지를 동적으로 검증 — range 하드코딩은 신규 스테이지(예: Stage10) 누락을
+	#     놓친다(2026-06-08 회귀: stage.s10.name 누락 → 메뉴가 "스테이지 10" 폴백 표시).
+	SceneFlow.ensure_stage_scan()
+	for sid in SceneFlow.PUBLISHED_STAGE_IDS:
+		if Strings.stage_name(sid).is_empty():
+			failures.append("(7) stage_name(%d) empty — stage.s%d.name 누락(발행 스테이지)" % [sid, sid])
 	if not Strings.has_key("stage.coming_soon"):
 		failures.append("(7) missing stage.coming_soon")
 

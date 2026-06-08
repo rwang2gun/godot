@@ -41,7 +41,7 @@ slots = [{
 "display_name": "",
 "stage_id": 9
 }, {
-"available": false,
+"available": true,
 "display_name": "",
 "stage_id": 10
 }]

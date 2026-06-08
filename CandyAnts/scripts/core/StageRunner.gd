@@ -48,6 +48,11 @@ func _ready() -> void:
 	if _spawn_parent == null:
 		_spawn_parent = self
 
+	# 스킬 가이드 컨트롤러(SIGN/DEVICE 배치 글로우 + 개미 글로우 + 장치 ghost) 런타임 보강.
+	# 씬에 이미 있으면 생성하지 않는다(Stage01~09는 .tscn에 명시 배선). Stage10처럼 누락된 씬에
+	# 안전망을 제공해 "표지판 배치 가이드가 안 뜨는" 회귀를 영구 차단한다(2026-06-08).
+	_ensure_guide_controllers()
+
 	# SkillRegistry 검증
 	var errors: Array[String] = SkillRegistry.validate_stage(stage_data)
 	if not errors.is_empty():
@@ -107,6 +112,37 @@ func _ready() -> void:
 	# 게이트할 땐 auto_begin=false로 두고 intro_dismissed 후 begin() 호출.
 	if auto_begin:
 		begin()
+
+# 스킬 가이드 컨트롤러 안전망 — 씬에 없으면 런타임 생성해 World에 배선.
+# AffordanceGlowController: SIGN(표지판)/DEVICE 배치 셀 글로우 + 무장/정착 스킬 개미 글로우.
+# PlacementPreview: DEVICE 장치 설치 ghost.
+# 둘 다 toolbar._pending_skill_id + 커서를 폴링하므로 toolbar/terrain 참조가 필요하다. 절대 경로로
+# 주입(add_child 시 _ready가 NodePath를 resolve). 이미 존재하면(stage01~09 .tscn 명시) 건드리지 않는다.
+func _ensure_guide_controllers() -> void:
+	if _toolbar == null or _spawn_parent == null:
+		return
+	var terrain: Node = _spawn_parent.get_node_or_null("Terrain")
+	if terrain == null:
+		return
+	var has_glow: bool = false
+	var has_preview: bool = false
+	for c in _spawn_parent.get_children():
+		if c is AffordanceGlowController:
+			has_glow = true
+		if c is PlacementPreview:
+			has_preview = true
+	if not has_glow:
+		var glow := AffordanceGlowController.new()
+		glow.name = "AffordanceGlowController"
+		glow.toolbar_path = _toolbar.get_path()
+		glow.terrain_path = terrain.get_path()
+		_spawn_parent.add_child(glow)
+	if not has_preview:
+		var preview := PlacementPreview.new()
+		preview.name = "PlacementPreview"
+		preview.toolbar_path = _toolbar.get_path()
+		preview.terrain_path = terrain.get_path()
+		_spawn_parent.add_child(preview)
 
 # 스폰·타이머 게이트 진입점 (Phase 4 — STAGE_GUIDE_PLAN §2.3 방식2). 멱등(중복 호출 무시 = 정확히 1회 시작).
 func begin() -> void:

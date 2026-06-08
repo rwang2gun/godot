@@ -124,6 +124,15 @@ func _enter_digger(a: Ant) -> void:
 	_aborted = false
 	_dig_off_floor = false
 	a.velocity = Vector2.ZERO
+	# 수직 굴착은 "body 컬럼 1칸 제거 → 중력 낙하 → 다음 칸 안착" 반복이다. 개미 본체(18px)가
+	# 48px 셀 경계에 걸쳐 있으면(걷던 중 적용 등) 한 칸 판 뒤에도 인접 컬럼의 같은 행 타일이
+	# 개미를 받쳐 낙하하지 못하고, 다음 tick에 이미 비운 아래 칸을 재검사 → abort(1칸만 파는 버그).
+	# 진입 시 개미를 자기 컬럼 정중앙으로 스냅해 본체가 단일 컬럼 안에 들어오게 하면 곧장 낙하한다.
+	var terrain: Terrain = _find_terrain(a)
+	if terrain != null:
+		var cs: int = terrain.cell_size
+		var col: int = int(floor(a.global_position.x / cs))
+		a.global_position.x = float(col) * cs + cs * 0.5
 
 func _enter_cutter(a: Ant) -> void:
 	_remaining = CUTTER_MAX_COLUMNS

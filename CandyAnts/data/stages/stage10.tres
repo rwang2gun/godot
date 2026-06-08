@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://gh7t7mavnhyb"]
+
+[ext_resource type="Resource" uid="uid://dlm2vqsiia7d3" path="res://data/stage_layouts/stage10_layout.tres" id="1_ilw81"]
+[ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="2_5ecl5"]
+
+[resource]
+script = ExtResource("2_5ecl5")
+id = 10
+display_name = "보물찾기!"
+layout = ExtResource("1_ilw81")
+total_ants = 5
+candy_hp = 5
+time_limit_seconds = 150.0
+available_skills = Array[String](["builder", "digger", "cutter", "leaf_jump", "climber"])
+skill_inventory = {
+"builder": 1,
+"climber": 5,
+"cutter": 1,
+"digger": 1,
+"leaf_jump": 2
+}
+release_rate_initial = 5
