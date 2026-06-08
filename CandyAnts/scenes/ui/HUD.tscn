@@ -70,7 +70,7 @@ top_label_en = "TIME"
 bottom_label_ko = "남은 시간"
 
 [node name="SpeedBtn" type="Button" parent="Root/TopRight"]
-custom_minimum_size = Vector2(56, 56)
+custom_minimum_size = Vector2(104, 56)
 theme_override_font_sizes/font_size = 24
 script = ExtResource("4_speedbtn")
 kind = 2

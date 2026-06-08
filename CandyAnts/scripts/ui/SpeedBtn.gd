@@ -6,7 +6,7 @@ extends CButton
 #
 # 설계 — 상대 배수(relative multiplier):
 #   진입 시점의 Engine.time_scale을 _base_scale로 캡처하고, 그 위에 MULTIPLIERS[_idx]를 곱한다.
-#   - 실제 플레이: base=1.0 → 1배 / 2배 / 3배.
+#   - 실제 플레이: base=1.0 → 1배속 / 2배속 / 3배속.
 #   - 헤드리스 테스트(GameFlowTest가 time_scale=8로 구동): idx 0이면 base*1.0=8 그대로 → 비간섭.
 #   _exit_tree에서 _base_scale로 복원 → 스테이지 이탈 시 메뉴/다음 씬이 가속되지 않음.
 
@@ -18,7 +18,9 @@ var _base_scale: float = 1.0
 
 func _ready() -> void:
 	kind = ButtonKind.GHOST
-	custom_minimum_size = Vector2(56, 56)
+	# "N배속" 3글자가 들어가도록 너비 확장(높이는 PauseBtn과 맞춤). TopRight HBox는 우측 정렬+여유폭이
+	# 충분해 좌측 CounterTime/우측 PauseBtn과 겹치지 않는다. HUD.tscn 노드 값도 동일하게 유지할 것.
+	custom_minimum_size = Vector2(104, 56)
 	process_mode = PROCESS_MODE_ALWAYS
 	super._ready()
 	_base_scale = Engine.time_scale
@@ -45,5 +47,5 @@ func _on_action(name: StringName, _payload: Dictionary) -> void:
 
 func _apply_scale() -> void:
 	Engine.time_scale = _base_scale * MULTIPLIERS[_idx]
-	# 웹 export 폰트(Jua)에 곱셈기호(×, U+00D7) 글리프가 없어 두부로 깨짐 → 한글 "배"로 표기.
-	text = "%d배" % int(MULTIPLIERS[_idx])
+	# "배"만으로는 무엇의 배수인지 불명확 → "배속"으로 표기. (×는 Jua 글리프 없어 웹에서 두부라 한글 사용.)
+	text = "%d배속" % int(MULTIPLIERS[_idx])
