@@ -66,7 +66,7 @@ func _on_slot_pressed(stage_id: int, state: int) -> void:
 		StageSlotCard.SlotState.PLAYABLE, StageSlotCard.SlotState.CLEARED:
 			EventBus.request_play_stage.emit(stage_id)
 		StageSlotCard.SlotState.LOCKED:
-			EventBus.sfx_request.emit(&"sfx:locked")
+			EventBus.sfx_request.emit(&"locked")
 		StageSlotCard.SlotState.COMING_SOON:
 			_coming_soon.show_overlay()
 

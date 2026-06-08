@@ -51,3 +51,10 @@
 - **이유**: phase 16 이후 StageLayoutData가 TileMap 노드 없이 Dictionary `tile_map`을 사용하고 StageLayoutBuilder가 StaticBody2D 노드를 직접 생성하는 방식으로 자연 진화함. phase 18에서 동적 파괴를 도입할 때 cell-keyed body registry가 atomic destroy(dynamic + static 둘 다 queue_free + registry 4종 erase) 와 cell kind 분리(cross-mechanic 침범 차단)에 가장 단순한 자료구조였음. TileMap layer 분리로 회귀 시 phase 16~17 dev stage 전부 마이그레이션 필요.
 - **트레이드오프**: ADR-007이 시사한 TileMap 레이어 분리 abstraction 포기. cell 종류 분류는 string 기반 kind 필드(타입 안전성 ↓)로 처리. plant kind는 phase 19 진입 시 추가.
 - **관련**: ADR-007 (cell grid 결정), ADR-003 (SkillRegistry 명시적 preload — 신규 skill BasherSkill/DiggerSkill 추가 시 1줄 등록).
+
+### ADR-011: 절차적 SFX 합성 (외부 오디오 에셋 0) (Phase 21)
+- **결정**: `EventBus.sfx_request(id)` receiver(`SfxPlayer` autoload)는 외부 오디오 파일을 import하지 않고, 시작 시 각 id의 `AudioStreamWAV`를 **코드로 절차 합성**(sine/square/noise + per-segment ADSR)하여 캐시·재생한다. `SFX_SPECS` Dictionary(clean id → 톤 스펙)가 SoT. 재생은 `AudioStreamPlayer` 풀 8개 round-robin, `SFX` 오디오 버스(미존재 시 Master 폴백).
+- **이유**: Phase 12/20에서 emit hook(14 unique id × 22 call site)만 깔리고 `assets/audio/`가 비어 있었음. 절차 합성은 (1) 에셋 파이프라인/라이선스 0 의존으로 즉시 가청 피드백 확보, (2) 헤드리스/dummy 오디오 드라이버에서 결정적 검증 가능, (3) 추후 실제 녹음 교체 시 `SFX_SPECS`만 stream load로 바꾸면 되는 인터페이스 유지.
+- **계약**: id는 clean(콜론/prefix 없음)만 허용 — `SfxPlayer`는 **런타임 정규화를 하지 않는다**. emit 측이 clean id를 보내는 책임(과거 `sfx:locked` → `locked`로 통일). 테스트(`SfxReceiverTest`)는 `scripts/` 스캔으로 emit id를 repo-도출하여 SFX_SPECS 직접 커버리지 + 글로벌 prefix 가드로 회귀 차단.
+- **트레이드오프**: 사운드 음색이 합성 톤 수준(실제 녹음 대비 표현력 ↓). BGM/믹싱/볼륨 설정 UI는 본 ADR 범위 밖(후속 phase). 미매핑 id는 `push_warning` 후 무음 skip(조용한 실패 — 단 repo-도출 테스트가 미매핑을 빌드 타임에 잡음).
+- **관련**: ADR-009 (docs 3-문서 — 코드가 SoT), Phase 20 polish (sfx hook emit 도입).

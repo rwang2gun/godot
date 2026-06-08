@@ -1,7 +1,7 @@
 {
   "task": "mvp",
   "started_at": "2026-05-08T00:26:05",
-  "completed_at": "2026-05-25T22:24:41",
+  "completed_at": "2026-06-08T14:09:44",
   "phases": [
     {
       "id": 1,
@@ -222,6 +222,17 @@
       "started_at": "2026-05-25T13:14:13",
       "completed_at": "2026-05-25T22:24:41",
       "duration_seconds": 33028
+    },
+    {
+      "id": 21,
+      "file": "phase21-sfx-receiver.md",
+      "name": "sfx-receiver",
+      "duration_estimate": 7200,
+      "verify": "python scripts/run_test.py tests/SfxReceiverTest.tscn",
+      "state": "completed",
+      "started_at": "2026-06-08T13:56:19",
+      "completed_at": "2026-06-08T14:09:44",
+      "duration_seconds": 805
     }
   ]
 }
