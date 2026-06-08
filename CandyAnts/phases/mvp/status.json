@@ -244,6 +244,28 @@
       "started_at": null,
       "completed_at": "2026-06-08T15:56:39",
       "duration_seconds": null
+    },
+    {
+      "id": 23,
+      "file": "phase23-bgm-receiver.md",
+      "name": "bgm-receiver",
+      "duration_estimate": 7200,
+      "verify": "python scripts/run_test.py tests/BgmReceiverTest.tscn --audio-driver Dummy && python scripts/run_test.py tests/BgmSceneFlowTest.tscn --audio-driver Dummy",
+      "state": "completed",
+      "started_at": "2026-06-08T16:42:52",
+      "completed_at": "2026-06-08T17:02:05",
+      "duration_seconds": 1153
+    },
+    {
+      "id": 24,
+      "file": "phase24-bgm-assets.md",
+      "name": "bgm-assets",
+      "duration_estimate": 5400,
+      "verify": "python scripts/run_test.py --import && python scripts/run_test.py tests/BgmReceiverTest.tscn --audio-driver Dummy && python scripts/run_test.py tests/BgmSceneFlowTest.tscn --audio-driver Dummy",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
     }
   ]
 }

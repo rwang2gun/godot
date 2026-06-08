@@ -2,10 +2,10 @@
   "schema_version": 1,
   "task": "mvp",
   "active_revision": "phases/mvp/REVISION_2026-05-18-option-b.md",
-  "post_mvp_phase_range": [21, 24],
+  "post_mvp_phase_range": [21, 26],
   "notes": [
     "status.json is runtime state only.",
     "local phase files are discovered dynamically from phases/<task>/phase*.md.",
-    "post-MVP slots: 21 sfx-receiver(절차합성), 22 sfx-assets(Kenney CC0 교체), 23 input-touch, 24 input-advanced. input(23/24)은 미착수 — audio 작업이 시간순 선행하여 22를 차지."
+    "post-MVP slots: 21 sfx-receiver(절차합성), 22 sfx-assets(Kenney CC0 교체), 23 bgm-receiver(BgmPlayer+버스+SceneFlow 배선), 24 bgm-assets(CC0 루프 배치), 25 input-touch, 26 input-advanced. 2026-06-08 BGM 2-phase 삽입으로 미착수 input을 23/24→25/26 시프트. input(25/26)은 미착수 — audio 작업이 시간순 선행."
   ]
 }

@@ -66,3 +66,15 @@
 - **에셋 관리**: 원본 367 파일은 `assets/audio/kenney_*/`에 로컬 보관하되 `.gitignore`로 리포 제외. 게임이 쓰는 **14개만** `assets/audio/sfx/`로 선별 복사해 `.ogg`를 커밋(`.import`는 프로젝트 관례대로 `*.import` gitignore — 추적 `.import` 0개). fresh clone은 커밋된 `.ogg`만으로 `run_test.py --import`가 `.import`+`.godot/imported`를 재생성해 자족 동작(원본 팩 불요, 실측 검증). 출처·id 매핑은 `assets/audio/sfx/CREDITS.txt`.
 - **트레이드오프**: 일부 id는 정확한 음원 부재로 근사치(`water_splash` ← Interface `drop`, `sticky_glue` ← Impact `impactSoft_heavy`). 어느 jingle이 승리/실패에 맞는지는 헤드리스로 청취 불가 → 게임 플레이로 확인 후 `SFX_SPECS` 한 줄 수정으로 조정. BGM은 여전히 범위 밖(후속 phase, OpenGameArt CC0 루프).
 - **관련**: ADR-011 (supersede 대상), Phase 21 (receiver 신설), `phases/mvp/phase22-sfx-assets.md`.
+
+### ADR-013: BGM 재생 시스템 (BgmPlayer + 화면 전이 배선) (Phase 23/24)
+- **결정**: `EventBus.bgm_request(track)`/`bgm_stop()` 시그널 + `BgmPlayer` autoload receiver + `BGM` 오디오 버스(Master 폴백)로 BGM을 SFX(`SfxPlayer`, ADR-011/012)와 동형 구조로 구현한다. `BgmPlayer`는 `BGM_SPECS`(track id → 리소스 경로, SoT)를 `load()`해 **무한 루프** 재생하고, 전환 시 **2-player(A/B) 짧은 크로스페이드(~0.4s)**를 건다. **컨텍스트는 2종**: `menu`(TITLE/MAIN_MENU/STAGE_SELECT) / `gameplay`(STAGE). 화면 전이의 단일 SoT인 `SceneFlow`가 `_swap_screen`(메뉴) 끝과 `load_stage`(STAGE)에서 각각 emit한다.
+- **이유**: 화면별 분위기 분리 + 메뉴 내 이동(title→main_menu→stage_select) 시 곡 끊김 방지. `SceneFlow`가 이미 모든 전이를 `_swap_screen`/`load_stage`로 통과시키므로 emit 지점이 자연히 2곳으로 수렴. SFX 패턴 재사용으로 신규 추상화 0.
+- **핵심 동작**:
+  - **idempotent 재진입**: 같은 track이 이미 활성·재생 중이면 no-op(`play_generation` 불변) → 메뉴 내 이동 무중단.
+  - **per-player tween 소유권/취소**: 각 player의 활성 fade tween을 `_tweens[idx]`로 보유, 새 fade 전 `kill()` → rapid menu→gameplay→menu 시 stale tween 볼륨 싸움/오 stop 방지. fade-out 완료 콜백은 콜백 시점 여전히 비활성일 때만 stop(`_active` 재확인).
+  - **graceful**: 미매핑/미로드 track은 `push_warning` 후 skip, `current_track` 미갱신(무음 유지, 크래시 금지).
+  - **테스트 seam**: `current_track`(실재생 track), `last_requested`(구독 검증), `play_generation`(idempotent 검증)는 동기 갱신 → 페이드 비결정성과 무관하게 결정적 검증.
+- **Phase 분할**(SFX 21→22와 동형): **Phase 23**(bgm-receiver)은 시스템·배선만 — `BGM_SPECS` 경로의 ogg가 없으면 `_streams` 비어 **런타임 무음**(의도). 검증은 `BgmReceiverTest`(repo-도출 커버리지 + 무음 경계 단언 + 합성 스트림 주입 로직) + `BgmSceneFlowTest`(실전이 emit 순서/매핑/구독 타이밍, 빈 `_streams` 무음 양립). **Phase 24**(bgm-assets)에서 CC0 루프 ogg 배치 → 무음 경계 단언이 로드 무결성으로 역전, `_streams` 채워져 가청 완성.
+- **트레이드오프**: 스테이지별 개별 BGM·결과 화면 덕킹·볼륨/음소거 UI는 범위 밖(후속). 헤드리스에서 실제 가청 검증 불가 → 곡 적합성·루프 이음새·볼륨 밸런스는 게임 청취 후 `BGM_SPECS`/버스 `volume_db` 한 줄 조정.
+- **관련**: ADR-011/012 (SFX 패턴 원형), `SceneFlow`(화면 전이 SoT, ADR 없음/코드 SoT), `phases/mvp/phase23-bgm-receiver.md`, `phases/mvp/phase24-bgm-assets.md`.

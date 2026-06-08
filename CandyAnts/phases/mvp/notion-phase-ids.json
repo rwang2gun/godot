@@ -11,7 +11,8 @@
     "created_at": "2026-05-09",
     "_renumber_history": [
       "2026-05-09: GAME_FLOW_PROPOSAL_V5 적용 — phase 6에 game-flow-foundation 신규 삽입. 기존 6~19 → 7~20, post-MVP 20~22 → 21~23. page_id는 보존, slug ↔ phase 번호 매핑만 갱신. phase 6의 page_id는 신규 생성 필요 (현재 미할당).",
-      "2026-05-20: PHASE_14_OPTION_B_PROPOSAL v0.2 (mechanic-기반 재구성 v4) 적용 — phase 14~20 슬러그 일괄 갱신 (stage4-hazard-water → mechanic-adaptation-traits 등 7건). 1:1 매핑으로 기존 page_id 재활용. 페이지 메타(이름·요약)는 phase 14a 진입 시 Notion update-page로 갱신. post-MVP 21~23 무변경."
+      "2026-05-20: PHASE_14_OPTION_B_PROPOSAL v0.2 (mechanic-기반 재구성 v4) 적용 — phase 14~20 슬러그 일괄 갱신 (stage4-hazard-water → mechanic-adaptation-traits 등 7건). 1:1 매핑으로 기존 page_id 재활용. 페이지 메타(이름·요약)는 phase 14a 진입 시 Notion update-page로 갱신. post-MVP 21~23 무변경.",
+      "2026-06-08: BGM 시스템 신규 2-phase(23 bgm-receiver, 24 bgm-assets) 삽입 — 미착수 input-touch/advanced를 23/24 → 25/26으로 시프트(page_id 보존, slug↔번호 매핑만 갱신). BGM 2-phase는 notion page 미생성(보조 트래커 sync skip). SFX(21/22)와 무관."
     ]
   },
   "phases": {
@@ -127,11 +128,23 @@
       "note": "신규 post-MVP SFX 에셋 교체 phase. notion 페이지 없음 → sync skip(보조 트래커). input-touch/advanced는 23/24로 시프트됨."
     },
     "23": {
+      "slug": "bgm-receiver",
+      "page_id": null,
+      "url": null,
+      "note": "신규 post-MVP BGM 시스템 phase. notion 페이지 없음 → sync skip(보조 트래커). input-touch/advanced는 25/26으로 시프트됨(2026-06-08)."
+    },
+    "24": {
+      "slug": "bgm-assets",
+      "page_id": null,
+      "url": null,
+      "note": "신규 post-MVP BGM CC0 루프 배치 phase. notion 페이지 없음 → sync skip."
+    },
+    "25": {
       "slug": "input-touch",
       "page_id": "35bb23cf-3720-81c5-8945-dd44b6dc355b",
       "url": "https://www.notion.so/35bb23cf372081c58945dd44b6dc355b"
     },
-    "24": {
+    "26": {
       "slug": "input-advanced",
       "page_id": "35bb23cf-3720-8143-b156-d98f29bf23c4",
       "url": "https://www.notion.so/35bb23cf37208143b156d98f29bf23c4"

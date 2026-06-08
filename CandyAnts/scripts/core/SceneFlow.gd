@@ -181,6 +181,8 @@ func load_stage(stage_id: int) -> void:
 	_current_stage_node = stage_node
 	_current_stage_id = stage_id
 	current_screen = ScreenState.STAGE
+	# Phase 23 — 스테이지 진입 시 gameplay BGM. BgmPlayer가 idempotent 처리(이미 gameplay면 무중단).
+	EventBus.bgm_request.emit(&"gameplay")
 	if _resolver != null and _resolver.has_method("set_active_stage_root"):
 		_resolver.set_active_stage_root(stage_node)
 	if gate_with_card:
@@ -284,6 +286,9 @@ func _swap_screen(new_node: Node, new_state: ScreenState) -> void:
 	_last_result = {}
 	_current_stage_root.add_child(new_node)
 	current_screen = new_state
+	# Phase 23 — 메뉴 계열 화면(TITLE/MAIN_MENU/STAGE_SELECT) 진입 시 menu BGM.
+	# 메뉴 내 이동(title→main_menu→stage_select)은 BgmPlayer idempotent로 무중단.
+	EventBus.bgm_request.emit(&"menu")
 
 func _freeze_current_stage() -> void:
 	# phase 12 산출. StageDialog 표시 중 stage 정지.

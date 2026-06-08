@@ -188,5 +188,7 @@ python scripts/execute.py mvp next   # 다음 pending phase 정의 출력
 | 20 | polish | polish | Release Rate + 별 시스템 + 정산 UI + 사운드 hook + 피날레 (MVP 종료) |
 | 21 | post-MVP | sfx-receiver | EventBus.sfx_request receiver + 절차 합성 SFX 14종 |
 | 22 | post-MVP | sfx-assets | 절차 합성 → Kenney CC0 효과음 파일 교체 |
-| 23 | post-MVP | input-touch | 터치 + 드래그앤드롭 + 루페 (미착수) |
-| 24 | post-MVP | input-advanced | Rewind + Preview + CommandWheel + Overlay (미착수) |
+| 23 | post-MVP | bgm-receiver | BgmPlayer autoload + BGM 버스 + bgm_request/stop + SceneFlow 배선 (에셋 의존 0, 합성 주입 검증) |
+| 24 | post-MVP | bgm-assets | menu/gameplay CC0 루프 배치 + 로드 무결성 + clean-clone 자족성 |
+| 25 | post-MVP | input-touch | 터치 + 드래그앤드롭 + 루페 (미착수) |
+| 26 | post-MVP | input-advanced | Rewind + Preview + CommandWheel + Overlay (미착수) |
