@@ -26,11 +26,44 @@ const SFX_SPECS: Dictionary = {
 	&"dialog_btn_press": SFX_DIR + "/dialog_btn_press.ogg",
 	&"star_fill": SFX_DIR + "/star_fill.ogg",
 	&"locked": SFX_DIR + "/locked.ogg",
+	# 스킬 흐름(선택 → 부여/배치 → 발동) — 전용 에셋 확보 전까지 기존 oggs 재사용(placeholder).
+	# 전용 SFX 확보 시 이 3줄의 경로만 교체하면 됨(인터페이스/emit/테스트 불변). 출처는 CREDITS.txt 참조.
+	&"skill_select": SFX_DIR + "/dialog_btn_press.ogg",
+	&"skill_assign": SFX_DIR + "/star_fill.ogg",
+	&"skill_activate": SFX_DIR + "/dialog_stats_pop.ogg",
+	# 반복 재생음(풋스텝/공사) — 다수 개미가 동시에 보내므로 아래 THROTTLE_MS로 뭉치고 VOLUME_DB로 작게.
+	# placeholder: footstep=tick, skill_build="탁"(pluck), skill_dig="사삭"(soft impact). 전용 음원 확보 시 경로만 교체.
+	&"footstep": SFX_DIR + "/dialog_stats_pop.ogg",
+	&"skill_build": SFX_DIR + "/candy_pick.ogg",
+	&"skill_dig": SFX_DIR + "/sticky_glue.ogg",
+	# 착지/낙하산 — placeholder: ant_land="툭"(soft impact), parachute="휙"(open swish). 전용 음원 확보 시 경로 교체.
+	&"ant_land": SFX_DIR + "/sticky_glue.ogg",
+	&"parachute": SFX_DIR + "/dialog_open.ogg",
+}
+
+# 반복 재생 id의 글로벌 coalesce 간격(ms) — 다수 개미가 동시에 쏟아내도 잔잔히 뭉치게 한다(per-id).
+# 여기 없는 id는 쓰로틀 없음(1회성 이벤트음은 즉시 재생). per-ant tick(공사 ~0.2s)보다 짧게 잡아
+# 단일 개미 리듬은 보존하고 다중 개미 겹침만 합친다.
+const THROTTLE_MS: Dictionary = {
+	&"footstep": 70,
+	&"skill_build": 60,
+	&"skill_dig": 60,
+	&"ant_land": 60,     # 다수 개미 동시 착지 coalesce
+	&"parachute": 150,   # floater 개미 잦은 재진입(작은 단 낙하) 스팸 방지
+}
+# 반복음 볼륨(dB). 여기 없는 id는 0 dB(기본). 풋스텝은 "작게", 공사·착지·낙하산은 약간만 낮춰 또렷하게.
+const VOLUME_DB: Dictionary = {
+	&"footstep": -16.0,
+	&"skill_build": -6.0,
+	&"skill_dig": -6.0,
+	&"ant_land": -8.0,
+	&"parachute": -8.0,
 }
 
 var _streams: Dictionary = {}          # clean id → AudioStream (로드 캐시)
 var _pool: Array[AudioStreamPlayer] = []
 var _next: int = 0
+var _last_play_ms: Dictionary = {}     # 쓰로틀 대상 id → 마지막 재생 ticks_msec(첫 요청은 항상 통과).
 
 # 테스트 가시성용 (런타임 동작엔 영향 없음).
 var last_played: StringName = &""
@@ -63,8 +96,16 @@ func _on_sfx_request(id: StringName) -> void:
 	if not _streams.has(id):
 		push_warning("[SfxPlayer] unmapped or unloaded sfx id: %s" % id)
 		return
+	# 반복음만 글로벌 쓰로틀 — 간격 미달 요청은 조용히 skip(다수 개미 합치기). 그 외 1회성 id엔 무영향.
+	if THROTTLE_MS.has(id):
+		var now: int = Time.get_ticks_msec()
+		if now - int(_last_play_ms.get(id, -100000)) < int(THROTTLE_MS[id]):
+			return
+		_last_play_ms[id] = now
 	var player := _pool[_next]
 	_next = (_next + 1) % POOL_SIZE
 	player.stream = _streams[id]
+	# 풀 플레이어 재사용 — id별 볼륨을 매 재생 시 명시 설정(없으면 0 dB; 이전 재생 볼륨 잔존 방지).
+	player.volume_db = float(VOLUME_DB.get(id, 0.0))
 	player.play()
 	last_played = id

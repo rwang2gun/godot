@@ -12,6 +12,7 @@ func update(delta: float) -> void:
 	a.velocity.y += a.gravity * delta
 	a.velocity.x = float(a.direction) * a.effective_speed()
 	a.move_and_slide()
+	a.footstep_tick()   # 보폭 기반 풋스텝 SFX (바닥+이동 시에만).
 	_frame += 1
 
 	# 무장한 다리 스킬 — 낭떠러지 도달 시 그 자리(지표면 높이)에서 자동 건설. 전이 시 즉시 return.

@@ -152,7 +152,8 @@ func _on_action(name: StringName, payload: Dictionary) -> void:
 func _on_slot_pressed(id: String) -> void:
 	var count: int = int(_inventory.get(id, 0))
 	if count <= 0:
-		# Phase 21(sound) sound hook 자리 — 현 phase 11에서는 noop.
+		# 재고 0 슬롯 클릭 — 거부 피드백(StageSelect 잠금과 동일 음).
+		EventBus.sfx_request.emit(&"locked")
 		return
 	if _pending_skill_id == id:
 		_clear_selection()
@@ -170,6 +171,8 @@ func _select(id: String) -> void:
 	if icon != null:
 		# hotspot = (0,0) — 커서 아트의 화살표 tip이 좌상단. 50% 축소해도 tip이 원점이라 그대로 유효.
 		Input.set_custom_mouse_cursor(icon, Input.CURSOR_ARROW, Vector2.ZERO)
+	# 선택(arm) 피드백 — 스킬을 집어든 순간.
+	EventBus.sfx_request.emit(&"skill_select")
 	print("[SkillToolbar] pending=", id)
 
 # 커서 = "결과물 모양" (§0.8.2). 소스는 cursor_kind 카테고리 파생 — ICON(③ 아이콘)/SIGN(① 표지판 합성)/
@@ -312,6 +315,8 @@ func _apply_skill(id: String, ant: Ant) -> bool:
 	skill.apply(ant)
 	_inventory[id] = int(_inventory[id]) - 1
 	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
+	# 부여 확정 피드백 — 개미에 스킬 적용 성공.
+	EventBus.sfx_request.emit(&"skill_assign")
 	print("[SkillToolbar] applied=", id, " to=", ant.name, " remaining=", _inventory[id])
 	return true
 
@@ -340,6 +345,8 @@ func _place_sign(id: String, world: Vector2) -> bool:
 	parent.add_child(sign)
 	_inventory[id] = int(_inventory[id]) - 1
 	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
+	# 배치 확정 피드백 — 표지판 설치 성공.
+	EventBus.sfx_request.emit(&"skill_assign")
 	print("[SkillToolbar] sign placed=", id, " cell=", cell, " remaining=", _inventory[id])
 	return true
 
@@ -366,6 +373,8 @@ func _place_leaf_jump_pad(world: Vector2) -> bool:
 	parent.add_child(pad)
 	_inventory[skill_id] = int(_inventory[skill_id]) - 1
 	(_slots[skill_id] as SkillSlot).set_count(int(_inventory[skill_id]))
+	# 배치 확정 피드백 — 점프대 장치 설치 성공.
+	EventBus.sfx_request.emit(&"skill_assign")
 	print("[SkillToolbar] leaf jump pad placed cell=", cell, " remaining=", _inventory[skill_id])
 	return true
 

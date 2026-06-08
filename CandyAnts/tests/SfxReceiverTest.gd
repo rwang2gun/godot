@@ -6,7 +6,7 @@ extends Node
 ## 검증:
 ##  (a) 글로벌 prefix 가드: 추출 raw id 중 콜론 포함 0건 (전 스크립트 대상).
 ##  (b) 직접 커버리지: 추출된 모든 raw id가 SfxPlayer.SFX_SPECS에 그대로 존재.
-##  (c) 합성 무결성: SFX_SPECS의 14 stream 전부 non-null + data 비어있지 않음.
+##  (c) 합성 무결성: SFX_SPECS 전 stream 비어있지 않음(non-null + length>0). 개수는 SFX_SPECS.size() 동적 비교.
 ##  (d) 동적 재생: 각 raw id emit 후 SfxPlayer가 그 id를 재생 (last_played 일치).
 ##  (e) 정규화 회귀: StageSelect.gd에 sfx:locked 부재 + locked 존재.
 ##  (f) graceful: 미등록 id emit 시 크래시 없이 skip (last_played 미갱신).

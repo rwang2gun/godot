@@ -16,6 +16,7 @@ func update(delta: float) -> void:
 	a.velocity.x = float(a.direction) * a.effective_speed()
 
 	a.move_and_slide()
+	a.footstep_tick()   # 보폭 기반 풋스텝 SFX (운반 보행도 동일).
 
 	# 무장한 다리 스킬 — 운반 중에도 낭떠러지 도달 시 자동 건설(완료 후 return_to_walking이 carry 복원).
 	if a.try_build_armed_bridge():

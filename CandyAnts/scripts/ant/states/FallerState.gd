@@ -7,6 +7,8 @@ var _fall_start_y: float = 0.0
 # 넘길 때, 이미 일부 떨어진 거리를 포함한 실제 낙하 시작점(off-floor 진입 앵커)을 넘겨 기절 거리 측정을
 # 정확히 한다. NAN(기본) = enter 시점 y를 시작점으로 사용(일반 낙하 — 기존 모든 호출 경로 무영향).
 var _start_y_override: float = NAN
+# 착지음 최소 낙하거리(칸) — 이 미만의 작은 깡총 착지는 무음(스팸 방지). stun 임계(5칸)와 별개.
+const LAND_MIN_FALL_CELLS: float = 1.5
 
 func _init(start_y_override: float = NAN) -> void:
 	_start_y_override = start_y_override
@@ -15,6 +17,9 @@ func enter() -> void:
 	var a: Ant = ant as Ant
 	if a != null:
 		_fall_start_y = a.global_position.y if is_nan(_start_y_override) else _start_y_override
+		# 낙하산 펴는 소리 — floater 트레잇 개미가 slow-fall 진입하는 순간 1회(throttle로 잦은 재진입 흡수).
+		if a.has_trait(&"floater"):
+			EventBus.sfx_request.emit(&"parachute")
 
 func update(delta: float) -> void:
 	var a: Ant = ant as Ant
@@ -36,4 +41,9 @@ func update(delta: float) -> void:
 		if not a.has_trait(&"floater") and fall_dist >= a.stun_fall_threshold():
 			a.state_machine.change_state(DeadState.new())
 		else:
+			# 착지음 — 기절 미만의 실질 낙하만(작은 깡총 제외). floater는 낙하산 착지라 thud 없음.
+			# 1.5칸 임계 = stun 임계(5칸) / STUN_FALL_CELLS * LAND_MIN_FALL_CELLS → cell_size 자동 추종.
+			var land_min: float = a.stun_fall_threshold() / float(a.STUN_FALL_CELLS) * LAND_MIN_FALL_CELLS
+			if not a.has_trait(&"floater") and fall_dist >= land_min:
+				EventBus.sfx_request.emit(&"ant_land")
 			a.return_to_walking()

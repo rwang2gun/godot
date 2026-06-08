@@ -279,6 +279,7 @@ func _place_one_tile(a: Ant) -> void:
 		_place_stair_fill_below(terrain, body_cell, a.direction)
 		a.global_position += Vector2(0.0, float(-cs))
 		_remaining -= 1
+		EventBus.sfx_request.emit(&"skill_build")
 		return
 	# 대각 상승 (전방 1칸 + 위 1칸).
 	var target: Vector2i = body_cell + Vector2i(a.direction, 0)
@@ -295,6 +296,7 @@ func _place_one_tile(a: Ant) -> void:
 	_place_stair_fill_below(terrain, target, a.direction)
 	a.global_position += Vector2(float(a.direction) * cs, float(-cs))
 	_remaining -= 1
+	EventBus.sfx_request.emit(&"skill_build")
 
 # 디아그램(2026-06-03): stair01(표면) 바로 아래 칸이 비어 있으면 stair02(받침)를 채운다. 점유 시 no-op.
 # 받침은 시각/지지용 — 등반 대상(_stair_cells)이 아니다(STAIR_FILL). 실패해도 계단 자체엔 영향 없음.
@@ -338,6 +340,7 @@ func _place_sand_mound_tile(a: Ant) -> void:
 				terrain.deactivate_hazards_for_placement(body_cell)
 				_apply_ladder_root_once(terrain, body_cell)
 				a.global_position.y -= float(cs) * 2.0
+				EventBus.sfx_request.emit(&"skill_build")
 		# solid(위도 막힘) 또는 cap 불가(body_cell 점유·slope·plant·동적·미등록) → 종료(아무 변경 없음).
 		_aborted = true
 		return
@@ -350,6 +353,7 @@ func _place_sand_mound_tile(a: Ant) -> void:
 	_apply_ladder_root_once(terrain, body_cell)
 	a.global_position.y -= float(cs)
 	_remaining -= 1
+	EventBus.sfx_request.emit(&"skill_build")
 
 # 사다리 최초 성공 commit(첫 rung 또는 cap) 직후 1회만, 그 시점 발밑(body_cell+(0,1)) 지형 면을 root로 reskin.
 # (codex 2026-06-02 R4 MEDIUM) 즉시 abort한 실패 시도는 root를 남기지 않는다 — root reskin이 commit 경계 안에 있다.
@@ -402,6 +406,7 @@ func _place_bridge_tile(a: Ant) -> void:
 	terrain.deactivate_hazards_for_placement(target)
 	a.global_position += Vector2(float(a.direction) * cs, 0.0)
 	_remaining -= 1
+	EventBus.sfx_request.emit(&"skill_build")
 
 func _far_side_floor_reached(a: Ant) -> bool:
 	# ant 진행 방향 1 cell forward에서 아래로 ray cast.
@@ -531,6 +536,7 @@ func _destroy_basher_cell(a: Ant) -> void:
 	# 1 cell 전진. Vector2 더하기로 Builder/Bridge/Sand-mound 스타일 통일.
 	a.global_position += Vector2(float(a.direction) * cs, 0.0)
 	_remaining -= 1
+	EventBus.sfx_request.emit(&"skill_dig")
 
 func _destroy_digger_cell(a: Ant) -> void:
 	var terrain: Terrain = _find_terrain(a)
@@ -550,6 +556,7 @@ func _destroy_digger_cell(a: Ant) -> void:
 		return
 	# ant 위치는 무변경 — 다음 physics tick에 is_on_floor=false → 자연 낙하.
 	_remaining -= 1
+	EventBus.sfx_request.emit(&"skill_dig")
 
 func _basher_forward_has_earth(a: Ant) -> bool:
 	var terrain: Terrain = _find_terrain(a)
@@ -613,6 +620,7 @@ func _cut_cutter_column(a: Ant) -> void:
 	terrain.shatter_plant_column(_cutter_forward_cell(a, terrain))
 	a.global_position += Vector2(float(a.direction) * cs, 0.0)
 	_remaining -= 1
+	EventBus.sfx_request.emit(&"skill_dig")
 
 func _cutter_forward_cell(a: Ant, terrain: Terrain) -> Vector2i:
 	var cs: int = terrain.cell_size

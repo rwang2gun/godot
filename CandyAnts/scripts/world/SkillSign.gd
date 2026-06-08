@@ -79,6 +79,8 @@ func _physics_process(_delta: float) -> void:
 		if skill == null or not skill.can_apply(a):
 			continue
 		skill.apply(a)
+		# 발동 피드백 — 설치형 스킬이 지나가는 개미에 실제 적용되는 순간.
+		EventBus.sfx_request.emit(&"skill_activate")
 		queue_free()
 		return
 

@@ -66,6 +66,8 @@ func _try_trigger() -> void:
 		_active_ant = a
 		_set_texture(PAD_PRESSED_TEXTURE)
 		a.state_machine.change_state(LeafChargeState.new(LeafJumpSkill.LEAF_JUMP_CELLS, CHARGE_TIME))
+		# 발동 피드백 — 장치가 지나가는 개미를 점프 충전 상태로 트리거하는 순간.
+		EventBus.sfx_request.emit(&"skill_activate")
 		_phase = _Phase.CHARGING
 		return
 

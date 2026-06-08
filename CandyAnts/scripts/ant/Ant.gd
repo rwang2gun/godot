@@ -30,6 +30,14 @@ var _kill_x_max: float = INF   # 우 경계 — 이 오른쪽으로 나가면 lo
 const STUN_FALL_CELLS: int = 5
 var _cell_size: float = 48.0
 
+# 풋스텝 SFX — 보폭 기반 트리거. 일정 거리(FOOTSTEP_STRIDE_PX) 이동마다 1회 sfx_request(&"footstep").
+# 시간 누적이 아니라 x-이동 거리 기준이라 속도에 자동 비례(끈끈이 감속 = 발소리도 느려짐)하고
+# Walker↔Carrying 전이로 상태가 바뀌어도 Ant에 누적이 남아 연속적이다. 글로벌 coalesce/볼륨은 SfxPlayer 담당.
+# off-floor(낙하·등반) 진입 시 baseline 리셋 — 착지 직후 즉발 step 방지.
+const FOOTSTEP_STRIDE_PX: float = 12.0
+var _footstep_ready: bool = false
+var _footstep_last_x: float = 0.0
+
 var direction: int = 1
 # AntSpawner._spawn_one이 add_child 전에 direction을 세팅하므로 _ready 시점의 direction이
 # per-ant 최초 스폰 방향(spawn_direction_alternate 분기 결과 포함). Home._on_respawn_timeout에서
@@ -703,6 +711,21 @@ func stun_fall_threshold() -> float:
 
 func flip() -> void:
 	direction = -direction
+
+# 보폭 기반 풋스텝 — Walker/Carrying.update가 move_and_slide 직후 매 frame 호출.
+# 바닥에 있고 직전 발소리 지점에서 FOOTSTEP_STRIDE_PX 이상 이동했으면 footstep 요청.
+# 다수 개미 동시 보행은 SfxPlayer의 글로벌 쓰로틀이 잔잔한 patter로 뭉친다(여기선 cap 없음).
+func footstep_tick() -> void:
+	if not is_on_floor():
+		_footstep_ready = false   # 공중 진입 → 착지 시 baseline 재설정(즉발 step 방지)
+		return
+	if not _footstep_ready:
+		_footstep_ready = true
+		_footstep_last_x = global_position.x
+		return
+	if absf(global_position.x - _footstep_last_x) >= FOOTSTEP_STRIDE_PX:
+		_footstep_last_x = global_position.x
+		EventBus.sfx_request.emit(&"footstep")
 
 func set_blocker_active(active: bool) -> void:
 	# 멱등 — WorkerState("blocker") enter/exit, FallerState 전이 모두 안전 호출.

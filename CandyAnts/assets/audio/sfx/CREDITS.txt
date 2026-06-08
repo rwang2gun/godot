@@ -25,3 +25,13 @@ id → 원본 파일 매핑 (게임 청취 후 SFX_SPECS 한 줄로 교체 가�
   dialog_btn_press  <- Interface/click_001.ogg
   star_fill         <- Interface/select_002.ogg
   locked            <- Interface/error_002.ogg
+
+스킬 흐름 SFX (placeholder — 전용 에셋 확보 전까지 기존 ogg 재사용, SFX_SPECS 경로 1줄로 교체 가능):
+  skill_select      <- dialog_btn_press.ogg (= Interface/click_001.ogg)   # 선택(arm)
+  skill_assign      <- star_fill.ogg        (= Interface/select_002.ogg)  # 부여/배치 확정
+  skill_activate    <- dialog_stats_pop.ogg (= Interface/tick_001.ogg)    # 설치형 발동
+  footstep          <- dialog_stats_pop.ogg (= Interface/tick_001.ogg)    # 보폭 보행음(-16dB, 글로벌 쓰로틀)
+  skill_build       <- candy_pick.ogg        (= Interface/pluck_001.ogg)  # 건설 타일 "탁"(다리/계단/사다리, -6dB)
+  skill_dig         <- sticky_glue.ogg       (= Impact/impactSoft_heavy_000.ogg)  # 굴착/절단 "사삭"(basher/digger/cutter, -6dB)
+  ant_land          <- sticky_glue.ogg       (= Impact/impactSoft_heavy_000.ogg)  # 착지 "툭"(1.5칸↑ 비기절 낙하, -8dB)
+  parachute         <- dialog_open.ogg        (= Interface/open_001.ogg)  # 낙하산 펴짐 "휙"(floater slow-fall 진입, -8dB)
