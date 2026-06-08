@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CandyAnts 오디오 에디터 (SFX/BGM)</title>
+<style>
+  :root {
+    --bg:#1a1714; --panel:#242019; --panel2:#2d2820; --ink:#f2e9da; --muted:#b8ab95;
+    --accent:#f0993f; --accent2:#ff4a9e; --green:#2fd95c; --blue:#5aa7ff; --amber:#d2851f;
+    --border:#3a342a; --code:#16130f; --danger:#ff4a37; --purple:#b48cff;
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    margin:0; font-family:"Segoe UI","Malgun Gothic",system-ui,sans-serif;
+    background:var(--bg); color:var(--ink); display:flex; flex-direction:column; height:100vh;
+  }
+  header {
+    background:linear-gradient(135deg,#2d2820,#1a1714); border-bottom:1px solid var(--border);
+    padding:14px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  }
+  header h1 { margin:0; font-size:19px; letter-spacing:-.3px; white-space:nowrap; }
+  header h1 small { color:var(--muted); font-weight:400; font-size:12px; margin-left:8px; }
+  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-left:auto; }
+  button {
+    font:inherit; font-size:13px; font-weight:600; cursor:pointer; border-radius:8px;
+    border:1px solid var(--border); background:var(--panel2); color:var(--ink);
+    padding:7px 14px; transition:.12s; white-space:nowrap;
+  }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:#1a1714; border-color:var(--accent); }
+  button.primary:hover { filter:brightness(1.08); }
+  button.ghost { background:transparent; }
+  button.icon { padding:5px 10px; font-size:14px; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  main { flex:1; overflow:auto; padding:18px 22px 80px; }
+
+  /* 드롭존 */
+  #dropzone {
+    border:2px dashed var(--border); border-radius:12px; padding:16px 18px; margin-bottom:18px;
+    background:var(--panel); transition:.15s; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  }
+  #dropzone.hot { border-color:var(--accent); background:var(--panel2); }
+  #dropzone .dz-text { font-size:13px; color:var(--muted); }
+  #dropzone .dz-text b { color:var(--ink); }
+  .loaded-list { display:flex; gap:6px; flex-wrap:wrap; }
+  .loaded-pill {
+    font-size:11px; background:rgba(47,217,92,.12); color:var(--green); border:1px solid rgba(47,217,92,.4);
+    border-radius:20px; padding:3px 10px; font-family:"Cascadia Code",Consolas,monospace; display:inline-flex; gap:6px; align-items:center;
+  }
+  .loaded-pill button { padding:0 4px; font-size:13px; border:none; background:none; color:var(--muted); line-height:1; }
+  .loaded-pill button:hover { color:var(--danger); }
+
+  .tabs { display:flex; gap:6px; margin-bottom:14px; }
+  .tab {
+    padding:8px 18px; border-radius:8px 8px 0 0; background:var(--panel); border:1px solid var(--border);
+    border-bottom:none; cursor:pointer; font-weight:600; font-size:14px; color:var(--muted);
+  }
+  .tab.active { background:var(--panel2); color:var(--accent); }
+  .tab .cnt { font-size:11px; color:var(--muted); margin-left:6px; }
+  .search {
+    width:100%; max-width:320px; background:var(--code); border:1px solid var(--border); border-radius:8px;
+    padding:8px 12px; color:var(--ink); font:inherit; font-size:13px; margin-bottom:12px;
+  }
+  .search:focus { outline:none; border-color:var(--accent); }
+
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:0 10px 10px 10px; padding:6px; }
+  .ev {
+    display:grid; grid-template-columns:230px 1fr; gap:14px; align-items:start;
+    padding:11px 12px; border-radius:9px; border-bottom:1px solid rgba(58,52,42,.5);
+  }
+  .ev:last-child { border-bottom:none; }
+  .ev:hover { background:var(--panel2); }
+  .ev.drop-hot { background:rgba(240,153,63,.12); outline:1px dashed var(--accent); }
+  .ev .id { font-family:"Cascadia Code",Consolas,monospace; font-size:13.5px; color:var(--accent); font-weight:700; }
+  .ev .ctx { font-size:11.5px; color:var(--muted); margin-top:4px; line-height:1.45; }
+  .ev .badge {
+    display:inline-block; font-size:9.5px; font-weight:700; border-radius:5px; padding:1px 6px; margin-top:6px;
+    background:rgba(180,140,255,.16); color:var(--purple); border:1px solid rgba(180,140,255,.45);
+  }
+  .ctrls { display:flex; flex-direction:column; gap:9px; }
+  .line { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .line label { font-size:11px; color:var(--muted); min-width:62px; }
+  .fn {
+    flex:1; min-width:160px; background:var(--code); border:1px solid var(--border); border-radius:7px;
+    padding:6px 9px; color:var(--ink); font:inherit; font-size:12.5px;
+    font-family:"Cascadia Code",Consolas,monospace;
+  }
+  .fn:focus { outline:none; border-color:var(--accent); }
+  .src-sel {
+    background:var(--code); border:1px solid var(--border); border-radius:7px; padding:6px 8px;
+    color:var(--ink); font:inherit; font-size:12px; min-width:150px;
+  }
+  .src-sel.unmatched { border-color:var(--amber); color:var(--amber); }
+  .play { background:var(--blue); color:#0a0d12; border-color:var(--blue); font-size:15px; padding:5px 12px; }
+  .play:hover { filter:brightness(1.1); }
+  .play.playing { background:var(--accent2); border-color:var(--accent2); }
+  input[type=range] { accent-color:var(--accent); width:160px; }
+  .num {
+    width:64px; background:var(--code); border:1px solid var(--border); border-radius:6px; padding:5px 7px;
+    color:var(--ink); font:inherit; font-size:12px; text-align:right;
+    font-family:"Cascadia Code",Consolas,monospace;
+  }
+  .num:focus { outline:none; border-color:var(--accent); }
+  .num.empty { color:var(--muted); }
+  .val { font-size:12px; color:var(--ink); font-family:"Cascadia Code",Consolas,monospace; min-width:54px; }
+  .hint { font-size:10.5px; color:var(--muted); }
+
+  /* export 모달 */
+  .modal-bg {
+    position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:50;
+  }
+  .modal-bg.show { display:flex; }
+  .modal {
+    background:var(--panel); border:1px solid var(--border); border-radius:12px; width:min(820px,92vw);
+    max-height:86vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .modal header { background:none; border-bottom:1px solid var(--border); padding:14px 18px; }
+  .modal h2 { margin:0; font-size:16px; }
+  .modal .body { overflow:auto; padding:16px 18px; display:flex; flex-direction:column; gap:18px; }
+  .block h3 { margin:0 0 8px; font-size:13px; color:var(--accent); display:flex; align-items:center; gap:10px; }
+  .block h3 .where { font-size:11px; color:var(--muted); font-weight:400; }
+  pre {
+    margin:0; background:var(--code); border:1px solid var(--border); border-radius:8px; padding:12px 14px;
+    font-family:"Cascadia Code",Consolas,monospace; font-size:12px; color:var(--ink); overflow:auto; max-height:300px;
+    white-space:pre; tab-size:2;
+  }
+  .toast {
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
+    background:var(--green); color:#0a120c; font-weight:700; font-size:13px; padding:10px 18px; border-radius:9px;
+    transition:.2s; pointer-events:none; z-index:60;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🍬 CandyAnts 오디오 에디터 <small>SFX / BGM 매핑 · 튜닝 · export</small></h1>
+  <div class="toolbar">
+    <button class="ghost" id="btnImport">JSON 불러오기</button>
+    <button class="ghost" id="btnReset">기본값 복원</button>
+    <button class="primary" id="btnExport">⤓ Export</button>
+  </div>
+</header>
+
+<main>
+  <div id="dropzone">
+    <div class="dz-text">
+      🎵 <b>오디오 파일을 여기로 드래그</b>하거나 클릭해 불러오세요. (.ogg / .wav / .mp3)<br>
+      파일명이 같은 이벤트에 <b>자동 매칭</b>되며, 개별 행으로 드롭하면 그 이벤트에 직접 배정됩니다.
+    </div>
+    <button class="primary" id="btnPickFolder">📁 게임 오디오 폴더 열기</button>
+    <button class="ghost" id="btnPickFiles">파일 선택…</button>
+    <input type="file" id="fileInput" accept="audio/*,.ogg,.wav,.mp3" multiple hidden>
+    <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+    <div class="loaded-list" id="loadedList"></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="sfx">SFX <span class="cnt" id="cntSfx"></span></div>
+    <div class="tab" data-tab="bgm">BGM <span class="cnt" id="cntBgm"></span></div>
+  </div>
+
+  <input type="text" class="search" id="search" placeholder="이벤트 id / 설명 검색…">
+  <div class="panel" id="list"></div>
+</main>
+
+<!-- Export 모달 -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <header style="display:flex;align-items:center;gap:12px;">
+      <h2>Export</h2>
+      <span class="hint" style="margin-left:auto;">각 블록을 복사해 해당 .gd 파일의 const를 교체하세요.</span>
+      <button class="ghost icon" id="modalClose">✕</button>
+    </header>
+    <div class="body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ─── DOM 헬퍼 (innerHTML 미사용 — XSS 안전, 모든 텍스트는 textContent) ─────────
+function el(tag, props, children) {
+  const n = document.createElement(tag);
+  if (props) for (const k in props) {
+    if (k === 'class') n.className = props[k];
+    else if (k === 'text') n.textContent = props[k];
+    else if (k === 'html') { /* 의도적으로 미지원 */ }
+    else if (k.startsWith('on') && typeof props[k] === 'function') n[k] = props[k];
+    else if (k === 'style') n.setAttribute('style', props[k]);
+    else n.setAttribute(k, props[k]);
+  }
+  if (children != null) for (const c of [].concat(children)) {
+    if (c == null) continue;
+    n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return n;
+}
+
+// ─── 이벤트 정의 (게임 코드 emit 지점에서 도출) ───────────────────────────────
+// 변경 시 SfxPlayer.gd / BgmPlayer.gd 의 *_SPECS 와 동기화. 이 목록이 툴의 SoT.
+const SFX_EVENTS = [
+  { id:"candy_pick",      file:"candy_pick.ogg",      vol:0,   thr:null, ctx:"개미가 사탕을 집을 때 · 떨어진 사탕 재획득 (Candy.gd / DroppedCandy.gd)" },
+  { id:"candy_depleted",  file:"candy_depleted.ogg",  vol:0,   thr:null, ctx:"사탕 더미가 모두 소진됐을 때 (Candy.gd)" },
+  { id:"candy_lost",      file:"candy_lost.ogg",      vol:0,   thr:null, ctx:"운반 중 사탕 유실 — 추락사·표류·물·끈끈이·floater (LostState 등)" },
+  { id:"ant_stun",        file:"ant_stun.ogg",        vol:0,   thr:null, ctx:"개미가 높은 곳에서 추락해 기절/사망 (DeadState)" },
+  { id:"ant_save",        file:"ant_save.ogg",        vol:0,   thr:null, ctx:"개미가 사탕을 들고 집에 무사 귀환 (Home.gd)" },
+  { id:"water_splash",    file:"water_splash.ogg",    vol:0,   thr:null, ctx:"개미가 소다워터에 빠질 때 (WaterHazard)" },
+  { id:"sticky_glue",     file:"sticky_glue.ogg",     vol:0,   thr:null, ctx:"개미가 끈끈이에 닿아 감속될 때 (StickyHazard)" },
+  { id:"stage_cleared",   file:"stage_cleared.ogg",   vol:0,   thr:null, ctx:"스테이지 클리어 (StageRunner)" },
+  { id:"stage_failed",    file:"stage_failed.ogg",    vol:0,   thr:null, ctx:"스테이지 실패 (StageRunner)" },
+  { id:"dialog_open",     file:"dialog_open.ogg",     vol:0,   thr:null, ctx:"결과창·인트로 카드가 열릴 때 (StageDialog / StageIntroCard)" },
+  { id:"dialog_stats_pop",file:"dialog_stats_pop.ogg",vol:0,   thr:null, ctx:"결과창 통계 수치가 팝업될 때 (StageDialog)" },
+  { id:"dialog_btn_press",file:"dialog_btn_press.ogg",vol:0,   thr:null, ctx:"다이얼로그 버튼을 누를 때 (StageDialog / StageIntroCard)" },
+  { id:"star_fill",       file:"star_fill.ogg",       vol:0,   thr:null, ctx:"결과창에서 별점이 하나씩 채워질 때 — 별마다 1회 (StageDialog)" },
+  { id:"locked",          file:"locked.ogg",          vol:0,   thr:null, ctx:"잠긴 스킬/스테이지를 클릭할 때 (SkillToolbar / StageSelect)" },
+  { id:"skill_select",    file:"skill_select.ogg",    vol:0,   thr:null, ctx:"스킬 버튼을 선택할 때 (SkillToolbar)" },
+  { id:"skill_assign",    file:"skill_assign.ogg",    vol:0,   thr:null, ctx:"스킬을 개미에게 부여/배치할 때 (SkillToolbar)" },
+  { id:"skill_activate",  file:"skill_activate.ogg",  vol:0,   thr:null, ctx:"점프대·표지판 등 설치물이 발동할 때 (LeafJumpPad / SkillSign)" },
+  { id:"footstep",        file:"footstep.ogg",        vol:-16, thr:70,  ctx:"개미 발소리 — 보폭마다 (Ant.gd)", repeat:true },
+  { id:"footstep_sticky", file:"footstep_sticky.ogg", vol:-14, thr:70,  ctx:"끈끈이 감속 중 먹먹한 발소리 (Ant.gd)", repeat:true },
+  { id:"skill_build",     file:"skill_build.ogg",     vol:-6,  thr:60,  ctx:"건설 작업음 — 다리/계단/사다리 (WorkerState)", repeat:true },
+  { id:"skill_dig",       file:"skill_dig.ogg",       vol:-6,  thr:60,  ctx:"굴착 작업음 — 땅파기 (WorkerState)", repeat:true },
+  { id:"ant_land",        file:"ant_land.ogg",        vol:-8,  thr:60,  ctx:"개미 착지음 — 다수 동시 착지 coalesce (FallerState)", repeat:true },
+  { id:"parachute",       file:"parachute.ogg",       vol:-8,  thr:150, ctx:"낙하산 펼침 swoosh — 스팸 방지 (FallerState)", repeat:true },
+];
+
+const BGM_TRACKS = [
+  { id:"menu",     file:"menu.ogg",     vol:0, ctx:"메인 메뉴 · 스테이지 선택 화면 (SceneFlow). 타이틀 영상 중에는 무음." },
+  { id:"gameplay", file:"gameplay.ogg", vol:0, ctx:"스테이지 플레이 중 (SceneFlow)" },
+];
+
+const SFX_DIR = 'SFX_DIR';
+const BGM_DIR = 'BGM_DIR';
+
+// ─── 상태 ────────────────────────────────────────────────────────────────────
+// state.sfx[id] = {file, vol, thr, src(loaded key|null)}, state.bgm[id] = {file, src}
+let state = { sfx:{}, bgm:{} };
+const loaded = new Map();   // key -> {name, url, fileObj}
+let loadCounter = 0;
+let activeTab = "sfx";
+
+function defaultsFromDefs() {
+  const s = { sfx:{}, bgm:{} };
+  SFX_EVENTS.forEach(e => s.sfx[e.id] = { file:e.file, vol:e.vol, thr:e.thr, src:null });
+  BGM_TRACKS.forEach(t => s.bgm[t.id] = { file:t.file, vol:t.vol, src:null });
+  return s;
+}
+
+// ─── 오디오 미리듣기 (WebAudio gain 으로 dB 충실 재현, +boost 포함) ────────────
+let audioCtx = null, current = null;
+function ctxOf() { audioCtx ??= new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+function stopPreview() {
+  if (current) { try { current.el.pause(); } catch(e){} current = null; }
+  document.querySelectorAll('.play.playing').forEach(b => b.classList.remove('playing'));
+}
+function playPreview(url, db, loop, btn) {
+  stopPreview();
+  if (!url) { toast("재생할 오디오가 없습니다 — 파일을 불러오세요"); return; }
+  const c = ctxOf(); if (c.state === 'suspended') c.resume();
+  const audio = new Audio(url); audio.loop = !!loop;
+  try {
+    const sr = c.createMediaElementSource(audio);
+    const g = c.createGain(); g.gain.value = Math.pow(10, (db||0)/20);
+    sr.connect(g); g.connect(c.destination);
+  } catch(e) { audio.volume = Math.min(1, Math.pow(10, Math.min(0,db||0)/20)); }
+  audio.play().catch(()=>{});
+  if (btn) btn.classList.add('playing');
+  audio.onended = () => { if (btn) btn.classList.remove('playing'); if (current && current.el===audio) current=null; };
+  current = { el:audio, btn };
+}
+
+// ─── 파일 로드 ───────────────────────────────────────────────────────────────
+function isAudio(f) { return /\.(ogg|wav|mp3)$/i.test(f.name) || (f.type && f.type.startsWith('audio')); }
+function ingest(f) {
+  for (const [k,v] of loaded) if (v.name === f.name) { URL.revokeObjectURL(v.url); loaded.delete(k); }
+  const key = 'L' + (++loadCounter);
+  loaded.set(key, { name:f.name, url:URL.createObjectURL(f), fileObj:f });
+  return key;
+}
+function addFiles(fileList) {
+  for (const f of fileList) { if (isAudio(f)) ingest(f); }
+  autoMatch(); renderLoaded(); renderList();
+}
+function autoMatch() {
+  const byName = new Map(); for (const [k,v] of loaded) byName.set(v.name, k);
+  for (const e of SFX_EVENTS) { const st=state.sfx[e.id]; if (!st.src && byName.has(st.file)) st.src = byName.get(st.file); }
+  for (const t of BGM_TRACKS) { const st=state.bgm[t.id]; if (!st.src && byName.has(st.file)) st.src = byName.get(st.file); }
+}
+function removeLoaded(key) {
+  const v = loaded.get(key); if (v) URL.revokeObjectURL(v.url);
+  loaded.delete(key);
+  for (const id in state.sfx) if (state.sfx[id].src===key) state.sfx[id].src=null;
+  for (const id in state.bgm) if (state.bgm[id].src===key) state.bgm[id].src=null;
+  renderLoaded(); renderList();
+}
+function srcUrl(st) { const v = st.src && loaded.get(st.src); return v ? v.url : null; }
+
+// ─── 렌더 ────────────────────────────────────────────────────────────────────
+function renderLoaded() {
+  const box = document.getElementById('loadedList');
+  box.replaceChildren();
+  if (loaded.size === 0) { box.appendChild(el('span',{class:'hint',text:'불러온 파일 없음'})); return; }
+  for (const [k,v] of loaded) {
+    const rm = el('button',{title:'제거',text:'✕',onclick:()=>removeLoaded(k)});
+    box.appendChild(el('span',{class:'loaded-pill'}, ['🎧 '+v.name, rm]));
+  }
+}
+
+function srcSelect(st) {
+  const sel = el('select',{class:'src-sel'});
+  sel.appendChild(el('option',{value:'',text:'(미리듣기 파일 없음)'}));
+  for (const [k,v] of loaded) {
+    const o = el('option',{value:k,text:v.name}); if (st.src===k) o.selected=true; sel.appendChild(o);
+  }
+  if (st.src && !loaded.has(st.src)) st.src = null;
+  if (!st.src) sel.classList.add('unmatched');
+  sel.onchange = () => { st.src = sel.value || null; sel.classList.toggle('unmatched', !st.src); };
+  return sel;
+}
+
+function renderList() {
+  const list = document.getElementById('list');
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  list.replaceChildren();
+  document.getElementById('cntSfx').textContent = SFX_EVENTS.length;
+  document.getElementById('cntBgm').textContent = BGM_TRACKS.length;
+
+  const defs = activeTab==='sfx' ? SFX_EVENTS : BGM_TRACKS;
+  let shown = 0;
+  for (const def of defs) {
+    if (q && !(def.id.toLowerCase().includes(q) || def.ctx.toLowerCase().includes(q))) continue;
+    shown++;
+    const st = (activeTab==='sfx' ? state.sfx : state.bgm)[def.id];
+    const row = el('div',{class:'ev','data-id':def.id});
+
+    // 왼쪽: id + 컨텍스트
+    const left = el('div',null,[
+      el('div',{class:'id',text:def.id}),
+      el('div',{class:'ctx',text:def.ctx}),
+    ]);
+    if (def.repeat) left.appendChild(el('span',{class:'badge',text:'반복음 · throttle/coalesce'}));
+    row.appendChild(left);
+
+    // 오른쪽: 컨트롤
+    const ctrls = el('div',{class:'ctrls'});
+
+    // 1행: 파일명 + 미리듣기 source + play
+    const fn = el('input',{class:'fn',value:st.file});
+    fn.oninput = () => { st.file = fn.value.trim(); };
+    const play = el('button',{class:'play',text:'▶'});
+    play.onclick = () => {
+      if (play.classList.contains('playing')) { stopPreview(); return; }
+      playPreview(srcUrl(st), st.vol||0, activeTab==='bgm', play);
+    };
+    ctrls.appendChild(el('div',{class:'line'},[ el('label',{text:'파일명'}), fn, srcSelect(st), play ]));
+
+    // 볼륨 슬라이더 (SFX·BGM 공통) — BGM은 페이드인 목표 dB로 적용.
+    {
+      const rng = el('input',{type:'range',min:'-40',max:'6',step:'0.5',value:st.vol});
+      const valEl = el('span',{class:'val',text:fmtDb(st.vol)});
+      rng.oninput = () => { st.vol = parseFloat(rng.value); valEl.textContent = fmtDb(st.vol); };
+      ctrls.appendChild(el('div',{class:'line'},[ el('label',{text:'volume_db'}), rng, valEl, el('span',{class:'hint',text:'0 = 기본'}) ]));
+    }
+
+    if (activeTab==='sfx') {
+      // throttle
+      const num = el('input',{class:'num',type:'number',min:'0',step:'10',placeholder:'없음'});
+      if (st.thr!=null) num.value=st.thr; else num.classList.add('empty');
+      num.oninput = () => { const v=num.value.trim(); st.thr = v==='' ? null : Math.max(0, parseInt(v,10)||0); num.classList.toggle('empty', st.thr==null); };
+      ctrls.appendChild(el('div',{class:'line'},[ el('label',{text:'throttle_ms'}), num,
+        el('span',{class:'hint',text:'빈 칸 = 쓰로틀 없음 (1회성 이벤트음). 반복음만 값 지정.'}) ]));
+    }
+
+    row.appendChild(ctrls);
+
+    // 행 단위 드롭 → 그 이벤트에 직접 배정
+    row.addEventListener('dragover', ev => { ev.preventDefault(); row.classList.add('drop-hot'); });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-hot'));
+    row.addEventListener('drop', ev => {
+      ev.preventDefault(); ev.stopPropagation(); row.classList.remove('drop-hot');
+      const files = [...ev.dataTransfer.files].filter(isAudio);
+      if (!files.length) return;
+      const key = ingest(files[0]);
+      st.src = key; st.file = files[0].name;
+      renderLoaded(); renderList();
+    });
+
+    list.appendChild(row);
+  }
+  if (shown===0) list.appendChild(el('div',{class:'hint',style:'padding:18px;text-align:center;',text:'검색 결과 없음'}));
+}
+
+function fmtDb(v) { const n=parseFloat(v); return (n>0?'+':'')+n.toFixed(1)+' dB'; }
+
+// ─── Export ──────────────────────────────────────────────────────────────────
+const TAB = '\t';
+function gdSfxSpecs() {
+  let s = 'const SFX_SPECS: Dictionary = {\n';
+  for (const e of SFX_EVENTS) s += `${TAB}&"${e.id}": ${SFX_DIR} + "/${state.sfx[e.id].file}",\n`;
+  return s + '}';
+}
+function gdThrottle() {
+  let s = 'const THROTTLE_MS: Dictionary = {\n';
+  for (const e of SFX_EVENTS) if (state.sfx[e.id].thr!=null) s += `${TAB}&"${e.id}": ${state.sfx[e.id].thr},\n`;
+  return s + '}';
+}
+function gdVolume() {
+  let s = 'const VOLUME_DB: Dictionary = {\n';
+  for (const e of SFX_EVENTS) if ((state.sfx[e.id].vol||0)!==0) s += `${TAB}&"${e.id}": ${Number(state.sfx[e.id].vol).toFixed(1)},\n`;
+  return s + '}';
+}
+function gdBgmSpecs() {
+  let s = 'const BGM_SPECS: Dictionary = {\n';
+  for (const t of BGM_TRACKS) s += `${TAB}&"${t.id}": ${BGM_DIR} + "/${state.bgm[t.id].file}",\n`;
+  return s + '}';
+}
+function gdBgmVolume() {
+  let s = 'const VOLUME_DB: Dictionary = {\n';
+  for (const t of BGM_TRACKS) if ((state.bgm[t.id].vol||0)!==0) s += `${TAB}&"${t.id}": ${Number(state.bgm[t.id].vol).toFixed(1)},\n`;
+  return s + '}';
+}
+function jsonExport() {
+  const o = { sfx:{}, bgm:{} };
+  for (const e of SFX_EVENTS) { const st=state.sfx[e.id]; o.sfx[e.id]={file:st.file, vol:st.vol, thr:st.thr}; }
+  for (const t of BGM_TRACKS) { const st=state.bgm[t.id]; o.bgm[t.id]={file:st.file, vol:st.vol}; }
+  return JSON.stringify(o, null, 2);
+}
+
+function openExport() {
+  const body = document.getElementById('modalBody');
+  body.replaceChildren();
+  const blocks = [
+    { title:'SFX_SPECS', where:'scripts/core/SfxPlayer.gd', code:gdSfxSpecs() },
+    { title:'THROTTLE_MS', where:'scripts/core/SfxPlayer.gd', code:gdThrottle() },
+    { title:'VOLUME_DB', where:'scripts/core/SfxPlayer.gd', code:gdVolume() },
+    { title:'BGM_SPECS', where:'scripts/core/BgmPlayer.gd', code:gdBgmSpecs() },
+    { title:'VOLUME_DB (BGM)', where:'scripts/core/BgmPlayer.gd', code:gdBgmVolume() },
+    { title:'JSON (재로드용)', where:'JSON 불러오기 로 복원', code:jsonExport() },
+  ];
+  for (const b of blocks) {
+    const copy = el('button',{class:'ghost icon',text:'복사',style:'margin-left:auto;'});
+    copy.onclick = () => navigator.clipboard.writeText(b.code).then(()=>toast(b.title+' 복사됨'));
+    const h = el('h3',null,[ b.title+' ', el('span',{class:'where',text:'→ '+b.where}), copy ]);
+    const pre = el('pre',{text:b.code});
+    body.appendChild(el('div',{class:'block'},[h,pre]));
+  }
+  const dl = el('button',{class:'ghost',text:'⤓ JSON 파일로 저장'});
+  dl.onclick = () => {
+    const blob = new Blob([jsonExport()], {type:'application/json'});
+    const a = el('a',{href:URL.createObjectURL(blob),download:'audio_map.json'}); a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  };
+  body.appendChild(dl);
+  document.getElementById('modalBg').classList.add('show');
+}
+
+function importJson(text) {
+  let o; try { o = JSON.parse(text); } catch(e) { toast('JSON 파싱 실패'); return; }
+  const fresh = defaultsFromDefs();
+  if (o.sfx) for (const id in fresh.sfx) if (o.sfx[id]) {
+    const v=o.sfx[id];
+    if (v.file!=null) fresh.sfx[id].file=v.file;
+    if (v.vol!=null) fresh.sfx[id].vol=v.vol;
+    if (v.thr!==undefined) fresh.sfx[id].thr=v.thr;
+  }
+  if (o.bgm) for (const id in fresh.bgm) if (o.bgm[id]) {
+    const v=o.bgm[id];
+    if (v.file!=null) fresh.bgm[id].file=v.file;
+    if (v.vol!=null) fresh.bgm[id].vol=v.vol;
+  }
+  state = fresh;
+  autoMatch(); renderList();
+  toast('JSON 불러옴');
+}
+
+// ─── 토스트 ──────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+// ─── 배선 ────────────────────────────────────────────────────────────────────
+function init() {
+  state = defaultsFromDefs();
+
+  document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active'); activeTab = tab.dataset.tab; stopPreview(); renderList();
+  });
+  document.getElementById('search').oninput = renderList;
+  document.getElementById('btnExport').onclick = openExport;
+  document.getElementById('btnReset').onclick = () => {
+    if (!confirm('모든 매핑·볼륨·쓰로틀을 기본값으로 되돌립니다. (불러온 파일은 유지)')) return;
+    state = defaultsFromDefs(); autoMatch(); renderList(); toast('기본값 복원');
+  };
+  document.getElementById('modalClose').onclick = () => document.getElementById('modalBg').classList.remove('show');
+  document.getElementById('modalBg').onclick = e => { if (e.target.id==='modalBg') document.getElementById('modalBg').classList.remove('show'); };
+
+  const fileInput = document.getElementById('fileInput');
+  document.getElementById('btnPickFiles').onclick = () => fileInput.click();
+  fileInput.onchange = () => { addFiles(fileInput.files); fileInput.value=''; };
+
+  // 폴더 통째로 로드 — assets/audio 를 가리키면 sfx/·bgm/ 하위 .ogg 전부 자동 로드+매칭.
+  const folderInput = document.getElementById('folderInput');
+  document.getElementById('btnPickFolder').onclick = () => folderInput.click();
+  folderInput.onchange = () => {
+    const n = [...folderInput.files].filter(isAudio).length;
+    addFiles(folderInput.files); folderInput.value='';
+    toast(n>0 ? `오디오 ${n}개 로드됨 — ▶ 로 미리듣기` : '폴더에 오디오 파일이 없습니다');
+  };
+
+  document.getElementById('btnImport').onclick = () => {
+    const inp = el('input',{type:'file',accept:'.json,application/json'});
+    inp.onchange = () => { const f=inp.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>importJson(r.result); r.readAsText(f); };
+    inp.click();
+  };
+
+  // 드롭존 (전체 로드)
+  const dz = document.getElementById('dropzone');
+  dz.onclick = e => { if (e.target===dz || e.target.classList.contains('dz-text')) fileInput.click(); };
+  ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('hot'); }));
+  ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); if(ev==='dragleave' && dz.contains(e.relatedTarget)) return; dz.classList.remove('hot'); }));
+  dz.addEventListener('drop', e => { if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+  // 페이지 전역 드롭 기본동작(파일 열기) 방지
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => { if (!e.target.closest('.ev') && !e.target.closest('#dropzone')) e.preventDefault(); });
+
+  renderLoaded(); renderList();
+}
+init();
+</script>
+</body>
+</html>

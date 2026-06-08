@@ -286,9 +286,13 @@ func _swap_screen(new_node: Node, new_state: ScreenState) -> void:
 	_last_result = {}
 	_current_stage_root.add_child(new_node)
 	current_screen = new_state
-	# Phase 23 — 메뉴 계열 화면(TITLE/MAIN_MENU/STAGE_SELECT) 진입 시 menu BGM.
-	# 메뉴 내 이동(title→main_menu→stage_select)은 BgmPlayer idempotent로 무중단.
-	EventBus.bgm_request.emit(&"menu")
+	# Phase 23 — 메뉴 계열 화면 진입 시 menu BGM. 단 TITLE(인트로 영상)은 영상 자체에 사운드가 있어
+	# BGM을 깔지 않는다 — menu BGM은 MAIN_MENU부터. 메뉴에서 타이틀로 복귀하는 경우 깔려 있던 BGM은
+	# bgm_stop으로 정지(영상 사운드와 겹침 방지). 메뉴 내 이동(main_menu↔stage_select)은 idempotent로 무중단.
+	if new_state == ScreenState.TITLE:
+		EventBus.bgm_stop.emit()
+	else:
+		EventBus.bgm_request.emit(&"menu")
 
 func _freeze_current_stage() -> void:
 	# phase 12 산출. StageDialog 표시 중 stage 정지.

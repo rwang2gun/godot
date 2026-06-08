@@ -18,6 +18,13 @@ const BGM_SPECS: Dictionary = {
 	&"gameplay": BGM_DIR + "/gameplay.ogg",
 }
 
+## track id → 재생 볼륨(dB). 페이드인 목표값으로 사용. 여기 없는 track은 0 dB(기본, 무변경).
+## SFX(SfxPlayer.VOLUME_DB)와 동형 — 게임 청취 후 이 값만 바꿔 BGM/SFX 밸런스를 맞춘다.
+const VOLUME_DB: Dictionary = {
+	&"menu": -5.0,
+	&"gameplay": -13.0,
+}
+
 var _streams: Dictionary = {}                  # track id → AudioStream (로드 성공분만)
 var _players: Array[AudioStreamPlayer] = []    # 2-player 크로스페이드 A/B
 var _tweens: Array[Tween] = [null, null]       # per-player 활성 fade tween (새 fade 전 kill).
@@ -83,7 +90,7 @@ func _start_track(track: StringName) -> void:
 	_active = next
 	current_track = track
 	play_generation += 1
-	_fade(next, 0.0)            # 새 player fade in → 0 dB
+	_fade(next, _target_db(track))   # 새 player fade in → track 볼륨(VOLUME_DB, 미지정 0 dB)
 	if prev != next:
 		_fade_out_stop(prev)   # 이전 player fade out → stop(콜백 시점 여전히 비활성일 때만)
 
@@ -98,6 +105,11 @@ func _on_bgm_stop() -> void:
 	_tweens[idx] = t
 	t.tween_property(p, "volume_db", MIN_DB, FADE_SEC)
 	t.tween_callback(p.stop)   # 명시적 stop은 무조건 정지.
+
+
+## track 재생 볼륨(dB). VOLUME_DB 미지정 시 0 dB(기본).
+func _target_db(track: StringName) -> float:
+	return float(VOLUME_DB.get(track, 0.0))
 
 
 # ─── 페이드(per-player tween 소유권 + 취소) ────────────────────────

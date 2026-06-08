@@ -27,7 +27,8 @@ func _ready() -> void:
 
 # 의도적으로 인트로 가이드가 없는 published 스테이지(placeholder 렌더). REVISION §3 — S9 피날레
 # 인트로 카드는 "선택·1차 미포함". 새 무가이드 스테이지가 생기면 여기 명시 추가(누락=실수로 간주).
-const _GUIDELESS_ALLOWLIST: Array[int] = [9]
+# S10 "보물찾기!" — 맵 에디터 저작 스테이지(2026-06-08 정식 발행), 가이드 미저작 → placeholder 렌더.
+const _GUIDELESS_ALLOWLIST: Array[int] = [9, 10]
 
 # (a) published 캠페인 스테이지(SceneFlow SoT)별 불변식(codex impl R2-M2):
 #     - allowlist 스테이지: guide 부재여야(의도된 placeholder). (b)가 guide-null→카피-free placeholder를 입증.

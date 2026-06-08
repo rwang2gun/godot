@@ -18,7 +18,7 @@ signal request_title                    # Phase 13 — reserved (현재 발화�
 signal release_rate_changed(new_rate: int)
 signal sfx_request(id: StringName)   # phase 12 sound hook — receiver는 phase 21 산출
 signal bgm_request(track: StringName)  # phase 23 — 화면 컨텍스트 BGM 요청(menu/gameplay). receiver는 BgmPlayer.
-signal bgm_stop()                      # phase 23 — BGM 정지(페이드 아웃). 현재 발화자 없음(reserved).
+signal bgm_stop()                      # phase 23 — BGM 정지(페이드 아웃). SceneFlow가 TITLE 진입 시 emit(타이틀 영상은 자체 사운드).
 
 # Phase 5 — InputRouter가 emit, SkillToolbar 등이 구독.
 # payload 형식: GameAction.is_positional(name)이 true면 {position_valid, screen_pos, world_pos}

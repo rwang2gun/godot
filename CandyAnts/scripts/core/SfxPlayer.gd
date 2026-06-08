@@ -54,8 +54,8 @@ const THROTTLE_MS: Dictionary = {
 }
 # 반복음 볼륨(dB). 여기 없는 id는 0 dB(기본). 풋스텝은 "작게", 공사·착지·낙하산은 약간만 낮춰 또렷하게.
 const VOLUME_DB: Dictionary = {
-	&"footstep": -16.0,
-	&"footstep_sticky": -14.0,  # 먹먹한 carpet 음이 묻히지 않게 살짝 키움
+	&"footstep": -7.0,
+	&"footstep_sticky": -7.0,
 	&"skill_build": -6.0,
 	&"skill_dig": -6.0,
 	&"ant_land": -8.0,
