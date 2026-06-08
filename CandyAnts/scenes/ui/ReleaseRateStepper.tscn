@@ -9,7 +9,7 @@ script = ExtResource("1_stepper")
 
 [node name="BtnMinus" type="Button" parent="."]
 custom_minimum_size = Vector2(28, 28)
-text = "−"
+text = "-"
 script = ExtResource("2_cbutton")
 kind = 2
 

@@ -27,8 +27,9 @@ const _TABLE: Dictionary = {
 	"dialog.chip_time_value": "%ds",
 
 	# InputHintLabel — scripts/ui/InputHintLabel.gd
-	"hint.mouse": "클릭/드래그: 적용  ·  1~8: 스킬  ·  Space: 일시정지",
-	"hint.pad": "A: 적용  ·  LB/RB: 전환  ·  View: 일시정지",
+	# 구분자는 가운뎃점(·, U+00B7) 대신 파이프(|) — Jua 폰트에 · 글리프가 없어 웹에서 두부(K-12).
+	"hint.mouse": "클릭/드래그: 적용  |  1~8: 스킬  |  Space: 일시정지",
+	"hint.pad": "A: 적용  |  LB/RB: 전환  |  View: 일시정지",
 	"hint.touch": "탭/드래그: 적용",
 
 	# StageSelect — scripts/ui/StageSelect.gd
@@ -50,10 +51,11 @@ const _TABLE: Dictionary = {
 	# 입력모델 배지 4종 (SkillAffordance.Category당 1, 스킬 공유 — STAGE_GUIDE_PLAN §0.8.6).
 	# 배지는 페이징 카드에 미표시(§2.6.1 은퇴) — inspector·legacy 단일카드 경로 전용. 조작 동사 모드
 	# 분기는 인게임 InputHintLabel(hint.*)이 담당하므로 배지는 **모드 중립**("선택")으로 유지한다.
-	"guide.badge.ant_armed": "개미 선택 → 자동 발동",
-	"guide.badge.ant_settle": "개미 선택 → 정착",
-	"guide.badge.sign": "땅 선택 → 표지판",
-	"guide.badge.device": "땅 선택 → 장치",
+	# 화살표(→, U+2192)는 Jua에 글리프 없어 웹에서 두부(K-12) → 한글 "시"로 표기.
+	"guide.badge.ant_armed": "개미 선택 시 자동 발동",
+	"guide.badge.ant_settle": "개미 선택 시 정착",
+	"guide.badge.sign": "땅 선택 시 표지판",
+	"guide.badge.device": "땅 선택 시 장치",
 
 	# 스테이지별 가이드 카피 (STAGE_GUIDE_PLAN §4). data/guides/stageNN_guide.tres가 key로 참조.
 	# S1 · 첫 마실 — climber(③) + 글로벌 기본기.
@@ -70,7 +72,7 @@ const _TABLE: Dictionary = {
 	"guide.s2.goal": "높이 올라간 사탕을 가지러 가요. 그런데 내려올 때가 위험해요.",
 	"guide.s2.floater_desc": "개미를 탭해 낙하산을 정착시키면, 지나가는 동료들이 낙하산을 받아 높은 곳에서도 안전하게 내려와요.",
 	"guide.s2.blocker_desc": "개미를 탭해 길 막기를 정착시키면, 그 자리에 버티고 서서 부딪힌 동료의 방향을 되돌려보내요.",
-	"guide.s2.hazard_stun": "⚠ 너무 높이서 떨어지면(6칸↑) 개미가 기절해 사라져요. 낙하산이 있으면 괜찮아요.",
+	"guide.s2.hazard_stun": "주의: 너무 높이서 떨어지면(6칸 이상) 개미가 기절해 사라져요. 낙하산이 있으면 괜찮아요.",
 	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 3페이지: 낙하위험→낙하산→길막기.
 	"guide.s2.page_danger_title": "높은 곳은 위험해요",
 	"guide.s2.page_danger_body": "너무 높은 곳에서 떨어지면, 움직일 수 없어요.",
@@ -81,7 +83,7 @@ const _TABLE: Dictionary = {
 	# S3 · 사탕 호수 — bridge(③) + 소다물 해저드.
 	"guide.s3.goal": "사탕 호수 건너편의 사탕을 가져와요. 물에 빠지면 안 돼요.",
 	"guide.s3.bridge_desc": "개미에게 다리만들기를 주면, 낭떠러지에 닿았을 때 스스로 수평 다리를 놓아요. 한 번 놓으면 모두가 건너요.",
-	"guide.s3.hazard_water": "⚠ 소다물에 닿으면 그 즉시 잃어요. 다리로 건너세요.",
+	"guide.s3.hazard_water": "주의: 소다물에 닿으면 그 즉시 잃어요. 다리로 건너세요.",
 	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 2페이지: 물위험→다리.
 	"guide.s3.page_water_title": "물에 빠지면 위험해요",
 	"guide.s3.page_water_body": "물에 빠지면 다시 올라올 수 없어요.",
@@ -114,8 +116,8 @@ const _TABLE: Dictionary = {
 	# S8 · 박하 덤불 — cutter(①) + leaf_jump(④, 첫 장치) + 끈끈이 해저드.
 	"guide.s8.goal": "박하 덤불을 자르고, 끈끈이를 점프대로 건너 사탕에 닿아요. 서둘러요!",
 	"guide.s8.cutter_desc": "식물 자르기는 식물 벽 전용이에요(흙 벽엔 안 통해요).",
-	"guide.s8.leaf_jump_desc": "나뭇잎 점프대는 땅에 놓는 장치예요 — 개미가 도착하면 폴짝 띄워줘요. 여러 번 써요.",
-	"guide.s8.hazard_sticky": "⚠ 끈끈이를 밟으면 느려져요(잃지는 않아요). 점프대로 건너뛰세요.",
+	"guide.s8.leaf_jump_desc": "나뭇잎 점프대는 땅에 놓는 장치예요. 개미가 도착하면 폴짝 띄워줘요. 여러 번 써요.",
+	"guide.s8.hazard_sticky": "주의: 끈끈이를 밟으면 느려져요(잃지는 않아요). 점프대로 건너뛰세요.",
 	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 3페이지: 끈끈이→점프대→덩굴자르기.
 	"guide.s8.page_sticky_title": "카라멜 끈끈이",
 	"guide.s8.page_sticky_body": "끈적한 카라멜 끈끈이가 이동을 방해해요.",

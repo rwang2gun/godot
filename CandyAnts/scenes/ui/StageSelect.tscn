@@ -44,7 +44,7 @@ theme_override_constants/separation = 12
 
 [node name="BackBtn" parent="MarginContainer/VBox/Header" instance=ExtResource("2_btn")]
 custom_minimum_size = Vector2(120, 48)
-text = "← 메뉴"
+text = "< 메뉴"
 kind = 2
 
 [node name="Title" type="Label" parent="MarginContainer/VBox/Header"]

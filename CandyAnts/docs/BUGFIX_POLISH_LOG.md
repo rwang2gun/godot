@@ -10,7 +10,7 @@
 
 ---
 
-## 2026-06-08 — 웹 빌드 폰트 글리프 두부 (×/›/‹/→)
+## 2026-06-08 — 웹 빌드 폰트 글리프 두부 (×/·/→/‹›/←/−/⚠/↑/—)
 
 > 웹 export는 Jua/Gaegu 폰트에 **임베드된 글리프만** 렌더한다(데스크톱과 달리 OS 폴백 폰트 없음). 한글·숫자·기본 라틴은 정상이나, 일부 비-ASCII 타이포 기호가 폰트에 없어 두부(□)로 깨진다. 사용자가 웹 실행 중 발견.
 
@@ -22,17 +22,19 @@
 - **수정**: `"%d배"`로 교체(1배/2배/3배). 한글이라 폰트 글리프 보장. commit `15f4dd1`.
 - **검증**: 직접 `text=`에 기호 쓰는 UI 전수 grep — SpeedBtn 단 1곳 확인. 나머지 ×는 전부 주석 치수표기(48×48 등).
 
-### Known issue (미수정 — 사용자 지시로 이번 턴은 기록만)
-
-#### K-12. 가이드 카드 nav 버튼·배지 기호 두부 (›/‹/→)
-- **내용**: 웹에서 가이드 인트로 카드 페이징 nav 버튼 "다음 □" / "□ 이전", 일부 배지 텍스트가 두부. F-22(×)와 동일 원인(폰트 글리프 부재).
-  - [scenes/ui/StageIntroCard.tscn](../scenes/ui/StageIntroCard.tscn): `NextBtn.text = "다음 ›"`(› U+203A), `PrevBtn.text = "‹ 이전"`(‹ U+2039).
-  - [scripts/core/Strings.gd](../scripts/core/Strings.gd): `guide.badge.ant_armed`/`ant_settle`/`sign`/`device` = "… → …"(→ U+2192) — 카드 본문 배지에 노출되면 동일 두부.
-- **왜 지금 안 고쳤나**: 사용자 지시(이번 턴은 기록만). F-22와 동일 원인이라 추후 일괄 처리가 효율적.
-- **고친다면(옵션)**:
-  1. **기호를 폰트 보유 문자로 교체**(권장, 번들/리스크 최소·F-22와 동일 방침): `›`/`‹` 제거 또는 ASCII `>`/`<`, `→`는 화살표 대신 한글/하이픈(예: "개미 선택 시 자동 발동").
-  2. 테마 default font에 ‹/›/→/× 글리프를 가진 **폴백 폰트** 등록(웹 번들 포함). 모든 기호 일괄 해결이나 번들 크기 증가.
-  3. Godot 폰트 import의 글리프 prerender 범위에 해당 코드포인트 명시.
+#### F-23. 표시 문자열 비-ASCII 기호 일괄 두부 (K-12 해결 + 전수 스캔 신규 발견)
+- **증상**: K-12로 기록됐던 가이드 카드 nav 버튼(`›`/`‹`)·배지(`→`) 외에도, **fontTools로 Jua 글리프 cmap을 직접 대조**해 표시 문자열 전체를 전수 스캔한 결과 추가 두부 6종 발견. 데스크톱은 OS 폴백으로 가려져 미인지.
+- **원인 / 수정**(전부 글리프 보유 문자로 교체 — F-22 방침):
+  - `·` (U+00B7, 가운뎃점) → `|`: [Strings.gd](../scripts/core/Strings.gd) `hint.mouse`/`hint.pad` 인게임 입력 힌트 구분자.
+  - `→` (U+2192) → "시": `guide.badge.*` 4종("개미 선택 시 자동 발동" 등).
+  - `‹`/`›` (U+2039/203A) → ASCII `<`/`>`: [StageIntroCard.tscn](../scenes/ui/StageIntroCard.tscn) PrevBtn/NextBtn.
+  - `←` (U+2190) → ASCII `<`: [StageSelect.tscn](../scenes/ui/StageSelect.tscn) BackBtn "< 메뉴".
+  - `−` (U+2212, 수학 마이너스) → ASCII `-`: [ReleaseRateStepper.tscn](../scenes/ui/ReleaseRateStepper.tscn) BtnMinus. (BtnPlus는 ASCII `+`라 정상이었음.)
+  - `⚠` (U+26A0) → "주의:": `guide.s2/s3/s8.hazard_*` 가이드 본문 경고 3종.
+  - `↑` (U+2191) → "이상": `guide.s2.hazard_stun` "(6칸 이상)" — 기호보다 가독성↑.
+  - `—` (U+2014, 엠대시) → 마침표: `guide.s8.leaf_jump_desc`.
+- **Jua 보유 확인(정상, 미수정)**: `★`(U+2605, 별점)·`~`·`<`·`>`·`|`·`/` 등은 cmap에 존재 → 그대로 유지.
+- **검증**: fontTools cmap 대조 스캐너로 `scripts/**/*.gd`·`scenes/**/*.tscn`·`data/**/*.tres` 전수 재스캔 → **표시 문자열 0건**. 잔여 비-ASCII 기호(`—`/`→`/`·`/`°`)는 전부 인라인 코드 주석·디버그 출력으로 미렌더 확인.
 
 ---
 
