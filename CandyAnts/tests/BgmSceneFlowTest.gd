@@ -3,10 +3,10 @@ extends Node
 ## BgmPlayer가 boot emit *이전에* 구독돼 있는지 확인한다. repo 스캔(BgmReceiverTest)이 못 잡는
 ## "전이 지점·순서·구독 타이밍"을 본다.
 ##
-## 무음 경계 양립(plan review R2 HIGH): Main을 빈 _streams(Phase 23 무음) 상태로 구동하므로
-## playback이 없다 → current_track 미갱신 + play_generation==0을 단언(무음 graceful). idempotent/
-## play_generation 단언은 BgmReceiverTest가 주입 스트림으로 소유. 본 테스트는 emit 순서/매핑/구독만.
-## (Phase 24에서 에셋 배치 후 이 단언은 asset-present 재생 단언으로 역전됨.)
+## Phase 24(에셋 배치 후): 실제 ogg가 로드되므로 boot "menu" emit이 실제 재생된다 →
+## current_track=="menu" + play_generation≥1 + STAGE 진입 시 "gameplay" 전환을 단언(asset-present).
+## (Phase 23에선 빈 _streams 무음 경계 — current_track=="" + play_generation==0 — 였고 R2에서 역전.)
+## 핵심은 SceneFlow 실전이가 옳은 지점/track으로 emit하고 BgmPlayer가 boot emit 이전 구독돼 있는지.
 
 const MainScene := preload("res://scenes/Main.tscn")
 const TEST_PATH := "user://test_savedata_bgm_sceneflow.cfg"
@@ -45,13 +45,13 @@ func _ready() -> void:
 	if BgmPlayer.last_requested != &"menu":
 		return _fail("boot 후 BgmPlayer.last_requested='%s' (기대 menu) — 구독 타이밍 결함" % BgmPlayer.last_requested)
 
-	# (11) 무음 경계 — 빈 _streams이므로 graceful, 재생 0.
-	if not BgmPlayer._streams.is_empty():
-		return _fail("(11) Phase 23인데 _streams 비어있지 않음 — 무음 경계 위반")
-	if BgmPlayer.current_track != &"":
-		return _fail("(11) 무음인데 current_track='%s' (기대 빈값)" % BgmPlayer.current_track)
-	if BgmPlayer.play_generation != 0:
-		return _fail("(11) 무음인데 play_generation=%d (기대 0)" % BgmPlayer.play_generation)
+	# (11) asset-present 재생 — Phase 24: 실제 ogg 로드됨 → boot "menu" emit이 실제 재생(무음 역전).
+	if BgmPlayer._streams.is_empty():
+		return _fail("(11) Phase 24인데 _streams 비어있음 — 에셋 로드 실패")
+	if BgmPlayer.current_track != &"menu":
+		return _fail("(11) boot 후 current_track='%s' (기대 menu, 실제 재생)" % BgmPlayer.current_track)
+	if BgmPlayer.play_generation < 1:
+		return _fail("(11) boot 재생인데 play_generation=%d (기대 ≥1)" % BgmPlayer.play_generation)
 
 	# (12) 실전이 매핑/순서 — 메뉴 3종 → menu, load_stage(published) → gameplay.
 	EventBus.request_main_menu.emit()
@@ -69,6 +69,9 @@ func _ready() -> void:
 	await get_tree().process_frame
 	if sf.current_screen != sf.ScreenState.STAGE:
 		return _fail("STAGE 전이 실패 (%d)" % sf.current_screen)
+	# Phase 24 asset-present — STAGE 진입 시 gameplay로 실제 전환 재생.
+	if BgmPlayer.current_track != &"gameplay":
+		return _fail("STAGE 진입 후 current_track='%s' (기대 gameplay)" % BgmPlayer.current_track)
 
 	var expected: Array[StringName] = [&"menu", &"menu", &"menu", &"gameplay"]
 	if _emits != expected:

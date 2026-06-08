@@ -4,8 +4,8 @@ extends Node
 ## 검증:
 ##  (a) repo-도출 커버리지: scripts/ 스캔 bgm_request.emit track 전부 BgmPlayer.BGM_SPECS 키에 존재.
 ##  (b) 글로벌 prefix 가드: 추출 track 중 콜론 0건.
-##  (c) 무음 경계(에셋 의존 0 입증): _streams 비어 있음 + BGM_SPECS 경로 ResourceLoader.exists==false.
-##  (d) 로직(합성 스트림 주입): emit→current_track 일치 + 활성 player playing + 루프 on / idempotent /
+##  (c) 로드 무결성(Phase 24): 실제 CC0 ogg가 non-null AudioStream으로 로드 + length>0 (무음 경계 역전).
+##  (d) 로직(합성 WAV 주입, 포맷-결정적): emit→current_track 일치 + 활성 player playing + 루프 on / idempotent /
 ##      전환 / graceful / bgm_stop.
 ##  (e) rapid re-entry: menu→gameplay→menu 연속 emit 후 fade(>0.4s) 대기 → 활성 player만 playing,
 ##      stale player stop, current_track==menu (tween 소유권/취소 입증).
@@ -36,18 +36,50 @@ func _ready() -> void:
 			return
 	print("[BgmReceiverTest] (b) prefix 가드 OK")
 
-	# (c) 무음 경계 — Phase 23은 에셋 의존 0. 실제 스트림이 로드됐거나 ogg가 존재하면 FAIL.
-	if not BgmPlayer._streams.is_empty():
-		_fail("(c) Phase 23인데 _streams 비어있지 않음 (%d) — 실수 배치/stale import 의심" % BgmPlayer._streams.size())
+	# (c) 로드 무결성 — Phase 24: 실제 CC0 ogg가 로드됨(무음 경계 역전, ADR-013). 파일 누락/오타/
+	# import 미완 시 _streams에 빠지거나 null → FAIL. (Phase 23의 "_streams 비어있음" 단언을 뒤집음.)
+	if BgmPlayer._streams.size() != BgmPlayer.BGM_SPECS.size():
+		_fail("(c) 로드 stream 수(%d) != BGM_SPECS 수(%d) — 파일 누락/오타/import 미완" % [BgmPlayer._streams.size(), BgmPlayer.BGM_SPECS.size()])
 		return
 	for t in BgmPlayer.BGM_SPECS:
-		var path: String = BgmPlayer.BGM_SPECS[t]
-		if ResourceLoader.exists(path):
-			_fail("(c) Phase 23인데 '%s' 존재 — 무음 경계 위반 (에셋은 Phase 24)" % path)
+		var s = BgmPlayer._streams.get(t)
+		if s == null or not (s is AudioStream):
+			_fail("(c) track '%s' 리소스 로드 실패 (null/타입)" % t)
 			return
-	print("[BgmReceiverTest] (c) 무음 경계 OK — _streams 비어있고 ogg 부재")
+		if (s as AudioStream).get_length() <= 0.0:
+			_fail("(c) track '%s' stream 길이 0 (빈 오디오)" % t)
+			return
+	print("[BgmReceiverTest] (c) 로드 무결성 OK — %d 실제 stream 로드" % BgmPlayer._streams.size())
 
-	# 이하 로직 검증: 합성 스트림 주입(에셋 부재 환경에서 재생 경로 운동).
+	# (c2) 실제 ogg 루프/격리 — WAV 주입 *이전에* `_apply_loop(AudioStreamOggVorbis)` 경로를 검증
+	# (codex impl R1 HIGH). ogg 분기 제거/캐시 변형 회귀 시 "한 번 재생 후 EOF 무음"을 잡는다.
+	# 캐시 원본 loop를 false로 강제 → emit → 활성 스트림이 *별도* ogg 인스턴스 + loop==true,
+	# 캐시 원본은 loop==false 유지(격리).
+	for t in [&"menu", &"gameplay"]:
+		var src_ogg := BgmPlayer._streams[t] as AudioStreamOggVorbis
+		if src_ogg == null:
+			_fail("(c2) track '%s'가 AudioStreamOggVorbis 아님 — 포맷 가정 깨짐" % t)
+			return
+		src_ogg.loop = false
+		EventBus.bgm_request.emit(t)
+		await get_tree().process_frame
+		var active_ogg := BgmPlayer._players[BgmPlayer._active].stream as AudioStreamOggVorbis
+		if active_ogg == null or not active_ogg.loop:
+			_fail("(c2) track '%s' 재생 ogg 스트림 loop 미설정 — EOF 무음 회귀" % t)
+			return
+		if active_ogg == src_ogg:
+			_fail("(c2) track '%s' 격리 위반 — 재생 ogg가 캐시 원본과 동일 인스턴스" % t)
+			return
+		if src_ogg.loop:
+			_fail("(c2) track '%s' 격리 위반 — 캐시 ogg 원본 loop가 변형됨" % t)
+			return
+	# 다음 로직 검사가 처음부터 재생하도록 상태 리셋(current_track 비움).
+	EventBus.bgm_stop.emit()
+	await get_tree().process_frame
+	print("[BgmReceiverTest] (c2) ogg 루프/격리 OK — 실제 ogg 재생 스트림 loop==true, 원본 격리")
+
+	# 이하 로직 검증: 합성 WAV 주입으로 재생 경로를 결정적으로 운동(loop_mode 단언이 포맷-결정적).
+	# (c)/(c2)가 실제 ogg 로드+루프를 증명했으므로, crossfade/idempotent 로직은 주입 WAV로 검사.
 	BgmPlayer._streams[&"menu"] = _make_wav()
 	BgmPlayer._streams[&"gameplay"] = _make_wav()
 

@@ -1,0 +1,24 @@
+CandyAnts BGM — 출처 및 라이선스
+=================================
+
+모든 트랙은 CC0 (Creative Commons Zero / Public Domain). 표기 의무 없음 — 출처 추적용 기록.
+
+[menu.ogg]  메뉴(TITLE / MAIN_MENU / STAGE_SELECT) 루프
+  곡명   : Children's March Theme
+  작곡   : Cleyton Kauffman — https://soundcloud.com/cleytonkauffman
+  출처   : https://opengameart.org/content/childrens-march-theme
+  원본   : "Children's March Theme.ogg" (zip childrens_march_theme.zip 내)
+  라이선스: CC0 (Public Domain)
+  비고   : 1:04, seamless loop. 경쾌·아기자기(행진풍) — 캔디/개미 테마 메뉴용.
+
+[gameplay.ogg]  스테이지 플레이 루프
+  곡명   : Cozy Puzzle In-Game 1
+  작곡   : MintoDog
+  출처   : https://opengameart.org/content/cozy-puzzle-in-game-1
+  원본   : cozy_puzzle_in-game_1_bpm118_0.ogg
+  라이선스: CC0 (Public Domain)
+  비고   : loopable, 118 BPM. 집중·아늑한 퍼즐 분위기 — 게임플레이용.
+
+다운로드: 2026-06-08 (Phase 24 bgm-assets).
+루프 처리: BgmPlayer._apply_loop()가 재생용 복제본에 loop 플래그를 코드로 보장
+          (import 설정과 무관, 원본 캐시 미변형 — ADR-013).

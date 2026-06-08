@@ -1,7 +1,7 @@
 {
   "task": "mvp",
   "started_at": "2026-05-08T00:26:05",
-  "completed_at": "2026-06-08T15:56:39",
+  "completed_at": "2026-06-08T17:18:02",
   "phases": [
     {
       "id": 1,
@@ -262,10 +262,10 @@
       "name": "bgm-assets",
       "duration_estimate": 5400,
       "verify": "python scripts/run_test.py --import && python scripts/run_test.py tests/BgmReceiverTest.tscn --audio-driver Dummy && python scripts/run_test.py tests/BgmSceneFlowTest.tscn --audio-driver Dummy",
-      "state": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null
+      "state": "completed",
+      "started_at": "2026-06-08T17:07:34",
+      "completed_at": "2026-06-08T17:18:02",
+      "duration_seconds": 628
     }
   ]
 }
