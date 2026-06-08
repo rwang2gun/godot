@@ -26,19 +26,18 @@ const SFX_SPECS: Dictionary = {
 	&"dialog_btn_press": SFX_DIR + "/dialog_btn_press.ogg",
 	&"star_fill": SFX_DIR + "/star_fill.ogg",
 	&"locked": SFX_DIR + "/locked.ogg",
-	# 스킬 흐름(선택 → 부여/배치 → 발동) — 전용 에셋 확보 전까지 기존 oggs 재사용(placeholder).
-	# 전용 SFX 확보 시 이 3줄의 경로만 교체하면 됨(인터페이스/emit/테스트 불변). 출처는 CREDITS.txt 참조.
-	&"skill_select": SFX_DIR + "/dialog_btn_press.ogg",
-	&"skill_assign": SFX_DIR + "/star_fill.ogg",
-	&"skill_activate": SFX_DIR + "/dialog_stats_pop.ogg",
+	# 스킬 흐름(선택 → 부여/배치 → 발동) — Kenney CC0 전용 음원(2026-06-08). 출처는 CREDITS.txt 참조.
+	&"skill_select": SFX_DIR + "/skill_select.ogg",
+	&"skill_assign": SFX_DIR + "/skill_assign.ogg",
+	&"skill_activate": SFX_DIR + "/skill_activate.ogg",
 	# 반복 재생음(풋스텝/공사) — 다수 개미가 동시에 보내므로 아래 THROTTLE_MS로 뭉치고 VOLUME_DB로 작게.
-	# placeholder: footstep=tick, skill_build="탁"(pluck), skill_dig="사삭"(soft impact). 전용 음원 확보 시 경로만 교체.
-	&"footstep": SFX_DIR + "/dialog_stats_pop.ogg",
-	&"skill_build": SFX_DIR + "/candy_pick.ogg",
-	&"skill_dig": SFX_DIR + "/sticky_glue.ogg",
-	# 착지/낙하산 — placeholder: ant_land="툭"(soft impact), parachute="휙"(open swish). 전용 음원 확보 시 경로 교체.
-	&"ant_land": SFX_DIR + "/sticky_glue.ogg",
-	&"parachute": SFX_DIR + "/dialog_open.ogg",
+	# Kenney CC0 전용 음원: footstep=발소리(grass), skill_build=판자 놓기, skill_dig=채굴음.
+	&"footstep": SFX_DIR + "/footstep.ogg",
+	&"skill_build": SFX_DIR + "/skill_build.ogg",
+	&"skill_dig": SFX_DIR + "/skill_dig.ogg",
+	# 착지/낙하산 — Kenney CC0 전용 음원: ant_land=부드러운 착지, parachute=펼침 swoosh.
+	&"ant_land": SFX_DIR + "/ant_land.ogg",
+	&"parachute": SFX_DIR + "/parachute.ogg",
 }
 
 # 반복 재생 id의 글로벌 coalesce 간격(ms) — 다수 개미가 동시에 쏟아내도 잔잔히 뭉치게 한다(per-id).
