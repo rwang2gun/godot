@@ -1,7 +1,7 @@
 {
   "task": "mvp",
   "started_at": "2026-05-08T00:26:05",
-  "completed_at": "2026-06-08T14:09:44",
+  "completed_at": "2026-06-08T15:56:39",
   "phases": [
     {
       "id": 1,
@@ -228,11 +228,22 @@
       "file": "phase21-sfx-receiver.md",
       "name": "sfx-receiver",
       "duration_estimate": 7200,
-      "verify": "python scripts/run_test.py tests/SfxReceiverTest.tscn",
+      "verify": "python scripts/run_test.py tests/SfxReceiverTest.tscn --audio-driver Dummy",
       "state": "completed",
       "started_at": "2026-06-08T13:56:19",
       "completed_at": "2026-06-08T14:09:44",
       "duration_seconds": 805
+    },
+    {
+      "id": 22,
+      "file": "phase22-sfx-assets.md",
+      "name": "sfx-assets",
+      "duration_estimate": 5400,
+      "verify": "python scripts/run_test.py --import && python scripts/run_test.py tests/SfxReceiverTest.tscn --audio-driver Dummy",
+      "state": "completed",
+      "started_at": null,
+      "completed_at": "2026-06-08T15:56:39",
+      "duration_seconds": null
     }
   ]
 }

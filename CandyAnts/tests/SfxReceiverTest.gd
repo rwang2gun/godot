@@ -38,19 +38,20 @@ func _ready() -> void:
 			return
 	print("[SfxReceiverTest] (b) 직접 커버리지 OK — %d id 전부 매핑" % raw_ids.size())
 
-	# (c) 합성 무결성 — 모든 spec이 non-null + 비어있지 않은 stream으로 합성됨.
+	# (c) 리소스 로드 무결성 — 모든 spec이 non-null AudioStream으로 load됨 (P22 파일 기반).
+	# 파일 누락/오타/import 미완 시 _streams에 빠지거나 null → 여기서 FAIL.
 	if SfxPlayer._streams.size() != SfxPlayer.SFX_SPECS.size():
-		_fail("합성 stream 수(%d) != SFX_SPECS 수(%d)" % [SfxPlayer._streams.size(), SfxPlayer.SFX_SPECS.size()])
+		_fail("로드 stream 수(%d) != SFX_SPECS 수(%d) — 파일 누락/오타/import 미완 의심" % [SfxPlayer._streams.size(), SfxPlayer.SFX_SPECS.size()])
 		return
 	for id in SfxPlayer.SFX_SPECS:
 		var stream = SfxPlayer._streams.get(id)
-		if stream == null or not (stream is AudioStreamWAV):
-			_fail("id '%s' stream 합성 실패 (null/타입)" % id)
+		if stream == null or not (stream is AudioStream):
+			_fail("id '%s' 리소스 로드 실패 (null/타입: %s)" % [id, SfxPlayer.SFX_SPECS[id]])
 			return
-		if (stream as AudioStreamWAV).data.size() == 0:
-			_fail("id '%s' stream data 비어있음" % id)
+		if (stream as AudioStream).get_length() <= 0.0:
+			_fail("id '%s' stream 길이 0 (빈 오디오)" % id)
 			return
-	print("[SfxReceiverTest] (c) 합성 무결성 OK — %d stream" % SfxPlayer._streams.size())
+	print("[SfxReceiverTest] (c) 리소스 로드 무결성 OK — %d stream" % SfxPlayer._streams.size())
 
 	# (d) 동적 재생 — 각 raw id emit → SfxPlayer가 그 id를 재생.
 	for id in raw_ids:

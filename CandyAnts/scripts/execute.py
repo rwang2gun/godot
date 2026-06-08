@@ -324,6 +324,7 @@ WHITELIST_PATTERNS = [
     "**/*.uid",
     "**/*.import",
     # Harness/docs
+    ".gitignore",
     ".claude/commands/**",
     ".claude/agents/**",
     ".claude/hooks/**",
@@ -336,6 +337,7 @@ WHITELIST_PATTERNS = [
     "phases/{task}/status.json",
     "phases/{task}/metadata.json",
     "phases/{task}/notion-phase-ids.json",
+    "phases/{task}/README.md",
     "phases/{task}/REVISION_*.md",
 ]
 

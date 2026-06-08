@@ -1,0 +1,27 @@
+CandyAnts — SFX 에셋 출처 (Phase 22)
+=====================================
+
+모든 효과음: Kenney (https://kenney.nl) — License: CC0 (Public Domain)
+표기 의무 없음. 출처 추적용으로만 기록.
+
+원본 4팩 (assets/audio/kenney_*/ — .gitignore로 리포 제외, 로컬 보관):
+  - UI Audio          (kenney_ui_audio/)
+  - Interface Sounds  (kenney_interface_sounds/Audio/)
+  - Impact Sounds     (kenney_impact_sounds/Audio/)
+  - Music Jingles     (kenney_music_jingles/Audio/)
+
+id → 원본 파일 매핑 (게임 청취 후 SFX_SPECS 한 줄로 교체 가능):
+  candy_pick        <- Interface/pluck_001.ogg
+  candy_depleted    <- Interface/confirmation_002.ogg
+  candy_lost        <- Interface/error_004.ogg
+  ant_stun          <- Impact/impactPunch_medium_000.ogg
+  ant_save          <- Interface/confirmation_003.ogg
+  water_splash      <- Interface/drop_001.ogg
+  sticky_glue       <- Impact/impactSoft_heavy_000.ogg
+  stage_cleared     <- Music Jingles/8-Bit jingles/jingles_NES07.ogg
+  stage_failed      <- Music Jingles/8-Bit jingles/jingles_NES09.ogg
+  dialog_open       <- Interface/open_001.ogg
+  dialog_stats_pop  <- Interface/tick_001.ogg
+  dialog_btn_press  <- Interface/click_001.ogg
+  star_fill         <- Interface/select_002.ogg
+  locked            <- Interface/error_002.ogg

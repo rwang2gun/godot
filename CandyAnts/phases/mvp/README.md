@@ -186,6 +186,7 @@ python scripts/execute.py mvp next   # 다음 pending phase 정의 출력
 | 18 | mechanic (17a) | mechanic-destruction-earth | Basher + Digger (흙 지형 동적 파괴) |
 | 19 | mechanic (17b) | mechanic-destruction-plant | Cutter + 식물 지형 신규 클래스 |
 | 20 | polish | polish | Release Rate + 별 시스템 + 정산 UI + 사운드 hook + 피날레 (MVP 종료) |
-| 21 | post-MVP | sound-bgm-sfx | 사운드 임포트 + 모달/카운터/스킬 SFX |
-| 22 | post-MVP | input-touch | 터치 + 드래그앤드롭 + 루페 |
-| 23 | post-MVP | input-advanced | Rewind + Preview + CommandWheel + Overlay |
+| 21 | post-MVP | sfx-receiver | EventBus.sfx_request receiver + 절차 합성 SFX 14종 |
+| 22 | post-MVP | sfx-assets | 절차 합성 → Kenney CC0 효과음 파일 교체 |
+| 23 | post-MVP | input-touch | 터치 + 드래그앤드롭 + 루페 (미착수) |
+| 24 | post-MVP | input-advanced | Rewind + Preview + CommandWheel + Overlay (미착수) |

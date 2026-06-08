@@ -37,3 +37,10 @@ tools/map_editor/
 
 # 가이드 카드 저작 툴 — 루트 .gitignore의 *.html(HTML 참조 원본) 규칙 예외로 추적.
 !tools/guide_card_editor.html
+
+# Kenney CC0 SFX 원본 팩 (Phase 22) — 로컬 보관, 리포 비대 방지로 제외.
+# 게임이 쓰는 14종은 assets/audio/sfx/ 로 선별 복사되어 추적됨(원본 367개는 불필요).
+assets/audio/kenney_ui_audio/
+assets/audio/kenney_interface_sounds/
+assets/audio/kenney_impact_sounds/
+assets/audio/kenney_music_jingles/
