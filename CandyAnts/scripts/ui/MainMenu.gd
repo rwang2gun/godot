@@ -19,13 +19,35 @@ extends Control
 # 메인 메뉴 마스코트 — 버튼 위 좌·우에 victory 애니메이션 캐릭터 한 쌍을 장식으로 재생.
 @onready var _victory_left: AnimatedSprite2D = $VictoryLeft
 @onready var _victory_right: AnimatedSprite2D = $VictoryRight
+@onready var _logo: Control = $Center/VBox/LogoPanel
+
+# 모바일(좁은 폰·터치 디바이스)에서는 좌우 레터박스로 타이틀이 작게 보여 가독성이 떨어진다.
+# 모바일에서만 로고를 확대한다. custom_minimum_size를 키우면 같은 VBox 폭을 공유하는 버튼까지
+# 넓어지므로, 레이아웃에 영향이 없는 scale로 타이틀만 키운다(타이틀 화면과 동일 패턴).
+const MOBILE_LOGO_SCALE := 1.5
 
 func _ready() -> void:
 	_connect_buttons()
 	_refresh_continue_state()
 	_start_victory_mascot()
 	await get_tree().process_frame
+	_apply_mobile_logo_scale()
 	_grab_initial_focus()
+
+func _apply_mobile_logo_scale() -> void:
+	if _logo == null or not _is_mobile():
+		return
+	# 레이아웃 완료 후(_ready 내 process_frame 대기 뒤) 실제 크기 기준 중앙 피벗으로 확대.
+	_logo.pivot_offset = _logo.size * 0.5
+	_logo.scale = Vector2(MOBILE_LOGO_SCALE, MOBILE_LOGO_SCALE)
+
+func _is_mobile() -> bool:
+	# 네이티브 모바일 export + 모바일 웹 브라우저 + 터치 디바이스를 모두 포괄.
+	# 헤드리스/데스크톱은 모두 false → 기존 레이아웃 유지.
+	return OS.has_feature("mobile") \
+		or OS.has_feature("web_android") \
+		or OS.has_feature("web_ios") \
+		or DisplayServer.is_touchscreen_available()
 
 # AntFrames.tres의 victory는 loop:false(인게임 1회 재생 의미 유지) — 공유 리소스를 건드리지 않고
 # animation_finished에서 각 스프라이트를 재시작해 메뉴에서만 연속 재생한다(중앙 + 우하단 둘 다).
