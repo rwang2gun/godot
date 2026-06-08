@@ -7,7 +7,7 @@ extends Node
 #  (1) hbox 자식 SkillSlot 1개 생성
 #  (2) slot.skill_id == StringName("cutter")
 #  (3) slot.icon_texture == ICONS["cutter"] (non-null)
-#  (4) slot.ko_label == "식물 자르기"
+#  (4) slot.ko_label == "덩굴 자르기"
 #  (5) slot.hotkey == "1"
 
 const TOOLBAR_SCENE: PackedScene = preload("res://scenes/ui/SkillToolbar.tscn")
@@ -54,8 +54,8 @@ func _ready() -> void:
 		_fail("(3b) slot.icon_texture != ICONS['cutter']")
 		return
 	# (4) ko_label.
-	if slot.ko_label != "식물 자르기":
-		_fail("(4) slot.ko_label != '식물 자르기' (got=%s)" % slot.ko_label)
+	if slot.ko_label != "덩굴 자르기":
+		_fail("(4) slot.ko_label != '덩굴 자르기' (got=%s)" % slot.ko_label)
 		return
 	# (5) hotkey.
 	if slot.hotkey != "1":
