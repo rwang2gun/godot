@@ -1,9 +1,16 @@
 # campaign-50 — 세션 핸드오프 (2026-06-09)
 
-> **다음 세션 재개 SoT.** 5챕터×10=50스테이지 캠페인 재설계. 현재 **Phase A(인프라) 구현 완료 + 자체 적대적 리뷰 clean**, **codex impl-stage 리뷰 대기**.
+> **다음 세션 재개 SoT.** 5챕터×10=50스테이지 캠페인 재설계. **Phase A(인프라) 완료·커밋됨**(`e704b0e`). **다음 = Phase B~(스테이지 콘텐츠 저작) 정의·시작.**
 
-## 0. 한 줄 상태 (2026-06-09 구현 세션)
-브랜치 `campaign-50`(main 분기, **커밋 0 — phase complete 전이라 working tree만**). **plan stage 리뷰 종결**(Round 2: HIGH 0, MED 2 → MED-1 코드수정·MED-2 구현해소). **Phase A 구현 전부 완료**(SceneFlow/EventBus/ChapterSelect/StageSelect/MainMenu/menu_layout 폐기/테스트 신규4+갱신/ADR-014/DOMAIN_MAP). **verify 6종 + 회귀 24종+ ALL PASS.** **자체 적대적 리뷰 Round 1 clean**(HIGH-S1 PauseMenu arity 버그 수정 — `reviews/phase01-impl-review.md`). **다음 = 사용자가 `/codex:adversarial-review` 입력(impl stage) → clean까지 루프 → `execute.py complete` + 커밋.**
+## 0. 한 줄 상태 (2026-06-09 — Phase A 완료·커밋)
+브랜치 `campaign-50`. **Phase A(campaign-infra) 완료 + 커밋 `e704b0e phase 1: campaign-infra`.** plan stage 리뷰 종결(Round 2 HIGH 0) + impl stage 리뷰 종결(**codex Round 2 verdict=approve**, 자체리뷰 2라운드 clean — `reviews/phase01-impl-review.md`). verify 6종 + 회귀 24종+ ALL PASS. **다음 = 신규 스테이지 콘텐츠 저작(Phase B1~): `Stage%02d.tscn` 작성 + `campaign_manifest.tres` 챕터 `stage_ids`에 append.** Phase B+ 정의는 metadata에 추가 필요(현재 phase 1만). 설계 SoT=`docs/CAMPAIGN_50_DESIGN.md`.
+
+### Phase A 인프라 (커밋됨 — 재사용 진입점/규약)
+- **매니페스트 SoT**: `data/campaign_manifest.tres`(`CampaignManifest`). 재배치·챕터배치 = 배열 편집. 파생/언락=`Campaign` autoload.
+- **SceneFlow 규약**: published/LAST/Next는 **반드시 `Campaign.manifest()` 단일 SoT** 경유(별도 ResourceLoader 두 번 로드 금지 — split-brain, codex impl R1 MED). 매니페스트 변경 시 `Campaign`이 `SceneFlow.invalidate_stage_scan()` 호출.
+- **UI 흐름**: MainMenu→ChapterSelect(`scenes/ui/ChapterSelect.tscn`)→StageSelect(챕터별 슬롯)→Stage.
+- **시그널**: `request_chapter_select`(0-arg) / `request_stage_select(chapter:int)`. 1-arg 시그널은 PauseMenu 등에서 0-arg 핸들러 직접 연결 금지(arity 에러 — 인자흡수 래퍼 사용).
+- **함정**: 신규 `class_name` 추가/삭제 후 `--headless --editor --quit`로 클래스 캐시 재생성([[godot-class-cache-regen]]).
 
 ### 구현 요약 (working tree, 2026-06-09)
 - `EventBus.gd`: `request_chapter_select`(0-arg) 신설 + `request_stage_select(chapter:int)`로 시그니처 변경.
