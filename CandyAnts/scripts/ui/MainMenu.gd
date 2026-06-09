@@ -19,13 +19,23 @@ extends Control
 # 메인 메뉴 마스코트 — 버튼 위 좌·우에 victory 애니메이션 캐릭터 한 쌍을 장식으로 재생.
 @onready var _victory_left: AnimatedSprite2D = $VictoryLeft
 @onready var _victory_right: AnimatedSprite2D = $VictoryRight
+@onready var _version_label: Label = $VersionLabel
 
 func _ready() -> void:
 	_connect_buttons()
 	_refresh_continue_state()
 	_start_victory_mascot()
+	_apply_version_label()
 	await get_tree().process_frame
 	_grab_initial_focus()
+
+# 빌드 버전 — project.godot application/config/version (build_web.py가 빌드마다 +0.001).
+# ProjectSettings로 읽어 클래스 의존성 없이 우측 하단에 표시.
+func _apply_version_label() -> void:
+	if _version_label == null:
+		return
+	var v: String = str(ProjectSettings.get_setting("application/config/version", "?"))
+	_version_label.text = "ver " + v
 
 # AntFrames.tres의 victory는 loop:false(인게임 1회 재생 의미 유지) — 공유 리소스를 건드리지 않고
 # animation_finished에서 각 스프라이트를 재시작해 메뉴에서만 연속 재생한다(중앙 + 우하단 둘 다).

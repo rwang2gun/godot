@@ -18,6 +18,7 @@ itch.io는 아카이브 루트의 index.html을 자동 인식하므로 폴더가
 """
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import zipfile
@@ -31,6 +32,22 @@ PRESET = "Web"
 OUT_DIR = ROOT / "build" / "web"
 OUT_HTML = OUT_DIR / "index.html"
 ZIP_PATH = OUT_DIR / "CandyAnts-web.zip"
+PROJECT_GODOT = ROOT / "project.godot"
+# project.godot의 application/config/version 라인. 현재 값 = "이번에 export될 빌드"의 버전.
+_VERSION_RE = re.compile(r'(config/version=")(\d+\.\d+)(")')
+
+
+def bump_version() -> None:
+    """export 성공 후 호출 — 방금 export된 값은 그대로 두고 '다음 빌드'용으로 +0.001."""
+    text = PROJECT_GODOT.read_text(encoding="utf-8")
+    m = _VERSION_RE.search(text)
+    if m is None:
+        print("[build_web] config/version 라인 없음 — 버전 증가 생략", flush=True)
+        return
+    built = m.group(2)
+    nxt = f"{round(float(built) + 0.001, 3):.3f}"
+    PROJECT_GODOT.write_text(text[: m.start(2)] + nxt + text[m.end(2) :], encoding="utf-8")
+    print(f"[build_web] 빌드 버전 ver {built} → 다음 빌드 ver {nxt}", flush=True)
 
 
 def export(debug: bool) -> int:
@@ -65,9 +82,10 @@ def main() -> int:
     debug = "--debug" in sys.argv[1:]
     rc = export(debug)
     if rc != 0:
-        print(f"[build_web] export 실패 (rc={rc}) — zip 생략", flush=True)
+        print(f"[build_web] export 실패 (rc={rc}) — zip·버전증가 생략", flush=True)
         return rc
     make_zip()
+    bump_version()  # export 성공 후에만 증가 (실패 빌드는 버전 소모 안 함).
     print("[build_web] DONE", flush=True)
     return 0
 
