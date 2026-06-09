@@ -30,16 +30,19 @@ func _case_chapter1_initial() -> void:
 	add_child(node)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	# campaign-50: 챕터당 10칸 고정(SLOTS_PER_CHAPTER). Ch1=[1,2] → 실제 2칸 + placeholder 8칸.
 	var grid: GridContainer = node.get_node("MarginContainer/VBox/SlotGrid")
-	if grid.get_child_count() != 2:
+	if grid.get_child_count() != 10:
 		node.queue_free()
-		return _fail("chapter1 expected 2 slots, got %d" % grid.get_child_count())
+		return _fail("chapter1 expected 10 slots, got %d" % grid.get_child_count())
+	# 실제 2칸 상태 + 나머지 8칸은 COMING_SOON placeholder.
 	var expected := [StageSlotCard.SlotState.CLEARED, StageSlotCard.SlotState.PLAYABLE]
-	for i in 2:
+	for i in 10:
 		var card: StageSlotCard = grid.get_child(i) as StageSlotCard
-		if card.slot_state != expected[i]:
+		var want: int = expected[i] if i < expected.size() else StageSlotCard.SlotState.COMING_SOON
+		if card.slot_state != want:
 			node.queue_free()
-			return _fail("ch1 slot[%d] state expected %d, got %d" % [i, expected[i], card.slot_state])
+			return _fail("ch1 slot[%d] state expected %d, got %d" % [i, want, card.slot_state])
 	# total_stars label 포맷 유지
 	var label: Label = node.get_node("MarginContainer/VBox/Footer/TotalStarsLabel")
 	if not label.text.begins_with("수확한 별 ★"):
@@ -59,20 +62,27 @@ func _case_chapter2_gating() -> void:
 	add_child(node)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	# Ch2=[3,4,5] → 실제 3칸 + placeholder 7칸 = 10.
 	var grid: GridContainer = node.get_node("MarginContainer/VBox/SlotGrid")
-	if grid.get_child_count() != 3:
+	if grid.get_child_count() != 10:
 		node.queue_free()
-		return _fail("chapter2 expected 3 slots, got %d" % grid.get_child_count())
+		return _fail("chapter2 expected 10 slots, got %d" % grid.get_child_count())
 	var expected := [
 		StageSlotCard.SlotState.PLAYABLE,  # stage3 (prev=2 cleared)
 		StageSlotCard.SlotState.LOCKED,    # stage4 (prev=3 not cleared)
 		StageSlotCard.SlotState.LOCKED,    # stage5
 	]
-	for i in 3:
+	for i in 10:
 		var card: StageSlotCard = grid.get_child(i) as StageSlotCard
-		if card.slot_state != expected[i]:
+		var want: int = expected[i] if i < expected.size() else StageSlotCard.SlotState.COMING_SOON
+		if card.slot_state != want:
 			node.queue_free()
-			return _fail("ch2 slot[%d] state expected %d, got %d" % [i, expected[i], card.slot_state])
+			return _fail("ch2 slot[%d] state expected %d, got %d" % [i, want, card.slot_state])
+	# placeholder(슬롯3=첫 빈칸) 라벨이 "임시"로 갱신됐는지 — set_state만으로 텍스트 미갱신되던 회귀 차단.
+	var ph_label: Label = grid.get_child(3).get_node("MainPanel/VBox/StageLabel") as Label
+	if ph_label.text != Strings.t("stage.coming_soon"):
+		node.queue_free()
+		return _fail("placeholder label expected '%s', got '%s'" % [Strings.t("stage.coming_soon"), ph_label.text])
 	node.queue_free()
 	await get_tree().process_frame
 	print("[StageSelectUnlockTest] case chapter2 gating OK")

@@ -41,7 +41,7 @@ var _progress: Dictionary = {}
 @onready var _focus_halo: Panel = $FocusHalo
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(200, 175)
+	custom_minimum_size = Vector2(300, 175)
 	_apply_shadow_style()
 	_apply_focus_halo_style()
 	_apply_state()
@@ -108,9 +108,11 @@ func _apply_state() -> void:
 			lock_visible = true
 			stars_visible = false
 		SlotState.COMING_SOON:
+			# 미저작 placeholder("임시"). StageLabel이 stage.coming_soon("임시")을 크게 표시하므로
+			# 소형 ComingSoonLabel은 중복 → 숨김(coming_soon_visible=false 유지).
+			# (향후 매니페스트 등재+씬 부재인 *이름 있는* 스테이지가 생기면 그 배지를 재활성화 고려.)
 			bg = Tokens.CREAM_300
 			disabled_visual = true
-			coming_soon_visible = true
 			stars_visible = false
 	var box := StyleBoxFlat.new()
 	box.bg_color = bg

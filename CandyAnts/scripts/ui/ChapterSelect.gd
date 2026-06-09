@@ -6,19 +6,25 @@ extends Control
 # 선택 → request_stage_select(chapter_num)(잠금 카드는 locked sfx). Back/ESC → request_main_menu.
 # 챕터 번호는 1-based (Campaign/CampaignManifest 계약과 동일).
 
+# ChapterCard.CardState와 enum 순서를 맞춘다(LOCKED=0/PLAYABLE=1/CLEARED=2 — 본 화면 SoT).
+# ChapterCard는 자체 CardState enum을 갖지만 정수값이 동일해 직접 전달한다.
 enum ChapterState { LOCKED, PLAYABLE, CLEARED }
 
-const CARD_SCENE := preload("res://scenes/ui/atoms/CButton.tscn")
+const CARD_SCENE := preload("res://scenes/ui/atoms/ChapterCard.tscn")
 
 @onready var _row: HBoxContainer = $MarginContainer/VBox/ChapterRow
 @onready var _back_btn: CButton = $MarginContainer/VBox/Header/BackBtn
+@onready var _total_stars_label: Label = $MarginContainer/VBox/Footer/TotalStarsLabel
 
-var _cards: Array[CButton] = []
+var _cards: Array[ChapterCard] = []
 var _states: Array[int] = []      # _states[i] = ChapterState of chapter (i+1)
 
 func _ready() -> void:
 	# BackBtn / ESC는 카드 채우기 실패와 무관하게 항상 살아있도록 먼저 연결(StageSelect와 동형).
 	_back_btn.pressed.connect(_on_back_pressed)
+	# 전역 별점(매니페스트 등재 한정 — stale 배제). 챕터 카드는 챕터별, 본 footer는 캠페인 누적.
+	_total_stars_label.text = Strings.t("chapter_select.total_stars",
+		[Campaign.total_stars(), Campaign.total_star_cap()])
 	_populate()
 	await get_tree().process_frame
 	if not _cards.is_empty() and _cards[0].is_inside_tree():
@@ -36,13 +42,10 @@ func _populate() -> void:
 	for c in range(1, count + 1):
 		var state: int = _resolve_state(c)
 		_states.append(state)
-		var card: CButton = CARD_SCENE.instantiate()
-		card.kind = CButton.ButtonKind.SECONDARY
-		card.custom_minimum_size = Vector2(220, 150)
-		card.text = _card_text(c, state)
-		if state == ChapterState.LOCKED:
-			card.modulate.a = 0.6
+		var card: ChapterCard = CARD_SCENE.instantiate()
 		_row.add_child(card)
+		# add_child 후 setup — @onready 노드가 채워진 뒤 렌더(StageSelect.set_state/progress와 동형).
+		card.setup(c, state, Campaign.chapter_stars(c), Campaign.chapter_star_cap(c))
 		card.pressed.connect(_on_card_pressed.bind(c, state))
 		_cards.append(card)
 
@@ -52,14 +55,6 @@ func _resolve_state(chapter_num: int) -> int:
 	if Campaign.is_chapter_cleared(chapter_num):
 		return ChapterState.CLEARED
 	return ChapterState.PLAYABLE
-
-func _card_text(chapter_num: int, state: int) -> String:
-	var title: String = Campaign.chapter_title(chapter_num)
-	if state == ChapterState.LOCKED:
-		return "%d. %s\n잠김" % [chapter_num, title]
-	var stage_ct: int = Campaign.stage_ids_in_chapter(chapter_num).size()
-	var stars: int = Campaign.chapter_stars(chapter_num)
-	return "%d. %s\n★ %d/%d" % [chapter_num, title, stars, stage_ct * 3]
 
 # 테스트용 (1-based). 범위 밖이면 -1.
 func chapter_state(chapter_num: int) -> int:

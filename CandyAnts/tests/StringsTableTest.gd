@@ -13,7 +13,7 @@ const MIGRATED_KEYS := [
 	"dialog.subtitle_cleared", "dialog.subtitle_failed", "dialog.hero_score",
 	"dialog.chip_saved", "dialog.chip_lost", "dialog.chip_time", "dialog.chip_time_value",
 	"hint.mouse", "hint.pad", "hint.touch",
-	"stage_select.total_stars",
+	"stage_select.total_stars", "chapter_select.total_stars",
 	"stage_card.title", "stage_card.best",
 	"title.hint_pad", "title.hint_key",
 ]

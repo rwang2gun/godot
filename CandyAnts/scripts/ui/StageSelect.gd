@@ -11,6 +11,10 @@ extends Control
 
 const SLOT_CARD_SCENE := preload("res://scenes/ui/atoms/StageSlotCard.tscn")
 
+# 챕터당 고정 슬롯 수(설계 §1 = 5챕터×10). 실제 등재 스테이지가 더 많으면 그만큼 늘린다.
+# 등재가 10 미만이면 나머지는 "임시" placeholder(COMING_SOON)로 채워 5×2 정렬을 유지한다.
+const SLOTS_PER_CHAPTER := 10
+
 # go_to_stage_select(chapter)가 add_child 전에 set. 기본 1(직접 인스턴스화 시).
 var current_chapter: int = 1
 
@@ -28,7 +32,10 @@ func _ready() -> void:
 	# Codex R9 LOW fix: BackBtn / focus 연결을 슬롯 생성보다 먼저 — 빈 챕터/무효 매니페스트에도
 	# 메뉴 복귀 가능 (BackBtn 작동, ESC 작동, 패드 포커스 살아있음).
 	_back_btn.pressed.connect(_on_back_pressed)
-	_total_stars_label.text = Strings.t("stage_select.total_stars", [SaveData.total_stars()])
+	# 챕터 화면이므로 footer는 *현재 챕터* 별점(전역 total_stars 아님 — manifest 밖 stale 합산
+	# 오버플로 39/30 회피, ChapterSelect 카드 표기와 일관). 상한은 챕터 스테이지수×3.
+	_total_stars_label.text = Strings.t("stage_select.total_stars",
+		[Campaign.chapter_stars(current_chapter), Campaign.chapter_star_cap(current_chapter)])
 	var chapter_title: String = Campaign.chapter_title(current_chapter)
 	if not chapter_title.is_empty():
 		_title_label.text = chapter_title
@@ -45,15 +52,29 @@ func _populate_slots() -> void:
 	for child in _slot_grid.get_children():
 		_slot_grid.remove_child(child)
 		child.queue_free()
-	for stage_id in Campaign.stage_ids_in_chapter(current_chapter):
+	var ids: Array[int] = Campaign.stage_ids_in_chapter(current_chapter)
+	var slot_count: int = maxi(SLOTS_PER_CHAPTER, ids.size())
+	for i in slot_count:
 		var card: StageSlotCard = SLOT_CARD_SCENE.instantiate() as StageSlotCard
-		card.stage_id = stage_id
-		var entry: Dictionary = SaveData.get_stage_entry(stage_id)
-		var state: int = _resolve_slot_state(stage_id, entry)
-		_slot_grid.add_child(card)
-		card.set_state(state)
-		card.set_progress(entry)
-		card.pressed.connect(_on_slot_pressed.bind(stage_id, state))
+		if i < ids.size():
+			var stage_id: int = ids[i]
+			card.stage_id = stage_id
+			var entry: Dictionary = SaveData.get_stage_entry(stage_id)
+			var state: int = _resolve_slot_state(stage_id, entry)
+			_slot_grid.add_child(card)
+			card.set_state(state)
+			card.set_progress(entry)
+			card.pressed.connect(_on_slot_pressed.bind(stage_id, state))
+		else:
+			# 미저작 placeholder — 챕터당 10칸 고정 정렬용 "임시" 카드. stage_id=0(sentinel),
+			# COMING_SOON 렌더(회색·"임시"), 누르면 ComingSoonOverlay.
+			card.stage_id = 0
+			_slot_grid.add_child(card)
+			card.set_state(StageSlotCard.SlotState.COMING_SOON)
+			# set_state는 _apply_state만 호출 → 라벨 텍스트 미갱신("스테이지 0" 폴백이 남음).
+			# set_progress가 _apply_text까지 호출해 COMING_SOON 라벨("임시")로 갱신한다.
+			card.set_progress({})
+			card.pressed.connect(_on_slot_pressed.bind(0, StageSlotCard.SlotState.COMING_SOON))
 		_slot_cards.append(card)
 
 func _resolve_slot_state(stage_id: int, entry: Dictionary) -> int:

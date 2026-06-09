@@ -1,0 +1,77 @@
+[gd_scene format=3 uid="uid://dddm7ftq0kmhh"]
+
+[ext_resource type="Script" path="res://scripts/ui/atoms/ChapterCard.gd" id="1_ch"]
+
+[node name="ChapterCard" type="Button"]
+custom_minimum_size = Vector2(240, 170)
+focus_mode = 2
+flat = true
+script = ExtResource("1_ch")
+
+[node name="ShadowBG" type="Panel" parent="."]
+show_behind_parent = true
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 4.0
+offset_bottom = 4.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainPanel" type="PanelContainer" parent="."]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="MainPanel"]
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="NumLabel" type="Label" parent="MainPanel/VBox"]
+text = "챕터 1"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.360784, 0.270588, 0.188235, 1)
+theme_override_font_sizes/font_size = 18
+
+[node name="TitleLabel" type="Label" parent="MainPanel/VBox"]
+text = "기초"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 34
+
+[node name="StarLabel" type="Label" parent="MainPanel/VBox"]
+text = "★ 0 / 0"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+
+[node name="StateBadge" type="TextureRect" parent="MainPanel"]
+visible = false
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -36.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = 36.0
+grow_horizontal = 0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="FocusHalo" type="Panel" parent="."]
+visible = false
+mouse_filter = 2
+show_behind_parent = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -4.0
+offset_top = -4.0
+offset_right = 4.0
+offset_bottom = 4.0
+grow_horizontal = 2
+grow_vertical = 2

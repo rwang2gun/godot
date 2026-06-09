@@ -84,6 +84,24 @@ func chapter_stars(chapter_num: int) -> int:
 		sum += int(SaveData.get_stage_entry(sid).get("stars", 0))
 	return sum
 
+# 챕터 별점 상한 = 그 챕터 스테이지 수 × 3 (전역 규칙: 스테이지당 최대 ★3).
+func chapter_star_cap(chapter_num: int) -> int:
+	return stage_ids_in_chapter(chapter_num).size() * 3
+
+# 캠페인 전역 별점 — **매니페스트 등재 스테이지만** 합산(manifest-bounded).
+# SaveData.total_stars()는 등재 밖 stale 진행도까지 더해 오버플로(39/30)를 내므로 UI는 이쪽을 쓴다.
+func total_stars() -> int:
+	if _manifest == null:
+		return 0
+	var sum: int = 0
+	for c in range(1, _manifest.chapter_count() + 1):
+		sum += chapter_stars(c)
+	return sum
+
+# 전역 별점 상한 = 등재 전 스테이지 수 × 3.
+func total_star_cap() -> int:
+	return ordered_stage_ids().size() * 3
+
 # 챕터 클리어 = 그 챕터 전 스테이지 cleared (빈 챕터는 false).
 func is_chapter_cleared(chapter_num: int) -> bool:
 	if _manifest == null:

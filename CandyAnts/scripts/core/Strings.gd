@@ -32,8 +32,11 @@ const _TABLE: Dictionary = {
 	"hint.pad": "A: 적용  |  LB/RB: 전환  |  View: 일시정지",
 	"hint.touch": "탭/드래그: 적용",
 
-	# StageSelect — scripts/ui/StageSelect.gd
-	"stage_select.total_stars": "수확한 별 ★ %d / 30",
+	# StageSelect — scripts/ui/StageSelect.gd (현재 챕터 별점 / 챕터 상한. %d 2개)
+	"stage_select.total_stars": "수확한 별 ★ %d / %d",
+
+	# ChapterSelect — scripts/ui/ChapterSelect.gd (캠페인 전역 별점 / 전역 상한. %d 2개)
+	"chapter_select.total_stars": "모은 별 ★ %d / %d",
 
 	# StageSlotCard — scripts/ui/atoms/StageSlotCard.gd
 	"stage_card.title": "스테이지 %d",
@@ -138,7 +141,7 @@ const _TABLE: Dictionary = {
 	"stage.s8.name": "귀찮은 식물들",
 	"stage.s9.name": "고지로!",
 	"stage.s10.name": "보물찾기!",
-	"stage.coming_soon": "준비 중",
+	"stage.coming_soon": "임시",
 }
 
 # 스킬 id -> 한글 라벨. 구 SkillToolbar.KO_LABELS를 이관.
