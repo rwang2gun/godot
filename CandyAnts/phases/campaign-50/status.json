@@ -1,0 +1,18 @@
+{
+  "task": "campaign-50",
+  "started_at": "2026-06-09T13:44:04",
+  "completed_at": "2026-06-09T18:57:26",
+  "phases": [
+    {
+      "id": 1,
+      "file": "phase01-campaign-infra.md",
+      "name": "campaign-infra",
+      "duration_estimate": 14400,
+      "verify": "python scripts/run_test.py tests/CampaignManifestTest.tscn && python scripts/run_test.py tests/CampaignUnlockOrderTest.tscn && python scripts/run_test.py tests/SceneFlowChapterFlowTest.tscn && python scripts/run_test.py tests/ChapterSelectFlowTest.tscn && python scripts/run_test.py tests/GameFlowTest.tscn && python scripts/run_test.py tests/CampaignS1ClearTest.tscn",
+      "state": "completed",
+      "started_at": "2026-06-09T13:52:35",
+      "completed_at": "2026-06-09T18:57:26",
+      "duration_seconds": 18291
+    }
+  ]
+}

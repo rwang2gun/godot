@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="CampaignManifest" load_steps=2 format=3 uid="uid://c4mp41gn50man"]
+
+[ext_resource type="Script" path="res://scripts/core/CampaignManifest.gd" id="1_manifest"]
+
+[resource]
+script = ExtResource("1_manifest")
+chapters = [{
+"stage_ids": [1, 2],
+"theme": "basics",
+"title": "기초"
+}, {
+"stage_ids": [3, 4, 5],
+"theme": "building",
+"title": "건설"
+}, {
+"stage_ids": [6, 7],
+"theme": "destruction",
+"title": "파괴"
+}, {
+"stage_ids": [8],
+"theme": "devices",
+"title": "장치·숙련"
+}, {
+"stage_ids": [9, 10],
+"theme": "mastery",
+"title": "종합"
+}]

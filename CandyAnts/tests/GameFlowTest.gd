@@ -62,6 +62,14 @@ func _ready() -> void:
 		_fail("missing nodes in Main")
 		return
 	await get_tree().process_frame  # SceneFlow._ready() / _boot() 완료 대기
+	# campaign-50 codex R1 HIGH-1 / R2 — last-stage 엔드포인트 3자 수렴 수용검사:
+	# CampaignManifest.last_stage_id() == SceneFlow.LAST_STAGE_ID == GameFlowTest.LAST_STAGE_ID == 10.
+	# (셋이 어긋나면 last-stage Next/menu fallback 라우팅이 회귀하므로 시나리오 실행 전 게이트.)
+	var manifest_last: int = Campaign.manifest().last_stage_id() if Campaign.manifest() != null else -1
+	if not (manifest_last == SceneFlow.LAST_STAGE_ID and SceneFlow.LAST_STAGE_ID == LAST_STAGE_ID and LAST_STAGE_ID == 10):
+		_fail("last-stage convergence failed: manifest=%d SceneFlow=%d test=%d (expect all 10)" % [manifest_last, SceneFlow.LAST_STAGE_ID, LAST_STAGE_ID])
+		return
+	print("[GameFlowTest] last-stage convergence OK (manifest==SceneFlow==test==10)")
 	# Phase 13 Δ10: 기본 부트는 TITLE → load_stage(1)로 우회. boot_to_stage_id export는
 	# SceneFlowBootBypassTest 전용 (add_child 전 설정 필요해서 본 테스트에서는 사용 X).
 	if _scene_flow.current_screen != _scene_flow.ScreenState.STAGE:

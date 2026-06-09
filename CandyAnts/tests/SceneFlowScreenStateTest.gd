@@ -25,8 +25,8 @@ func _ready() -> void:
 	await get_tree().process_frame
 	if sf.current_screen != sf.ScreenState.MAIN_MENU:
 		return _fail("MAIN_MENU transition failed, got %d" % sf.current_screen)
-	# request_stage_select → STAGE_SELECT
-	EventBus.request_stage_select.emit()
+	# request_stage_select(chapter) → STAGE_SELECT (campaign-50: 챕터 인자)
+	EventBus.request_stage_select.emit(1)
 	await get_tree().process_frame
 	if sf.current_screen != sf.ScreenState.STAGE_SELECT:
 		return _fail("STAGE_SELECT transition failed, got %d" % sf.current_screen)

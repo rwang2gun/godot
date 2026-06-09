@@ -70,7 +70,7 @@ func _ready() -> void:
 	if BgmPlayer.play_generation < 1:
 		return _fail("(12) MAIN_MENU 재생인데 play_generation=%d (기대 ≥1)" % BgmPlayer.play_generation)
 
-	EventBus.request_stage_select.emit()
+	EventBus.request_stage_select.emit(1)  # campaign-50: 챕터 인자
 	await get_tree().process_frame
 	if sf.current_screen != sf.ScreenState.STAGE_SELECT:
 		return _fail("STAGE_SELECT 전이 실패 (%d)" % sf.current_screen)

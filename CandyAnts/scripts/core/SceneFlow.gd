@@ -7,23 +7,23 @@ class_name SceneFlow extends Node
 
 const GameAction := preload("res://scripts/input/GameAction.gd")
 
-enum ScreenState { TITLE, MAIN_MENU, STAGE_SELECT, STAGE }
+enum ScreenState { TITLE, MAIN_MENU, CHAPTER_SELECT, STAGE_SELECT, STAGE }
 
 # 스테이지 라우팅 — 두 단계로 분리(codex adversarial-review HIGH 대응, 2026-06-04):
 #   STAGE_SCENES        = `res://scenes/stages/Stage%02d.tscn` 파일 존재 스캔. load_stage(N)/replay/playtest용.
 #                         "파일이 있으면 로드는 가능" — 하지만 캠페인 노출과는 분리한다.
-#   PUBLISHED_STAGE_IDS = STAGE_SCENES ∩ menu_layout.tres `available==true`. **캠페인 SoT.**
+#   PUBLISHED_STAGE_IDS = STAGE_SCENES ∩ campaign_manifest.tres `ordered_stage_ids()`. **캠페인 SoT.**
 #                         LAST_STAGE_ID(엔드포인트)·load_next_stage(다음)·Continue 가용성은 이쪽만 본다.
-# 근거: 파일 존재만으로 캠페인 routing을 결정하면, 미완성/실수 커밋된 StageNN.tscn이 authored
-#   available 게이트를 우회해 Next로 노출되고 엔드포인트(LAST_STAGE_ID)를 멋대로 옮긴다. authored
-#   menu_layout 플래그를 캠페인 게이트로 유지하되, 씬 스캔으로 신규 스테이지 "로드 가능"은 자동화한다.
+# 근거: 파일 존재만으로 캠페인 routing을 결정하면, 미완성/실수 커밋된 StageNN.tscn이 매니페스트
+#   게이트를 우회해 Next로 노출되고 엔드포인트(LAST_STAGE_ID)를 멋대로 옮긴다. 매니페스트 등재를
+#   캠페인 게이트로 유지하되, 씬 스캔으로 신규 스테이지 "로드 가능"은 자동화한다. (campaign-50: 구
+#   menu_layout 게이트를 CampaignManifest로 대체 — 캠페인 순서/챕터 배치를 씬 id에서 분리, ADR-014.)
 # export 안전: DirAccess(res:// 리매핑 취약) 대신 ResourceLoader.exists로 프로빙.
 # lazy 1회 스캔: static var 초기자에서 직접 스캔하면 클래스 로드 타이밍에 엔진 싱글톤 접근으로 크래시 →
 #   ensure_stage_scan()을 진입점(_ready/load_*)에서 호출해 런타임에 1회만 채운다.
 # dev stage(910~)는 패턴/스캔 상한(1..99) 밖이라 자연 제외(기존 동작 유지).
 const STAGE_SCENE_PATTERN := "res://scenes/stages/Stage%02d.tscn"
 const STAGE_SCAN_MAX := 99
-const MENU_LAYOUT_PATH := "res://data/menu_layout.tres"
 static var STAGE_SCENES: Dictionary = {}
 static var PUBLISHED_STAGE_IDS: Dictionary = {}
 static var LAST_STAGE_ID: int = 0
@@ -31,6 +31,11 @@ static var _stage_scan_done := false
 
 # 스테이지 스캔을 1회 보장. SceneFlow._ready를 거치지 않고 STAGE_SCENES/PUBLISHED_STAGE_IDS/
 # LAST_STAGE_ID를 읽는 외부 호출자(예: MainMenu standalone)도 채워진 값을 보도록 진입점에서 호출한다.
+# **단일 SoT**: published/LAST/next는 모두 `Campaign.manifest()`(autoload가 보유한 *그* 인스턴스)에서
+#   파생한다 — 별도 ResourceLoader 로드로 두 번째 매니페스트 스냅샷을 만들지 않는다(codex impl R1 MED:
+#   manifest reload/_test_set_manifest 후 split-brain 차단). Campaign이 매니페스트를 (재)설정할 때
+#   invalidate_stage_scan()으로 이 캐시를 무효화 → 다음 ensure_stage_scan이 갱신된 매니페스트로 재빌드.
+# 호출 시점: ensure_stage_scan은 항상 autoload 초기화 이후(_ready/런타임 진입점)에 불리므로 Campaign 가용.
 static func ensure_stage_scan() -> void:
 	if _stage_scan_done:
 		return
@@ -42,27 +47,32 @@ static func ensure_stage_scan() -> void:
 		if ResourceLoader.exists(path):
 			scenes[id] = path
 	STAGE_SCENES = scenes
-	# (2) 캠페인 published — 씬 존재 ∩ menu_layout.available. authored 게이트로 미완성 스테이지 노출 차단.
-	# **fail closed**: menu_layout이 없거나 MenuLayout이 아니거나 is_valid()가 거짓이면 published를 비운다.
+	# (2) 캠페인 published — 씬 존재 ∩ 매니페스트 등재(ordered_stage_ids). 매니페스트 게이트로 미공개 스테이지 노출 차단.
+	# **fail closed**: Campaign.manifest()가 null/무효면 published를 비운다(캠페인 닫힘).
 	#   (fail open으로 씬 스캔을 전부 published 하면, 손상된 빌드+미공개 StageNN 동시 발생 시 HIGH가 재현됨.)
-	#   is_valid() 통과 시에만 slot 직접 인덱싱(타입·길이·stage_id 정합 보장됨).
+	# LAST_STAGE_ID = 매니페스트 *순서상* 마지막 published 씬(max id 아님 — 재배치 시 엔드포인트가 순서를 따른다).
 	var published := {}
 	var last := 0
-	var layout: Resource = ResourceLoader.load(MENU_LAYOUT_PATH) if ResourceLoader.exists(MENU_LAYOUT_PATH) else null
-	if layout is MenuLayout and layout.is_valid():
-		for slot: Dictionary in layout.slots:
-			var sid: int = int(slot["stage_id"])
-			if bool(slot["available"]) and scenes.has(sid):
+	var manifest: CampaignManifest = Campaign.manifest()
+	if manifest != null and manifest.is_valid():
+		for sid: int in manifest.ordered_stage_ids():
+			if scenes.has(sid):
 				published[sid] = scenes[sid]
-				last = maxi(last, sid)
+				last = sid  # 순서대로 순회하므로 마지막 등재∩존재 씬이 엔드포인트.
 	else:
 		# 손상된 빌드: 미공개 스테이지를 노출하느니 캠페인을 닫는다(published 비움, LAST_STAGE_ID=0).
-		push_error("[SceneFlow] menu_layout 누락/무효 — 캠페인 published 비움(fail closed)")
+		push_error("[SceneFlow] campaign_manifest 누락/무효 — 캠페인 published 비움(fail closed)")
 	PUBLISHED_STAGE_IDS = published
 	LAST_STAGE_ID = last
 
+# Campaign이 매니페스트를 (재)로드/주입할 때 호출 → 다음 ensure_stage_scan이 현재 매니페스트로 재빌드.
+# (재배치 워크플로우·테스트 주입이 published/LAST에 즉시 반영되도록 하는 단일 SoT 보증. static bool만 토글.)
+static func invalidate_stage_scan() -> void:
+	_stage_scan_done = false
+
 const TITLE_SCENE := "res://scenes/ui/TitleScene.tscn"
 const MAIN_MENU_SCENE := "res://scenes/ui/MainMenu.tscn"
+const CHAPTER_SELECT_SCENE := "res://scenes/ui/ChapterSelect.tscn"
 const STAGE_SELECT_SCENE := "res://scenes/ui/StageSelect.tscn"
 
 @export var current_stage_root_path: NodePath
@@ -111,6 +121,7 @@ func _ready() -> void:
 	EventBus.request_next.connect(_on_request_next)
 	EventBus.request_menu.connect(_on_request_menu)
 	EventBus.request_main_menu.connect(_on_request_main_menu)
+	EventBus.request_chapter_select.connect(_on_request_chapter_select)
 	EventBus.request_stage_select.connect(_on_request_stage_select)
 	EventBus.request_play_stage.connect(_on_request_play_stage)
 	EventBus.request_title.connect(_on_request_title)
@@ -142,8 +153,14 @@ func go_to_title() -> void:
 func go_to_main_menu() -> void:
 	_swap_screen(load(MAIN_MENU_SCENE).instantiate(), ScreenState.MAIN_MENU)
 
-func go_to_stage_select() -> void:
-	_swap_screen(load(STAGE_SELECT_SCENE).instantiate(), ScreenState.STAGE_SELECT)
+func go_to_chapter_select() -> void:
+	_swap_screen(load(CHAPTER_SELECT_SCENE).instantiate(), ScreenState.CHAPTER_SELECT)
+
+func go_to_stage_select(chapter: int = 1) -> void:
+	# 챕터 컨텍스트(1-based)를 인스턴스에 주입 후 swap. add_child(=_ready) 전에 set 해야 StageSelect가 인식.
+	var node: Node = load(STAGE_SELECT_SCENE).instantiate()
+	node.set("current_chapter", chapter)
+	_swap_screen(node, ScreenState.STAGE_SELECT)
 
 func go_to_menu() -> void:
 	# phase 6 legacy 시그니처 보존 — main menu alias.
@@ -241,10 +258,14 @@ func _set_intro_pause_block(blocked: bool) -> void:
 		InputRouter.set_intro_pause_blocked(blocked)
 
 func load_next_stage() -> void:
-	var next_id: int = _current_stage_id + 1
-	# 캠페인 진행은 published(=씬 ∩ menu_layout.available)만. 미완성/미공개 StageNN 파일이 있어도
-	# Next로 넘어가지 않는다(codex HIGH). 다음 published가 없으면 last-stage clear → main menu.
-	if not PUBLISHED_STAGE_IDS.has(next_id):
+	# campaign-50 — 다음 스테이지는 ±1 산술이 아니라 매니페스트 *순서*를 따른다(재배치 반영).
+	# 캠페인 진행은 published(=씬 ∩ 매니페스트 등재)만. 미공개 StageNN 파일이 있어도 Next로 넘어가지
+	# 않는다(codex HIGH). 다음이 없거나(0=마지막) 미공개면 last-stage clear → main menu.
+	# ensure_stage_scan을 먼저 호출해 next_stage_id와 PUBLISHED 게이트가 *같은* 매니페스트 스냅샷을
+	# 보도록 한다(codex impl R1 MED — 매니페스트 재설정 후 next≠published split-brain 차단).
+	ensure_stage_scan()
+	var next_id: int = Campaign.next_stage_id(_current_stage_id)
+	if next_id <= 0 or not PUBLISHED_STAGE_IDS.has(next_id):
 		go_to_main_menu()
 		return
 	load_stage(next_id)
@@ -332,9 +353,13 @@ func _on_request_main_menu() -> void:
 	_overlay.hide_overlay()
 	go_to_main_menu()
 
-func _on_request_stage_select() -> void:
+func _on_request_chapter_select() -> void:
 	_overlay.hide_overlay()
-	go_to_stage_select()
+	go_to_chapter_select()
+
+func _on_request_stage_select(chapter: int) -> void:
+	_overlay.hide_overlay()
+	go_to_stage_select(chapter)
 
 func _on_request_play_stage(stage_id: int) -> void:
 	# 캠페인 trust boundary는 여기서 중앙 강제(codex MEDIUM). request_play_stage는 player 경로
