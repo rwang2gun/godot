@@ -13,6 +13,28 @@
       "started_at": "2026-06-09T13:52:35",
       "completed_at": "2026-06-09T18:57:26",
       "duration_seconds": 18291
+    },
+    {
+      "id": 2,
+      "file": "phase02-ch1-front.md",
+      "name": "ch1-front",
+      "duration_estimate": 14400,
+      "verify": "python scripts/run_test.py tests/CampaignManifestTest.tscn && python scripts/run_test.py tests/CampaignUnlockOrderTest.tscn && python scripts/run_test.py tests/StageSelectUnlockTest.tscn && python scripts/run_test.py tests/StringsTableTest.tscn && python scripts/run_test.py tests/CampaignS1ClearTest.tscn && python scripts/run_test.py tests/CampaignS11ClearTest.tscn && python scripts/run_test.py tests/CampaignS12ClearTest.tscn && python scripts/run_test.py tests/CampaignS13ClearTest.tscn && python scripts/run_test.py tests/CampaignS14ClearTest.tscn && python scripts/run_test.py tests/CampaignS12NoBlockerTest.tscn && python scripts/run_test.py tests/CampaignS14NoFloaterTest.tscn && python scripts/run_test.py tests/GameFlowTest.tscn",
+      "state": "in_progress",
+      "started_at": "2026-06-09T23:57:57",
+      "completed_at": null,
+      "duration_seconds": null
+    },
+    {
+      "id": 3,
+      "file": "phase03-ch1-back.md",
+      "name": "ch1-back",
+      "duration_estimate": 14400,
+      "verify": "python scripts/run_test.py tests/CampaignManifestTest.tscn && python scripts/run_test.py tests/CampaignUnlockOrderTest.tscn && python scripts/run_test.py tests/StageSelectUnlockTest.tscn && python scripts/run_test.py tests/StringsTableTest.tscn && python scripts/run_test.py tests/CampaignS15ClearTest.tscn && python scripts/run_test.py tests/CampaignS16ClearTest.tscn && python scripts/run_test.py tests/CampaignS17ClearTest.tscn && python scripts/run_test.py tests/CampaignS18ClearTest.tscn && python scripts/run_test.py tests/GameFlowTest.tscn",
+      "state": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null
     }
   ]
 }
