@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "task": "campaign-50",
+  "active_revision": "docs/CAMPAIGN_50_DESIGN.md",
+  "notes": [
+    "status.json is runtime state only.",
+    "local phase files are discovered dynamically from phases/campaign-50/phase*.md.",
+    "5챕터 × 10스테이지 = 50스테이지 캠페인 재설계. 스킬 3+3+2+2 누적 언락(Ch4 학습완성/Ch5 종합).",
+    "Design SoT: docs/CAMPAIGN_50_DESIGN.md (챕터·스킬·스테이지 시트·복층·여백물·캠페인 매니페스트·Phase 분할).",
+    "기존 S1~S9는 씬 id 불변으로 재활용 — 챕터 배치는 CampaignManifest 배열로(재번호 없음, §5.0).",
+    "Phase A(이 phase) = 인프라: CampaignManifest + 챕터 UI + SceneFlow/Campaign 언락. 이후 챕터별 2 서브-Phase로 저작.",
+    "Out of scope: 카메라 follow/스크롤(고정 카메라 유지), 챕터별 BGM 분기(audio 트랙), 경사 램프(Ch1=계단식 열린단으로 대체)."
+  ]
+}

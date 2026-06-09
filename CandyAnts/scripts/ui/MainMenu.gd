@@ -61,13 +61,14 @@ func _connect_buttons() -> void:
 	_quit_btn.pressed.connect(_on_quit_pressed)
 
 func _refresh_continue_state() -> void:
-	# Δ4: last_played > 0 AND SceneFlow에 stage 존재 AND is_unlocked
+	# Δ4: last_played > 0 AND SceneFlow에 stage published AND 매니페스트 순서 기준 unlocked.
 	var last_id: int = SaveData.last_played_stage
 	SceneFlow.ensure_stage_scan()  # standalone 진입에서도 PUBLISHED_STAGE_IDS 채워짐 보장.
-	# 캠페인 published(씬 ∩ menu_layout.available)만 Continue 대상 — 미공개 StageNN 노출 차단(codex HIGH).
+	# 캠페인 published(씬 ∩ 매니페스트 등재)만 Continue 대상 — 미공개 StageNN 노출 차단(codex HIGH).
+	# 언락 판정은 ±1 산술(SaveData)이 아니라 Campaign(매니페스트 순서)으로 — 재배치 정합(campaign-50).
 	var can_continue: bool = last_id > 0 \
 		and SceneFlow.PUBLISHED_STAGE_IDS.has(last_id) \
-		and SaveData.is_unlocked(last_id)
+		and Campaign.is_stage_unlocked(last_id)
 	_continue_btn.disabled = not can_continue
 
 func _grab_initial_focus() -> void:
@@ -77,7 +78,9 @@ func _grab_initial_focus() -> void:
 		target.grab_focus()
 
 func _on_play_pressed() -> void:
-	EventBus.request_play_stage.emit(1)
+	# campaign-50 — Play = "이어가기"(첫 미클리어 스테이지). 매니페스트 순서 기준. 0이면 첫 스테이지 폴백.
+	var target: int = Campaign.next_unlocked_stage()
+	EventBus.request_play_stage.emit(target if target > 0 else 1)
 
 func _on_continue_pressed() -> void:
 	if _continue_btn.disabled:
@@ -85,7 +88,8 @@ func _on_continue_pressed() -> void:
 	EventBus.request_play_stage.emit(SaveData.last_played_stage)
 
 func _on_stage_select_pressed() -> void:
-	EventBus.request_stage_select.emit()
+	# campaign-50 — StageSelect 버튼은 이제 ChapterSelect로 진입(평면 10슬롯 직행 폐지).
+	EventBus.request_chapter_select.emit()
 
 func _on_settings_pressed() -> void:
 	_coming_soon.show_overlay()

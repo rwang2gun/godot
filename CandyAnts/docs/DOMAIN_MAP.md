@@ -69,10 +69,20 @@
 
 ## 3. 레벨 (Levels)
 
-### 3.1 메인 스테이지 — ⚠️ 경로 락 (이동 금지)
-`SceneFlow.gd`의 `STAGE_SCENES` dict + 레벨툴 애드온(`addons/candyants_level_tool/level_tool_dock.gd`)이 `stage%02d` 패턴으로 하드코딩. 폴더 이동 시 둘 다 깨짐.
+### 3.0 캠페인 매니페스트 — 순서/챕터 배치 SoT (campaign-50, ADR-014)
+**캠페인 전역 순서·챕터 그룹핑·published 게이트의 단일 SoT** = `data/campaign_manifest.tres`(`CampaignManifest` 리소스). `chapters[c]={title, theme, stage_ids:Array[int]}`. 재배치 = 이 배열 편집(씬 파일 rename 0). 파생/언락은 `scripts/core/Campaign.gd`(autoload, 매니페스트+SaveData 합성). 챕터 번호 **1-based**(0=not-found). 구 `MenuLayout`/`menu_layout.tres`는 **폐기**(ADR-014).
 
-캠페인은 **Stage01~Stage09**(레벨 재설계 9스테이지)로 확장됨. 모두 `stage%02d` 패턴 경로 락. 스테이지별 파라미터(스킬·마리·hp·시간·★)는 `docs/LEVEL_REDESIGN_STATUS.md` §0.6 라이브 스냅샷 표가 SoT.
+| 파일 | 역할 |
+|---|---|
+| `data/campaign_manifest.tres` | 5챕터 초기 데이터 `[1,2][3,4,5][6,7][8][9,10]` (ordered=[1..10]) |
+| `scripts/core/CampaignManifest.gd` | 리소스 + 파생 헬퍼(ordered/chapter_of/next/first/last/stage_ids_in_chapter/is_valid) |
+| `scripts/core/Campaign.gd` | autoload — 언락/순서 파생 단일 진입점(is_stage_unlocked/is_chapter_unlocked/chapter_stars/next_unlocked_stage) |
+| `scenes/ui/ChapterSelect.tscn` + `scripts/ui/ChapterSelect.gd` | 5 챕터 카드 화면. MainMenu→ChapterSelect→StageSelect(챕터) |
+
+### 3.1 메인 스테이지 — ⚠️ 경로 락 (이동 금지)
+`SceneFlow.gd`의 `STAGE_SCENES` dict + 레벨툴 애드온(`addons/candyants_level_tool/level_tool_dock.gd`)이 `stage%02d` 패턴으로 하드코딩. 폴더 이동 시 둘 다 깨짐. **캠페인 순서·챕터 배치는 §3.0 매니페스트가 SoT**(씬 id ≠ 캠페인 순서).
+
+캠페인은 **Stage01~Stage10**(레벨 재설계 10스테이지)로 확장됨. 모두 `stage%02d` 패턴 경로 락. 스테이지별 파라미터(스킬·마리·hp·시간·★)는 `docs/LEVEL_REDESIGN_STATUS.md` §0.6 라이브 스냅샷 표가 SoT.
 
 | 레벨 | 씬 | StageData | Layout |
 |---|---|---|---|
@@ -85,6 +95,7 @@
 | Stage07 | `scenes/stages/Stage07.tscn` | `data/stages/stage07.tres` | `data/stage_layouts/stage07_layout.tres` |
 | Stage08 | `scenes/stages/Stage08.tscn` | `data/stages/stage08.tres` | `data/stage_layouts/stage08_layout.tres` |
 | Stage09 | `scenes/stages/Stage09.tscn` | `data/stages/stage09.tres` | `data/stage_layouts/stage09_layout.tres` |
+| Stage10 | `scenes/stages/Stage10.tscn` | `data/stages/stage10.tres` | `data/stage_layouts/stage10_layout.tres` |
 
 라우팅/진행: `scripts/core/SceneFlow.gd`. 레벨 에디터(Godot dock): `addons/candyants_level_tool/` — `run_level_editor.bat`(또는 `python scripts/run_editor.py`)로 프로젝트를 에디터로 열어 하단 패널 `CandyAnts Level` 사용. (구 Node 웹 에디터 `tools/map_editor/`는 9종 스킬 미지원으로 데이터 유실을 일으켜 제거됨 — 스테이지 편집은 Godot dock만 사용)
 
@@ -129,5 +140,5 @@
 | `scripts/**` | CLAUDE.md CRITICAL — 신규 스크립트는 `scripts/{core,ant,skills,world,ui}/` 고정. autoload 7종·`SkillRegistry` preload가 경로 의존. |
 | 메인 스테이지 3종 | 레벨툴 애드온 + `SceneFlow.gd`가 `stage%02d` 패턴 하드코딩. 애드온은 별도 codex 트랙(`codex-worklog/map-editor/`). |
 | 엔티티 씬 (`scenes/entities/`) | 각 23개 스테이지 씬이 `res://` 절대경로로 참조. 이동 시 23+곳 재작성 위험 대비 이득 낮음(스크립트는 어차피 `scripts/`에 잔류). |
-| `theme/`, `project.godot` autoload, `data/menu_layout.tres` | 엔진/프로젝트 설정에 경로 하드코딩. |
+| `theme/`, `project.godot` autoload, `data/campaign_manifest.tres` | 엔진/프로젝트 설정·autoload에 경로 하드코딩(매니페스트 = `Campaign` autoload가 `res://` 고정 로드). |
 | orphan dev 레이아웃 4종 | 씬 없이 `tests/*.gd` preload 전용 → `data/stage_layouts/`에 잔류(§2 참조). |

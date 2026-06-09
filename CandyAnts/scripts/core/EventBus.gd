@@ -12,7 +12,8 @@ signal request_replay
 signal request_next
 signal request_menu                     # phase 12 legacy alias — StageDialog Menu 버튼만 emit (Δ14)
 signal request_main_menu                # Phase 13 — Title/MainMenu/StageSelect → MainMenu 복귀
-signal request_stage_select             # Phase 13 — MainMenu.StageSelectBtn → StageSelect 진입
+signal request_chapter_select           # campaign-50 Phase A — MainMenu.StageSelectBtn / StageSelect Back → ChapterSelect 진입
+signal request_stage_select(chapter: int) # campaign-50 Phase A — ChapterSelect 카드 선택 → 해당 챕터(1-based) StageSelect 진입
 signal request_play_stage(stage_id: int) # Phase 13 — MainMenu.Play/Continue + StageSelect 슬롯
 signal request_title                    # Phase 13 — reserved (현재 발화자 없음, 향후 phase 추가용)
 signal release_rate_changed(new_rate: int)

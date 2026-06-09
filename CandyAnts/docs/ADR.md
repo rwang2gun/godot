@@ -78,3 +78,15 @@
 - **Phase 분할**(SFX 21→22와 동형): **Phase 23**(bgm-receiver)은 시스템·배선만 — `BGM_SPECS` 경로의 ogg가 없으면 `_streams` 비어 **런타임 무음**(의도). 검증은 `BgmReceiverTest`(repo-도출 커버리지 + 무음 경계 단언 + 합성 스트림 주입 로직) + `BgmSceneFlowTest`(실전이 emit 순서/매핑/구독 타이밍, 빈 `_streams` 무음 양립). **Phase 24**(bgm-assets)에서 CC0 루프 ogg 배치 → 무음 경계 단언이 로드 무결성으로 역전, `_streams` 채워져 가청 완성. 실제 배치(2026-06-08, 둘 다 CC0): `menu`=Children's March Theme(Cleyton Kauffman, OpenGameArt, seamless 1:04), `gameplay`=Cozy Puzzle In-Game 1(MintoDog, OpenGameArt, 118 BPM loopable). 출처는 `assets/audio/bgm/CREDITS.txt`. `.ogg`만 커밋(`.import`는 `*.import` gitignore 관례, fresh clone은 `run_test.py --import`로 재생성 — SFX ADR-012와 동형).
 - **트레이드오프**: 스테이지별 개별 BGM·결과 화면 덕킹·볼륨/음소거 UI는 범위 밖(후속). 헤드리스에서 실제 가청 검증 불가 → 곡 적합성·루프 이음새·볼륨 밸런스는 게임 청취 후 `BGM_SPECS`/버스 `volume_db` 한 줄 조정.
 - **관련**: ADR-011/012 (SFX 패턴 원형), `SceneFlow`(화면 전이 SoT, ADR 없음/코드 SoT), `phases/mvp/phase23-bgm-receiver.md`, `phases/mvp/phase24-bgm-assets.md`.
+
+### ADR-014: 캠페인 매니페스트 — 캠페인 순서/챕터 배치를 씬 id에서 분리 (campaign-50 Phase A)
+- **결정**: 캠페인의 *전역 순서·챕터 그룹핑·published 게이트*를 `CampaignManifest` 리소스(`data/campaign_manifest.tres`, SoT)로 단일화한다. `chapters[c] = {title, theme, stage_ids: Array[int]}`이고 모든 파생값(`ordered_stage_ids`/`chapter_of`/`next_stage_id`/`first`/`last`/`stage_ids_in_chapter`)은 chapters에서 계산(별도 상태 0). `Campaign` autoload가 매니페스트 + `SaveData`(cleared/stars 저장)를 합성해 언락/순서를 제공한다(`is_stage_unlocked`=매니페스트 순서 직전 cleared, `is_chapter_unlocked`=직전 비어있지 않은 챕터 last cleared). 구 `MenuLayout`(10슬롯 평면)·`menu_layout.tres`·±1 선형 언락(`SaveData.is_unlocked` 호출부)을 **폐기**하고 caller(SceneFlow published/Next·StageSelect 슬롯·MainMenu Continue/Play)를 전부 매니페스트로 이관했다.
+- **이유**: 5챕터×50스테이지 재설계에서 *캠페인 순서 = 씬 id = 세이브 키*가 한 덩어리라, 챕터 그룹핑·스테이지 재배치가 씬 재번호를 강제해 테스트·배선이 줄줄이 깨졌다. 매니페스트로 분리하면 **재배치 = 배열 편집 한 번**(파일 rename 0), 기존 씬 id·세이브 스키마 불변, 신규 스테이지는 챕터 배열에 append만 하면 확장된다(ADR-008 누적).
+- **핵심 동작**:
+  - **챕터 번호 1-based 계약**: 모든 공개 챕터 API(`Campaign`/`CampaignManifest`)·UI·EventBus는 1-based(Ch1=1…Ch5=5). `0`은 *not-found/미등재 전용* sentinel. `is_chapter_unlocked`는 `<1` 또는 `>chapter_count()`를 fail-closed로 거부(codex R2 MED-1). 씬 id도 `is_valid()`가 `sid<=0`을 거부(0=first/next/position의 not-found sentinel 충돌 차단, R1 MED-2).
+  - **fail-closed**: 매니페스트 누락/무효면 `Campaign`은 빈 캠페인(전부 닫힘), `SceneFlow.ensure_stage_scan`은 published 비움 + `LAST_STAGE_ID=0`(미공개 노출 < 닫힘). 기존 SceneFlow 정책 계승.
+  - **published = 씬 ∩ 매니페스트 등재**: `LAST_STAGE_ID`(엔드포인트)·`load_next_stage`(다음)는 매니페스트 *순서* 기준(max id 아님 — 재배치가 엔드포인트를 따른다). 미공개 StageNN.tscn 파일이 있어도 매니페스트 미등재면 캠페인 노출 0(codex map-editor HIGH 회귀 가드 계승).
+  - **빈 챕터 skip**: 일시적 빈 챕터는 `is_chapter_unlocked`가 직전 비어있지 않은 챕터로 거슬러 판정(데드 게이트 방지). 전역 중복 씬 id는 `is_valid()`가 거부(한 씬이 두 챕터 노출 모순 차단).
+  - **재배치 시 언락 재계산**: 순서가 바뀌면 언락만 재도출, cleared 데이터는 보존(`CampaignUnlockOrderTest`가 단언).
+- **트레이드오프**: 화면 1단 추가(MainMenu→ChapterSelect→StageSelect). StageSelect 슬롯 개수가 가변(고정 10 아님)이라 `StageSlotCard` ComingSoon 분기가 "매니페스트 등재∩씬 부재"로 의미 이동. 챕터별 BGM·카메라 follow·경사 램프는 범위 밖(후속 Phase B~).
+- **관련**: ADR-008 (빌드 누적형 — 신규 씬 append 확장), `SceneFlow`(published/Next SoT, 코드 SoT), `phases/campaign-50/phase01-campaign-infra.md`, 설계 `docs/CAMPAIGN_50_DESIGN.md` §5.0.

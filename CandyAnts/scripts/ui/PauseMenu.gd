@@ -49,10 +49,12 @@ func _ready() -> void:
 	EventBus.stage_failed.connect(_on_stage_end)
 	EventBus.request_replay.connect(_force_hide)
 	EventBus.request_main_menu.connect(_force_hide)
-	EventBus.request_stage_select.connect(_force_hide)
-	# request_play_stage(stage_id)는 1-인자 시그널이므로 0-인자 _force_hide에 직접
-	# 연결하면 인자수 불일치 에러가 난다. 인자를 흡수하는 전용 래퍼로 연결한다.
+	EventBus.request_chapter_select.connect(_force_hide)
+	# request_play_stage(stage_id)·request_stage_select(chapter)는 1-인자 시그널이므로 0-인자
+	# _force_hide에 직접 연결하면 인자수 불일치 에러가 난다(campaign-50: request_stage_select가
+	# chapter 인자를 싣게 됨). 인자를 흡수하는 전용 래퍼로 연결한다.
 	EventBus.request_play_stage.connect(_on_request_play_stage)
+	EventBus.request_stage_select.connect(_on_request_stage_select)
 	EventBus.request_title.connect(_force_hide)
 	EventBus.request_menu.connect(_force_hide)
 
@@ -99,8 +101,12 @@ func _force_hide() -> void:
 	visible = false
 
 func _on_request_play_stage(_stage_id: int) -> void:
-	# request_play_stage는 stage_id 인자를 싣는 유일한 request_* 시그널. 인자만 흡수하고
-	# 나머지 화면 전환 시그널과 동일하게 메뉴를 강제로 닫는다.
+	# request_play_stage는 stage_id 인자를 싣는다. 인자만 흡수하고 나머지 화면 전환 시그널과
+	# 동일하게 메뉴를 강제로 닫는다.
+	_force_hide()
+
+func _on_request_stage_select(_chapter: int) -> void:
+	# request_stage_select(chapter, campaign-50)도 1-인자. 인자 흡수 후 강제 닫기.
 	_force_hide()
 
 func _on_stage_end(_result: Dictionary) -> void:

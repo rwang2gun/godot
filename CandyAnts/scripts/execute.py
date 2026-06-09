@@ -338,6 +338,7 @@ WHITELIST_PATTERNS = [
     "phases/{task}/metadata.json",
     "phases/{task}/notion-phase-ids.json",
     "phases/{task}/README.md",
+    "phases/{task}/HANDOFF.md",
     "phases/{task}/REVISION_*.md",
 ]
 
