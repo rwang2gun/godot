@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://b1xcui0mainmenu"]
+[gd_scene load_steps=8 format=3 uid="uid://b1xcui0mainmenu"]
 
 [ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atoms/LogoPanel.tscn" id="2_logo"]
@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/ComingSoonOverlay.tscn" id="4_cs"]
 [ext_resource type="Texture2D" path="res://assets/illustrations/stage_bg_painted.png" id="5_bg"]
 [ext_resource type="SpriteFrames" path="res://assets/sprites/characters/ant_pajama_girl/AntFrames.tres" id="6_frames"]
+[ext_resource type="Texture2D" path="res://assets/logo/logo_wordmark_main_tight.png" id="7_logomain"]
 
 [node name="MainMenu" type="Control"]
 anchors_preset = 15
@@ -39,11 +40,12 @@ theme_override_constants/separation = 16
 alignment = 1
 
 [node name="LogoPanel" parent="Center/VBox" instance=ExtResource("2_logo")]
-custom_minimum_size = Vector2(820, 410)
+custom_minimum_size = Vector2(820, 445)
 show_mascot = false
+wordmark = ExtResource("7_logomain")
 
 [node name="Wordmark" parent="Center/VBox/LogoPanel/VBox" index="0"]
-custom_minimum_size = Vector2(810, 405)
+custom_minimum_size = Vector2(820, 440)
 
 [node name="MidGap" type="Control" parent="Center/VBox"]
 custom_minimum_size = Vector2(0, 60)
