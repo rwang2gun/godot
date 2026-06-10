@@ -1,6 +1,7 @@
 extends Node
 
-# campaign-50 Phase A — ChapterSelect 카드 상태 + 라우팅. 라이브 매니페스트(5챕터 [1,2][3,4,5][6,7][8][9,10]).
+# campaign-50 Phase A — ChapterSelect 카드 상태 + 라우팅.
+# 라이브 매니페스트(B1 이후 5챕터 [1,11,12,13,14,2][3,4,5][6,7][8][9,10]).
 # 케이스: fresh=ch1 PLAYABLE·나머지 LOCKED / ch1 클리어 후 ch1 CLEARED·ch2 PLAYABLE /
 #   playable 카드 선택 → request_stage_select(chapter) / locked 카드 → emit 없음 / Back → request_main_menu.
 
@@ -35,10 +36,11 @@ func _case_states_fresh() -> void:
 
 func _case_states_after_ch1_clear() -> void:
 	_reset()
-	SaveData.record_clear(1, 10, 10)
-	SaveData.record_clear(2, 10, 10)  # Ch1=[1,2] 전부 클리어
+	# Ch1=[1,11,12,13,14,2] 전부 클리어 (B1에서 신규 11~14 삽입 — 챕터 CLEARED는 전 스테이지 요구)
+	for sid in [1, 11, 12, 13, 14, 2]:
+		SaveData.record_clear(sid, 10, 10)
 	var cs: ChapterSelect = await _make()
-	_expect(cs, 1, ChapterSelect.ChapterState.CLEARED, "ch1 CLEARED after [1,2] cleared")
+	_expect(cs, 1, ChapterSelect.ChapterState.CLEARED, "ch1 CLEARED after all Ch1 cleared")
 	_expect(cs, 2, ChapterSelect.ChapterState.PLAYABLE, "ch2 PLAYABLE after ch1 cleared")
 	_expect(cs, 3, ChapterSelect.ChapterState.LOCKED, "ch3 LOCKED (ch2 not cleared)")
 	cs.queue_free()

@@ -13,10 +13,11 @@ func _ready() -> void:
 	_orig_path = SaveData._save_path
 	SaveData._test_cleanup_files(TEST_PATH)
 	SaveData._test_reset(TEST_PATH)
-	# Set up: last_played=2 + stage1 cleared (so continue is valid)
+	# Set up: last_played=11 + stage1 cleared (so continue is valid).
+	# campaign-50 B1: 매니페스트 순서상 stage1 다음 = 신규 id11 (id2는 slot6 재배치 → 아직 잠김).
 	EventBus.stage_cleared.emit({"stage_id": 1, "cleared": true, "saved": 10, "original_hp": 10})
 	await get_tree().process_frame
-	SaveData.last_played_stage = 2
+	SaveData.last_played_stage = 11
 	SaveData.save()
 	EventBus.request_play_stage.connect(func(id: int): _play_emit.append(id))
 	# campaign-50 — StageSelectBtn은 이제 request_chapter_select(무인자)를 emit(ChapterSelect 진입).
@@ -25,19 +26,19 @@ func _ready() -> void:
 	add_child(menu)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	# campaign-50 — PlayBtn → request_play_stage(next_unlocked_stage). stage1 cleared이므로 첫 미클리어=2.
+	# campaign-50 — PlayBtn → request_play_stage(next_unlocked_stage). stage1 cleared이므로 첫 미클리어=11.
 	var expected_play: int = Campaign.next_unlocked_stage()
-	if expected_play != 2:
-		return _fail("precondition: next_unlocked_stage expected 2 (stage1 cleared), got %d" % expected_play)
+	if expected_play != 11:
+		return _fail("precondition: next_unlocked_stage expected 11 (stage1 cleared), got %d" % expected_play)
 	menu.get_node("Center/VBox/PlayBtn").pressed.emit()
 	await get_tree().process_frame
 	if _play_emit.size() != 1 or _play_emit[0] != expected_play:
 		return _fail("Play → request_play_stage(%d) failed, got %s" % [expected_play, str(_play_emit)])
-	# ContinueBtn → request_play_stage(last_played=2)
+	# ContinueBtn → request_play_stage(last_played=11)
 	menu.get_node("Center/VBox/ContinueBtn").pressed.emit()
 	await get_tree().process_frame
-	if _play_emit.size() != 2 or _play_emit[1] != 2:
-		return _fail("Continue → request_play_stage(2) failed, got %s" % str(_play_emit))
+	if _play_emit.size() != 2 or _play_emit[1] != 11:
+		return _fail("Continue → request_play_stage(11) failed, got %s" % str(_play_emit))
 	# StageSelectBtn → request_chapter_select
 	menu.get_node("Center/VBox/StageSelectBtn").pressed.emit()
 	await get_tree().process_frame

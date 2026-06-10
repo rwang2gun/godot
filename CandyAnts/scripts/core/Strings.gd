@@ -141,6 +141,10 @@ const _TABLE: Dictionary = {
 	"stage.s8.name": "귀찮은 식물들",
 	"stage.s9.name": "고지로!",
 	"stage.s10.name": "보물찾기!",
+	"stage.s11.name": "담을 넘어",
+	"stage.s12.name": "낭떠러지 끝",
+	"stage.s13.name": "방향 전환",
+	"stage.s14.name": "높은 곳에서",
 	"stage.coming_soon": "임시",
 }
 

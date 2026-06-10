@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_manifest")
 chapters = [{
-"stage_ids": [1, 2],
+"stage_ids": [1, 11, 12, 13, 14, 2],
 "theme": "basics",
 "title": "기초"
 }, {

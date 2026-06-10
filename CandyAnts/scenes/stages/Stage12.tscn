@@ -1,0 +1,336 @@
+[gd_scene load_steps=21 format=3 uid="uid://cndyscene12"]
+
+[ext_resource type="Script" uid="uid://cwyda6pumd634" path="res://scripts/core/StageRunner.gd" id="1"]
+[ext_resource type="Script" uid="uid://dad1jc4eea6qx" path="res://scripts/core/AntSpawner.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Home.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Candy.tscn" id="4"]
+[ext_resource type="Script" uid="uid://5lh5rplnitdd" path="res://scripts/world/Terrain.gd" id="4_mx7fg"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Ant.tscn" id="5"]
+[ext_resource type="PackedScene" uid="uid://b6huiphase11" path="res://scenes/ui/HUD.tscn" id="6"]
+[ext_resource type="Script" uid="uid://jimgqvwcqixp" path="res://scripts/world/Home.gd" id="6_hwgo4"]
+[ext_resource type="Resource" path="res://data/stages/stage12.tres" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/world/StageBackground.tscn" id="8"]
+[ext_resource type="Script" uid="uid://bvuiwb8sa2bym" path="res://scripts/world/Candy.gd" id="8_s25jr"]
+[ext_resource type="Script" uid="uid://x77gqhuulxg6" path="res://scripts/ui/HUD.gd" id="12_mcttg"]
+[ext_resource type="Script" uid="uid://bbjsqafe5twd" path="res://scripts/world/StageLayoutBuilder.gd" id="13_layout_builder"]
+[ext_resource type="Resource" path="res://data/stage_layouts/stage12_layout.tres" id="14_stage_layout"]
+[ext_resource type="PackedScene" path="res://scenes/entities/hazards/Water.tscn" id="20_sc2we"]
+[ext_resource type="Script" uid="uid://df6aq2sd8xwqw" path="res://scripts/world/hazards/WaterHazard.gd" id="21_n8a1n"]
+[ext_resource type="PackedScene" uid="uid://b6sktbphase11" path="res://scenes/ui/SkillToolbar.tscn" id="26_6yvsm"]
+[ext_resource type="Script" uid="uid://dvkw0tp37uw5h" path="res://scripts/ui/SkillToolbar.gd" id="27_2vp6h"]
+[ext_resource type="Script" uid="uid://cd6upt7hv4jo5" path="res://scripts/world/PlacementPreview.gd" id="98_preview"]
+[ext_resource type="Script" uid="uid://c6lel1jb3ls2g" path="res://scripts/world/AffordanceGlowController.gd" id="99_glow"]
+
+[node name="StageRunner" type="Node"]
+script = ExtResource("1")
+stage_data = ExtResource("7")
+candy_path = NodePath("World/Candy")
+home_path = NodePath("World/Home")
+spawner_path = NodePath("Spawner")
+hud_path = NodePath("HUD")
+toolbar_path = NodePath("SkillToolbar")
+ant_scene = ExtResource("5")
+spawn_parent_path = NodePath("World")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="StageLayoutBuilder" type="Node2D" parent="World"]
+script = ExtResource("13_layout_builder")
+layout = ExtResource("14_stage_layout")
+
+[node name="Terrain" type="Node2D" parent="World"]
+script = ExtResource("4_mx7fg")
+
+[node name="PlacementPreview" type="Node2D" parent="World"]
+script = ExtResource("98_preview")
+toolbar_path = NodePath("../../SkillToolbar")
+terrain_path = NodePath("../Terrain")
+
+[node name="AffordanceGlowController" type="Node2D" parent="World"]
+script = ExtResource("99_glow")
+toolbar_path = NodePath("../../SkillToolbar")
+terrain_path = NodePath("../Terrain")
+
+[node name="Home" type="Area2D" parent="World" instance=ExtResource("3")]
+position = Vector2(120, 480)
+collision_layer = 32
+collision_mask = 4
+script = ExtResource("6_hwgo4")
+
+[node name="Candy" type="Area2D" parent="World" instance=ExtResource("4")]
+position = Vector2(264, 480)
+collision_layer = 16
+collision_mask = 4
+script = ExtResource("8_s25jr")
+hp = 4
+
+[node name="Water_18_10" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(888, 504)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+
+[node name="Water_18_11" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(888, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_18_12" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(888, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_18_13" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(888, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_19_10" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(936, 504)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+
+[node name="Water_19_11" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(936, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_19_12" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(936, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_19_13" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(936, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_20_10" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(984, 504)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+
+[node name="Water_20_11" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(984, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_20_12" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(984, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_20_13" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(984, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_21_10" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1032, 504)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+
+[node name="Water_21_11" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1032, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_21_12" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1032, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_21_13" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1032, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_22_10" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1080, 504)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+
+[node name="Water_22_11" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1080, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_22_12" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1080, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_22_13" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1080, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_23_10" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1128, 504)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+
+[node name="Water_23_11" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1128, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_23_12" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1128, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_23_13" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1128, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_24_10" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1176, 504)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+
+[node name="Water_24_11" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1176, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_24_12" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1176, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_24_13" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1176, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_25_10" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1224, 504)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+
+[node name="Water_25_11" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1224, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_25_12" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1224, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Water_25_13" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
+position = Vector2(1224, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("21_n8a1n")
+deep = true
+
+[node name="Camera2D" type="Camera2D" parent="World"]
+position = Vector2(552, 312)
+
+[node name="StageBackground" type="CanvasLayer" parent="." instance=ExtResource("8")]
+layer = -100
+
+[node name="Spawner" type="Node" parent="."]
+script = ExtResource("2")
+spawn_position = Vector2(456, 472.5)
+total = 6
+release_rate = 30
+
+[node name="HUD" type="CanvasLayer" parent="." instance=ExtResource("6")]
+layer = 10
+script = ExtResource("12_mcttg")
+
+[node name="SkillToolbar" type="CanvasLayer" parent="." instance=ExtResource("26_6yvsm")]
+process_mode = 3
+layer = 10
+script = ExtResource("27_2vp6h")
+stage_data = ExtResource("7")
+hbox_path = NodePath("Panel/HBox")
