@@ -8,11 +8,11 @@ script = ExtResource("1")
 id = 11
 display_name = "담을 넘어"
 layout = ExtResource("1_lay")
-total_ants = 6
-candy_hp = 4
+total_ants = 5
+candy_hp = 5
 time_limit_seconds = 90.0
 available_skills = Array[String](["climber"])
 skill_inventory = {
-"climber": 6
+"climber": 5
 }
 release_rate_initial = 30

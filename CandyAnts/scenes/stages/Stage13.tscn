@@ -62,7 +62,7 @@ position = Vector2(216, 288)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("8_s25jr")
-hp = 4
+hp = 5
 
 [node name="Water_18_10" type="Area2D" parent="World" instance=ExtResource("20_sc2we")]
 position = Vector2(888, 504)

@@ -2,13 +2,14 @@ extends Node
 
 # Campaign scene_id 11 "담을 넘어" (Ch1 slot2) — climber 심화 클리어 가능성 검증.
 # 평지 직선 경로 중앙의 3칸 벽(cols11-12)을 climber로 넘어 candy(col20) 도달·귀환해야 한다.
-# 플레이어 모사: WalkerState/CarryingState 개미 최대 MAX_CLIMBERS(=인벤토리 6)에 climber 부여.
+# 플레이어 모사: WalkerState/CarryingState 개미 최대 MAX_CLIMBERS(=인벤토리 5)에 climber 부여.
+# Ch1 고정 지침(설계 §2.2, 2026-06-10): candy_hp=5 + total=5(소비 설치물 0 → 여분 0).
 #   - 무스킬이면 벽(48px*3 > 개미 15px)에 is_on_wall로 막혀 flip → candy 미도달 → 클리어 불가.
 #     즉 PASS는 climber 등반-over 경로가 실제로 동작함을 입증한다.
 # PASS: stage_cleared (saved>=candy_hp). FAIL: stage_failed / deadline.
 
 const DEADLINE_FRAMES: int = 16000
-const MAX_CLIMBERS: int = 6
+const MAX_CLIMBERS: int = 5
 
 var _applied_ids: Dictionary = {}
 var _frame: int = 0

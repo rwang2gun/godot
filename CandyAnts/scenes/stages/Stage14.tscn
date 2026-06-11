@@ -60,7 +60,7 @@ position = Vector2(1080, 192)
 collision_layer = 16
 collision_mask = 4
 script = ExtResource("8_s25jr")
-hp = 4
+hp = 5
 
 [node name="Camera2D" type="Camera2D" parent="World"]
 position = Vector2(552, 312)
