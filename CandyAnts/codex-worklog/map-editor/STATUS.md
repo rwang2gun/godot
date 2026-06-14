@@ -8,6 +8,16 @@
 플랫폼 칸은 GUI 모눈에서 직접 그리기/지우기(solid/slope_right/slope_left), 해저드(water/sticky)도 같은 모눈에서 페인팅 가능.
 스킬은 SkillRegistry 등록 9종 전부를 횟수와 함께 설정하고, spawn 방향·theme·정착 cell·별 기준(star_thresholds)도 GUI로 편집한다.
 
+### 2026-06-14 추가 (web-level-editor) — 아이패드 저작용 웹 툴 신설
+- **`tools/level_editor.html`** — Godot 없이 브라우저(특히 iPad Safari)에서 레벨을 그리는 단일 파일 툴. 동기: 출퇴근 중 아이패드 저작(Godot dock이 원천적으로 못 하는 용도). dock과 경쟁 아님 — 모바일 보완.
+- **export 범위**: `stageNN_layout.tres` + `stageNN.tres` 2종만. `.tscn`은 미생성(직렬화 fragile) → Godot dock `Load Stage→Save Stage` 또는 헤드리스가 두 .tres로부터 굽는다(검증된 `_build_stage_scene` 재사용).
+- **데이터 유실 회피**(과거 `tools/map_editor` 제거 사유 차단): ① 브라우저 export-only(다운로드/복사) — repo를 silent overwrite 불가 ② import 시 header uid·script ext_resource id·layout ref id 보존 ③ 미지 스킬(은퇴 distributor 등)은 `extraSkills`로 carry ④ 레거시 `platform_cells`-only layout은 `tile_map`(solid)로 변환.
+- **터치 UX**: 1손가락=페인트 / 2손가락=팬+핀치줌(우클릭 없음→Erase 브러시), 사각 채우기 드래그, 카메라 프레임 오버레이(실제 뷰포트 **1644×1080** — dock의 1920은 stale), localStorage 자동저장 + 보관함 + 프로젝트 JSON 이식.
+- **검증**: ① 실제 `stage11`(캠페인) round-trip(parse→serialize) **byte-identical** = 포맷·로드 보장(그 파일이 게임에 실려 있음) ② `stage04`(리디자인) round-trip = 잉여 `platform_cells` 드롭 + layout uid 생략(path 해석)뿐, tile_map 데이터 동일·로드 동일 ③ 브라우저 로드: 콘솔 에러 0, DOM 완전 배선(브러시13/스킬10/테마5), 캔버스 렌더, 라이브 직렬화 정확.
+- **추적**: 루트 `.gitignore`의 전역 `*.html` 예외(`!tools/level_editor.html`)로 추적(guide_card/audio_editor 패턴 동일).
+- **배포(GitHub Pages)**: **`https://rwang2gun.github.io/godot/`** (repo `rwang2gun/godot` PUBLIC, orphan `gh-pages` 브랜치 = `index.html`(툴 스냅샷)+`.nojekyll`, root, https 강제). 아이패드 Safari에서 secure-context라 클립보드·다운로드 정상. **워킹트리/HEAD/인덱스 무변경** git 플럼빙(hash-object→mktree→commit-tree→update-ref→push)으로 배포 — campaign-50 작업 브랜치 미오염. **재배포**(툴 수정 후, repo 루트 `D:/claude/godot`에서): `B=$(git hash-object -w CandyAnts/tools/level_editor.html); N=$(printf '' | git hash-object -w --stdin); T=$(printf '100644 blob %s\t.nojekyll\n100644 blob %s\tindex.html\n' "$N" "$B" | git mktree); C=$(git commit-tree "$T" -p refs/heads/gh-pages -m "deploy: 갱신"); git update-ref refs/heads/gh-pages "$C"; git push origin gh-pages`.
+- **미구현/후속**: 헤드리스 `.tres → .tscn` 굽기 스크립트(현재는 dock Load→Save 수동, 사용자 결정 "나중에·우선 dock"). dock의 `_build_stage_scene`가 UI 스핀 결합이라 헤드리스화엔 소폭 리팩터 필요.
+
 ### 2026-06-05 추가 (scene-gen-fixes) — `_build_stage_scene` 결함 3종 수정
 저장된 씬이 깨지던 근본 원인을 애드온 생성 로직에서 수정. 정상 Stage04~06 배치 공식 기준.
 - **엔티티 지면 정렬**: `_cell_to_surface()` 헬퍼 추가 — Home/Candy/Spawner를 셀 중심이 아니라 셀 바닥(`(cell.y+1)*cell_size`=지면 표면)에 배치. (기존엔 셀 절반=24px 떠 캔디 도달 불가)
