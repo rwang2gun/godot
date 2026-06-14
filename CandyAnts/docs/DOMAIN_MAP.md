@@ -97,7 +97,7 @@
 | Stage09 | `scenes/stages/Stage09.tscn` | `data/stages/stage09.tres` | `data/stage_layouts/stage09_layout.tres` |
 | Stage10 | `scenes/stages/Stage10.tscn` | `data/stages/stage10.tres` | `data/stage_layouts/stage10_layout.tres` |
 
-라우팅/진행: `scripts/core/SceneFlow.gd`. 레벨 에디터(Godot dock): `addons/candyants_level_tool/` — `run_level_editor.bat`(또는 `python scripts/run_editor.py`)로 프로젝트를 에디터로 열어 하단 패널 `CandyAnts Level` 사용. (구 Node 웹 에디터 `tools/map_editor/`는 9종 스킬 미지원으로 데이터 유실을 일으켜 제거됨 — 스테이지 편집은 Godot dock만 사용)
+라우팅/진행: `scripts/core/SceneFlow.gd`. 레벨 에디터(Godot dock): `addons/candyants_level_tool/` — `run_level_editor.bat`(또는 `python scripts/run_editor.py`)로 프로젝트를 에디터로 열어 하단 패널 `CandyAnts Level` 사용. (구 Node 웹 에디터 `tools/map_editor/`는 9종 스킬 미지원으로 데이터 유실을 일으켜 제거됨). 2026-06-14 신설 `tools/level_editor.html` = **아이패드 저작용 단일 파일 웹 툴**: Godot 없이 그리드(지형/해저드)·마커·파라미터·10종 스킬을 그려 `stageNN_layout.tres` + `stageNN.tres` 2종을 export(.tscn은 미생성 → dock `Load→Save` 또는 헤드리스가 두 .tres로 굽는다). dock과 경쟁이 아니라 모바일 보완이며, **export-only(브라우저 다운로드)·import 시 uid/ext_resource id 보존**으로 과거 웹 에디터의 silent-overwrite 유실 모드를 회피. 직렬화는 실제 `stage11` .tres와 byte-identical(round-trip 검증). 자세한 건 `codex-worklog/map-editor/`
 
 ### 3.2 dev 테스트 레벨 — ✅ 콜로케이트됨 (`dev_stages/<slug>/`)
 각 폴더 = `씬.tscn` + `stage.tres`(StageData) + `layout.tres`(StageLayoutData). 실행: `python scripts/run_test.py dev_stages/<slug>/<Scene>.tscn`.

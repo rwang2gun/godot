@@ -41,6 +41,9 @@ tools/map_editor/
 # 오디오(SFX/BGM) 매핑·튜닝 저작 툴 — 동일하게 *.html 규칙 예외로 추적.
 !tools/audio_editor.html
 
+# 웹 레벨 에디터(아이패드 저작) — layout.tres + stage.tres export. *.html 규칙 예외로 추적.
+!tools/level_editor.html
+
 # Kenney CC0 SFX 원본 팩 (Phase 22) — 로컬 보관, 리포 비대 방지로 제외.
 # 게임이 쓰는 14종은 assets/audio/sfx/ 로 선별 복사되어 추적됨(원본 367개는 불필요).
 assets/audio/kenney_ui_audio/
