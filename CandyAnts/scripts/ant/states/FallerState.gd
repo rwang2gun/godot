@@ -43,7 +43,13 @@ func update(delta: float) -> void:
 		else:
 			# 착지음 — 기절 미만의 실질 낙하만(작은 깡총 제외). floater는 낙하산 착지라 thud 없음.
 			# 1.5칸 임계 = stun 임계(5칸) / STUN_FALL_CELLS * LAND_MIN_FALL_CELLS → cell_size 자동 추종.
+			# (floater 소멸보다 먼저 판정해 낙하산 착지의 무음 컨벤션을 유지한다.)
 			var land_min: float = a.stun_fall_threshold() / float(a.STUN_FALL_CELLS) * LAND_MIN_FALL_CELLS
 			if not a.has_trait(&"floater") and fall_dist >= land_min:
 				EventBus.sfx_request.emit(&"ant_land")
+			# floater 1회 소멸 (2026-06-17) — 분배받은 개미(distributor 아님)가 낙하산으로 첫 낙하를 마치고
+			# 착지하면 floater를 1회 소비해 제거한다. 분배자 본인(distributor)은 정착해 분배를 이어가야 하므로 유지.
+			# 높이 무관(사용자 결정: "첫 낙하 1회 후"). 배지는 _update_trait_badges가 자동 갱신.
+			if a.has_trait(&"floater") and not a.has_trait(&"distributor"):
+				a.unset_trait(&"floater")
 			a.return_to_walking()

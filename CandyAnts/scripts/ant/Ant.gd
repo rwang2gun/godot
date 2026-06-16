@@ -181,6 +181,11 @@ func set_trait(name: StringName) -> void:
 func has_trait(name: StringName) -> bool:
 	return traits.has(name)
 
+# 트레잇 제거 — floater 1회 소멸(분배받은 개미가 낙하산으로 첫 낙하 후 소비) 등에 사용(2026-06-17).
+# 배지는 _update_trait_badges가 매 _physics_process마다 has_trait로 갱신하므로 별도 호출 없이 자동 반영된다.
+func unset_trait(name: StringName) -> void:
+	traits.erase(name)
+
 func _resolve_mantle_distance() -> void:
 	# ancestor chain 스캔 — global 그룹 lookup 미사용 (plan-stage Round 3 MEDIUM 대응, scope-safe).
 	# ant의 ancestor를 따라 올라가며 각 노드 아래 "StageLayoutBuilder" 자식이 있는지 확인.
