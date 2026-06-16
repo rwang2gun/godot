@@ -26,6 +26,13 @@ func update(delta: float) -> void:
 		return
 
 	if a.is_on_wall():
+		# 운반 중에도 막대과자 사다리(SAND_MOUND rung)는 climber/계단보다 **최우선**(2026-06-17, 빈손 WalkerState와
+		# 대칭) — 사다리 셀에 막히면 climber 보유와 무관하게 수직 등반한다. 사탕을 줍고 낮은 지대에서 사다리로
+		# 되올라오는 동선(stage11)에서 운반 개미가 rung에 막혀 flip하던 누락을 메운다(2026-06-16). LadderClimbState는
+		# has_candy 불변(velocity/position만 조작) + 종료 시 return_to_walking이 has_candy면 CarryingState로 복원.
+		if a.ladder_climb_ahead():
+			a.state_machine.change_state(LadderClimbState.new())
+			return
 		# Phase 14 — climber 보유 시 carrying 중에도 벽 등반. has_candy=true 보존.
 		if a.has_trait(&"climber"):
 			a.state_machine.change_state(ClimberState.new())
