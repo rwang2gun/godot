@@ -78,7 +78,8 @@ func _apply_text() -> void:
 	else:
 		_score_label.text = ""
 
-# 표시 이름 해석 — 스트링 시트(Strings.stage_name) 우선. 키 없으면 coming-soon / slot display_name / "스테이지 N" 폴백.
+# 표시 이름 해석 — Strings.stage_name(= stageNN.tres.display_name, tres-as-SoT) 우선.
+# 없으면 coming-soon / slot display_name / "스테이지 N" 폴백.
 func _resolve_name() -> String:
 	var n: String = Strings.stage_name(stage_id)
 	if not n.is_empty():

@@ -28,13 +28,14 @@ const GUIDE_KEYS := [
 	"guide.intro_title", "guide.intro_body_placeholder",
 	"guide.badge.ant_armed", "guide.badge.ant_settle", "guide.badge.sign", "guide.badge.device",
 	"guide.s1.goal", "guide.s1.climber_desc",
-	"guide.s2.goal", "guide.s2.floater_desc", "guide.s2.blocker_desc", "guide.s2.hazard_stun",
+	"guide.s2.goal", "guide.s2.floater_desc", "guide.s2.hazard_stun",
 	"guide.s3.goal", "guide.s3.bridge_desc", "guide.s3.hazard_water",
 	"guide.s4.goal", "guide.s4.builder_desc",
 	"guide.s5.goal", "guide.s5.sand_mound_desc",
 	"guide.s6.goal", "guide.s6.digger_desc",
 	"guide.s7.goal", "guide.s7.basher_desc",
 	"guide.s8.goal", "guide.s8.cutter_desc", "guide.s8.leaf_jump_desc", "guide.s8.hazard_sticky",
+	"guide.s11.goal", "guide.s11.blocker_desc",
 ]
 
 func _ready() -> void:
@@ -75,13 +76,19 @@ func _ready() -> void:
 		if not Strings.has_key(key):
 			failures.append("(6) missing guide key: %s" % key)
 
-	# (7) 스테이지 이름 key 존재 + stage_name() 해석(스트링 시트 SoT).
-	#     발행된 모든 스테이지를 동적으로 검증 — range 하드코딩은 신규 스테이지(예: Stage10) 누락을
-	#     놓친다(2026-06-08 회귀: stage.s10.name 누락 → 메뉴가 "스테이지 10" 폴백 표시).
+	# (7) 스테이지 이름 — data/stages/stageNN.tres.display_name이 SoT(2026-06-17, tres-as-SoT).
+	#     발행된 모든 스테이지를 동적으로 검증: stage_name(id)이 (a) 비어있지 않고 (b) 해당 .tres의
+	#     display_name과 일치해야 한다(레벨 에디터가 쓴 제목이 UI에 그대로 반영됨을 박제).
+	#     range 하드코딩은 신규 스테이지 누락을 놓친다(2026-06-08 회귀: stage10 메뉴 폴백 표시).
 	SceneFlow.ensure_stage_scan()
 	for sid in SceneFlow.PUBLISHED_STAGE_IDS:
-		if Strings.stage_name(sid).is_empty():
-			failures.append("(7) stage_name(%d) empty — stage.s%d.name 누락(발행 스테이지)" % [sid, sid])
+		var nm: String = Strings.stage_name(sid)
+		if nm.is_empty():
+			failures.append("(7) stage_name(%d) empty — stage%02d.tres display_name 누락(발행 스테이지)" % [sid, sid])
+			continue
+		var sd: Resource = load("res://data/stages/stage%02d.tres" % sid)
+		if sd != null and "display_name" in sd and nm != str(sd.display_name):
+			failures.append("(7) stage_name(%d)='%s' != stage%02d.tres display_name='%s'" % [sid, nm, sid, str(sd.display_name)])
 	if not Strings.has_key("stage.coming_soon"):
 		failures.append("(7) missing stage.coming_soon")
 
