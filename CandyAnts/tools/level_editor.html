@@ -7,10 +7,11 @@
 <!--
   CandyAnts 웹 레벨 에디터 (map-editor 트랙, 아이패드 저작용)
   - 단일 파일·오프라인 동작. Godot 없이 브라우저(특히 iPad Safari)에서 레벨을 그린다.
-  - export: data/stage_layouts/stageNN_layout.tres + data/stages/stageNN.tres (2개)
-    .tscn은 생성하지 않음 -> 검증된 Godot dock(Load->Save) 또는 헤드리스 스크립트가 두 .tres로부터 굽는다.
-  - 직렬화는 실제 캠페인 .tres(stage11 등)와 동일 포맷. import 시 uid/ext_resource id를 보존해
-    round-trip churn·필드 유실(과거 웹 에디터 제거 사유)을 방지한다.
+  - 출력은 "드래프트(레퍼런스 JSON)"뿐 — 실제 스테이지는 만들지 않는다(브라우저는 클리어 검증 불가).
+    드래프트를 PC의 Godot dock(addons/candyants_level_tool) "웹 드래프트 가져오기"로 불러와
+    실행·클리어 확인 후 Save 해야 실 스테이지(.tres+.tscn)가 된다.
+  - 드래프트 = toProject(S) JSON(format "candyants-level-draft"). 기존 스테이지 .tres를
+    "고급" 시드로 읽어올 수 있으나 읽기 전용 — 출력은 언제나 드래프트.
   - 터치: 1손가락=페인트 / 2손가락=팬+핀치줌. 우클릭 없음 -> 지우개는 Erase 브러시.
 -->
 <style>
@@ -94,7 +95,7 @@
   <button id="newBtn">새로</button>
   <button id="importBtn">불러오기</button>
   <button id="libBtn">보관함</button>
-  <button id="exportBtn" class="primary">Export .tres</button>
+  <button id="exportBtn" class="primary">드래프트 내보내기</button>
 </header>
 
 <main>
@@ -162,24 +163,19 @@
   </div>
 </main>
 
-<!-- Export modal -->
+<!-- Export draft modal -->
 <div class="overlay" id="exportModal">
   <div class="modal">
-    <h2>Export — .tres 2개</h2>
-    <div class="hint">아이패드에선 텍스트를 길게 눌러 전체 선택→복사하거나 <b>복사</b> 버튼을 쓰세요. 저장 후
-      Godot에서 dock <b>Load Stage→Save Stage</b> 한 번이면 <code>StageNN.tscn</code>까지 생성됩니다.</div>
+    <h2>드래프트 내보내기 (레퍼런스 JSON)</h2>
+    <div class="hint">이건 <b>완성된 스테이지가 아니라 설계 드래프트</b>입니다 — 브라우저는 개미 물리·스킬·클리어 가능 여부를 검증할 수 없어요.<br>
+      PC에서 <b>Godot 에디터 → 하단 패널 "CandyAnts Level" → "웹 드래프트 가져오기"</b>에 아래 JSON을 붙여넣고,
+      <b>스테이지를 실행해 클리어를 확인한 뒤 Save</b> 하면 실제 스테이지가 됩니다.</div>
     <div class="filebox">
-      <div class="head"><code id="layoutPath"></code>
-        <span><button data-copy="layoutOut">복사</button><button data-dl="layout">내려받기</button></span></div>
-      <textarea id="layoutOut" readonly></textarea>
-    </div>
-    <div class="filebox">
-      <div class="head"><code id="stagePath"></code>
-        <span><button data-copy="stageOut">복사</button><button data-dl="stage">내려받기</button></span></div>
-      <textarea id="stageOut" readonly></textarea>
+      <div class="head"><code>candyants-level-draft (JSON)</code>
+        <span><button id="copyDraft">복사</button><button id="dlDraft">내려받기</button></span></div>
+      <textarea id="draftOut" readonly></textarea>
     </div>
     <div class="actions">
-      <button data-dl="both">둘 다 내려받기</button>
       <button class="primary" data-close>닫기</button>
     </div>
   </div>
@@ -188,17 +184,25 @@
 <!-- Import modal -->
 <div class="overlay" id="importModal">
   <div class="modal">
-    <h2>불러오기 — 기존 .tres 붙여넣기</h2>
-    <div class="hint">layout / stage 중 가진 것만 붙여넣어도 됩니다. uid·ext_resource id를 보존해
-      다시 export할 때 원본과 동일하게 나옵니다(필드 유실 없음).</div>
+    <h2>불러오기</h2>
+    <div class="hint"><b>드래프트 JSON</b>(이 툴이 내보낸 것)을 붙여넣어 이어서 작업합니다. 기존 스테이지를 손보려면
+      아래 "고급"에서 <b>.tres를 시드</b>로 읽어올 수 있어요(읽기 전용 — 출력은 언제나 드래프트).</div>
     <div class="filebox">
-      <div class="head"><code>…_layout.tres</code><button class="warn" id="pickLayout">파일 선택</button></div>
-      <textarea id="layoutIn" placeholder="stageNN_layout.tres 내용 붙여넣기"></textarea>
+      <div class="head"><code>드래프트 JSON</code><button class="warn" id="pickDraft">파일 선택</button></div>
+      <textarea id="draftIn" placeholder="candyants-level-draft JSON 붙여넣기"></textarea>
     </div>
-    <div class="filebox">
-      <div class="head"><code>stageNN.tres</code><button class="warn" id="pickStage">파일 선택</button></div>
-      <textarea id="stageIn" placeholder="stageNN.tres 내용 붙여넣기"></textarea>
-    </div>
+    <details>
+      <summary style="cursor:pointer;font-size:12px;color:var(--muted);">고급 — 기존 스테이지 .tres에서 시드</summary>
+      <div class="filebox" style="margin-top:6px;">
+        <div class="head"><code>…_layout.tres</code><button class="warn" id="pickLayout">파일 선택</button></div>
+        <textarea id="layoutIn" placeholder="stageNN_layout.tres 내용 붙여넣기"></textarea>
+      </div>
+      <div class="filebox" style="margin-top:6px;">
+        <div class="head"><code>stageNN.tres</code><button class="warn" id="pickStage">파일 선택</button></div>
+        <textarea id="stageIn" placeholder="stageNN.tres 내용 붙여넣기"></textarea>
+      </div>
+    </details>
+    <input type="file" id="fileDraft" accept=".json,application/json" style="display:none">
     <input type="file" id="fileLayout" accept=".tres" style="display:none">
     <input type="file" id="fileStage" accept=".tres" style="display:none">
     <div class="actions">
@@ -212,14 +216,14 @@
 <div class="overlay" id="libModal">
   <div class="modal">
     <h2>보관함 (이 브라우저)</h2>
-    <div class="hint">작업을 이 기기에 저장합니다. 기기 간 이동은 <b>프로젝트 JSON</b>으로.</div>
+    <div class="hint">작업을 이 기기에 저장합니다. 기기 간 이동은 <b>드래프트 JSON</b>으로.</div>
     <div id="libList" style="display:flex;flex-direction:column;gap:6px;"></div>
     <div class="actions" style="justify-content:space-between;">
       <span>
         <button id="saveLib" class="primary">현재 저장</button>
       </span>
       <span>
-        <button id="exportProj">프로젝트 JSON 복사</button>
+        <button id="exportProj">드래프트 JSON 복사</button>
         <button id="importProj">JSON 붙여넣기</button>
         <button data-close>닫기</button>
       </span>
@@ -230,8 +234,6 @@
 <script>
 "use strict";
 /* ===================== 상수 ===================== */
-const SCRIPT_UID_LAYOUT = "uid://xi30okhe70kg";   // scripts/core/StageLayoutData.gd
-const SCRIPT_UID_STAGE  = "uid://br1gfmwp8hvr3";  // scripts/core/StageData.gd
 // 뷰포트(project.godot display) — 카메라 프레임 환산용. 실제값 1644x1080.
 const VIEW_W = 1644, VIEW_H = 1080;
 const SKILL_IDS = ["builder","blocker","climber","floater","sand_mound","bridge","basher","digger","cutter","leaf_jump"];
@@ -239,16 +241,15 @@ const THEMES = ["cookie_crust","cookie_segment","thin_floor","cookie_bridge_tile
 
 // 타일/해저드 브러시 정의 — id는 StageLayoutBuilder kind 문자열과 1:1.
 const TILE_BRUSHES = [
-  {id:"solid",      label:"Solid 지면",   fill:"#eb9947", border:"#73411f"},
-  {id:"background", label:"Background",   fill:"#66422b", border:"#3d2617"},
-  {id:"plant",      label:"Plant 식물벽", fill:"#4da84d", border:"#296129"},
-  {id:"cookie",     label:"Cookie 불괴",  fill:"#99b3f2", border:"#5266a0"},
-  {id:"slope_right",label:"Slope ◢",      fill:"#eb9947", border:"#73411f"},
-  {id:"slope_left", label:"Slope ◣",      fill:"#eb9947", border:"#73411f"},
+  {id:"solid",      label:"흙 타일",        fill:"#eb9947", border:"#73411f"},
+  {id:"background", label:"배경 (충돌 안함)", fill:"#66422b", border:"#3d2617"},
+  {id:"plant",      label:"덩굴",           fill:"#4da84d", border:"#296129"},
+  {id:"cookie",     label:"파괴 불가 벽",    fill:"#99b3f2", border:"#5266a0"},
+  {id:"sand_mound", label:"사다리",         fill:"#d8a85a", border:"#8a6b2e"},
 ];
 const HAZARD_BRUSHES = [
-  {id:"water",  label:"Water 즉사",  fill:"rgba(77,158,255,.6)", border:"#1f4fa0"},
-  {id:"sticky", label:"Sticky 점착", fill:"rgba(209,133,41,.7)", border:"#8a5410"},
+  {id:"water",  label:"물",        fill:"rgba(77,158,255,.6)", border:"#1f4fa0"},
+  {id:"sticky", label:"점착 타일", fill:"rgba(209,133,41,.7)", border:"#8a5410"},
 ];
 const MARKER_BRUSHES = [
   {id:"home",       label:"H 집",     fill:"#2ed85c"},
@@ -256,7 +257,7 @@ const MARKER_BRUSHES = [
   {id:"camera",     label:"K 카메라", fill:"#59a6ff"},
   {id:"settlement", label:"S 정착",   fill:"#d9bf33"},
 ];
-const ERASE_BRUSH = {id:"erase", label:"Erase 지우개", fill:"#33353d", border:"#55585f"};
+const ERASE_BRUSH = {id:"erase", label:"지우기", fill:"#33353d", border:"#55585f"};
 const TILE_IDS = TILE_BRUSHES.map(b=>b.id);
 const HAZARD_IDS = HAZARD_BRUSHES.map(b=>b.id);
 const MARKER_IDS = MARKER_BRUSHES.map(b=>b.id);
@@ -435,6 +436,18 @@ function drawTile(c,type){
     ctx.closePath();ctx.fill();ctx.stroke();
     return;
   }
+  if(type==="sand_mound"){
+    const sm=TILE_BRUSHES.find(t=>t.id==="sand_mound");
+    ctx.fillStyle=sm.fill; ctx.fillRect(p.x,p.y,z,z);
+    ctx.strokeStyle=sm.border; ctx.lineWidth=1; ctx.strokeRect(p.x+.5,p.y+.5,z-1,z-1);
+    // 사다리 발판(rung) 2줄 — solid와 한눈에 구분.
+    ctx.strokeStyle="#5a4420"; ctx.lineWidth=Math.max(1,z*0.09);
+    ctx.beginPath();
+    ctx.moveTo(p.x+z*0.22,p.y+z*0.34); ctx.lineTo(p.x+z*0.78,p.y+z*0.34);
+    ctx.moveTo(p.x+z*0.22,p.y+z*0.66); ctx.lineTo(p.x+z*0.78,p.y+z*0.66);
+    ctx.stroke();
+    return;
+  }
   const b=TILE_BRUSHES.find(t=>t.id===type)||TILE_BRUSHES[0];
   ctx.fillStyle=b.fill; ctx.fillRect(p.x,p.y,z,z);
   ctx.strokeStyle=b.border; ctx.lineWidth=1; ctx.strokeRect(p.x+.5,p.y+.5,z-1,z-1);
@@ -579,70 +592,8 @@ $("zoomIn").onclick=()=>zoomBy(1.2);
 $("zoomOut").onclick=()=>zoomBy(1/1.2);
 $("zoomFit").onclick=zoomFit;
 
-/* ===================== 직렬화(.tres) ===================== */
-function vec(c){return `Vector2i(${c.x}, ${c.y})`;}
-function gdFloat(v){return Number.isInteger(v)?v.toFixed(1):String(v);}
-function gdStr(s){return String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"');}
-function sortKeys(obj){
-  return Object.keys(obj).sort((a,b)=>{
-    const A=parseCellKey(a),B=parseCellKey(b); return (A.x-B.x)||(A.y-B.y);
-  });
-}
-function dictBlock(name,obj){
-  const ks=sortKeys(obj); if(!ks.length) return null;
-  const body=ks.map((k,i)=>`"${k}": "${obj[k]}"${i<ks.length-1?",":""}`).join("\n");
-  return `${name} = {\n${body}\n}`;
-}
-function serializeLayout(st){
-  const uid = st.layoutUid || `uid://cndylayout${pad2(st.stageId)}`;
-  const L=[];
-  L.push(`[gd_resource type="Resource" script_class="StageLayoutData" format=3 uid="${uid}"]`);
-  L.push("");
-  L.push(`[ext_resource type="Script" uid="${SCRIPT_UID_LAYOUT}" path="res://scripts/core/StageLayoutData.gd" id="${st.layoutScriptId}"]`);
-  L.push("");
-  L.push("[resource]");
-  L.push(`script = ExtResource("${st.layoutScriptId}")`);
-  L.push(`cell_size = ${st.cellSize}`);
-  L.push(`home_cell = ${vec(st.homeCell)}`);
-  L.push(`candy_cell = ${vec(st.candyCell)}`);
-  L.push(`camera_cell = ${vec(st.cameraCell)}`);
-  L.push(`spawn_direction = ${st.spawnDirection}`);
-  if(st.spawnAlternate) L.push(`spawn_direction_alternate = true`);
-  if(st.theme && st.theme!=="cookie_crust") L.push(`theme = "${st.theme}"`);
-  if(st.settlementOn) L.push(`settlement_cell = ${vec(st.settlementCell)}`);
-  const tm=dictBlock("tile_map",st.tileMap); if(tm) L.push(tm);
-  const hm=dictBlock("hazard_map",st.hazardMap); if(hm) L.push(hm);
-  return L.join("\n")+"\n";
-}
-function serializeStage(st){
-  const id2=pad2(st.stageId);
-  const uid = st.stageUid || `uid://cndystage${id2}`;
-  const known=SKILL_IDS.filter(id=>(st.skills[id]||0)>0);
-  const extra=Object.keys(st.extraSkills||{}).filter(id=>!SKILL_IDS.includes(id)&&(st.extraSkills[id]||0)>0);
-  const all=[...known,...extra];
-  const invOf=id=>SKILL_IDS.includes(id)?st.skills[id]:st.extraSkills[id];
-  const L=[];
-  L.push(`[gd_resource type="Resource" script_class="StageData" format=3 uid="${uid}"]`);
-  L.push("");
-  L.push(`[ext_resource type="Script" uid="${SCRIPT_UID_STAGE}" path="res://scripts/core/StageData.gd" id="${st.stageScriptId}"]`);
-  L.push(`[ext_resource type="Resource" path="res://data/stage_layouts/stage${id2}_layout.tres" id="${st.layoutRefId}"]`);
-  L.push("");
-  L.push("[resource]");
-  L.push(`script = ExtResource("${st.stageScriptId}")`);
-  L.push(`id = ${st.stageId}`);
-  L.push(`display_name = "${gdStr(st.name)}"`);
-  L.push(`layout = ExtResource("${st.layoutRefId}")`);
-  L.push(`total_ants = ${st.totalAnts}`);
-  L.push(`candy_hp = ${st.candyHp}`);
-  L.push(`time_limit_seconds = ${gdFloat(st.timeLimit)}`);
-  if(all.length){
-    L.push(`available_skills = Array[String]([${all.map(id=>`"${id}"`).join(", ")}])`);
-    const inv=all.map((id,i)=>`"${id}": ${invOf(id)}${i<all.length-1?",":""}`).join("\n");
-    L.push(`skill_inventory = {\n${inv}\n}`);
-  }
-  L.push(`release_rate_initial = ${st.releaseRate}`);
-  return L.join("\n")+"\n";
-}
+/* (.tres 직렬화 제거 — 이 툴은 드래프트 JSON 전용. 실 스테이지는 Godot dock에서
+   "웹 드래프트 가져오기" → 실행으로 클리어 검증 후 Save 해 생성한다.) */
 
 /* ===================== 파싱(import) ===================== */
 function reHeaderUid(t){const m=t.match(/\[gd_resource[^\]]*\buid="([^"]+)"/);return m?m[1]:null;}
@@ -716,12 +667,8 @@ function refreshExtraHint(){
 
 /* ===================== Export / Import / 모달 ===================== */
 function openExport(){
-  const id2=pad2(S.stageId);
-  $("layoutPath").textContent=`data/stage_layouts/stage${id2}_layout.tres`;
-  $("stagePath").textContent=`data/stages/stage${id2}.tres`;
-  $("layoutOut").value=serializeLayout(S);
-  $("stageOut").value=serializeStage(S);
   validate();
+  $("draftOut").value=JSON.stringify(toProject(S),null,2);
   show("exportModal");
 }
 function download(name,text){
@@ -729,40 +676,39 @@ function download(name,text){
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
-$("exportBtn").onclick=openExport;
-document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>{
-  const ta=$(b.dataset.copy);
-  if(navigator.clipboard&&navigator.clipboard.writeText)
-    navigator.clipboard.writeText(ta.value).then(()=>flash(b,"복사됨")).catch(()=>selectTA(ta,b));
-  else selectTA(ta,b);
-});
-function selectTA(ta,b){ta.focus();ta.select();flash(b,"전체선택→복사");}
 function flash(b,t){const o=b.textContent;b.textContent=t;setTimeout(()=>b.textContent=o,1200);}
-document.querySelectorAll("[data-dl]").forEach(b=>b.onclick=()=>{
-  const id2=pad2(S.stageId);
-  if(b.dataset.dl==="layout")download(`stage${id2}_layout.tres`,$("layoutOut").value);
-  else if(b.dataset.dl==="stage")download(`stage${id2}.tres`,$("stageOut").value);
-  else { download(`stage${id2}_layout.tres`,$("layoutOut").value);
-         setTimeout(()=>download(`stage${id2}.tres`,$("stageOut").value),300); }
-});
+function copyText(ta,b){
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(ta.value).then(()=>flash(b,"복사됨")).catch(()=>{ta.focus();ta.select();flash(b,"전체선택→복사");});
+  else { ta.focus();ta.select();flash(b,"전체선택→복사"); }
+}
+$("exportBtn").onclick=openExport;
+$("copyDraft").onclick=()=>copyText($("draftOut"),$("copyDraft"));
+$("dlDraft").onclick=()=>download(`stage${pad2(S.stageId)}_draft.json`,$("draftOut").value);
 
-$("importBtn").onclick=()=>{ $("layoutIn").value=""; $("stageIn").value=""; show("importModal"); };
+$("importBtn").onclick=()=>{ $("draftIn").value=""; $("layoutIn").value=""; $("stageIn").value=""; show("importModal"); };
 $("doImport").onclick=()=>{
-  const lt=$("layoutIn").value.trim(), stt=$("stageIn").value.trim();
-  if(!lt&&!stt){ setStatus("붙여넣은 내용이 없습니다.","err"); return; }
-  if(stt) importStage(stt,S);
-  if(lt) importLayout(lt,S);
+  const dj=$("draftIn").value.trim(), lt=$("layoutIn").value.trim(), stt=$("stageIn").value.trim();
+  if(dj){
+    try{ S=fromProject(JSON.parse(dj)); }
+    catch(e){ setStatus("드래프트 JSON 파싱 실패","err"); return; }
+  } else if(lt||stt){
+    if(stt) importStage(stt,S);
+    if(lt) importLayout(lt,S);
+  } else { setStatus("붙여넣은 내용이 없습니다.","err"); return; }
   stateToControls(); zoomFit(); autosave(); hide("importModal");
-  setStatus("불러왔습니다. uid·id 보존됨.","ok");
+  setStatus("불러왔습니다.","ok");
 };
+$("pickDraft").onclick=()=>$("fileDraft").click();
 $("pickLayout").onclick=()=>$("fileLayout").click();
 $("pickStage").onclick=()=>$("fileStage").click();
+$("fileDraft").onchange=e=>readFile(e.target.files[0],t=>$("draftIn").value=t);
 $("fileLayout").onchange=e=>readFile(e.target.files[0],t=>$("layoutIn").value=t);
 $("fileStage").onchange=e=>readFile(e.target.files[0],t=>$("stageIn").value=t);
 function readFile(f,cb){if(!f)return;const r=new FileReader();r.onload=()=>cb(r.result);r.readAsText(f);}
 
 $("newBtn").onclick=()=>{
-  if(!confirm("현재 작업을 비우고 새로 시작할까요? (보관함/Export는 유지)"))return;
+  if(!confirm("현재 작업을 비우고 새로 시작할까요? (보관함은 유지)"))return;
   S=freshState(); stateToControls(); zoomFit(); autosave(); setStatus("새 스테이지","ok");
 };
 
@@ -787,14 +733,12 @@ function setStatus(t,cls){const s=$("status");s.textContent=t;s.className="statu
 const AUTOSAVE="candyants_le_autosave", LIBKEY="candyants_le_library";
 let saveTimer=null;
 function toProject(st){return JSON.parse(JSON.stringify({
-  v:1, stageId:st.stageId,name:st.name,cellSize:st.cellSize,
+  format:"candyants-level-draft", v:1, stageId:st.stageId,name:st.name,cellSize:st.cellSize,
   homeCell:st.homeCell,candyCell:st.candyCell,cameraCell:st.cameraCell,
   settlementOn:st.settlementOn,settlementCell:st.settlementCell,
   spawnDirection:st.spawnDirection,spawnAlternate:st.spawnAlternate,theme:st.theme,
   totalAnts:st.totalAnts,candyHp:st.candyHp,timeLimit:st.timeLimit,releaseRate:st.releaseRate,
   skills:st.skills,extraSkills:st.extraSkills,tileMap:st.tileMap,hazardMap:st.hazardMap,
-  layoutUid:st.layoutUid,stageUid:st.stageUid,layoutScriptId:st.layoutScriptId,
-  stageScriptId:st.stageScriptId,layoutRefId:st.layoutRefId,
 }));}
 function fromProject(o){const st=freshState();Object.assign(st,o);
   st.skills=Object.assign(Object.fromEntries(SKILL_IDS.map(id=>[id,0])),o.skills||{});
@@ -838,11 +782,11 @@ function renderLib(){
 $("exportProj").onclick=()=>{
   const txt=JSON.stringify(toProject(S));
   if(navigator.clipboard&&navigator.clipboard.writeText)
-    navigator.clipboard.writeText(txt).then(()=>setStatus("프로젝트 JSON 복사됨","ok")).catch(()=>promptCopy(txt));
+    navigator.clipboard.writeText(txt).then(()=>setStatus("드래프트 JSON 복사됨","ok")).catch(()=>promptCopy(txt));
   else promptCopy(txt);
 };
 $("importProj").onclick=()=>{
-  const txt=prompt("프로젝트 JSON 붙여넣기:");
+  const txt=prompt("드래프트 JSON 붙여넣기:");
   if(!txt)return;
   try{S=fromProject(JSON.parse(txt));stateToControls();zoomFit();autosave();hide("libModal");setStatus("JSON 불러옴","ok");}
   catch(e){setStatus("JSON 파싱 실패","err");}
