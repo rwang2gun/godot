@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://v5vqwunp8yb5"]
+
+[ext_resource type="Resource" uid="uid://uswdbqdeut6g" path="res://data/stage_layouts/stage18_layout.tres" id="1_m8ntq"]
+[ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="2_2f5bt"]
+
+[resource]
+script = ExtResource("2_2f5bt")
+id = 18
+display_name = "방향 전환"
+layout = ExtResource("1_m8ntq")
+total_ants = 9
+candy_hp = 5
+time_limit_seconds = 100.0
+available_skills = Array[String](["blocker", "climber", "floater"])
+skill_inventory = {
+"blocker": 2,
+"climber": 5,
+"floater": 2
+}
+release_rate_initial = 30

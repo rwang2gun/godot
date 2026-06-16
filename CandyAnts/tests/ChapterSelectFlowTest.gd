@@ -36,8 +36,8 @@ func _case_states_fresh() -> void:
 
 func _case_states_after_ch1_clear() -> void:
 	_reset()
-	# Ch1=[1,11,12,13,14,2] 전부 클리어 (B1에서 신규 11~14 삽입 — 챕터 CLEARED는 전 스테이지 요구)
-	for sid in [1, 11, 12, 13, 14, 2]:
+	# Ch1=[1,11,12,13,14,2,15,16,17,18] 전부 클리어 (챕터 CLEARED는 전 스테이지 요구 — 15~18 등록 2026-06-17)
+	for sid in [1, 11, 12, 13, 14, 2, 15, 16, 17, 18]:
 		SaveData.record_clear(sid, 10, 10)
 	var cs: ChapterSelect = await _make()
 	_expect(cs, 1, ChapterSelect.ChapterState.CLEARED, "ch1 CLEARED after all Ch1 cleared")

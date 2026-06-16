@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://lqrs8absgo0a"]
+
+[ext_resource type="Resource" uid="uid://mcipg68p7a4b" path="res://data/stage_layouts/stage17_layout.tres" id="1_ox0aq"]
+[ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="2_0wc13"]
+
+[resource]
+script = ExtResource("2_0wc13")
+id = 17
+display_name = "낭떠러지 끝 3"
+layout = ExtResource("1_ox0aq")
+total_ants = 8
+candy_hp = 5
+time_limit_seconds = 100.0
+available_skills = Array[String](["blocker", "floater"])
+skill_inventory = {
+"blocker": 3,
+"floater": 2
+}
+release_rate_initial = 30

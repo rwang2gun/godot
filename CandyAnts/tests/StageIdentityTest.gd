@@ -1,6 +1,6 @@
 extends Node
 
-# campaign-50 B1 가드 (plan H-4) — 신규 스테이지 11~14의 정체성(scene_id) 정합 검증.
+# campaign-50 B1 가드 (plan H-4) — 신규 스테이지 11~18의 정체성(scene_id) 정합 검증.
 # 트리오 copy/repoint 저작에서 생기는 silent 오참조(예: Stage12.tscn이 stage11.tres를 참조,
 # stage12.tres의 id가 11로 잔존)를 발행 전에 차단한다.
 #   1) data/stages/stageNN.tres 의 StageData.id == NN
@@ -8,7 +8,7 @@ extends Node
 #   3) 검사 대상 간 id 중복 0
 # instantiate()만 하고 add_child하지 않으므로 _ready 부작용(스폰 등) 없음.
 
-const TARGET_IDS: Array[int] = [11, 12, 13, 14]
+const TARGET_IDS: Array[int] = [11, 12, 13, 14, 15, 16, 17, 18]
 
 var _failed: bool = false
 
