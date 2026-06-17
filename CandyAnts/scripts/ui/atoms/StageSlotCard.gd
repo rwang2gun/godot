@@ -46,9 +46,23 @@ func _ready() -> void:
 	_apply_focus_halo_style()
 	_apply_state()
 	_apply_text()
+	_make_content_click_through()
 	focus_entered.connect(func(): _focus_halo.visible = true)
 	focus_exited.connect(func(): _focus_halo.visible = false)
 	_focus_halo.visible = has_focus()
+
+# 카드 내부 콘텐츠(별 Star1~3·라벨·VBox·패널·badge)는 시각 전용이다. 자식 Control의 기본 mouse_filter가
+# STOP이면 그 영역 클릭을 흡수해 부모 Button(self)으로 넘기지 않는다 → "별 부분 클릭 시 선택 안 됨 /
+# 여러 번 눌러야 가끔 됨"(2026-06-17). 모든 후손 Control을 IGNORE로 만들어 카드 어디를 눌러도 Button이
+# 입력을 받게 한다. self(Button)는 건드리지 않아 STOP 유지(클릭 수신).
+func _make_content_click_through() -> void:
+	_set_ignore_recursive(self)
+
+func _set_ignore_recursive(node: Node) -> void:
+	for child in node.get_children():
+		if child is Control:
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_set_ignore_recursive(child)
 
 func set_state(s: SlotState) -> void:
 	slot_state = s
