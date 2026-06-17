@@ -1,56 +1,72 @@
 extends Node
 
-# Campaign scene_id 12 "낭떠러지 끝" (Ch1 slot3) — blocker 도입(NEW) 클리어 가능성 검증.
-# 지면 cols0-17, 우측 끝은 water 절벽(cols18+ 바다). spawn(col9)은 home(col2)·candy(col5)의
-# *오른쪽*(spawn≠home) → 우향 행진은 무보정 시 candy를 등진 채 전원 절벽 익사.
-# 플레이어 모사: 최전방 walker가 절벽 직전 col14.5(x>=696) 도달 시 BlockerSkill 1개 적용(인벤토리 전량)
-#   → 후속 무리 반전 → 좌향 candy(col5) 픽업(픽업 시 자동 반전=우향) → blocker에 다시 튕겨 좌향
-#   → home(col2) 귀가. blocker가 진입(반전)과 귀환(재반전) 양쪽에서 필수.
-#   공통 계약 §왕복 동선: Home·Candy 둘 다 blocker 왼쪽 + Home이 좌측 끝 → 빈손 좌향 개미는
-#   candy를 먼저 만나고(Home.gd의 좌향 빈손 흡수보다 앞) 운반자는 home에서 종착.
-# PASS: stage_cleared && saved>=original_hp (blocker 반전 경로가 실제 동작함을 입증).
-# FAIL: stage_failed / deadline.
+# Campaign scene_id 12 "사다리 오르기" — blocker 클리어 검증 (2026-06-18 재작성).
+# (이전 드라이버는 옛 레벨 가정 blocker@x696 1개 → 현재 구조와 불일치로 미발동·실패.)
+#
+# 구조(spawn_direction=-1, 좌향): 4층 수직.
+#   하단 row13(col0-18, spawn/home col6) →[col12 사다리 row11-12]→ 중간2 row10(col4-18)
+#   →[col8 사다리 row8-9]→ 중간1 row7(col5-18) →[col13 사다리 row5-6]→ 상단 row4(col6-18, candy col16).
+#   양옆 물(col<0, col>18).
+# 자연 동선(스킬0): 하단서 좌향 → col<0 물에 전멸(관찰 실증).
+# 솔루션: 하단 spawn 왼쪽(col5)에 blocker로 좌향 차단 → 우향 → col12 사다리부터 3단 등반
+#   → candy(상단 col16) 픽업 → 역경로 귀환. inventory blocker:3.
+# 우선 좌향 차단 blocker 1개로 시도(부족 시 상단 층 유도 blocker 추가).
+# PASS: stage_cleared && saved>=hp. FAIL: stage_failed / deadline.
 
 const DEADLINE_FRAMES: int = 16000
-const BLOCKER_X: float = 696.0
+const LEFT_BLOCK_X: float = 264.0   # col5 — 하단 spawn(col6) 좌향 차단점
 
-var _blocker_id: int = 0
+var _left_blocker_id: int = 0
 var _frame: int = 0
 var _done: bool = false
 
 func _ready() -> void:
 	EventBus.stage_cleared.connect(_on_cleared)
 	EventBus.stage_failed.connect(_on_failed)
-	print("[CampaignS12ClearTest] driver ready blocker_x=", BLOCKER_X)
+	print("[CampaignS12ClearTest] driver ready left_block_x=", LEFT_BLOCK_X)
 
 func _physics_process(_delta: float) -> void:
 	if _done:
 		return
 	_frame += 1
-	_apply_blocker()
+	_apply_left_blocker()
+	if _frame % 120 == 0:
+		_trace()
 	if _frame > DEADLINE_FRAMES:
-		_fail("deadline — blocker_placed=%s" % str(_blocker_id != 0))
+		_fail("deadline — left_blocker=%s" % str(_left_blocker_id != 0))
 
-func _apply_blocker() -> void:
-	if _blocker_id != 0:
+func _apply_left_blocker() -> void:
+	if _left_blocker_id != 0:
 		return
-	var front: Ant = null
+	# 하단(y>560)에서 좌향 선두(가장 왼쪽) walker가 차단점 도달 시 blocker.
+	var lead: Ant = null
 	for n in get_tree().get_nodes_in_group("ants"):
 		var a: Ant = n as Ant
 		if a == null or not is_instance_valid(a) or a.state_machine == null:
 			continue
 		if not (a.state_machine.current_state is WalkerState):
 			continue
-		if front == null or a.global_position.x > front.global_position.x:
-			front = a
-	if front == null or front.global_position.x < BLOCKER_X:
+		if a.global_position.y < 560.0:
+			continue
+		if lead == null or a.global_position.x < lead.global_position.x:
+			lead = a
+	if lead == null or lead.global_position.x > LEFT_BLOCK_X:
 		return
 	var skill: BlockerSkill = BlockerSkill.new()
-	if not skill.can_apply(front):
+	if not skill.can_apply(lead):
 		return
-	skill.apply(front)
-	_blocker_id = front.get_instance_id()
-	print("[CampaignS12ClearTest] blocker → %s pos=%s frame=%d" % [front.name, front.global_position, _frame])
+	skill.apply(lead)
+	_left_blocker_id = lead.get_instance_id()
+	print("[CampaignS12ClearTest] left blocker → %s pos=%s frame=%d" % [lead.name, lead.global_position, _frame])
+
+func _trace() -> void:
+	var parts: Array[String] = []
+	for n in get_tree().get_nodes_in_group("ants"):
+		var a := n as Node2D
+		if a == null or not is_instance_valid(a):
+			continue
+		parts.append("(%d,%d)" % [int(a.global_position.x), int(a.global_position.y)])
+	print("[CampaignS12ClearTest] trace f=%d n=%d %s" % [_frame, parts.size(), " ".join(parts)])
 
 func _on_cleared(result: Dictionary) -> void:
 	if _done:
