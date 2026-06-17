@@ -3,7 +3,6 @@ class_name FloaterSkill extends Skill
 const ID: String = "floater"
 
 const _MARKER_SCENE := preload("res://scenes/world/SettlementMarker.tscn")
-const _DROPPED_CANDY_SCENE := preload("res://scenes/world/DroppedCandy.tscn")
 
 # 낙하산 분배자 (2026-06-03 재설계, B안). 적용 즉시 그 자리에 정착해 지나가는 개미에게
 # slow-fall(floater) 트레잇을 분배한다.
@@ -35,12 +34,8 @@ func can_apply(ant: Ant) -> bool:
 func apply(ant: Ant) -> void:
 	if ant == null or ant.state_machine == null:
 		return
-	# 운반 중이면 사탕 드롭 — 즉시 lost 회계 + 바닥에 재획득 가능한 DroppedCandy 생성.
-	if ant.has_candy:
-		ant.has_candy = false
-		EventBus.sfx_request.emit(&"candy_lost")
-		EventBus.candy_piece_lost.emit(ant)
-		_spawn_dropped_candy(ant)
+	# 운반 중이면 사탕 드롭 — 즉시 lost 회계 + 바닥에 재획득 가능한 DroppedCandy 생성(Skill 공용 헬퍼).
+	_drop_carried_candy(ant)
 	# 분배자 본인은 floater 트레잇 보유(정착 후 낙하 안 하므로 무해) → 전이 화이트리스트가 floater 분배.
 	ant.set_trait(&"floater")
 	ant.set_trait(&"distributor")
@@ -56,11 +51,3 @@ func _spawn_marker(ant: Ant) -> void:
 	parent.add_child(marker)
 	marker.global_position = ant.global_position
 	marker.bind_distributor(ant)
-
-func _spawn_dropped_candy(ant: Ant) -> void:
-	var parent: Node = ant.get_parent()
-	if parent == null:
-		return
-	var dc: Node2D = _DROPPED_CANDY_SCENE.instantiate() as Node2D
-	parent.add_child(dc)
-	dc.global_position = ant.global_position
