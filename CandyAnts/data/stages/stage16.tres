@@ -6,9 +6,9 @@
 [resource]
 script = ExtResource("2_m8qrn")
 id = 16
-display_name = "낭떠러지 끝 2"
+display_name = "번지 점프"
 layout = ExtResource("1_f4xm6")
-total_ants = 8
+total_ants = 9
 candy_hp = 5
 time_limit_seconds = 100.0
 available_skills = Array[String](["blocker", "floater"])

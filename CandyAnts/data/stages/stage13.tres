@@ -1,12 +1,12 @@
 [gd_resource type="Resource" script_class="StageData" format=3 uid="uid://cndystage13"]
 
 [ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="1"]
-[ext_resource type="Resource" path="res://data/stage_layouts/stage13_layout.tres" id="1_lay"]
+[ext_resource type="Resource" uid="uid://cndylayout13" path="res://data/stage_layouts/stage13_layout.tres" id="1_lay"]
 
 [resource]
 script = ExtResource("1")
 id = 13
-display_name = "방향 전환"
+display_name = "달콤한 냄새"
 layout = ExtResource("1_lay")
 total_ants = 6
 candy_hp = 5

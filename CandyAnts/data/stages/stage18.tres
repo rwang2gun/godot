@@ -6,15 +6,15 @@
 [resource]
 script = ExtResource("2_2f5bt")
 id = 18
-display_name = "방향 전환"
+display_name = "동굴 탐험"
 layout = ExtResource("1_m8ntq")
-total_ants = 9
+total_ants = 8
 candy_hp = 5
 time_limit_seconds = 100.0
 available_skills = Array[String](["blocker", "climber", "floater"])
 skill_inventory = {
 "blocker": 2,
 "climber": 5,
-"floater": 2
+"floater": 1
 }
 release_rate_initial = 30

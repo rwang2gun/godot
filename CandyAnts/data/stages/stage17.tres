@@ -6,14 +6,13 @@
 [resource]
 script = ExtResource("2_0wc13")
 id = 17
-display_name = "낭떠러지 끝 3"
+display_name = "돌고 도는 길"
 layout = ExtResource("1_ox0aq")
-total_ants = 8
+total_ants = 9
 candy_hp = 5
 time_limit_seconds = 100.0
-available_skills = Array[String](["blocker", "floater"])
+available_skills = Array[String](["blocker"])
 skill_inventory = {
-"blocker": 3,
-"floater": 2
+"blocker": 4
 }
 release_rate_initial = 30

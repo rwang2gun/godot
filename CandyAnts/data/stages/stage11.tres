@@ -1,18 +1,18 @@
 [gd_resource type="Resource" script_class="StageData" format=3 uid="uid://cndystage11"]
 
 [ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="1"]
-[ext_resource type="Resource" path="res://data/stage_layouts/stage11_layout.tres" id="1_lay"]
+[ext_resource type="Resource" uid="uid://cndylayout11" path="res://data/stage_layouts/stage11_layout.tres" id="1_lay"]
 
 [resource]
 script = ExtResource("1")
 id = 11
-display_name = "담을 넘어"
+display_name = "물놀이 금지"
 layout = ExtResource("1_lay")
 total_ants = 5
-candy_hp = 5
+candy_hp = 4
 time_limit_seconds = 90.0
-available_skills = Array[String](["climber"])
+available_skills = Array[String](["blocker"])
 skill_inventory = {
-"climber": 5
+"blocker": 1
 }
 release_rate_initial = 30
