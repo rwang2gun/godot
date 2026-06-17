@@ -3,7 +3,8 @@ extends Node
 # Phase 13 — plan Δ15. SlotState priority + 4 state.
 # campaign-50 Phase A — StageSelect 챕터 컨텍스트화. menu_layout 고정 10슬롯 폐기 →
 #   current_chapter 주입 후 Campaign.stage_ids_in_chapter로 가변 슬롯 생성. 슬롯 상태는
-#   Campaign(매니페스트 순서) 언락 기반. 라이브 매니페스트 Ch1=[1,2] · Ch2=[3,4,5].
+#   Campaign(매니페스트 순서) 언락 기반.
+# campaign-50 B1 — 라이브 매니페스트 Ch1=[1,11,12,13,14,2,15,16,17,18](15~18 등록 2026-06-17) · Ch2=[3,4,5].
 
 const StageSelectScene := preload("res://scenes/ui/StageSelect.tscn")
 const TEST_PATH := "user://test_savedata_select_unlock.cfg"
@@ -21,7 +22,8 @@ func _ready() -> void:
 	print("[StageSelectUnlockTest] PASS")
 	get_tree().quit(0)
 
-# Ch1=[1,2]: stage1 cleared → slot1=CLEARED, slot2=PLAYABLE(prev=1 cleared).
+# Ch1=[1,11,12,13,14,2,15,16,17,18]: stage1 cleared → slot1=CLEARED, slot2(id11)=PLAYABLE(prev=1 cleared),
+# slot3~10(id12,13,14,2,15,16,17,18)=LOCKED (15~18 등록 2026-06-17으로 10칸 꽉 참 — placeholder 없음).
 func _case_chapter1_initial() -> void:
 	_reset()
 	SaveData.record_clear(1, 6, 10)
@@ -30,19 +32,34 @@ func _case_chapter1_initial() -> void:
 	add_child(node)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	# campaign-50: 챕터당 10칸 고정(SLOTS_PER_CHAPTER). Ch1=[1,2] → 실제 2칸 + placeholder 8칸.
+	# campaign-50: 챕터당 10칸 고정(SLOTS_PER_CHAPTER). Ch1=10 실제(placeholder 없음).
 	var grid: GridContainer = node.get_node("MarginContainer/VBox/SlotGrid")
 	if grid.get_child_count() != 10:
 		node.queue_free()
 		return _fail("chapter1 expected 10 slots, got %d" % grid.get_child_count())
-	# 실제 2칸 상태 + 나머지 8칸은 COMING_SOON placeholder.
-	var expected := [StageSlotCard.SlotState.CLEARED, StageSlotCard.SlotState.PLAYABLE]
+	# 실제 6칸 상태 + 나머지 4칸은 COMING_SOON placeholder.
+	var expected := [
+		StageSlotCard.SlotState.CLEARED,   # id1 (cleared)
+		StageSlotCard.SlotState.PLAYABLE,  # id11 (prev=1 cleared)
+		StageSlotCard.SlotState.LOCKED,    # id12
+		StageSlotCard.SlotState.LOCKED,    # id13
+		StageSlotCard.SlotState.LOCKED,    # id14
+		StageSlotCard.SlotState.LOCKED,    # id2 (slot6 재배치 — prev=14 미클리어)
+		StageSlotCard.SlotState.LOCKED,    # id15
+		StageSlotCard.SlotState.LOCKED,    # id16
+		StageSlotCard.SlotState.LOCKED,    # id17
+		StageSlotCard.SlotState.LOCKED,    # id18
+	]
 	for i in 10:
 		var card: StageSlotCard = grid.get_child(i) as StageSlotCard
 		var want: int = expected[i] if i < expected.size() else StageSlotCard.SlotState.COMING_SOON
 		if card.slot_state != want:
 			node.queue_free()
 			return _fail("ch1 slot[%d] state expected %d, got %d" % [i, want, card.slot_state])
+		# LOW-2: placeholder는 상태뿐 아니라 stage_id==0(미등재 sentinel)까지 단언.
+		if i >= expected.size() and card.stage_id != 0:
+			node.queue_free()
+			return _fail("ch1 placeholder slot[%d] stage_id expected 0, got %d" % [i, card.stage_id])
 	# total_stars label 포맷 유지
 	var label: Label = node.get_node("MarginContainer/VBox/Footer/TotalStarsLabel")
 	if not label.text.begins_with("수확한 별 ★"):
@@ -52,11 +69,11 @@ func _case_chapter1_initial() -> void:
 	await get_tree().process_frame
 	print("[StageSelectUnlockTest] case chapter1 initial OK")
 
-# Ch2=[3,4,5]: stage1,2 cleared → slot3=PLAYABLE(prev=2 cleared), slot4·5=LOCKED.
+# Ch2=[3,4,5]: stage18(Ch1 마지막) cleared → slot3=PLAYABLE(prev=18), slot4·5=LOCKED.
+# (15~18 등록 2026-06-17으로 매니페스트 순서상 stage3 직전 = stage2 → stage18 이동.)
 func _case_chapter2_gating() -> void:
 	_reset()
-	SaveData.record_clear(1, 10, 10)
-	SaveData.record_clear(2, 10, 10)
+	SaveData.record_clear(18, 10, 10)
 	var node: StageSelect = StageSelectScene.instantiate()
 	node.current_chapter = 2
 	add_child(node)

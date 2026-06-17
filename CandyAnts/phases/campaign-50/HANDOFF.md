@@ -1,8 +1,15 @@
-# campaign-50 — 세션 핸드오프 (2026-06-09)
+# campaign-50 — 세션 핸드오프 (2026-06-10)
 
-> **다음 세션 재개 SoT.** 5챕터×10=50스테이지 캠페인 재설계. **Phase A(인프라) 완료·커밋됨**(`e704b0e`). **다음 = Phase B~(스테이지 콘텐츠 저작) 정의·시작.**
+> **다음 세션 재개 SoT.** 5챕터×10=50스테이지 캠페인 재설계. **Phase A(인프라) 완료**(`e704b0e`) · **Phase B1(ch1-front) 콘텐츠 완성·커밋**(stage11 `0af3192` + stage12~14·발행 `73d4da7`).
 
-## 0. 한 줄 상태 (2026-06-09 — Phase A 완료·커밋)
+## 0.1 한 줄 상태 (2026-06-10 — Phase B1 콘텐츠 완성)
+브랜치 `campaign-50-ch1-front`. **신규 스테이지 11~14 전부 저작 + 매니페스트 Ch1 `[1,11,12,13,14,2]` 발행 + Strings + 가드 2종(StageIdentity/ClearedPreservation) + 회귀 갱신 5종.** verify 14종 + 인접 회귀 ALL PASS. **다음 = ①사용자 수동 검증(인게임 Ch1 slot2~5 플레이) → ②`/codex:adversarial-review`(사용자 트리거) → ③`execute.py campaign-50 complete 2`.** B1 명시 defer: stage02 이름 rename("오르막")은 B2(plan MEDIUM-2).
+- **코어 발견(레벨 저작 규칙 추가)**: ①Home은 *좌향 빈손* 개미를 흡수→3s 후 spawn_direction으로 재방출(respawn 펌프) ②candy 픽업 시 자동 `flip()` → **candy를 home 너머(역방향)에 두는 배치 불가**. 해법 = **spawn≠home 패턴**(AntSpawner.spawn_position은 씬 독립): 무리를 home·candy *오른쪽*에서 출발시켜 blocker 반전으로 candy 유도. S12/S13/S14 전부 이 패턴.
+- **플랜 선식별 누락 회귀 2건**: ChapterSelectFlowTest(Ch1 전체클리어 케이스)·MainMenuNavTest(next_unlocked=11) — 라이브 매니페스트 하드코딩은 C-1/C-2/H-1 외에도 존재했음. 갱신 완료.
+- **Ch1 파라미터 고정 지침 (사용자 결정 2026-06-10, 설계 §2.2)**: candy_hp=5 고정 + total_ants=5+영구 소비 설치물 수(여분 0) + 소비형 인벤토리=필요 수 그대로. S11~S14 적용·재검증 완료(클리어=5/5). **stage01(total 8)·stage02(total 7) 정합화는 B2 sweep**(rename과 동일 묶음).
+- **Ch1 스킬 역할 렌즈 (사용자 방향, 2026-06-10 논의)**: 위험 돌파=blocker(수평 격리)·floater(수직 하강) / **climber=구한 사탕을 들고 올라오는 회수 도구**. 원형 2종 — 하강 진입형(분지: 진입 공짜·귀환 climber, S1·S13) vs 상승 진입형(메사: 진입 climber·귀환 floater, S2·S14). B2 저작 시 이 문법 적용(설계 문서 박제는 B2 착수 전 후보).
+
+## 0.2 (구) 한 줄 상태 (2026-06-09 — Phase A 완료·커밋)
 브랜치 `campaign-50`. **Phase A(campaign-infra) 완료 + 커밋 `e704b0e phase 1: campaign-infra`.** plan stage 리뷰 종결(Round 2 HIGH 0) + impl stage 리뷰 종결(**codex Round 2 verdict=approve**, 자체리뷰 2라운드 clean — `reviews/phase01-impl-review.md`). verify 6종 + 회귀 24종+ ALL PASS. **다음 = 신규 스테이지 콘텐츠 저작(Phase B1~): `Stage%02d.tscn` 작성 + `campaign_manifest.tres` 챕터 `stage_ids`에 append.** Phase B+ 정의는 metadata에 추가 필요(현재 phase 1만). 설계 SoT=`docs/CAMPAIGN_50_DESIGN.md`.
 
 ### Phase A 인프라 (커밋됨 — 재사용 진입점/규약)

@@ -65,12 +65,18 @@ func register_static_cell(cell: Vector2i) -> void:
 # Phase 18 — 정적 cell의 StaticBody2D를 cell-keyed registry에 등록.
 # StageLayoutBuilder.build()가 cell 생성 직후 호출 → destroy_tile_at 시 body 직접 queue_free 가능.
 # Dynamic _placed와 별도 — atomic destruction에서 둘 다 검사.
-func register_static_body(cell: Vector2i, body: StaticBody2D, kind: String = "earth") -> void:
+func register_static_body(cell: Vector2i, body: StaticBody2D, kind: String = "earth", ladder_sprite: Sprite2D = null) -> void:
 	if body == null:
 		return
 	_static_bodies[cell] = body
 	_cell_kind[cell] = kind
 	register_static_cell(cell)   # _static_occupancy 등록 — D8 first-place wins 자연 정합
+	# 정적 막대과자 사다리 타일(StageLayoutBuilder TILE_SAND_MOUND) — 동적 rung과 동일하게 _sand_mound_sprites에
+	# 등록해 is_ladder_cell=true로 만든다. 그러면 개미가 스킬 없이도 미리 깔린 사다리에 막혀 LadderClimbState로
+	# 수직 등반한다(등반 로직 무변경, is_ladder_cell이 단일 게이트). kind="earth"라 basher/digger destroy 시
+	# destroy_tile_at이 _sand_mound_sprites.erase → LadderClimbState 매-frame 지지검사 실패 → 즉시 FallerState.
+	if ladder_sprite != null:
+		_sand_mound_sprites[cell] = ladder_sprite
 
 # Phase 18 — cell 종류. "" = 미등록(공기 또는 hazard). "earth"/"plant" 등 명시 kind가 있을 때만 destroy 후보.
 func get_cell_kind(cell: Vector2i) -> String:

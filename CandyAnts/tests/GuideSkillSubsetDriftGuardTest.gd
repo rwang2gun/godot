@@ -13,8 +13,10 @@ extends Node
 #   - goal_key / skill_desc_keys / hazard_keys 가 모두 Strings 테이블에 존재
 #   - new_skill_id 가 SkillAffordance.SKILL_CATEGORY 에 존재(배지 파생 가능)
 
-# S1~S8 가이드 구간(S9는 신규 0 → 가이드 파일 없음, 카드 생략).
-const GUIDE_STAGES := [1, 2, 3, 4, 5, 6, 7, 8]
+# S1~S8 + S11(blocker 재배치 2026-06-17) 가이드 구간. S9·S10·S12~S14는 가이드 파일 없음(카드 생략).
+# 주의: 가드는 stage 번호 순으로 first-use를 누적한다 — blocker는 S1~S8에 없고(stage02는 floater-only로 이관)
+# S11에서 처음 available이라 S11에서 first-introduced로 잡혀 정합이 성립한다(climber는 S1 등장 → 복습이라 미카드).
+const GUIDE_STAGES := [1, 2, 3, 4, 5, 6, 7, 8, 11]
 
 func _ready() -> void:
 	var failures: Array[String] = []

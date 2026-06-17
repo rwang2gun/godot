@@ -4,7 +4,7 @@ duration_estimate: 14400
 verify: python scripts/run_test.py tests/CampaignManifestTest.tscn && python scripts/run_test.py tests/CampaignUnlockOrderTest.tscn && python scripts/run_test.py tests/SceneFlowChapterFlowTest.tscn && python scripts/run_test.py tests/ChapterSelectFlowTest.tscn && python scripts/run_test.py tests/GameFlowTest.tscn && python scripts/run_test.py tests/CampaignS1ClearTest.tscn
 large_change_ok: true
 sot: docs/CAMPAIGN_50_DESIGN.md
-sot_aux: [scripts/core/SceneFlow.gd, scripts/core/SaveData.gd, scripts/core/MenuLayout.gd, scripts/ui/StageSelect.gd, scripts/ui/MainMenu.gd, docs/DOMAIN_MAP.md, docs/ADR.md]
+sot_aux: [scripts/core/SceneFlow.gd, scripts/core/SaveData.gd, scripts/core/CampaignManifest.gd, scripts/ui/StageSelect.gd, scripts/ui/MainMenu.gd, docs/DOMAIN_MAP.md, docs/ADR.md]
 ---
 
 # Phase A: campaign-infra (캠페인 매니페스트 + 챕터 UI)

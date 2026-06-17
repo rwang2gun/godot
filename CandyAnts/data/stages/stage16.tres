@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://vakg483wi3xn"]
+
+[ext_resource type="Resource" uid="uid://dg7s7gnu0ko5m" path="res://data/stage_layouts/stage16_layout.tres" id="1_f4xm6"]
+[ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="2_m8qrn"]
+
+[resource]
+script = ExtResource("2_m8qrn")
+id = 16
+display_name = "번지 점프"
+layout = ExtResource("1_f4xm6")
+total_ants = 9
+candy_hp = 5
+time_limit_seconds = 100.0
+available_skills = Array[String](["blocker", "floater"])
+skill_inventory = {
+"blocker": 3,
+"floater": 1
+}
+release_rate_initial = 30

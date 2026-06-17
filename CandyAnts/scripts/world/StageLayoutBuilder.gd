@@ -24,6 +24,11 @@ const TILE_PLANT_SOLID := "plant"
 # Terrain._cell_kind = "cookie". digger/basher의 destroy_tile_at(["earth"])·cutter(["plant"])가 모두 거부 →
 # 벽·챔버 바닥의 구조 무결성 보장(파괴 불가). 시각은 임시 색조(설계 B3 — 정식 흙/쿠키 텍스처 아트 후속).
 const TILE_COOKIE_SOLID := "cookie"
+# 정적 막대과자 사다리 cell — 스킬(SandMoundSkill) 없이 레벨 레이아웃에 직접 까는 사다리.
+# build()가 register_static_body(kind="earth", ladder_sprite)로 등록 → Terrain._sand_mound_sprites에 올라
+# is_ladder_cell=true. 개미가 스킬 없이도 이 셀에 막혀 LadderClimbState로 수직 등반(동적 rung과 동일 경로).
+# kind="earth"라 basher/digger 파괴 가능 — 파괴 시 destroy_tile_at이 _sand_mound_sprites.erase → 즉시 FallerState.
+const TILE_SAND_MOUND := "sand_mound"
 
 # terrain-tier-restructure Phase 3 — ground 타일을 48×48 단일 정사각 4-variant로 교체.
 # 노출 최상단(걷는 면) = surface family, 가려진 본체 + background 시각 채움 = solid family.
@@ -66,11 +71,15 @@ func build() -> void:
 		# Phase 19 — TILE_PLANT_SOLID만 kind="plant", S6 TILE_COOKIE_SOLID는 kind="cookie"(불괴),
 		# 기존 solid/slope_*는 모두 "earth"로 backward compat.
 		var kind: String = "earth"
+		var ladder_sprite: Sprite2D = null
 		if tile_type == TILE_PLANT_SOLID:
 			kind = "plant"
 		elif tile_type == TILE_COOKIE_SOLID:
 			kind = "cookie"
-		generated.append({"cell": c, "body": body, "kind": kind})
+		elif tile_type == TILE_SAND_MOUND:
+			# 정적 사다리 — kind는 earth(파괴 가능) 유지, middle sprite를 Terrain에 넘겨 is_ladder_cell 등록.
+			ladder_sprite = body.get_node_or_null("LadderVisual") as Sprite2D
+		generated.append({"cell": c, "body": body, "kind": kind, "ladder_sprite": ladder_sprite})
 	# Editor preview에서는 Terrain 없는 경우가 정상 → skip.
 	if Engine.is_editor_hint():
 		return
@@ -78,9 +87,30 @@ func build() -> void:
 	if terrain != null:
 		terrain.set_cell_size(int(layout.cell_size))
 		for g in generated:
-			terrain.register_static_body(g["cell"], g["body"], g["kind"])
+			terrain.register_static_body(g["cell"], g["body"], g["kind"], g["ladder_sprite"])
+		_reskin_static_ladder_caps(terrain, generated)
 	else:
 		push_warning("StageLayoutBuilder could not find Terrain; cell_size/static occupancy registration skipped")
+
+# 정적 사다리(TILE_SAND_MOUND) 기둥의 맨 위/맨 아래 경계에 인접한 정적 지형 면을 top/root 텍스처로 통합한다
+# (동적 사다리와 동일한 root→middle→top 시각). 시각만 — 충돌/점유/kind/is_ladder_cell 불변.
+# reskin_cell_to_ladder는 적격(kind="earth" + 정적 _static_bodies 등록 + 직접 Sprite2D)일 때만 적용하고,
+# 빈 칸·cookie·plant·슬로프·동적 _placed 타일이면 내부에서 no-op(false). 따라서 사다리 위/아래가 솔리드
+# 지면이 아니면 자동으로 건너뛴다(디자이너가 사다리만 허공에 깔아도 안전).
+func _reskin_static_ladder_caps(terrain: Terrain, generated: Array[Dictionary]) -> void:
+	var ladder_cells: Dictionary = {}
+	for g in generated:
+		if g["ladder_sprite"] != null:
+			ladder_cells[g["cell"]] = true
+	for cell: Vector2i in ladder_cells:
+		# 위 칸이 사다리가 아니면(기둥 맨 위) 그 위 지면을 top으로 cap.
+		var above: Vector2i = cell + Vector2i(0, -1)
+		if not ladder_cells.has(above):
+			terrain.reskin_cell_to_ladder(above, Terrain.LADDER_TIER_TOP)
+		# 아래 칸이 사다리가 아니면(기둥 맨 아래) 그 아래 지면을 root로.
+		var below: Vector2i = cell + Vector2i(0, 1)
+		if not ladder_cells.has(below):
+			terrain.reskin_cell_to_ladder(below, Terrain.LADDER_TIER_ROOT)
 
 func _find_ancestor_terrain() -> Terrain:
 	# ancestor scan — Ant._resolve_mantle_distance 패턴 답습.
@@ -127,6 +157,9 @@ func _add_cell(cell: Vector2i, tile_type: String = TILE_SOLID) -> StaticBody2D:
 	elif tile_type == TILE_COOKIE_SOLID:
 		_add_solid_collision(body, cell_size)
 		_add_cookie_visual(body, cell_size, cell)
+	elif tile_type == TILE_SAND_MOUND:
+		_add_solid_collision(body, cell_size)
+		_add_ladder_visual(body, cell_size)
 	else:
 		_add_solid_collision(body, cell_size)
 		_add_solid_visual(body, cell_size, cell)
@@ -203,6 +236,20 @@ func _add_plant_visual(body: StaticBody2D, cell_size: int) -> void:
 		var texture_size := sprite.texture.get_size()
 		if texture_size.x > 0.0 and texture_size.y > 0.0:
 			sprite.scale = Vector2(float(cell_size) / texture_size.x, float(cell_size) / texture_size.y)
+	body.add_child(sprite)
+	sprite.owner = owner
+
+func _add_ladder_visual(body: StaticBody2D, cell_size: int) -> void:
+	# 정적 막대과자 사다리 rung — 동적 사다리(Terrain DYNAMIC_TILE_SAND_MOUND)와 동일한 middle 텍스처 whole-tile.
+	# 충돌은 _add_solid_collision이 담당(개미가 막혀 LadderClimbState 진입). 이 sprite를 build()가
+	# Terrain._sand_mound_sprites에 등록 → is_ladder_cell=true. 텍스처 경로는 Terrain._ladder_texture와 동일 SoT.
+	var sprite := Sprite2D.new()
+	sprite.name = "LadderVisual"
+	var texture: Texture2D = load("res://assets/sprites/terrain/usable_square/biscuit_ladder_middle_square.png") as Texture2D
+	if texture != null:
+		_apply_square_tile(sprite, texture, cell_size)
+	else:
+		sprite.modulate = Color(0.80, 0.62, 0.30)
 	body.add_child(sprite)
 	sprite.owner = owner
 
@@ -300,6 +347,7 @@ func _is_collision_tile(tile_type: String) -> bool:
 		or tile_type == TILE_SLOPE_LEFT
 		or tile_type == TILE_PLANT_SOLID
 		or tile_type == TILE_COOKIE_SOLID
+		or tile_type == TILE_SAND_MOUND
 	)
 
 func _clear_children() -> void:

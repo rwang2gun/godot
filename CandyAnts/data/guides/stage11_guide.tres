@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="StageGuideData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/StageGuideData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/core/GuidePage.gd" id="2"]
+
+[sub_resource type="Resource" id="page_blocker"]
+script = ExtResource("2")
+image_path = "res://assets/guide/guide_blocker.png"
+title_key = "guide.s11.page_blocker_title"
+body_key = "guide.s11.page_blocker_body"
+text_x = 0.0
+text_y = 0.53
+text_width = 1.0
+text_align = "left"
+scrim_enabled = true
+scrim_color = Color(0.2, 0.129, 0.071, 1)
+scrim_opacity = 0.62
+image_zoom = 1.0
+image_pan_x = 0.0
+image_pan_y = 0.0
+
+[resource]
+script = ExtResource("1")
+stage_id = 11
+goal_key = "guide.s11.goal"
+new_skill_ids = Array[String](["blocker"])
+skill_desc_keys = Array[String](["guide.s11.blocker_desc"])
+hazard_keys = Array[String]([])
+pages = Array[Resource]([SubResource("page_blocker")])

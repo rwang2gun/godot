@@ -74,15 +74,12 @@ const _TABLE: Dictionary = {
 	# S2 · 오르막 — floater(②)·blocker(②, 첫 등장) + 기절 규칙.
 	"guide.s2.goal": "높이 올라간 사탕을 가지러 가요. 그런데 내려올 때가 위험해요.",
 	"guide.s2.floater_desc": "개미를 탭해 낙하산을 정착시키면, 지나가는 동료들이 낙하산을 받아 높은 곳에서도 안전하게 내려와요.",
-	"guide.s2.blocker_desc": "개미를 탭해 길 막기를 정착시키면, 그 자리에 버티고 서서 부딪힌 동료의 방향을 되돌려보내요.",
 	"guide.s2.hazard_stun": "주의: 너무 높이서 떨어지면(6칸 이상) 개미가 기절해 사라져요. 낙하산이 있으면 괜찮아요.",
 	# 페이징 카드 페이지 카피 (guide-card-ui-restructure). 3페이지: 낙하위험→낙하산→길막기.
 	"guide.s2.page_danger_title": "높은 곳은 위험해요",
 	"guide.s2.page_danger_body": "너무 높은 곳에서 떨어지면, 움직일 수 없어요.",
 	"guide.s2.page_floater_title": "낙하산을 나눠줘요",
 	"guide.s2.page_floater_body": "낙하산 나눠주기 스킬로 다른 개미를 지켜줄 수 있어요.\n낙하산을 받은 개미는 안전하게 내려갈 수 있어요.",
-	"guide.s2.page_blocker_title": "위험을 막아줘요",
-	"guide.s2.page_blocker_body": "길막기 스킬을 사용하면 자리를 지키고 위험을 알려줘요.\n절벽이나 함정으로 동료들이 가지 못하게 막아요.",
 	# S3 · 사탕 호수 — bridge(③) + 소다물 해저드.
 	"guide.s3.goal": "사탕 호수 건너편의 사탕을 가져와요. 물에 빠지면 안 돼요.",
 	"guide.s3.bridge_desc": "개미에게 다리만들기를 주면, 낭떠러지에 닿았을 때 스스로 수평 다리를 놓아요. 한 번 놓으면 모두가 건너요.",
@@ -129,18 +126,16 @@ const _TABLE: Dictionary = {
 	"guide.s8.page_cutter_title": "덩굴 자르기",
 	"guide.s8.page_cutter_body": "덩굴 자르기 표지판을 세워두면 앞에 있는 덩굴을 잘라 길을 만들어요.",
 
-	# 스테이지 표시 이름 — 스트링 시트 SoT. 스테이지 선택 메뉴(StageSlotCard)와 인트로 카드 타이틀이 참조.
-	# data/menu_layout.tres·data/stages/stageNN.tres의 display_name이 아니라 여기서 관리(stage_name() 경유).
-	"stage.s1.name": "첫 나들이",
-	"stage.s2.name": "절벽 아래로",
-	"stage.s3.name": "웅덩이 넘기",
-	"stage.s4.name": "높은 곳에 닿으려면",
-	"stage.s5.name": "과자 사다리",
-	"stage.s6.name": "숨겨진 사탕",
-	"stage.s7.name": "벽 너머로",
-	"stage.s8.name": "귀찮은 식물들",
-	"stage.s9.name": "고지로!",
-	"stage.s10.name": "보물찾기!",
+	# S11 · 추락 주의 — blocker 튜토리얼 (캠페인 재배치 2026-06-17, 구 S2에서 이동). climber는 복습이라 카드 생략.
+	"guide.s11.goal": "추락 주의! 길 막기로 동료들이 떨어지지 않게 막으며 사탕을 모두 옮겨요.",
+	"guide.s11.blocker_desc": "개미를 탭해 길 막기를 정착시키면, 그 자리에 버티고 서서 부딪힌 동료의 방향을 되돌려보내요.",
+	"guide.s11.page_blocker_title": "위험을 막아줘요",
+	"guide.s11.page_blocker_body": "길막기 스킬을 사용하면 자리를 지키고 위험을 알려줘요.\n절벽이나 함정으로 동료들이 가지 못하게 막아요.",
+
+	# 스테이지 표시 이름 SoT = data/stages/stageNN.tres의 display_name (2026-06-17, tres-as-SoT).
+	# stage_name(id)이 그 .tres를 로드해 반환하므로 개별 스테이지 이름을 여기 두지 않는다 —
+	# 레벨 에디터가 stageNN.tres.display_name에 쓰면 UI(StageSlotCard/StageIntroCard)에 자동 반영된다.
+	# coming-soon placeholder("임시")만 시트 소유(미저작 슬롯 = 대응 .tres 없음).
 	"stage.coming_soon": "임시",
 }
 
@@ -178,9 +173,22 @@ func skill_label(id: String) -> String:
 func has_skill_label(id: String) -> bool:
 	return _SKILL_NAMES.has(id)
 
-# 스테이지 표시 이름 (스트링 시트 SoT). 미등록 id면 "" 반환 — 소비처가 폴백("준비 중"/"스테이지 N")을 결정.
+# 스테이지 표시 이름 — data/stages/stageNN.tres의 display_name이 SoT(2026-06-17, tres-as-SoT).
+# 레벨 에디터가 쓰는 그 필드를 UI(StageSlotCard/StageIntroCard)가 그대로 읽도록 id로 .tres를 로드해 반환한다.
+# 미존재/빈 display_name이면 "" → 소비처가 폴백("임시"/"스테이지 N")을 결정. id별 1회 로드 후 캐시.
+var _stage_name_cache: Dictionary = {}
+
 func stage_name(id: int) -> String:
-	return _TABLE.get("stage.s%d.name" % id, "")
+	if _stage_name_cache.has(id):
+		return _stage_name_cache[id]
+	var nm: String = ""
+	var path: String = "res://data/stages/stage%02d.tres" % id
+	if ResourceLoader.exists(path):
+		var data: Resource = load(path)
+		if data != null and "display_name" in data:
+			nm = str(data.display_name)
+	_stage_name_cache[id] = nm
+	return nm
 
 func has_key(key: String) -> bool:
 	return _TABLE.has(key)

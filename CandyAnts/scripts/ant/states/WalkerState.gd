@@ -30,6 +30,13 @@ func update(delta: float) -> void:
 		return
 
 	if a.is_on_wall():
+		# 막대과자 사다리(SAND_MOUND rung)는 climber/계단보다 **최우선**(2026-06-17) — 사다리 셀에 막히면
+		# climber 보유와 무관하게 LadderClimbState로 수직 등반한다. 사다리는 꼭대기에서 위쪽 solid(레지)를
+		# cap으로 통과해 정확히 올라서므로, 사다리가 깔린 곳에선 climber 벽타기가 아니라 사다리가 맞다.
+		# 정적 벽(분지/단)은 is_ladder_cell=false라 미발동 → 아래 climber/flip 분기로 빠진다(climber 퍼즐 보존).
+		if a.ladder_climb_ahead():
+			a.state_machine.change_state(LadderClimbState.new())
+			return
 		# Phase 14 — climber 보유 시 벽에서 ClimberState로 전이, 아니면 기존대로 flip.
 		if a.has_trait(&"climber"):
 			a.state_machine.change_state(ClimberState.new())
@@ -39,12 +46,6 @@ func update(delta: float) -> void:
 		# 정적 벽(S1 분지 등)은 게이트 불충족 → 기존 flip 유지(climber 필수 퍼즐 보존).
 		if a.stair_climb_ahead():
 			a.state_machine.change_state(StairClimbState.new())
-			return
-		# 막대과자 사다리(SAND_MOUND rung) 후속 개미 수직 등반 — 시전 개미가 깔아둔 rung 벽에 막히면
-		# LadderClimbState로 전이해 기둥을 글라이드 관통 등반. 게이트는 Ant.ladder_climb_ahead(전방 rung 셀).
-		# 정적 벽(분지/단)은 is_ladder_cell=false라 미발동 → flip 유지(climber/캡 퍼즐 보존).
-		if a.ladder_climb_ahead():
-			a.state_machine.change_state(LadderClimbState.new())
 			return
 		a.flip()
 

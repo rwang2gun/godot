@@ -39,7 +39,7 @@
 | **climber** | `ClimberSkill.gd` | — | — | `tests/Climber*` |
 | **floater** | `FloaterSkill.gd` | — | — | `tests/Floater*` |
 | **distributor** | `DistributorSkill.gd` | — | — | `tests/Distributor*` |
-| **sand_mound** | `SandMoundSkill.gd` | `sand_mound/`, `sand_bridge_overlap/` | — | `tests/SandMound*` |
+| **sand_mound** | `SandMoundSkill.gd` | `sand_mound/`, `sand_bridge_overlap/`, `static_ladder/`(정적 레이아웃 타일) | — | `tests/SandMound*`, `tests/StaticLadder*` |
 | **bridge** | `BridgeSkill.gd` | `bridge/`, `bridge_over_overlap/`, `bridge_over_water/`, `bridge_reject/`, `bridge_too_long/`, `sand_bridge_overlap/` | — | `tests/Bridge*` |
 | **basher** | `BasherSkill.gd` | `basher_wall/`, `basher_digger_chain/` | `dev_basher_edge_stop_layout.tres`, `dev_earth_plant_separation_layout.tres` | `tests/Basher*` |
 | **digger** | `DiggerSkill.gd` | `digger_pillar/`, `basher_digger_chain/` | — | `tests/Digger*` |
@@ -116,6 +116,7 @@
 | `bridge_too_long` | BridgeTooLongTest.tscn | bridge |
 | `sand_mound` | SandMoundTest.tscn | sand_mound |
 | `sand_bridge_overlap` | SandBridgeOverlapTest.tscn | sand_mound · bridge |
+| `static_ladder` | StaticLadderStage.tscn | sand_mound 정적 레이아웃 타일 (스킬 없이 등반) |
 | `water` | WaterTest.tscn | water hazard |
 | `water_after_candy` | WaterAfterCandyTest.tscn | water hazard |
 | `water_sticky_overlap` | WaterStickyOverlapTest.tscn | water · sticky |

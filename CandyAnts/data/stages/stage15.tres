@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://dl7p252nrt13o"]
+
+[ext_resource type="Resource" uid="uid://cwymtauikrpor" path="res://data/stage_layouts/stage15_layout.tres" id="1_7h0q1"]
+[ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="2_tyvf1"]
+
+[resource]
+script = ExtResource("2_tyvf1")
+id = 15
+display_name = "눈 딱 감고 낙하"
+layout = ExtResource("1_7h0q1")
+total_ants = 7
+candy_hp = 5
+time_limit_seconds = 100.0
+available_skills = Array[String](["floater", "climber"])
+skill_inventory = {
+"climber": 5,
+"floater": 2
+}
+release_rate_initial = 30

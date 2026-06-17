@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://cndystage12"]
+
+[ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="1"]
+[ext_resource type="Resource" uid="uid://cndylayout12" path="res://data/stage_layouts/stage12_layout.tres" id="1_lay"]
+
+[resource]
+script = ExtResource("1")
+id = 12
+display_name = "사다리 오르기"
+layout = ExtResource("1_lay")
+total_ants = 8
+candy_hp = 5
+time_limit_seconds = 100.0
+available_skills = Array[String](["blocker"])
+skill_inventory = {
+"blocker": 3
+}
+release_rate_initial = 30

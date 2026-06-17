@@ -89,10 +89,11 @@ func _run_scenarios() -> void:
 	await _scenario_c()
 
 # -----------------------------------------------------------------------------
-# 시나리오 A: Stage01 자연 clear → Next → Stage02 도달
+# 시나리오 A: Stage01 자연 clear → Next → Stage11 도달
+#   (campaign-50 B1: 매니페스트 Ch1=[1,11,12,13,14,2] — Stage01 다음은 신규 id11 "담을 넘어")
 # -----------------------------------------------------------------------------
 func _scenario_a() -> void:
-	print("[GameFlowTest] === Scenario A: Stage01 → clear → Next → Stage02 ===")
+	print("[GameFlowTest] === Scenario A: Stage01 → clear → Next → Stage11 ===")
 	# Stage01은 SceneFlow._ready에서 자동 로드됨
 	if not _verify_current_stage_id(1, "A.start"):
 		return
@@ -121,7 +122,7 @@ func _scenario_a() -> void:
 		return
 	print("[GameFlowTest] A unfreeze OK")
 
-	if not _verify_current_stage_id(2, "A.advance"):
+	if not _verify_current_stage_id(11, "A.advance"):
 		return
 	print("[GameFlowTest] Scenario A PASS")
 

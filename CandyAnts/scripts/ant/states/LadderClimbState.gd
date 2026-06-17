@@ -29,6 +29,8 @@ var _dest: Vector2 = Vector2.ZERO
 var _t: float = 0.0          # 현재 수직 스텝 진행도 0~1
 var _seg_len: float = 1.0
 var _frames: int = 0
+# 개미 충돌 박스 half-height — 꼭대기 착지 시 "발밑 셀 위 보행 안착" y 계산용(enter에서 실측 캐시, fallback 7.5).
+var _half_h: float = 7.5
 
 func enter() -> void:
 	var a: Ant = ant as Ant
@@ -37,6 +39,7 @@ func enter() -> void:
 	a.velocity = Vector2.ZERO
 	_dir = a.direction if a.direction != 0 else 1
 	_frames = 0
+	_half_h = _resolve_half_height(a)
 	var terrain: Terrain = _find_terrain(a)
 	if terrain == null:
 		a.return_to_walking()
@@ -111,7 +114,14 @@ func _begin_glide(a: Ant, cs: int, dest_row: int) -> void:
 	_t = 0.0
 
 func _land_at(a: Ant, cs: int, row: int) -> void:
-	a.global_position = Vector2(float(_col) * cs + cs / 2.0, float(row) * cs + cs / 2.0)
+	# 개미가 row 칸에 몸을 두고 **발밑 셀(row+1) 위에 보행 안착**하도록 y를 맞춘다. 셀 정중앙(row*cs+cs/2)에
+	# 놓으면 발밑 rung/레지 위로 (cs/2 - half_h)만큼(48px 셀=16.5px, 32px=8.5px) 떠서, 보행 복귀 직후
+	# is_on_floor()=false → FallerState로 "꼭대기 낙하"한다(StairClimb·시전 cap의 상대 이동과 달리 절대
+	# 셀-중앙 스냅이었던 게 원인, 2026-06-17). x는 기둥 중앙 정렬 유지.
+	a.global_position = Vector2(
+		float(_col) * cs + cs / 2.0,
+		float(row + 1) * cs - _half_h
+	)
 	a.velocity = Vector2.ZERO
 	a.return_to_walking()
 
@@ -120,6 +130,13 @@ func _body_cell(a: Ant, cs: int) -> Vector2i:
 		int(floor(a.global_position.x / cs)),
 		int(floor((a.global_position.y - 2.0) / cs))
 	)
+
+# 개미 충돌 박스 half-height 실측 — RectangleShape2D.size.y/2. 부재 시 Ant.tscn 기본(15px)의 절반 7.5.
+func _resolve_half_height(a: Ant) -> float:
+	var col: CollisionShape2D = a.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if col != null and col.shape is RectangleShape2D:
+		return (col.shape as RectangleShape2D).size.y * 0.5
+	return 7.5
 
 func _find_terrain(a: Ant) -> Terrain:
 	# WalkerState/StairClimbState._find_terrain와 동일 — ancestor chain에서 Terrain 노드 탐색.

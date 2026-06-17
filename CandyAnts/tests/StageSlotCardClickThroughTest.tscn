@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1xctest0slotclickthru"]
+
+[ext_resource type="Script" path="res://tests/StageSlotCardClickThroughTest.gd" id="1_t"]
+
+[node name="StageSlotCardClickThroughTest" type="Node"]
+script = ExtResource("1_t")

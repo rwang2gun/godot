@@ -21,6 +21,7 @@ class GridPreview:
 	const TILE_BACKGROUND := "background"  # 시각 채움(무충돌)
 	const TILE_PLANT := "plant"            # 식물벽 (cutter 전용 파괴, S8)
 	const TILE_COOKIE := "cookie"          # 불괴 구조 (S6)
+	const TILE_SAND_MOUND := "sand_mound"  # 정적 막대과자 사다리 (스킬 없이 등반)
 	const TILE_ERASE := "erase"
 	# 해저드 브러시 — tile_map이 아니라 hazard_map에 칠해진다.
 	const TILE_WATER := "water"
@@ -242,6 +243,9 @@ class GridPreview:
 				TILE_COOKIE:
 					fill = Color(0.60, 0.70, 0.95, 1.0)
 					border = Color(0.32, 0.40, 0.62, 1.0)
+				TILE_SAND_MOUND:
+					fill = Color(0.85, 0.66, 0.35, 1.0)
+					border = Color(0.54, 0.42, 0.18, 1.0)
 			draw_rect(rect, fill, true)
 			draw_rect(rect, border, false, 1.0)
 
@@ -313,15 +317,14 @@ const THEME_NAMES: Array[String] = [
 # id는 _selected_brush_tile_type() match와 일치. 창 동기화는 select(index) 기반이라
 # 두 OptionButton의 표시 순서가 같아야 하므로 한 곳에서 채운다.
 const BRUSH_ITEMS: Array = [
-	["Solid (지면)", 0],
-	["Background (시각 채움)", 6],
-	["Plant (식물벽)", 7],
-	["Cookie (불괴)", 8],
-	["Slope Right", 1],
-	["Slope Left", 2],
-	["Water (즉사)", 4],
-	["Sticky (점착)", 5],
-	["Erase (지우개)", 3],
+	["흙 타일", 0],
+	["배경 (충돌 안함)", 6],
+	["덩굴", 7],
+	["파괴 불가 벽", 8],
+	["사다리", 9],
+	["물", 4],
+	["점착 타일", 5],
+	["지우기", 3],
 ]
 
 func _populate_brush_option(option: OptionButton) -> void:
@@ -353,6 +356,7 @@ var _candy_cell_y_spin: SpinBox
 var _camera_cell_x_spin: SpinBox
 var _camera_cell_y_spin: SpinBox
 var _platform_text: TextEdit
+var _draft_text: TextEdit
 var _brush_option: OptionButton
 var _grid_preview: GridPreview
 var _grid_window: Window
@@ -395,6 +399,21 @@ func _ready() -> void:
 	save_button.pressed.connect(_save_existing_stage)
 	stage_actions.add_child(save_button)
 	add_child(stage_actions)
+
+	_add_section("웹 드래프트 (아이패드 → 가져오기)")
+	var draft_hint := Label.new()
+	draft_hint.text = "tools/level_editor.html에서 '드래프트 내보내기'한 JSON을 붙여넣고 가져오기. 가져온 뒤 Stage ID 확인 → 씬 실행으로 클리어 검증 → Save Stage."
+	draft_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(draft_hint)
+	_draft_text = TextEdit.new()
+	_draft_text.custom_minimum_size = Vector2(0, 90)
+	_draft_text.placeholder_text = "candyants-level-draft JSON 붙여넣기"
+	add_child(_draft_text)
+	var import_draft_button := Button.new()
+	import_draft_button.text = "웹 드래프트 가져오기"
+	import_draft_button.pressed.connect(_import_web_draft_from_text)
+	add_child(import_draft_button)
+
 	_total_ants_spin = _add_spin("Ants", 10, 1, 200, 1)
 	_candy_hp_spin = _add_spin("Candy HP", 10, 1, 999, 1)
 	_time_limit_spin = _add_spin("Time Limit", 180, 10, 999, 5)
@@ -684,6 +703,78 @@ func _load_stage() -> void:
 	_suppress_dirty = false
 	_set_dirty(false)
 	_set_status("Loaded Stage%02d. Use Save Stage to overwrite existing files." % stage_id, false)
+
+# 웹 레벨 에디터(tools/level_editor.html)의 "드래프트(레퍼런스 JSON)"를 가져온다.
+# HTML 툴은 개미 물리·클리어를 검증할 수 없어 실 스테이지를 만들지 않고 드래프트만 내보낸다 —
+# 여기서 받아 필드를 채운 뒤, 사용자가 씬을 실행해 클리어를 확인하고 Save Stage 해야 실 스테이지가 된다.
+func _import_web_draft_from_text() -> void:
+	var text := _draft_text.text.strip_edges()
+	if text.is_empty():
+		_set_status("드래프트 JSON을 붙여넣으세요.", true)
+		return
+	var parsed: Variant = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		_set_status("JSON 파싱 실패 — candyants-level-draft 형식인지 확인하세요.", true)
+		return
+	var draft: Dictionary = parsed
+	if str(draft.get("format", "")) != "candyants-level-draft":
+		_set_status("형식이 candyants-level-draft가 아닙니다('드래프트 내보내기'로 받은 JSON인지 확인).", true)
+		return
+	_apply_web_draft(draft)
+
+func _apply_web_draft(draft: Dictionary) -> void:
+	_suppress_dirty = true
+	var script := load("res://scripts/core/StageLayoutData.gd") as Script
+	var layout: Resource = script.new()
+	layout.cell_size = int(draft.get("cellSize", 48))
+	layout.home_cell = _draft_cell(draft.get("homeCell"))
+	layout.candy_cell = _draft_cell(draft.get("candyCell"))
+	layout.camera_cell = _draft_cell(draft.get("cameraCell"))
+	layout.tile_map = _draft_string_map(draft.get("tileMap"))
+	layout.hazard_map = _draft_string_map(draft.get("hazardMap"))
+	layout.spawn_direction = int(draft.get("spawnDirection", 1))
+	layout.spawn_direction_alternate = bool(draft.get("spawnAlternate", false))
+	layout.theme = str(draft.get("theme", "cookie_crust"))
+	var settle_on := bool(draft.get("settlementOn", false))
+	layout.settlement_cell = _draft_cell(draft.get("settlementCell")) if settle_on else Vector2i(-1, -1)
+	_apply_layout_data(layout)
+	# 스테이지 파라미터.
+	_id_spin.value = int(draft.get("stageId", 1))
+	_name_edit.text = str(draft.get("name", ""))
+	_total_ants_spin.value = int(draft.get("totalAnts", 10))
+	_candy_hp_spin.value = int(draft.get("candyHp", 10))
+	_time_limit_spin.value = float(draft.get("timeLimit", 120.0))
+	_release_rate_spin.value = int(draft.get("releaseRate", 30))
+	# 스킬 — 드래프트 값을 스핀에 반영하고, 저장 시 권위가 되도록 '로드한 스테이지' 스냅샷으로 등록한다
+	# (_build_stage_data (A) 경로: 같은 ID로 Save 시 스냅샷=드래프트 스킬이 그대로 기록).
+	var skills: Dictionary = draft.get("skills", {}) if draft.get("skills") is Dictionary else {}
+	var inventory := {}
+	var order: Array[String] = []
+	for skill_id: String in SKILL_IDS:
+		var count := int(skills.get(skill_id, 0))
+		_skill_spins[skill_id].value = count
+		if count > 0:
+			inventory[skill_id] = count
+			order.append(skill_id)
+	_loaded_stage_id = int(draft.get("stageId", -1))
+	_loaded_skill_inventory = inventory.duplicate(true)
+	_loaded_available_skills = order.duplicate()
+	_skill_user_edited.clear()
+	_suppress_dirty = false
+	_set_dirty(true)
+	_set_status("웹 드래프트를 가져왔습니다. Stage ID 확인 → 씬 실행으로 클리어 검증 후 Save Stage 하세요.", false)
+
+func _draft_cell(raw: Variant) -> Vector2i:
+	if raw is Dictionary:
+		return Vector2i(int(raw.get("x", 0)), int(raw.get("y", 0)))
+	return Vector2i.ZERO
+
+func _draft_string_map(raw: Variant) -> Dictionary:
+	var out := {}
+	if raw is Dictionary:
+		for key in raw.keys():
+			out[str(key)] = str(raw[key])
+	return out
 
 func _build_stage_data(stage_id: int, stage_name: String, _scene_path: String, layout_path: String, data_path: String) -> Resource:
 	var stage_data: Resource = ResourceLoader.load(data_path) if ResourceLoader.exists(data_path) else null
@@ -1353,6 +1444,8 @@ func _selected_brush_tile_type() -> String:
 			return GridPreview.TILE_PLANT
 		8:
 			return GridPreview.TILE_COOKIE
+		9:
+			return GridPreview.TILE_SAND_MOUND
 		_:
 			return GridPreview.TILE_SOLID
 
@@ -1368,6 +1461,8 @@ func _normalize_tile_type(raw: String) -> String:
 		return GridPreview.TILE_PLANT
 	if value == "cookie":
 		return GridPreview.TILE_COOKIE
+	if value == "sand_mound" or value == "ladder" or value == "sandmound":
+		return GridPreview.TILE_SAND_MOUND
 	return GridPreview.TILE_SOLID
 
 func _cell_key(cell: Vector2i) -> String:

@@ -261,6 +261,28 @@ CandyAnts ground terrain의 **painterly cookie 2-tier 시각 시스템** SoT(Sou
 - `tests/SandMoundClimbOverLedgeTest.gd`: 위 레지 아래에서 시전 → 레지 surface가 **top으로 cap** + 개미가 레지 위로 올라섬 + rung=middle + 바닥 지형 면=root.
 - `tests/SandMoundReskinGuardTest.gd`: reskin/cap 계약 — 동적 bridge·`plant`·슬로프(Sprite2D 없음) 셀 오염/cap 금지(false) · `earth`+Sprite2D 정적 셀만 reskin=top 성공 · `can_reskin_cell_to_ladder` 무부작용 · `_can_cap_ledge` atomicity 4종(적격 / body_cell 점유 / solid 벽 / plant 레지) · **실패한 cast(cap 불가 레지 아래 시전)는 발밑 floor를 root로 남기지 않음**(실제 Ant 구동) · 누락 tier 텍스처는 `has_ladder_texture` false + `reskin` honest false(무변경) · MIDDLE 누락 시 `add_tile(SAND_MOUND)` 거부(상태 무생성)·bridge 무관·cap preflight false, TOP 누락 시 cap false(test seam `_ladder_tex_forced_missing`로 결정적 검증). (codex 2026-06-02 HIGH×2/MEDIUM×6 회귀.)
 
+### 11.6 정적 레이아웃 타일 — 스킬과 별도로 깔기 (StageLayoutBuilder TILE_SAND_MOUND, 2026-06-15)
+
+`sand_mound`은 **스킬(`SandMoundSkill`) 시전뿐 아니라 레벨 레이아웃 `tile_map`에 직접** 깔 수 있다. 디자이너가
+사다리 기둥(rung) 셀을 `"sand_mound"`로 칠하면 `StageLayoutBuilder`가 동적 rung과 **동일한 사다리 계약**으로 등록한다.
+
+- `_add_cell`이 `_add_solid_collision` + `_add_ladder_visual`(§11.2 middle 자산 `biscuit_ladder_middle_square.png` 재사용, whole-tile)로 렌더.
+- `build()`가 `Terrain.register_static_body(cell, body, "earth", ladder_sprite)` 호출 → `ladder_sprite`가
+  `_sand_mound_sprites`에 올라 **`is_ladder_cell=true`**. 개미가 스킬 없이도 이 셀에 막혀 `LadderClimbState`로
+  등반한다 — **등반 로직(`LadderClimbState`/`Ant.ladder_climb_ahead`)은 무변경**, `is_ladder_cell`이 단일 게이트.
+- **kind="earth"** — basher/digger `destroy_tile_at(["earth"])` 대상(파괴 가능). 파괴 시 `_sand_mound_sprites.erase`
+  → 등반 중 개미는 매-frame 지지검사 실패로 즉시 `FallerState`(동적 rung과 동일).
+- 정적 벽(`solid`)은 `_sand_mound_sprites`에 없어 `is_ladder_cell=false` — climber/캡 퍼즐 보존 불변(§11 도입부와 동일).
+- 디자이너 작업 모델: **사다리 기둥(rung) 셀만** `sand_mound`로 칠하고 위·아래에 레지/바닥 `solid`를 둔다(맨 아래 칸 = 개미 보행 행).
+- **root/top 자동 통합 (`_reskin_static_ladder_caps`, 2026-06-15)**: `build()`가 등록 직후 사다리 기둥 **맨 위 바로 위**의 `solid`를
+  **top**, **맨 아래 바로 아래**의 `solid`를 **root**로 자동 reskin → 동적 사다리와 동일한 root→middle→top 시각. **시각만**
+  (충돌/점유/kind/is_ladder_cell 불변). `reskin_cell_to_ladder`가 적격(`can_reskin_cell`: kind="earth"+정적+직접 Sprite2D)일 때만
+  적용하므로 위/아래가 빈 칸·cookie·plant·슬로프·동적 타일이면 자동 skip(사다리만 허공에 깔아도 안전).
+- 에디터 팔레트: 웹(`tools/level_editor.html` `TILE_BRUSHES`)·dock(`level_tool_dock.gd` `BRUSH_ITEMS`·
+  `_selected_brush_tile_type`·`_draw_tile`·`_normalize_tile_type`)에 "사다리" 브러시. 색만으론 `solid`와 혼동되므로 rung(발판) 표시 추가.
+- 회귀: `tests/StaticLadderTileTest`(등록 계약 — is_ladder_cell/occupancy/kind/middle·top·root 텍스처/파괴) +
+  `tests/StaticLadderClimbTest`(E2E: `.tres` 직렬화 → 빌드 → 실제 개미 등반, dev 클러스터 `dev_stages/static_ladder/`).
+
 ## 12. 동적 스킬 타일 — Basher 굴착 단면 reskin
 
 `BasherSkill`(id `basher`)은 ant 진행 방향으로 **2칸 높이 수평 통로**를 뚫는다 (2026-06-02 확장 — 이전엔 1칸). §11 sand-mound과 마찬가지로 ground 2-tier 자동 추론과 독립이며, 통로를 뚫으며 드러나는 **수평 단면**(발밑 floor / 통로 위 ceiling)을 전용 잘린-면 텍스처로 reskin한다.

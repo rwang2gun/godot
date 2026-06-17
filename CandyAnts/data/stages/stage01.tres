@@ -8,11 +8,11 @@ script = ExtResource("1")
 id = 1
 display_name = "첫 나들이"
 layout = ExtResource("1_d2hrw")
-total_ants = 5
-candy_hp = 5
+total_ants = 3
+candy_hp = 3
 time_limit_seconds = 90.0
 available_skills = Array[String](["climber"])
 skill_inventory = {
-"climber": 5
+"climber": 3
 }
 release_rate_initial = 30
