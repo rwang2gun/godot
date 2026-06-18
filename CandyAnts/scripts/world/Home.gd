@@ -7,6 +7,10 @@ const RESPAWN_DELAY_SECONDS: float = 3.0
 # 무의미한 respawn 루프를 끊어 movable 개미를 소진시키고 → 스테이지 종료(클리어)를 유도.
 var _candy_depleted: bool = false
 
+# 결정론 모드 리스폰 — 벽시계 Timer 대신 물리-프레임 데드라인. {ant: deadline_frame}.
+# 기본 모드는 _begin_respawn이 Timer 경로를 그대로 타고 본 dict는 비어 있어 _physics_process가 no-op.
+var _pending_respawns: Dictionary = {}
+
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	# Candy가 hp 0 도달 시 1회 emit. 소진 후 빈손 귀가는 retire(아래 _on_body_entered).
@@ -31,7 +35,7 @@ func _on_body_entered(body: Node2D) -> void:
 	# 가드 1: 스폰/리스폰 grace — spawn 위치가 Home Area2D 내부라 spawn 직후 body_entered가
 	# 즉시 발화. 빈손 fresh ant도 respawn 분기로 가도록 기존 has_been_carrying guard는 제거하고
 	# grace + re-arm으로 spawn/respawn 직후 1회 발화만 차단.
-	if Time.get_ticks_msec() / 1000.0 < a._grace_until:
+	if a.in_spawn_grace():
 		return
 	var carrying: bool = a.has_candy
 	if not carrying and a.direction == 1:
@@ -64,6 +68,11 @@ func _begin_respawn(a: Ant) -> void:
 	# collision_layer=0 으로 잠시 빼서 Home/Hazard Area2D 트리거 비활성. set_deferred로 physics step 중 변경 회피.
 	a.set_deferred("collision_layer", 0)
 	a.process_mode = Node.PROCESS_MODE_DISABLED
+	# 결정론 모드: 벽시계 Timer 대신 물리-프레임 데드라인 등록(_physics_process가 소비).
+	# PROCESS_MODE_DISABLED인 ant 자신은 프레임을 못 돌리지만, deadline은 Home(활성)이 들고 있으므로 안전.
+	if SimConfig.deterministic:
+		_pending_respawns[a] = Engine.get_physics_frames() + SimConfig.seconds_to_frames(RESPAWN_DELAY_SECONDS)
+		return
 	var timer: Timer = Timer.new()
 	timer.one_shot = true
 	timer.wait_time = RESPAWN_DELAY_SECONDS
@@ -71,8 +80,24 @@ func _begin_respawn(a: Ant) -> void:
 	timer.timeout.connect(_on_respawn_timeout.bind(a, timer))
 	timer.start()
 
+# 결정론 리스폰 펌프 — 등록된 데드라인이 도달한 ant를 재등장. 기본 모드는 dict가 비어 no-op.
+func _physics_process(_delta: float) -> void:
+	if _pending_respawns.is_empty():
+		return
+	var now: int = Engine.get_physics_frames()
+	var due: Array = []
+	for a in _pending_respawns:
+		if now >= int(_pending_respawns[a]):
+			due.append(a)
+	for a in due:
+		_pending_respawns.erase(a)
+		_complete_respawn(a as Ant)
+
 func _on_respawn_timeout(a: Ant, timer: Timer) -> void:
 	timer.queue_free()
+	_complete_respawn(a)
+
+func _complete_respawn(a: Ant) -> void:
 	if not is_instance_valid(a):
 		return
 	a.process_mode = Node.PROCESS_MODE_INHERIT
@@ -84,7 +109,7 @@ func _on_respawn_timeout(a: Ant, timer: Timer) -> void:
 	a.visible = true
 	# grace 재무장 — collision_layer 복귀 시 spawn 위치(Home 내부)에서 body_entered가 즉시 재발화해
 	# 무한 respawn 루프가 생기는 것을 차단. 0.4s 안에 ant가 home 밖으로 걸어나가야 다음 entry부터 정상 트리거.
-	a._grace_until = Time.get_ticks_msec() / 1000.0 + a.spawn_grace_seconds
+	a.arm_spawn_grace()
 	a.has_been_carrying = false
 	a.collision_layer = 4  # Ant.tscn 기본값 (Layer 3)
 	a.state_machine.change_state(WalkerState.new())

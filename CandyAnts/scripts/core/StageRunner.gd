@@ -28,6 +28,9 @@ var _toolbar: Node = null
 var _spawn_parent: Node = null
 
 var _time_left: float = 0.0
+# 결정론 모드 타임아웃 — _process delta 누적 대신 begin() 시점 물리-프레임 기준 경과로 time_left 산출.
+# delta 누적은 process/physics 프레임 비대칭에서 비결정적일 수 있어, 전역 물리 프레임 카운터에서 직접 계산.
+var _begin_frame: int = 0
 var _completed: bool = false
 var _spawner_finished: bool = false
 # Phase 4 — begin() 게이트. 카드 표시 중에는 false라 _process가 타이머/종료 판정을 진행하지 않고
@@ -149,6 +152,7 @@ func begin() -> void:
 	if _begun:
 		return
 	_begun = true
+	_begin_frame = Engine.get_physics_frames()
 	if _spawner != null:
 		print("[StageRunner] begin Stage ", stage_data.id if stage_data != null else -1)
 		_spawner.start(_spawn_parent)
@@ -162,7 +166,12 @@ func _process(delta: float) -> void:
 	if not _begun or _completed or stage_data == null:
 		return
 
-	_time_left = max(0.0, _time_left - delta)
+	# 결정론 모드: 전역 물리 프레임 경과로 time_left 산출(delta 누적 비결정성 회피). 기본: 종전 delta 차감.
+	if SimConfig.deterministic:
+		var elapsed: float = float(Engine.get_physics_frames() - _begin_frame) / float(Engine.physics_ticks_per_second)
+		_time_left = max(0.0, stage_data.time_limit_seconds - elapsed)
+	else:
+		_time_left = max(0.0, _time_left - delta)
 	if _hud != null and _hud.has_method("update_time"):
 		_hud.update_time(_time_left)
 
