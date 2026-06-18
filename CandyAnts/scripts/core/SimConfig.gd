@@ -28,6 +28,9 @@ func set_deterministic(value: bool) -> void:
 	deterministic = value
 
 # 초 → 물리 프레임 환산. physics_ticks_per_second(기본 60)를 라이브로 읽어 프로젝트 설정 override에도 정합.
-# round로 환산해 time_scale=1에서 벽시계 grace(예: 0.4s)와 동일 프레임 수(24)를 보장한다.
+# ceil 사용 = Timer "누적 경과 ≥ wait_time일 때 발화" 의미와 일치 → 데드라인이 요청 시간보다 **이르게**
+# 발화하지 않는다(codex R1-HIGH). 정수 초(0.4s=24f, 3.0s=180f)는 ceil=round=정확.
+# 주의: 누적되는 스폰 간격은 이 함수로 프레임을 미리 굳히면 드리프트가 쌓이므로(R1-HIGH) AntSpawner는
+# 본 함수 대신 분수-초 절대 데드라인을 누적한다. 본 함수는 단발 데드라인(grace·리스폰)에만 쓴다.
 func seconds_to_frames(seconds: float) -> int:
-	return int(round(seconds * float(Engine.physics_ticks_per_second)))
+	return int(ceil(seconds * float(Engine.physics_ticks_per_second)))

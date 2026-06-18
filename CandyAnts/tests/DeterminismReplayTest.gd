@@ -63,10 +63,11 @@ func _tick_run(buf: Array[String]) -> void:
 	if _concluded:
 		_finish_run()
 	elif _rel_frame > DEADLINE_FRAMES:
-		# 결정론 자체는 검증 가능하므로 deadline도 "동일 deadline"이면 PASS 처리(아래 _finish_run).
-		_concluded = true
-		_record_result("deadline rel_frame=%d" % _rel_frame)
-		_finish_run()
+		# deadline 초과 = **hard FAIL** (codex R1-MEDIUM). "양쪽 run이 같은 deadline에 멈추면 PASS" 처리는
+		# 비종료(타임아웃 깨짐·_process 순서·시그널 정리 실패)를 결정론 통과로 위장하므로 금지.
+		# 빈 플랜 Stage11은 ~960f에 stage_failed(no_more_ants)로 정상 종료하므로 정상 경로에선 도달 안 함.
+		_fail("run %d did not reach a terminal stage result within %d frames (deadline = non-termination)" % [
+			(1 if _phase == Phase.RUN1 else 2), DEADLINE_FRAMES])
 
 func _finish_run() -> void:
 	# 스테이지 언로드 — EventBus 연결은 Home/StageRunner._exit_tree가 정리(배치 누수 차단 패턴 선행).
