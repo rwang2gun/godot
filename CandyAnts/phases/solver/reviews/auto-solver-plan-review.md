@@ -130,3 +130,44 @@ CRITICAL: None. HIGH: None. MEDIUM: None. LOW: None.
 초점: D4 정답 기준이 (1) 비순환인가 (2) plan에 일관 반영됐나 (3) 거짓 클리어 경로가 새로 생기나.
 **Verdict: clean** — CRITICAL/HIGH/MEDIUM/LOW 전부 None. 클리어 verdict가 무수정 게임 코드(`StageRunner._conclude_stage`/`ScoreSystem`)에서 나오므로 하니스가 보고하는 클리어는 실엔진 클리어 = 비순환 확인. driver-parity/S14 defer 잔재 모순 없음.
 (운영 노트: `codex exec`를 백그라운드 Bash로 돌릴 때 stdin EOF가 안 와 멈추는 현상 → `< /dev/null` 필요. cwd는 `cd .../CandyAnts &&`로 같은 명령에 고정.)
+
+---
+
+# 개정 (2026-06-18) — 생성 북극성 + D5~D9 + 3층 구조
+
+> 계획을 레벨-생성 북극성으로 개정. 문서를 3층(비전 / 확정=D1~D7+Phase 1 / 로드맵=Phase 4~6)으로 분리.
+> 리뷰 범위 = **확정 층만**(focus text로 못박음). codex가 Phase 4~6/생성 feasibility는 결함으로 보지 않음(스코핑 성공).
+
+## Round 1 (codex `/codex:adversarial-review`, working-tree)
+Verdict: **needs-attention** (확정 층 내 HIGH 2건; 로드맵/비전은 무지적)
+
+- [high] Phase 1 acceptance가 실행 가능한 verify 게이트에 없음 (frontmatter:4)
+  `verify`가 Phase 0 테스트(DeterminismReplay/SpawnSchedule)만 실행. 확정 층은 Phase 1 포함이고 본문은 PlanReplayHarnessTest·`run_plan.py --selftest`·자동동기화 회귀를 요구 → Phase 1 구현이 그것들을 증명 없이 문서 게이트를 통과 가능 = "확정 층 falsifiable acceptance" 주장 약화.
+  권고: verify에 Phase 1 체크 복원, 또는 `verify_phase0`/`verify_phase1` 분리로 silent bypass 차단.
+- [high] D7 자동동기화가 기존 하드코딩 스킬 지식을 마이그레이션 계약 밖에 둠 (D7)
+  스킬 self-describing + `SkillRegistry` generic 열거를 말하면서, 기존 하드코딩 맵(`SkillRegistry.SKILL_SCRIPTS` preload 배열, `SkillAffordance.SKILL_CATEGORY` — 신규 스킬마다 수동 1줄)은 Phase 1 계약에 미포함 → 엔진/UI-affordance/솔버 열거 간 drift 가능 = D7 불변식 미확보.
+  권고: `SkillAffordance`/수동 레지스트리를 per-skill 메타에 종속, 또는 **메타 누락/열거 불일치 시 실패하는 drift 테스트** 추가.
+
+### 처리 (plan-stage: HIGH → 수정 → Round 2)
+- 사실확인: `SkillRegistry.SKILL_SCRIPTS`·`SkillAffordance.SKILL_CATEGORY` 둘 다 수동 1줄 요구(assert로 누락 검출). 지적 정당.
+- HIGH-1: frontmatter에 `verify_phase1` 분리(Phase 1 게이트 = PlanReplayHarnessTest + run_plan.py --selftest + 자동동기화 drift 테스트), Phase 1 Acceptance가 이를 게이트로 명시. `verify`(현재 실행가능)는 Phase 0 유지.
+- HIGH-2: D7에 기존 하드코딩 맵 명시 + 정확한 불변식("솔버-side 불변, 단일 권위 뷰서 열거; 신규 스킬 = 레지스트리 등록 + 자기-완결 메타가 affordance 카테고리 포섭; drift 테스트가 완전성 보장"). Phase 1에 **스킬 메타 drift 가드 테스트** 추가.
+
+## Round 2 (codex `/codex:adversarial-review`, working-tree)
+Verdict: **needs-attention** (HIGH 1; D7 수정 수용·미재기)
+
+- [high] `verify_phase1`이 기존 완료 플로우에 inert (frontmatter:4-5)
+  `scripts/execute.py`는 `verify`만 파싱·실행(`parse_frontmatter` L220 / `complete` L809 `fm.get("verify")`). 커스텀 키 무시 → Phase 1을 PlanReplay/Drift/selftest 증명 없이 완료 표시 가능 = R1-HIGH-1이 키 이름만 바뀐 채 잔존.
+  권고: `verify`에 Phase 1 게이트 되돌림, 또는 execute.py가 `verify_phase1` 파싱·실행 + 미강제 verify류 키 거부.
+
+### 처리 (Round 2 → 수정 → Round 3)
+- 사실확인: `parse_frontmatter` `verify`만 추출(L220), `complete` `fm.get("verify")`만 실행(L809). 지적 정당(이 트랙은 execute.py 태스크도 아니라 더 inert).
+- 수정: **inert `verify_phase1` 제거.** 단일 `verify` 필드를 계약으로 — "단계 완료 = `verify`를 그 단계 게이트로 갱신하고 그린"(현재 Phase 0, Phase 1 완료 시 && 편입). Acceptance·검증방법·문서구조에 일관 반영, 별도 키 금지 명시. execute.py 변경 없이 실행 계약 일치(over-engineering 회피).
+
+## Round 3 (codex `/codex:adversarial-review`, working-tree) — 최종
+Verdict: **approve** — No material findings.
+inert `verify_phase1` 부재 확인, 플랜이 프론트매터 `verify`를 유일 실행 게이트로 취급, Phase 1 완료 = 그 단일 `verify`에 PlanReplayHarnessTest·SkillMetadataDriftTest·`run_plan.py --selftest` 편입으로 명시됨.
+
+### 종결 (plan-stage 3-round cap 내 clean)
+R1 needs-attention(HIGH×2) → 수정 → R2 needs-attention(HIGH×1) → 수정 → **R3 approve**. 3-round cap 준수.
+**스코핑 성과**: 3층 구조 + focus text로 codex가 Phase 4~6/생성 feasibility를 결함으로 보지 않음(북극성 유지하며 확정 층만 가혹 검증) — 사용자 우려("최종 목표가 리뷰 통과 방해") 해소.
