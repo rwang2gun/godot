@@ -14,8 +14,9 @@
 ## 현재 상태 (2026-06-18) — **Phase 0 구현 완료, 게이트 통과** (적대적 리뷰 진행 중)
 
 > 적대적 리뷰 트레일: [phases/solver/reviews/phase0-impl-review.md](../../phases/solver/reviews/phase0-impl-review.md).
-> R1(codex) HIGH(스폰 프레임 환산 drift/early-fire) + MEDIUM(replay deadline=pass) → 수정 완료(분수-초 데드라인 ceil
-> 누적 + deadline hard-fail + `DeterminismSpawnScheduleTest` 추가). 자체 리뷰 clean. codex 재리뷰 대기.
+> R1(codex) HIGH(스폰 프레임 환산 drift/early-fire) + MEDIUM(replay deadline=pass) → 수정(분수-초 데드라인 ceil
+> 누적 + deadline hard-fail + `DeterminismSpawnScheduleTest`) → 자체리뷰 clean → **R2(codex) approve = 종결**.
+> 커밋: Phase 0 본체 `97ea271`, R1 수정 `985c7ae`.
 
 ### 결정론 모드 (opt-in)
 - **`scripts/core/SimConfig.gd`** 신규 autoload(`project.godot` 등록, GameManager 직후). `deterministic` 플래그

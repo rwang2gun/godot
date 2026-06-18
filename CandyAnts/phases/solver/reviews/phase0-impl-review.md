@@ -57,3 +57,17 @@ Next steps:
   `set_release_rate`에서 det 캐시 제거 — 기본 경로는 Timer.wait_time만 갱신(종전과 동일). S11/S13 default 프레임·결과 불변 실측.
 - **[검토] deadline-fail 헤드룸**: 빈 플랜 S11 962f ≪ 16000(16x). 비종료만 트립. 안전.
 - **판정: 자체 리뷰 clean (HIGH 0건).** → codex 재리뷰 진행.
+
+## Round 2 (codex `/codex:adversarial-review`)
+
+Target: branch diff against 072ee26
+Verdict: **approve**
+
+No material no-ship finding supported from the diff. The R1 fixes replace rounded per-interval spawn accumulation with absolute fractional deadlines, switch one-shot frame conversion to ceil, and make replay deadline expiry a hard failure. I could not run the Godot tests because the sandbox policy rejected the test commands, so this approval is based on read-only diff inspection only.
+
+No material findings.
+
+### 종결
+- **verdict = approve (clean).** impl-stage 루프 종료(R1 needs-attention → 수정 → 자체리뷰 clean → R2 approve).
+- codex 샌드박스가 Godot 실행을 거부해 read-only 검토였으나, 모든 결정론/스폰/회귀 테스트는 **작성자가 직접 실행해 PASS 확인**
+  (DeterminismReplayTest 962f 일치, DeterminismSpawnScheduleTest [86,171,257,342,427] 일치, S11/S13 default·S11 det+fixedfps 클리어).
