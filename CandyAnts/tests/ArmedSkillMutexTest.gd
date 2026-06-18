@@ -65,13 +65,13 @@ func _clear_armed() -> void:
 	_ant.cutter_armed = false
 
 func _all_can_apply() -> bool:
-	return BridgeSkill.new().can_apply(_ant) and BuilderSkill.new().can_apply(_ant) \
+	return BridgeSkill.new().can_apply(_ant) and SlideRSkill.new().can_apply(_ant) \
 		and BasherSkill.new().can_apply(_ant) and CutterSkill.new().can_apply(_ant)
 
 # 무장 상태에서 차단 안 된(can_apply true) 첫 스킬 이름 반환. 모두 차단되면 "".
 func _first_unblocked() -> String:
 	if BridgeSkill.new().can_apply(_ant): return "bridge"
-	if BuilderSkill.new().can_apply(_ant): return "builder"
+	if SlideRSkill.new().can_apply(_ant): return "slideR"
 	if BasherSkill.new().can_apply(_ant): return "basher"
 	if CutterSkill.new().can_apply(_ant): return "cutter"
 	return ""

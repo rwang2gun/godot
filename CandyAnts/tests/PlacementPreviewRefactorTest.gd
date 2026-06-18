@@ -1,7 +1,7 @@
 extends Node
 
 # Phase 3 — PlacementPreview 카테고리 파생 재작성 검증.
-# ③(bridge/builder/climber) 탭-타임 ghost 없음 + ②(blocker) 없음 + ①SIGN(sand_mound/basher/digger/cutter)
+# ③(bridge/slideR/climber) 탭-타임 ghost 없음 + ②(blocker) 없음 + ①SIGN(sand_mound/basher/digger/cutter)
 # deferred라 결과 ghost 없음(설치셀≠빌드셀 가능, codex R1 MEDIUM) + ④leaf_jump pad ghost 1칸(결정적 설치).
 
 func _ready() -> void:
@@ -24,7 +24,7 @@ func _ready() -> void:
 	var cursor := Vector2(3 * cs + 24, 8 * cs + 24)   # col3, 허공 → 설치 셀 (3,9)
 
 	# ③ 무장 — 탭-타임 ghost 없음
-	for sid in ["bridge", "builder", "climber"]:
+	for sid in ["bridge", "slideR", "climber"]:
 		if not pp._preview_cells(sid, cursor).is_empty():
 			failures.append("%s(③) should have NO tap-time ghost" % sid)
 

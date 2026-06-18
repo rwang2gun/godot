@@ -19,7 +19,7 @@ const MIGRATED_KEYS := [
 ]
 
 const SKILL_IDS := [
-	"climber", "floater", "blocker", "builder", "sand_mound",
+	"climber", "floater", "blocker", "slideR", "slideL", "sand_mound",
 	"bridge", "basher", "digger", "cutter", "leaf_jump",
 ]
 

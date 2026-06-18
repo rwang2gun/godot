@@ -45,7 +45,7 @@ func _apply_builder() -> void:
 			continue
 		if a.global_position.x < BUILDER_X_MIN or a.global_position.x >= BUILDER_X_MAX:
 			continue
-		var builder: BuilderSkill = BuilderSkill.new()
+		var builder: SlideRSkill = SlideRSkill.new()
 		if not builder.can_apply(a):
 			continue
 		builder.apply(a)

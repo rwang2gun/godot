@@ -62,7 +62,7 @@ def grab_float_array(text, key):
     return [float(x) for x in re.findall(r'[0-9.]+', m.group(1))] if m else []
 
 SKILL_KR = {"climber":"벽 오르기","blocker":"길 막기","floater":"낙하산","bridge":"다리 만들기",
-"builder":"계단 짓기","sand_mound":"막대 세우기","digger":"땅파기","basher":"벽 부수기",
+"slideR":"오른쪽 경사면","slideL":"왼쪽 경사면","sand_mound":"막대 세우기","digger":"땅파기","basher":"벽 부수기",
 "cutter":"길 먹기","leaf_jump":"나뭇잎 점프"}
 
 META = {
@@ -77,7 +77,7 @@ META = {
    "roles":{"bridge":"두 갭을 평지 다리로 횡단 (각 1개)"}},
 4:{"theme":"builder — 건설 ② 대각","axis":"건설","diff":4,
    "puzzle":"갭 너머 높은 단의 사탕. builder로 대각 계단을 1회 건설하면 후속 개미도 step-up으로 자동 등반, 하강은 부드러운 계단 미끄럼. ‘위로 올라가는 건설’을 bridge(평지)와 대비.",
-   "roles":{"builder":"대각 계단 건설 (1회 → 영구)"}},
+   "roles":{"slideR":"대각 계단 건설 (오른쪽 방향, 1회 → 영구)"}},
 5:{"theme":"sand_mound + floater — 건설 ③ 수직","axis":"건설","diff":5,
    "puzzle":"고립된 막대과자 탑(플랫폼) 위 사탕. sand_mound 수직 사다리를 1회 세우면 후속 개미가 자동 등반. 6칸 하강 귀가는 floater 분배자로 안전화. 수직 건설 + 분배 복습.",
    "roles":{"sand_mound":"수직 사다리 (1회 → 후속 자동 등반)","floater":"분배자 → 하강 안전화"}},

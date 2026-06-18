@@ -75,7 +75,7 @@ func _apply_when_ready() -> void:
 		return
 	if not _ant.is_on_floor():
 		return
-	var skill: BuilderSkill = BuilderSkill.new()
+	var skill: SlideRSkill = SlideRSkill.new()
 	if not skill.can_apply(_ant):
 		return
 	_start_y = _ant.global_position.y

@@ -13,8 +13,8 @@ func _ready() -> void:
 
 	var stage_data: StageData = StageData.new()
 	stage_data.id = 99
-	stage_data.available_skills = ["builder"]
-	stage_data.skill_inventory = {"builder": 5}
+	stage_data.available_skills = ["slideR"]
+	stage_data.skill_inventory = {"slideR": 5}
 
 	# 1차 toolbar 생성 + 즉시 free
 	var toolbar1: SkillToolbar = _TOOLBAR_SCENE.instantiate()
@@ -62,7 +62,7 @@ func _ready() -> void:
 		failures.append("ant did not settle on floor — test setup broken")
 
 	# pending 셋업 후 SKILL_ASSIGN emit. toolbar1 stale ref 있으면 여기서 crash.
-	toolbar2._select("builder")
+	toolbar2._select("slideR")
 	EventBus.action_triggered.emit(GameAction.SKILL_ASSIGN, {
 		"position_valid": true,
 		"screen_pos": ant.global_position,
@@ -72,7 +72,7 @@ func _ready() -> void:
 
 	# toolbar2 inventory 1회만 차감 — toolbar1 stale connect면 _try_assign 2회 호출이지만
 	# inventory는 toolbar별 dict라 cross-pollution 없음. crash 없이 도달했다면 disconnect 정상.
-	var remaining: int = int(toolbar2._inventory["builder"])
+	var remaining: int = int(toolbar2._inventory["slideR"])
 	if remaining != 4:
 		failures.append("inventory expected 4 (5-1) got %d" % remaining)
 

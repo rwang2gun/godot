@@ -53,7 +53,7 @@ func _arm_when_ready() -> void:
 			continue
 		if a.global_position.x >= ARM_X_MAX or a.global_position.y >= UPPER_Y_MAX:
 			continue
-		var builder: BuilderSkill = BuilderSkill.new()
+		var builder: SlideRSkill = SlideRSkill.new()
 		if not builder.can_apply(a):
 			continue
 		builder.apply(a)

@@ -59,7 +59,7 @@ func _apply_armed() -> void:
 			continue
 		if not (a.state_machine.current_state is WalkerState):
 			continue
-		var builder: BuilderSkill = BuilderSkill.new()
+		var builder: SlideRSkill = SlideRSkill.new()
 		if not builder.can_apply(a):
 			continue
 		builder.apply(a)

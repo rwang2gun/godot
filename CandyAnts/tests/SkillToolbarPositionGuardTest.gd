@@ -11,8 +11,8 @@ const ANT_SCENE: PackedScene = preload("res://scenes/entities/Ant.tscn")
 func _ready() -> void:
 	# stage_data + toolbar mock
 	var stage_data: StageData = STAGE_DATA_SCRIPT.new()
-	stage_data.available_skills = ["builder"]
-	stage_data.skill_inventory = {"builder": 2}
+	stage_data.available_skills = ["slideR"]
+	stage_data.skill_inventory = {"slideR": 2}
 	var toolbar := SkillToolbar.new()
 	toolbar.stage_data = stage_data
 	var hbox: Control = HBoxContainer.new()
@@ -28,15 +28,15 @@ func _ready() -> void:
 	add_child(ant)
 	await get_tree().process_frame
 
-	toolbar._pending_skill_id = "builder"
+	toolbar._pending_skill_id = "slideR"
 
 	# 1. position_valid:false → noop (인벤토리 + pending 보존)
 	EventBus.action_triggered.emit(GameAction.SKILL_ASSIGN, {"position_valid": false})
 	await get_tree().process_frame
-	if int(toolbar._inventory.get("builder", -1)) != 2:
-		_fail("position_valid:false: inventory consumed unexpectedly (%d != 2)" % int(toolbar._inventory.get("builder", -1)))
+	if int(toolbar._inventory.get("slideR", -1)) != 2:
+		_fail("position_valid:false: inventory consumed unexpectedly (%d != 2)" % int(toolbar._inventory.get("slideR", -1)))
 		return
-	if toolbar._pending_skill_id != "builder":
+	if toolbar._pending_skill_id != "slideR":
 		_fail("position_valid:false: pending cleared unexpectedly: %s" % toolbar._pending_skill_id)
 		return
 

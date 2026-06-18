@@ -8,7 +8,7 @@ const _SLOT_SCENE := preload("res://scenes/ui/atoms/SkillSlot.tscn")
 func _ready() -> void:
 	var failures: Array[String] = []
 	var slot: SkillSlot = _SLOT_SCENE.instantiate()
-	slot.skill_id = &"builder"
+	slot.skill_id = &"slideR"
 	slot.hotkey = "1"
 	slot.ko_label = "계단"
 	add_child(slot)
