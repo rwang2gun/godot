@@ -1,0 +1,44 @@
+{
+  "stage": "res://scenes/stages/Stage12.tscn",
+  "blocker_budget": 3,
+  "actions": [
+    {
+      "sel": "min_x",
+      "cmp": "le",
+      "x": 72.0,
+      "y_min": 584.0,
+      "y_max": 648.0
+    },
+    {
+      "sel": "max_x",
+      "cmp": "ge",
+      "x": 264.0,
+      "y_min": 440.0,
+      "y_max": 504.0
+    },
+    {
+      "sel": "max_x",
+      "cmp": "ge",
+      "x": 312.0,
+      "y_min": 296.0,
+      "y_max": 360.0
+    }
+  ],
+  "labels": [
+    "r13:min_xle1*",
+    "r10:max_xge5",
+    "r7:max_xge6"
+  ],
+  "result": {
+    "best_carry_home_dist": 44.5433158874512,
+    "best_min_y": 184.424026489258,
+    "blockers_used": 3,
+    "cleared": true,
+    "frame": 2385,
+    "hp": 5,
+    "lost": 0,
+    "picked": true,
+    "reason": "",
+    "saved": 5
+  }
+}
