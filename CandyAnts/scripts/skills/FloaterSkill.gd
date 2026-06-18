@@ -2,6 +2,13 @@ class_name FloaterSkill extends Skill
 
 const ID: String = "floater"
 
+# 솔버 self-describing 메타 (D7) — SkillMetadataDriftTest가 category 동기·완전성을 강제.
+const SOLVER_META := {
+	"target": "ant",
+	"category": "ANT_SETTLE",
+	"hints": {"effect": "distribute_slow_fall"},
+}
+
 const _MARKER_SCENE := preload("res://scenes/world/SettlementMarker.tscn")
 
 # 낙하산 분배자 (2026-06-03 재설계, B안). 적용 즉시 그 자리에 정착해 지나가는 개미에게

@@ -10,9 +10,6 @@ const GameAction := preload("res://scripts/input/GameAction.gd")
 const SkillSlotScene: PackedScene = preload("res://scenes/ui/atoms/SkillSlot.tscn")
 # 표지판(설치형 발동) — class_name 글로벌 캐시 의존 없이 헤드리스 안정성 위해 preload 참조(SkillRegistry 패턴).
 const SkillSignScript := preload("res://scripts/world/SkillSign.gd")
-const LeafJumpPadScript := preload("res://scripts/world/LeafJumpPad.gd")
-# 설치형/장치 배치 검증 단일 출처 (Phase 2 추출) — 글로우와 동일 규칙 보장.
-const SignPlacementScript := preload("res://scripts/world/SignPlacement.gd")
 # DEVICE(④) 커서 = 점프대 장치 모양 (Phase 3 — 커서=결과물).
 const LEAF_PAD_TEXTURE: Texture2D = preload("res://assets/sprites/terrain/leaf_jump_pad.png")
 # 터치/클릭 스킬 부여 판정 반경. 기준점은 개미 충돌 원점(발)이 아니라 보이는 캐릭터 중심
@@ -301,19 +298,12 @@ func try_assign_dragged(id: String, world: Vector2) -> void:
 			_clear_selection()
 
 # id 스킬을 ant에 적용 시도 — 성공 시 인벤토리 차감 + true 반환. 클릭/드롭 공통 코어.
+# 규칙(인벤토리·can_apply·apply)은 SkillApplier 단일 출처에 위임(D7); 툴바는 슬롯 UI·SFX만 덧붙인다.
 func _apply_skill(id: String, ant: Ant) -> bool:
 	if id == "" or not _slots.has(id):
 		return false
-	if int(_inventory.get(id, 0)) <= 0:
+	if not SkillApplier.apply_to_ant(id, ant, _inventory):
 		return false
-	var skill_script: Script = SkillRegistry.get_skill(id)
-	if skill_script == null:
-		return false
-	var skill: Skill = skill_script.new() as Skill
-	if skill == null or not skill.can_apply(ant):
-		return false
-	skill.apply(ant)
-	_inventory[id] = int(_inventory[id]) - 1
 	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
 	# 부여 확정 피드백 — 개미에 스킬 적용 성공.
 	EventBus.sfx_request.emit(&"skill_assign")
@@ -322,10 +312,9 @@ func _apply_skill(id: String, ant: Ant) -> bool:
 
 # 설치형 스킬을 world 위치의 타일 셀에 표지판으로 설치 — 성공 시 인벤토리 차감 + true.
 # 점유 셀(벽/타일)·지형 없음·재고 0이면 false(설치 안 함, 선택 유지).
+# 배치 규칙(인벤토리·유효 셀·인스턴스화)은 SkillApplier 단일 출처에 위임(D7); 툴바는 terrain 탐색·UI·SFX만.
 func _place_sign(id: String, world: Vector2) -> bool:
 	if id == "" or not _slots.has(id):
-		return false
-	if int(_inventory.get(id, 0)) <= 0:
 		return false
 	var terrain: Terrain = _find_terrain()
 	if terrain == null:
@@ -333,49 +322,36 @@ func _place_sign(id: String, world: Vector2) -> bool:
 	var parent: Node = terrain.get_parent()
 	if parent == null:
 		return false
-	# 허공/점유 배치 방지 + 아래 지면 스냅 — SignPlacement 단일 출처(글로우와 동일 규칙).
+	# 허공/점유 배치 방지 + 아래 지면 스냅은 SkillApplier→SignPlacement에서 처리.
 	# 유효 셀이 아니면 선택 유지(빈 공간 오클릭 보호와 동일).
-	var res: Dictionary = SignPlacementScript.resolve_surface_install_cell(terrain, id, world, parent)
-	if not res.get("valid", false):
+	var res: Dictionary = SkillApplier.place_on_cell(id, terrain, world, parent, _inventory)
+	if not res.get("placed", false):
 		return false
-	var cell: Vector2i = res["cell"]
-	var sign: SkillSign = SkillSignScript.new() as SkillSign
-	# setup을 add_child 앞에 — _ready()/_build_visual()이 skill_id·cell·terrain을 사용하므로 먼저 채운다.
-	sign.setup(id, cell, terrain)
-	parent.add_child(sign)
-	_inventory[id] = int(_inventory[id]) - 1
 	(_slots[id] as SkillSlot).set_count(int(_inventory[id]))
 	# 배치 확정 피드백 — 표지판 설치 성공.
 	EventBus.sfx_request.emit(&"skill_assign")
-	print("[SkillToolbar] sign placed=", id, " cell=", cell, " remaining=", _inventory[id])
+	print("[SkillToolbar] sign placed=", id, " cell=", res.get("cell"), " remaining=", _inventory[id])
 	return true
 
-# 나뭇잎 점프는 표지판 없이 점프대 자체를 지면 위에 직접 배치한다.
+# 나뭇잎 점프는 표지판 없이 점프대 자체를 지면 위에 직접 배치한다(SkillApplier가 카테고리로 라우팅).
 func _place_leaf_jump_pad(world: Vector2) -> bool:
 	var skill_id := "leaf_jump"
 	if not _slots.has(skill_id):
 		return false
-	if int(_inventory.get(skill_id, 0)) <= 0:
-		return false
 	var terrain: Terrain = _find_terrain()
 	if terrain == null:
 		return false
 	var parent: Node = terrain.get_parent()
 	if parent == null:
 		return false
-	# 지면 스냅 + 같은 셀 중복 pad 거부 — SignPlacement 단일 출처(글로우와 동일 규칙).
-	var res: Dictionary = SignPlacementScript.resolve_surface_install_cell(terrain, skill_id, world, parent)
-	if not res.get("valid", false):
+	# 지면 스냅 + 같은 셀 중복 pad 거부는 SkillApplier→SignPlacement에서 처리.
+	var res: Dictionary = SkillApplier.place_on_cell(skill_id, terrain, world, parent, _inventory)
+	if not res.get("placed", false):
 		return false
-	var cell: Vector2i = res["cell"]
-	var pad: LeafJumpPad = LeafJumpPadScript.new() as LeafJumpPad
-	pad.setup(cell, terrain)
-	parent.add_child(pad)
-	_inventory[skill_id] = int(_inventory[skill_id]) - 1
 	(_slots[skill_id] as SkillSlot).set_count(int(_inventory[skill_id]))
 	# 배치 확정 피드백 — 점프대 장치 설치 성공.
 	EventBus.sfx_request.emit(&"skill_assign")
-	print("[SkillToolbar] leaf jump pad placed cell=", cell, " remaining=", _inventory[skill_id])
+	print("[SkillToolbar] leaf jump pad placed cell=", res.get("cell"), " remaining=", _inventory[skill_id])
 	return true
 
 # Terrain 탐색 — 툴바는 CanvasLayer라 World 트리 밖. 현재 씬 트리에서 Terrain 노드를 찾는다.

@@ -13,6 +13,14 @@ const ID: String = "leaf_jump"
 # 전방으로 날아갈 타일 수(포물선 사거리). terrain.cell_size 비례라 cs 무관.
 const LEAF_JUMP_CELLS: int = 4
 
+# 솔버 self-describing 메타 (D7) — SkillMetadataDriftTest가 category 동기·완전성을 강제.
+# target="cell": 점프대(④)를 지면 셀에 직접 설치, 도착한 적격 개미가 반복 점프.
+const SOLVER_META := {
+	"target": "cell",
+	"category": "DEVICE",
+	"hints": {"effect": "jump_forward", "range_cells": LEAF_JUMP_CELLS},
+}
+
 func can_apply(ant: Ant) -> bool:
 	if ant == null or ant.state_machine == null:
 		return false

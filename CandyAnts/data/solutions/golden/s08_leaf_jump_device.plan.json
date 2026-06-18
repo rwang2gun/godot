@@ -1,0 +1,9 @@
+{
+  "stage": "res://scenes/stages/Stage08.tscn",
+  "deadline_frames": 9000,
+  "expect": {"cleared": false, "saved": 0, "actions_fired": 1, "reason": "time_out"},
+  "note": "CELL 대상 DEVICE(leaf_jump 점프대) 충실성 케이스. 표면 위 셀에 점프대 설치 → 개미가 점프(best_min_y 하락)하나 클리어 못함, 게임 time_out verdict(D4). DEVICE 설치 경로(place_on_cell의 DEVICE 분기)가 무수정 게임에서 충실히 도는지 핀.",
+  "actions": [
+    { "skill": "leaf_jump", "target": {"mode": "cell", "cell": [10, 9]}, "trigger": {"type": "at_frame", "frame": 0} }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "stage": "res://scenes/stages/Stage11.tscn",
+  "deadline_frames": 7000,
+  "expect": {"cleared": true, "min_saved": 4, "actions_fired": 1},
+  "note": "ANT 대상(blocker x1) 양성 클리어. 하단 물 직전(col20)에서 최전방 walker 정지 → 후속 반전 → candy 픽업 후 사다리로 귀환. CampaignS11ClearTest 동선의 데이터 포팅.",
+  "actions": [
+    {
+      "skill": "blocker",
+      "target": {"mode": "ant", "select": "max_x", "y_min": 520.0, "y_max": 99999.0, "dir": 0},
+      "trigger": {"type": "ant_reaches_x", "cmp": "ge", "x": 960.0}
+    }
+  ]
+}

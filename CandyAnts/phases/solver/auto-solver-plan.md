@@ -1,10 +1,10 @@
 ---
 name: auto-solver
 duration_estimate: 28800
-verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn
+verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn && python scripts/run_test.py tests/PlanReplayHarnessTest.tscn && python scripts/run_test.py tests/SkillMetadataDriftTest.tscn && python scripts/run_plan.py --selftest
 large_change_ok: false
 sot: phases/solver/auto-solver-plan.md
-sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/SceneFlow.gd, scripts/core/ScoreSystem.gd, scripts/ant/Ant.gd, scripts/world/Home.gd, scripts/core/AntSpawner.gd, scripts/ui/SkillToolbar.gd, scripts/core/SkillRegistry.gd, scripts/run_test.py, tests/SolverHarness.gd, tools/solver/solve_spike.py]
+sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/SceneFlow.gd, scripts/core/ScoreSystem.gd, scripts/ant/Ant.gd, scripts/world/Home.gd, scripts/core/AntSpawner.gd, scripts/ui/SkillToolbar.gd, scripts/core/SkillRegistry.gd, scripts/core/SkillApplier.gd, scripts/core/PlanRunner.gd, scripts/core/SolverCapabilities.gd, scripts/run_test.py, scripts/run_plan.py, tests/SolverHarness.gd, tests/PlanReplayHarness.gd, tests/PlanReplayHarnessTest.gd, tests/SkillMetadataDriftTest.gd, data/solver/capabilities.tres, tools/solver/solve_spike.py]
 ---
 
 # 트랙: 스테이지 자동 솔버 → 레벨 생성 (auto-solver)
@@ -71,7 +71,8 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 같은 입력 → per-frame 동일 결과 보증 + 헤드리스가 실시간보다 충분히 빠른지(생성 처리량 전제). **완료**: `SimConfig` autoload(opt-in 결정론, 기본 동작 불변) + 게임플레이 시계 물리-프레임화 + `DeterminismReplayTest`(per-frame 일치) + `DeterminismSpawnScheduleTest`(스폰 드리프트 0) + 속도 게이트(`--fixed-fps`에서 ~24x 실시간, 롤아웃당 ~0.3s). 신규 회귀 0. 적대적 리뷰 R1→R2 approve. 상세: `codex-worklog/solver/STATUS.md`, `phases/solver/reviews/phase0-impl-review.md`. 커밋 `97ea271`/`985c7ae`/`f61704a`.
 > 생성이 북극성이 되며 **속도가 1급 제약으로 승격**(D9): 후보 레벨 대량 채점 → 라이브러리 가속(Phase 4)·병렬이 더 중요.
 
-## Phase 1 — 리플레이 하니스 + 능력 명세 (자동 동기화 토대) · **[확정 · 리뷰·구현 대상]**
+## Phase 1 — 리플레이 하니스 + 능력 명세 (자동 동기화 토대) · **[확정] ✅ 구현 완료 (2026-06-18, 게이트 그린; 적대적 리뷰 대기)**
+> **산출**: `SkillApplier.gd`(순수 규칙 SoT, toolbar 위임) + 10 스킬 `SOLVER_META`(self-describing) + `SkillRegistry.skill_ids()/solver_meta()`(generic 열거) + `SolverCapabilities.gd`+`data/solver/capabilities.tres` + `PlanRunner.gd`(다중스킬·타이밍 트리거) + `PlanReplayHarness.{gd,tscn}` + `run_plan.py`(--selftest) + `PlanReplayHarnessTest`(배치 누수 0) + `SkillMetadataDriftTest`(D7 가드). 골든 5종 `data/solutions/golden/`(S11/S12 클리어 = spike 바이트동일 재현, S05 SIGN·S08 DEVICE 충실성, 빈 플랜 음성). **게이트(verify) 그린**. SkillApplier 리팩터 회귀 0(S11/S13/sign·device·routing 테스트 PASS). 상세: `codex-worklog/solver/STATUS.md`.
 ### 목표
 손코딩 `CampaignSxx*.gd` 드라이버를 **데이터(플랜)** 로 대체하고, 솔버가 게임 능력을 **읽어** 행동공간을 자동 구성하게 한다(D7).
 ### 작업

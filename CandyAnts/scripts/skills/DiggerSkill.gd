@@ -2,6 +2,13 @@ class_name DiggerSkill extends Skill
 
 const ID: String = "digger"
 
+# 솔버 self-describing 메타 (D7) — SkillMetadataDriftTest가 category 동기·완전성을 강제.
+const SOLVER_META := {
+	"target": "cell",
+	"category": "SIGN",
+	"hints": {"effect": "dig_down"},
+}
+
 func can_apply(ant: Ant) -> bool:
 	if ant == null or ant.state_machine == null:
 		return false

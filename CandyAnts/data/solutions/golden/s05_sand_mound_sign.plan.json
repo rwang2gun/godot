@@ -1,0 +1,9 @@
+{
+  "stage": "res://scenes/stages/Stage05.tscn",
+  "deadline_frames": 9000,
+  "expect": {"cleared": false, "saved": 0, "actions_fired": 1, "reason": "incomplete"},
+  "note": "CELL 대상 SIGN(sand_mound 표지판) 충실성 케이스. 하단 표면 위 셀에 사다리 표지판 설치 → 개미가 등반·픽업(picked=true, best_min_y 하락)하나 귀환 실패로 게임이 'incomplete' verdict 발행(D4). 클리어 아님 — SIGN 설치·발동 경로가 무수정 게임에서 충실히 도는지 핀.",
+  "actions": [
+    { "skill": "sand_mound", "target": {"mode": "cell", "cell": [16, 10]}, "trigger": {"type": "at_frame", "frame": 0} }
+  ]
+}

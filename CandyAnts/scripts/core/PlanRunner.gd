@@ -1,0 +1,345 @@
+class_name PlanRunner
+extends Node
+
+# auto-solver Phase 1 — 플랜 리플레이 엔진 (spike SolverHarness 일반화·다중스킬·타이밍 트리거).
+#
+# 플랜(JSON dict)을 받아 실제 게임을 결정론 헤드리스로 재생한다. 매 _physics_process마다 각 액션의
+# 트리거를 평가(스코프 = 활성 스테이지 루트 하위)하고, 발화 시 SkillApplier로 **인벤토리-충실** 적용
+# (총량 = stage StageData.skill_inventory budget, D4). 무수정 게임 코드(StageRunner._conclude_stage)가
+# 내는 stage_cleared/failed verdict를 캐치해 결과 dict로 emit(D4 비순환 — verdict는 게임 본체가 emit).
+#
+# 솔버는 게임 지식을 하드코딩하지 않는다(D7): 대상 방식("ant"/"cell")은 스킬 SOLVER_META에서 읽고
+# (target 미지정 시), 적용은 SkillApplier 단일 규칙 출처를 경유한다.
+#
+# 사용:
+#   var pr := PlanRunner.new(); add_child(pr)
+#   pr.finished.connect(func(res): ...)
+#   pr.run(plan_dict)
+# 배치 재사용: finished 후 내부에서 스테이지를 free + EventBus 연결 해제 → 다음 run() 상태누수 0.
+
+signal finished(result: Dictionary)
+
+# 플랜/액션 스키마 (v1):
+#   { "stage": "res://scenes/stages/Stage11.tscn", "deadline_frames": 7000,
+#     "actions": [
+#       # 개미 대상(②③): select로 후보 선정 + 트리거로 발화 시점 결정.
+#       { "skill":"blocker",
+#         "target": {"mode":"ant", "select":"max_x"|"min_x"|"spawn_index", "spawn_index":3,
+#                    "y_min":520.0, "y_max":9999.0, "dir":-1, "state":"walker"|"any"},
+#         "trigger": {"type":"ant_reaches_x", "cmp":"ge"|"le", "x":960.0},
+#         "repeat": false },
+#       # 셀 대상(①④): 표지판/장치 설치. cell 또는 world 좌표 + 발화 시점 트리거.
+#       { "skill":"sand_mound", "target": {"mode":"cell", "cell":[20,14]},
+#         "trigger": {"type":"at_frame", "frame":0} }
+#     ] }
+# trigger.type: at_frame{frame} | ant_reaches_x{cmp,x} | ant_at_cliff | ant_on_wall |
+#               active_ants_le{n} | picked_ge{n} | after{ref(label/index),delay} | immediate.
+# (at_frame/active_ants_le/picked_ge/after = 시점 게이팅; ant_* = 선택 개미 조건; immediate = 매 프레임 시도.)
+
+var _plan: Dictionary = {}
+var _stage: Node = null
+var _actions: Array = []
+var _inventory: Dictionary = {}       # id → 잔여 budget (StageData.skill_inventory에서 복제, D4)
+var _deadline_frames: int = 16000
+var _frame: int = 0
+var _done: bool = false
+var _running: bool = false
+var _picked_total: int = 0
+var _fired_frame: Dictionary = {}     # action label/index → 발화 프레임(after 트리거용)
+var _actions_fired: int = 0
+
+# 진척 휴리스틱 (Phase 2 탐색 원료 — spike에서 이관).
+var _best_min_y: float = 1.0e20
+var _any_picked: bool = false
+var _best_carry_home_dist: float = 1.0e20
+var _home_pos: Vector2 = Vector2(1.0e20, 1.0e20)
+
+func run(plan: Dictionary) -> void:
+	# 결정론은 스테이지 인스턴스 *전에* 켜야 stage _ready가 플래그를 본다(spike 관행).
+	SimConfig.set_deterministic(true)
+	_reset_state()
+	_plan = plan
+	_deadline_frames = int(plan.get("deadline_frames", 16000))
+	_actions = (plan.get("actions", []) as Array).duplicate(true)
+	for i in range(_actions.size()):
+		var a: Dictionary = _actions[i]
+		a["_fired"] = false
+		if not a.has("_label"):
+			a["_label"] = str(a.get("skill", "?")) + "#" + str(i)
+	var stage_path: String = str(plan.get("stage", ""))
+	var packed: PackedScene = load(stage_path) as PackedScene
+	if packed == null:
+		_finish({"error": "could not load stage: %s" % stage_path})
+		return
+	if not EventBus.candy_piece_picked.is_connected(_on_picked):
+		EventBus.candy_piece_picked.connect(_on_picked)
+	if not EventBus.stage_cleared.is_connected(_on_cleared):
+		EventBus.stage_cleared.connect(_on_cleared)
+	if not EventBus.stage_failed.is_connected(_on_failed):
+		EventBus.stage_failed.connect(_on_failed)
+	_stage = packed.instantiate()
+	add_child(_stage)
+	# D4 budget — 실행 중 스테이지의 StageData.skill_inventory를 권위로 사용(드라이버·플랜이 임의 증액 못 함).
+	# 스테이지 씬 루트가 곧 StageRunner라 find_children(루트 제외)로는 못 잡으므로 루트를 우선 확인.
+	var sr: Node = _stage if (_stage is StageRunner) else _find_node_of_class("StageRunner")
+	if sr != null and sr.get("stage_data") != null:
+		var sd: Resource = sr.get("stage_data")
+		if sd != null and "skill_inventory" in sd:
+			_inventory = (sd.skill_inventory as Dictionary).duplicate(true)
+	var homes: Array = _stage.find_children("*", "Home", true, false)
+	if not homes.is_empty():
+		_home_pos = (homes[0] as Node2D).global_position
+	_running = true
+	print("[PlanRunner] stage=%s actions=%d deadline=%d inventory=%s" % [
+		stage_path, _actions.size(), _deadline_frames, str(_inventory)])
+
+func _reset_state() -> void:
+	_stage = null
+	_actions = []
+	_inventory = {}
+	_frame = 0
+	_done = false
+	_running = false
+	_picked_total = 0
+	_fired_frame = {}
+	_actions_fired = 0
+	_best_min_y = 1.0e20
+	_any_picked = false
+	_best_carry_home_dist = 1.0e20
+	_home_pos = Vector2(1.0e20, 1.0e20)
+
+func _physics_process(_delta: float) -> void:
+	if not _running or _done:
+		return
+	_frame += 1
+	_track_progress()
+	_evaluate_actions()
+	if _frame > _deadline_frames:
+		_report(false, 0, 0, -1, "deadline")
+
+func _on_picked(_remaining_hp: int) -> void:
+	_picked_total += 1
+
+func _track_progress() -> void:
+	for n in get_tree().get_nodes_in_group("ants"):
+		var a: Ant = n as Ant
+		if a == null or not is_instance_valid(a):
+			continue
+		if _stage == null or not _stage.is_ancestor_of(a):
+			continue
+		if a.global_position.y < _best_min_y:
+			_best_min_y = a.global_position.y
+		if a.has_candy:
+			_any_picked = true
+			if _home_pos.x < 1.0e19:
+				var d: float = a.global_position.distance_to(_home_pos)
+				if d < _best_carry_home_dist:
+					_best_carry_home_dist = d
+
+func _evaluate_actions() -> void:
+	for a in _actions:
+		var act: Dictionary = a
+		var repeat: bool = bool(act.get("repeat", false))
+		if act.get("_fired", false) and not repeat:
+			continue
+		if not _time_ready(act):
+			continue
+		var skill: String = str(act.get("skill", ""))
+		if skill == "":
+			continue
+		if _target_mode(act, skill) == "cell":
+			if _fire_cell(act, skill):
+				_mark_fired(act)
+		else:
+			var ant: Ant = _select_ant(act)
+			if ant == null:
+				continue
+			if not _ant_trigger_ok(act, ant):
+				continue
+			if SkillApplier.apply_to_ant(skill, ant, _inventory):
+				print("[PlanRunner] %s -> spawn_index=%d pos=%s frame=%d" % [
+					skill, ant.spawn_index, str(ant.global_position), _frame])
+				_mark_fired(act)
+
+func _mark_fired(act: Dictionary) -> void:
+	act["_fired"] = true
+	_fired_frame[str(act.get("_label"))] = _frame
+	_actions_fired += 1
+
+# 대상 방식 결정 — target.mode 우선, 없으면 스킬 SOLVER_META.target(D7), 그래도 없으면 "ant".
+func _target_mode(act: Dictionary, skill: String) -> String:
+	var t: Dictionary = act.get("target", {})
+	if t.has("mode"):
+		return str(t["mode"])
+	var meta: Dictionary = SkillRegistry.solver_meta(skill)
+	return str(meta.get("target", "ant"))
+
+# 시점 게이팅 트리거(개미 무관). ant_* / immediate은 여기서 항상 true(조건은 _ant_trigger_ok에서).
+func _time_ready(act: Dictionary) -> bool:
+	var trig: Dictionary = act.get("trigger", {})
+	var ttype: String = str(trig.get("type", "immediate"))
+	match ttype:
+		"at_frame":
+			return _frame >= int(trig.get("frame", 0))
+		"active_ants_le":
+			return _active_ant_count() <= int(trig.get("n", 0))
+		"picked_ge":
+			return _picked_total >= int(trig.get("n", 0))
+		"after":
+			var ref: String = str(trig.get("ref", ""))
+			if not _fired_frame.has(ref):
+				return false
+			return _frame >= int(_fired_frame[ref]) + int(trig.get("delay", 0))
+		_:
+			return true
+
+# 셀 대상 발화 — 표지판/장치를 cell(또는 world)에 설치. 성공 시 true.
+func _fire_cell(act: Dictionary, skill: String) -> bool:
+	var terrain: Terrain = _find_node_of_class("Terrain") as Terrain
+	if terrain == null:
+		return false
+	var parent: Node = terrain.get_parent()
+	if parent == null:
+		return false
+	var t: Dictionary = act.get("target", {})
+	var where: Variant
+	if t.has("cell"):
+		var c: Array = t["cell"]
+		where = Vector2i(int(c[0]), int(c[1]))
+	elif t.has("world"):
+		var w: Array = t["world"]
+		where = Vector2(float(w[0]), float(w[1]))
+	else:
+		return false
+	var res: Dictionary = SkillApplier.place_on_cell(skill, terrain, where, parent, _inventory)
+	if bool(res.get("placed", false)):
+		print("[PlanRunner] %s placed cell=%s frame=%d" % [skill, str(res.get("cell")), _frame])
+		return true
+	return false
+
+# 개미 대상 후보 선택 — 활성 스테이지 루트 하위 walker(또는 any) 중 y-band/dir 필터 통과분에서
+# select(max_x/min_x/spawn_index). tie-break = spawn_index(결정론). 없으면 null.
+func _select_ant(act: Dictionary) -> Ant:
+	var t: Dictionary = act.get("target", {})
+	var y_min: float = float(t.get("y_min", -1.0e20))
+	var y_max: float = float(t.get("y_max", 1.0e20))
+	var want_dir: int = int(t.get("dir", 0))
+	var sel: String = str(t.get("select", "max_x"))
+	var state_filter: String = str(t.get("state", "walker"))
+	var want_spawn: int = int(t.get("spawn_index", -1))
+	var best: Ant = null
+	for n in get_tree().get_nodes_in_group("ants"):
+		var a: Ant = n as Ant
+		if a == null or not is_instance_valid(a) or a.state_machine == null:
+			continue
+		if _stage == null or not _stage.is_ancestor_of(a):
+			continue
+		if not _state_ok(a, state_filter):
+			continue
+		var p: Vector2 = a.global_position
+		if p.y < y_min or p.y > y_max:
+			continue
+		if want_dir != 0 and a.direction != want_dir:
+			continue
+		if sel == "spawn_index":
+			if a.spawn_index == want_spawn:
+				return a
+			continue
+		if best == null:
+			best = a
+		elif sel == "min_x":
+			if p.x < best.global_position.x or (p.x == best.global_position.x and a.spawn_index < best.spawn_index):
+				best = a
+		else: # max_x
+			if p.x > best.global_position.x or (p.x == best.global_position.x and a.spawn_index < best.spawn_index):
+				best = a
+	return best
+
+func _state_ok(a: Ant, state_filter: String) -> bool:
+	if state_filter == "any":
+		return a.is_alive()
+	var s: AntState = a.state_machine.current_state
+	if state_filter == "carrying":
+		return s is CarryingState
+	# 기본 "walker" — 보행 walker(드라이버 관행). spike와 동일.
+	return s is WalkerState
+
+# 선택된 개미에 대한 트리거 조건(개미 의존 트리거만; 그 외는 _time_ready가 게이팅).
+func _ant_trigger_ok(act: Dictionary, ant: Ant) -> bool:
+	var trig: Dictionary = act.get("trigger", {})
+	var ttype: String = str(trig.get("type", "immediate"))
+	match ttype:
+		"ant_reaches_x":
+			var cmp: String = str(trig.get("cmp", "ge"))
+			var thr: float = float(trig.get("x", 0.0))
+			var bx: float = ant.global_position.x
+			return bx <= thr if cmp == "le" else bx >= thr
+		"ant_at_cliff":
+			return ant.cliff_ahead()
+		"ant_on_wall":
+			return not ant.forward_cell_open()
+		_:
+			return true
+
+func _active_ant_count() -> int:
+	var c: int = 0
+	for n in get_tree().get_nodes_in_group("ants"):
+		var a: Ant = n as Ant
+		if a == null or not is_instance_valid(a):
+			continue
+		if _stage == null or not _stage.is_ancestor_of(a):
+			continue
+		if a.is_alive():
+			c += 1
+	return c
+
+# 스테이지 루트 하위에서 class_name이 cls인 첫 노드(StageRunner/Terrain/Home). find_children는
+# 루트 자신을 제외하지만 이들은 모두 스테이지 하위 노드라 안전.
+func _find_node_of_class(cls: String) -> Node:
+	if _stage == null:
+		return null
+	var found: Array = _stage.find_children("*", cls, true, false)
+	if not found.is_empty():
+		return found[0]
+	return null
+
+func _on_cleared(result: Dictionary) -> void:
+	if _done:
+		return
+	_report(bool(result.get("cleared", true)), int(result.get("saved", -1)),
+		int(result.get("lost", -1)), int(result.get("original_hp", -1)), str(result.get("reason", "cleared")))
+
+func _on_failed(result: Dictionary) -> void:
+	if _done:
+		return
+	_report(false, int(result.get("saved", -1)), int(result.get("lost", -1)),
+		int(result.get("original_hp", -1)), str(result.get("reason", "failed")))
+
+func _report(cleared: bool, saved: int, lost: int, hp: int, reason: String) -> void:
+	if _done:
+		return
+	var out: Dictionary = {
+		"cleared": cleared, "saved": saved, "lost": lost, "hp": hp,
+		"reason": reason, "frame": _frame, "actions_fired": _actions_fired,
+		"best_min_y": (_best_min_y if _best_min_y < 1.0e19 else -1.0),
+		"picked": _any_picked,
+		"best_carry_home_dist": (_best_carry_home_dist if _best_carry_home_dist < 1.0e19 else -1.0),
+	}
+	_finish(out)
+
+# 결과 emit + 스테이지/시그널 정리(배치 재사용 시 상태누수 0).
+func _finish(result: Dictionary) -> void:
+	if _done:
+		return
+	_done = true
+	_running = false
+	if EventBus.candy_piece_picked.is_connected(_on_picked):
+		EventBus.candy_piece_picked.disconnect(_on_picked)
+	if EventBus.stage_cleared.is_connected(_on_cleared):
+		EventBus.stage_cleared.disconnect(_on_cleared)
+	if EventBus.stage_failed.is_connected(_on_failed):
+		EventBus.stage_failed.disconnect(_on_failed)
+	if _stage != null and is_instance_valid(_stage):
+		_stage.queue_free()
+		_stage = null
+	finished.emit(result)

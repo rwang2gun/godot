@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SolverCapabilities" format=3 uid="uid://cndysolvercaps"]
+
+[ext_resource type="Script" path="res://scripts/core/SolverCapabilities.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+has_pause = false
+has_slow_motion = false
+input_methods = Array[String](["mouse", "touch"])
+t_human_comfortable_s = 0.3
+t_human_hard_s = 0.15
+t_human_machine_only_s = 0.1
