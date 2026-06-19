@@ -87,3 +87,10 @@ StageRunner 변경의 게임 회귀(S11/S13/BeginGate/ToolbarDisable/SandMound·
 
 ## Self-Review Round 5 (clean)
 재진입 가드(첫 런 보존·emit 없음), 다른-인스턴스 emit 분리, after 두-키 기록의 label/index 양립, 게임 코드 무변경(회귀 0). 게이트 GREEN(⑥⑦ 포함 PlanReplayHarnessTest + drift + selftest). **HIGH/CRITICAL 0건.**
+
+## R6 대응 (수정, HIGH 0 / MED 1)
+- **MED (repeat 액션이 after 앵커를 덮어씀)**: `_mark_fired`가 매 발화마다 `_fired_frame`을 덮어써, repeat:true 액션을 참조하는 after가 "첫 발화+delay"가 아니라 마지막 발화까지 밀림. → `_fired_frame`은 **키 부재 시에만 기록**(첫 발화 고정). `_actions_fired`는 종전대로 발화마다 증가(카운트).
+- **테스트**: ⑧ 같은 at_frame0/max_x blocker를 non-repeat/repeat로 돌려 `_fired_frame["0"]`(첫 발화 프레임)이 동일함을 단언(덮어쓰기면 repeat 쪽이 마지막 발화로 밀려 불일치).
+
+## Self-Review Round 6 (clean)
+첫-발화 고정(record-if-absent), actions_fired 카운트 의미 불변(⑦ non-repeat 여전히 2), 게임 코드 무변경. 게이트 GREEN(⑧ 포함 PlanReplayHarnessTest + selftest). **HIGH/CRITICAL 0건.**

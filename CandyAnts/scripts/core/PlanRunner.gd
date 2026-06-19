@@ -220,9 +220,15 @@ func _evaluate_actions() -> void:
 
 func _mark_fired(act: Dictionary) -> void:
 	act["_fired"] = true
-	# after 트리거가 label 또는 index(문자열) 어느 쪽으로 참조해도 풀리도록 두 키 모두 기록(codex R5 MED).
-	_fired_frame[str(act.get("_label"))] = _frame
-	_fired_frame[str(act.get("_index"))] = _frame
+	# after 앵커는 **첫 발화** 프레임으로 고정한다(codex R6 MED). repeat:true 액션이 매번 덮어쓰면
+	# 의존 액션의 after가 "첫 발화+delay"가 아니라 마지막 발화까지 밀리므로, 키가 없을 때만 기록.
+	# label·index 두 키 모두 지원(after.ref가 label/index 어느 쪽이든 해결, codex R5 MED).
+	var label: String = str(act.get("_label"))
+	var idx: String = str(act.get("_index"))
+	if not _fired_frame.has(label):
+		_fired_frame[label] = _frame
+	if not _fired_frame.has(idx):
+		_fired_frame[idx] = _frame
 	_actions_fired += 1
 
 # 대상 방식 결정 — target.mode 우선, 없으면 스킬 SOLVER_META.target(D7), 그래도 없으면 "ant".

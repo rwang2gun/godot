@@ -144,6 +144,14 @@ func _ready() -> void:
 	if int(r7res.get("actions_fired", -1)) != 2:
 		_failures.append("⑦ after-by-index 미해결: actions_fired=%s (기대 2) — index ref가 _fired_frame에 없음?" % str(r7res.get("actions_fired")))
 
+	# ⑧ repeat 액션이 after 앵커를 밀지 않는지(codex R6 MED) — repeat:true 액션의 _fired_frame은
+	#    *첫 발화* 프레임에 고정돼야 한다(after = 첫 발화 + delay). 같은 액션을 non-repeat/repeat로 돌려
+	#    앵커가 동일함을 확인(덮어쓰기 버그면 repeat 쪽이 마지막 발화 프레임으로 밀려 달라진다).
+	var anchor_norepeat: int = await _anchor_frame(false)
+	var anchor_repeat: int = await _anchor_frame(true)
+	if anchor_norepeat <= 0 or anchor_repeat != anchor_norepeat:
+		_failures.append("⑧ repeat 앵커 드리프트: norepeat=%d repeat=%d (첫 발화로 고정돼야 동일)" % [anchor_norepeat, anchor_repeat])
+
 	if _failures.is_empty():
 		print("[PlanReplayHarnessTest] PASS — S11 cleared saved=%d/%d frame=%d (새×2 + 재사용×2 + 분리/출처 + 동시런거부 + 재진입거부 + after-by-index), empty negative" % [
 			int(r1.get("saved", -1)), int(r1.get("hp", -1)), int(r1.get("frame", -1))])
@@ -153,6 +161,25 @@ func _ready() -> void:
 		for f in _failures:
 			print("  - ", f)
 		get_tree().quit(1)
+
+# at_frame0 + max_x blocker를 repeat 유무로 돌려, 첫 발화 프레임(_fired_frame["0"])을 반환.
+# repeat=true면 인벤토리 소진까지 여러 번 발화하지만, _mark_fired가 첫 발화로 고정하므로 값은 동일해야 한다.
+func _anchor_frame(repeat: bool) -> int:
+	var r: PlanRunner = PlanRunner.new()
+	add_child(r)
+	r.run({
+		"stage": "res://scenes/stages/Stage12.tscn", "deadline_frames": 2000,
+		"actions": [{
+			"skill": "blocker", "repeat": repeat,
+			"target": {"mode": "ant", "select": "max_x", "y_min": 0.0, "y_max": 99999.0},
+			"trigger": {"type": "at_frame", "frame": 0},
+		}],
+	})
+	await r.finished
+	var f: int = int(r._fired_frame.get("0", -1))
+	r.queue_free()
+	await get_tree().process_frame
+	return f
 
 # PlanRunner를 자식으로 붙여 플랜 실행 → finished 대기 → 결과 반환 + runner 해제.
 func _run(plan: Dictionary) -> Dictionary:
