@@ -54,7 +54,22 @@ var _any_picked: bool = false
 var _best_carry_home_dist: float = 1.0e20
 var _home_pos: Vector2 = Vector2(1.0e20, 1.0e20)
 
+# EventBus 시그널은 **인스턴스 수명 동안 1회만** 연결(런마다 연결/해제하지 않음). verdict 귀속은
+# `_running`/`_done` 가드 + run()마다의 `_teardown`(이전 스테이지 즉시 free)로 현재 런에 고정된다:
+# 한 시점에 살아있는 스테이지는 최대 1개 + StageRunner는 conclude를 1회만 emit → `_running` 중 받은
+# verdict는 곧 현재 스테이지의 것(codex R1 HIGH — run-token 대신 단일-스테이지 불변식으로 stale 차단).
+func _ready() -> void:
+	if not EventBus.candy_piece_picked.is_connected(_on_picked):
+		EventBus.candy_piece_picked.connect(_on_picked)
+	if not EventBus.stage_cleared.is_connected(_on_cleared):
+		EventBus.stage_cleared.connect(_on_cleared)
+	if not EventBus.stage_failed.is_connected(_on_failed):
+		EventBus.stage_failed.connect(_on_failed)
+
 func run(plan: Dictionary) -> void:
+	# 이전 런이 남긴(또는 중단된) 스테이지를 즉시 강제 정리 — stale stage가 새 런에 verdict를
+	# 흘리는 race 차단(codex R1 HIGH). run()은 시그널 콜백 밖이라 free() 안전.
+	_teardown()
 	# 결정론은 스테이지 인스턴스 *전에* 켜야 stage _ready가 플래그를 본다(spike 관행).
 	SimConfig.set_deterministic(true)
 	_reset_state()
@@ -71,12 +86,6 @@ func run(plan: Dictionary) -> void:
 	if packed == null:
 		_finish({"error": "could not load stage: %s" % stage_path})
 		return
-	if not EventBus.candy_piece_picked.is_connected(_on_picked):
-		EventBus.candy_piece_picked.connect(_on_picked)
-	if not EventBus.stage_cleared.is_connected(_on_cleared):
-		EventBus.stage_cleared.connect(_on_cleared)
-	if not EventBus.stage_failed.is_connected(_on_failed):
-		EventBus.stage_failed.connect(_on_failed)
 	_stage = packed.instantiate()
 	add_child(_stage)
 	# D4 budget — 실행 중 스테이지의 StageData.skill_inventory를 권위로 사용(드라이버·플랜이 임의 증액 못 함).
@@ -92,6 +101,18 @@ func run(plan: Dictionary) -> void:
 	_running = true
 	print("[PlanRunner] stage=%s actions=%d deadline=%d inventory=%s" % [
 		stage_path, _actions.size(), _deadline_frames, str(_inventory)])
+
+# 진행 중이던(또는 직전) 스테이지를 트리에서 즉시 떼어내고 free. run() 컨텍스트(시그널 콜백 밖)
+# 호출이라 free() 안전. 정상 종료 시엔 _finish가 이미 queue_free·_stage=null 했으니 보통 no-op.
+func _teardown() -> void:
+	if _stage != null and is_instance_valid(_stage):
+		var parent: Node = _stage.get_parent()
+		if parent != null:
+			parent.remove_child(_stage)
+		_stage.free()
+	_stage = null
+	_running = false
+	_done = false
 
 func _reset_state() -> void:
 	_stage = null
@@ -118,6 +139,8 @@ func _physics_process(_delta: float) -> void:
 		_report(false, 0, 0, -1, "deadline")
 
 func _on_picked(_remaining_hp: int) -> void:
+	if not _running or _done:
+		return
 	_picked_total += 1
 
 func _track_progress() -> void:
@@ -304,13 +327,13 @@ func _find_node_of_class(cls: String) -> Node:
 	return null
 
 func _on_cleared(result: Dictionary) -> void:
-	if _done:
+	if not _running or _done:
 		return
 	_report(bool(result.get("cleared", true)), int(result.get("saved", -1)),
 		int(result.get("lost", -1)), int(result.get("original_hp", -1)), str(result.get("reason", "cleared")))
 
 func _on_failed(result: Dictionary) -> void:
-	if _done:
+	if not _running or _done:
 		return
 	_report(false, int(result.get("saved", -1)), int(result.get("lost", -1)),
 		int(result.get("original_hp", -1)), str(result.get("reason", "failed")))
@@ -327,18 +350,15 @@ func _report(cleared: bool, saved: int, lost: int, hp: int, reason: String) -> v
 	}
 	_finish(out)
 
-# 결과 emit + 스테이지/시그널 정리(배치 재사용 시 상태누수 0).
+# 결과 emit + 스테이지 정리. 시그널은 _ready에서 1회 연결돼 인스턴스 수명 동안 유지(해제 안 함);
+# verdict 귀속은 _running/_done 가드 + run()의 _teardown으로 보장(상단 _ready 주석). 스테이지는
+# 자기 시그널 콜백 안에서 호출될 수 있어 queue_free(지연)로 안전 해제 — 다음 run()의 _teardown이
+# 미처리분을 즉시 강제 정리한다.
 func _finish(result: Dictionary) -> void:
 	if _done:
 		return
 	_done = true
 	_running = false
-	if EventBus.candy_piece_picked.is_connected(_on_picked):
-		EventBus.candy_piece_picked.disconnect(_on_picked)
-	if EventBus.stage_cleared.is_connected(_on_cleared):
-		EventBus.stage_cleared.disconnect(_on_cleared)
-	if EventBus.stage_failed.is_connected(_on_failed):
-		EventBus.stage_failed.disconnect(_on_failed)
 	if _stage != null and is_instance_valid(_stage):
 		_stage.queue_free()
 		_stage = null

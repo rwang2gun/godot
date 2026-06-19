@@ -62,6 +62,16 @@ def check_expect(result: dict, expect: dict) -> list[str]:
         fails.append("actions_fired: got %s want %s" % (result.get("actions_fired"), expect["actions_fired"]))
     if "reason" in expect and str(result.get("reason", "")) != str(expect["reason"]):
         fails.append("reason: got %r want %r" % (result.get("reason"), expect["reason"]))
+    # effect-level 불변식 — 설치형(SIGN/DEVICE)이 "실제로 효과를 냈는지"를 핀(codex R1 MED-3).
+    # 단순 actions_fired만으론 잘못 설치/미발동도 PASS될 수 있어, 무수정 게임이 관측한 효과를 단언한다.
+    if "picked" in expect and bool(result.get("picked")) != bool(expect["picked"]):
+        fails.append("picked: got %s want %s" % (result.get("picked"), expect["picked"]))
+    if "max_best_min_y" in expect:
+        bmy = float(result.get("best_min_y", 1e20))
+        # best_min_y < 0 = 미측정(개미 없음) 센티넬 → 효과 없음으로 간주(FAIL).
+        if bmy < 0 or bmy > float(expect["max_best_min_y"]):
+            fails.append("best_min_y: got %s want measured & <= %s (설치 스킬 효과 미발생?)" % (
+                result.get("best_min_y"), expect["max_best_min_y"]))
     return fails
 
 

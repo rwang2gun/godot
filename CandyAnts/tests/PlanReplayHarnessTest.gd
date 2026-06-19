@@ -53,8 +53,27 @@ func _ready() -> void:
 	if int(r3.get("actions_fired", -1)) != 0:
 		_failures.append("③ empty plan actions_fired != 0: %s" % str(r3.get("actions_fired")))
 
+	# ④ 같은 PlanRunner 인스턴스 재사용 — finished 직후 *같은 프레임*에 재실행(이전 스테이지의
+	#    queue_free 미처리 상태). _teardown이 stale 스테이지를 강제 정리하지 못하면 verdict 오귀속/
+	#    상태누수로 결과가 r1과 달라진다(codex R1 HIGH 회귀 가드). 새 인스턴스를 쓰는 _run과 달리
+	#    여기선 한 reuse 인스턴스를 두 번 돌린다.
+	var reuse: PlanRunner = PlanRunner.new()
+	add_child(reuse)
+	reuse.run(PLAN_S11)
+	var ra: Dictionary = await reuse.finished
+	reuse.run(PLAN_S11)   # 직후 재실행 — _teardown이 직전 스테이지를 즉시 정리해야 정상
+	var rb: Dictionary = await reuse.finished
+	reuse.queue_free()
+	await get_tree().process_frame
+	if not bool(ra.get("cleared", false)) or not bool(rb.get("cleared", false)):
+		_failures.append("④ reuse: cleared ra=%s rb=%s" % [ra.get("cleared"), rb.get("cleared")])
+	if int(ra.get("frame", -1)) != int(r1.get("frame", -2)) or int(rb.get("frame", -1)) != int(r1.get("frame", -3)):
+		_failures.append("④ reuse frame drift(=상태누수): r1=%s ra=%s rb=%s" % [r1.get("frame"), ra.get("frame"), rb.get("frame")])
+	if int(rb.get("saved", -1)) != int(r1.get("saved", -2)) or int(rb.get("actions_fired", -1)) != 1:
+		_failures.append("④ reuse drift: saved rb=%s(want %s) actions_fired=%s(want 1)" % [rb.get("saved"), r1.get("saved"), rb.get("actions_fired")])
+
 	if _failures.is_empty():
-		print("[PlanReplayHarnessTest] PASS — S11 cleared saved=%d/%d frame=%d (×2 identical), empty negative" % [
+		print("[PlanReplayHarnessTest] PASS — S11 cleared saved=%d/%d frame=%d (새 인스턴스 ×2 + 같은 인스턴스 재사용 ×2 identical), empty negative" % [
 			int(r1.get("saved", -1)), int(r1.get("hp", -1)), int(r1.get("frame", -1))])
 		get_tree().quit(0)
 	else:
