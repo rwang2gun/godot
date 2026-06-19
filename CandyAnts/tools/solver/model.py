@@ -58,18 +58,32 @@ def _samples(trace: dict, si) -> list:
     return trace.get(str(si)) or trace.get(si) or []
 
 
+def _died_water(ss: list, layout: dict) -> bool:
+    """개미가 물(hazard)로 리타이어했는가 — 마지막 샘플 셀이 hazard이거나 바로 아래가 hazard(물 위 허공
+    = 익사 직전). 발판 x-범위 밖으로 나가 맵 끝 물로 떨어진 경우도 below-hazard로 잡힌다."""
+    haz = layout["hazard"]
+    cx, cy = ss[-1][1], ss[-1][2]
+    return (cx, cy) in haz or (cx, cy + 1) in haz
+
+
 def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
     """관측 궤적에서 실패를 진단. 반환:
-      picked_total, fall_edges(낙하 직전 발판 가장자리+방향), near_candy(미픽업 개미의 candy 최근접).
-    **낙하 가장자리** = 개미가 발판을 벗어나 아래로 떨어진(물이든 하위 표면이든) 지점. 개미는 막히기 전엔
-    방향을 안 바꾸므로, 그 가장자리 직전 x에 벽(blocker)을 놓으면 반전한다 — 반전이 개미를 사다리/candy
-    쪽으로 돌려보내 (a) 물·추락사 회피 (b) 상승 라우팅(반대편 사다리로 유도)을 동시에 해결한다."""
+      picked_total, reverse_targets(반전 블로커 후보, **동선 backpath 포함**), near_candy, fall_edges(legacy).
+    **반전 타깃** = 개미가 발판 끝을 밟고 허공/물로 나간 **낙하 가장자리**. 개미는 막히기 전엔 방향을 안
+    바꾸므로, 그 직전 grounded 타일에 벽(blocker)을 세우면 반전한다 — (a) 물·추락사 회피 (b) 상승/하강
+    라우팅을 동시에 해결.
+    **동선 backpath(사용자 통찰)**: off=1,2 변형은 좌표(x-off)가 아니라 **개미가 실제 지나온 grounded
+    타일을 거슬러** 잡는다 — 공중 낙하 타일은 건너뛴다. 계단형 하강처럼 가장자리 접근이 수평이 아니어도
+    실제 보행 타일(반전 가능)에 정확히 놓이고, 더 거슬러 갈수록 발화 여유(lead time)가 커진다.
+    **물 우선(사용자 통찰)**: 물 익사로 이어진 가장자리를 최우선 정렬 — 리타이어 직전 grounded 타일이 1순위."""
     candy = layout["candy"]
     occ = layout["occupied"]
     def supported(cx: int, cy: int) -> bool:
         return (cx, cy + 1) in occ            # 바로 아래 셀이 solid = 발판에 받쳐짐
 
-    fall_edges: dict[tuple, int] = {}       # (col,row,dir) → count
+    fall_edges: dict[tuple, int] = {}                       # (col,row,dir) → count (legacy)
+    edge_back: dict[tuple, list] = {}                       # (col,row,dir) → 동선 grounded backpath [(cx,cy),...]
+    edge_water: dict[tuple, bool] = {}                      # (col,row,dir) → 물 익사로 이어짐
     near_candy: dict = {"dist": 1 << 30, "cell": None, "dir": 0}
     picked_ants = 0
     ant_ids = sorted({int(k) for k in trace.keys()}) if trace else []
@@ -80,9 +94,9 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
         picked = any(s[3] == 1 for s in ss)
         if picked:
             picked_ants += 1
-        # 낙하 가장자리: '받쳐진 셀(cur)'에서 '안 받쳐진 셀(nxt)'로 내려가거나 수평 진입(= 발판 끝을 밟고
-        # 허공/물로 나감). cur가 막을 지점. 등반(cy 감소)은 제외. 개미는 막기 전엔 안 도므로 cur 직전
-        # x에서 벽을 세우면 반전 → 물·추락 회피 + 반대편 사다리로 상승 유도.
+        died_water = _died_water(ss, layout)
+        # 낙하 가장자리: '받쳐진 셀(cur)'에서 '안 받쳐진 셀(nxt)'로 수평/하향 진입(발판 끝을 밟고 허공/물로
+        # 나감). cur가 막을 지점. 등반(cy 감소)은 제외.
         for i in range(len(ss) - 1):
             cur, nxt = ss[i], ss[i + 1]
             if not supported(cur[1], cur[2]):
@@ -97,6 +111,24 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
                 d = 1 if (i > 0 and cur[1] >= ss[i - 1][1]) else -1
             key = (cur[1], cur[2], d)
             fall_edges[key] = fall_edges.get(key, 0) + 1
+            if died_water:
+                edge_water[key] = True
+            # 동선 backpath: 이 가장자리 샘플 i에서 뒤로 가며 **grounded 타일만** 수집(공중 낙하 건너뜀).
+            # 첫 원소 = 가장자리 셀 자신(off=0), 이후 = 거슬러 간 보행 타일(off=1,2,...). 같은 (col,row)
+            # 연속 중복은 제외(셀 변화 단위). 첫 발견 시에만 기록(가장 이른 통과 동선).
+            if key not in edge_back:
+                bp: list = []
+                for j in range(i, -1, -1):
+                    s = ss[j]
+                    if not supported(s[1], s[2]):
+                        continue
+                    cell = (s[1], s[2])
+                    if bp and bp[-1] == cell:
+                        continue
+                    bp.append(cell)
+                    if len(bp) >= 4:
+                        break
+                edge_back[key] = bp
         # candy 근접(미픽업 개미만).
         if not picked and candy is not None:
             for i2, s in enumerate(ss):
@@ -107,11 +139,15 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
                     if i2 + 1 < len(ss):
                         d = 1 if ss[i2 + 1][1] >= cx else (-1 if ss[i2 + 1][1] < cx else 0)
                     near_candy = {"dist": dist, "cell": (cx, cy), "dir": d}
-    # 빈도 desc, 그다음 하위 표면(cy 큰 것) 먼저 — 스폰 레벨의 낙하부터 고친다.
-    edges = sorted(fall_edges.keys(), key=lambda k: (-fall_edges[k], -k[1]))
+    # 정렬: **물 익사 우선**, 그다음 빈도 desc, 그다음 하위 표면(cy 큰 것=candy가 아래일 때 진척) 먼저.
+    keys = sorted(fall_edges.keys(),
+                  key=lambda k: (0 if edge_water.get(k) else 1, -fall_edges[k], -k[1]))
+    reverse_targets = [{"cell": (k[0], k[1]), "dir": k[2], "backpath": edge_back.get(k, [(k[0], k[1])]),
+                        "to_water": bool(edge_water.get(k)), "count": fall_edges[k]} for k in keys]
     return {
         "picked_total": picked_ants,
-        "fall_edges": edges,
+        "reverse_targets": reverse_targets,
+        "fall_edges": keys,                  # legacy(좌표 키 리스트)
         "near_candy": near_candy,
         "candy_hp": candy_hp,
         "ant_count": len(ant_ids),
@@ -141,40 +177,16 @@ def count_trapped(trace: dict, reversal_thresh: int = 6) -> tuple[int, int]:
     return carry, total
 
 
-# 낙하피해(기절사) 임계 — 게임 Ant.STUN_FALL_CELLS=5칸. floater면 면역(트레이스론 구분 불가 → 근사).
-FALL_STUN_CELLS = 5
-
-
-def _max_fall_run(ss: list) -> int:
-    """궤적 내 최대 연속 수직 낙하 칸수(같은 cx, cy 연속 +1)."""
-    best = 0
-    i, n = 0, len(ss)
-    while i < n - 1:
-        if ss[i + 1][1] == ss[i][1] and ss[i + 1][2] == ss[i][2] + 1:
-            run, k = 1, i + 1
-            while k + 1 < n and ss[k + 1][1] == ss[k][1] and ss[k + 1][2] == ss[k][2] + 1:
-                k += 1
-                run += 1
-            best = max(best, run)
-            i = k
-        else:
-            i += 1
-    return best
-
-
 def count_retired(trace: dict, layout: dict) -> dict:
     """리타이어한 개미를 **원인별로 구별**해 카운트. 회수 실패하고 죽은 개미만(저장·생존 제외):
-      water = 물/끈끈이(hazard) 또는 발판 x-범위 밖(맵 이탈해 빠짐)에서 종료.
-      fall  = **낙하피해(stun death)**: FALL_STUN_CELLS(5)칸 이상 연속 낙하 + 집 미도달, 물 아님(S14 전멸).
-    반환 {"water":w, "fall":f, "total":w+f}. (물 먼저 분류 → 물에 빠진 낙하는 water로 셈.)"""
-    hazard = layout["hazard"]
-    occ = layout["occupied"]
+      water = 물 익사 — 마지막 샘플이 hazard 위/안(_died_water). **낙하 중 드리프트로 바닥을 놓치고
+              물에 빠지는 S14 패턴도 below-hazard로 잡힌다**(개미는 착지하지 않으므로 stun 미발생).
+      fall  = **낙하피해(stun death)**: 궤적에 'dead'(DeadState) 상태 샘플이 있음 = 실제 기절사. 트레이스
+              상태(D10)를 쓰므로 **큰 낙하를 생존한 개미(walk로 이어짐)는 카운트하지 않는다**(거짓양성 제거).
+    반환 {"water":w, "fall":f, "total":w+f}. (물 먼저 분류; dead 상태는 fall.)
+    **생존자 미카운트 핵심**: 예전 `_max_fall_run>=5` 휴리스틱은 낙하를 살아남고 계속 걷는 개미를 낙하사로
+    오판해 score를 오염(하강 기피)시켰다. 실제 종단 상태/익사 위치로 대체."""
     home = layout.get("home")
-    if occ:
-        xs = [c for (c, _r) in occ]
-        xmin, xmax = min(xs) - 2, max(xs) + 2
-    else:
-        xmin, xmax = -(1 << 30), (1 << 30)
     water = fall = 0
     for si in sorted({int(k) for k in trace.keys()}) if trace else []:
         ss = _samples(trace, si)
@@ -182,11 +194,35 @@ def count_retired(trace: dict, layout: dict) -> dict:
             continue
         cx, cy = ss[-1][1], ss[-1][2]
         ended_home = home is not None and abs(cx - home[0]) <= 1 and abs(cy - home[1]) <= 1
-        if (cx, cy) in hazard or cx < xmin or cx > xmax:
+        if ended_home:
+            continue                                       # 귀가(저장) — 리타이어 아님
+        if _died_water(ss, layout):
             water += 1
-        elif not ended_home and _max_fall_run(ss) >= FALL_STUN_CELLS:
+        elif any((len(s) > 4 and s[4] == "dead") for s in ss):
             fall += 1
     return {"water": water, "fall": fall, "total": water + fall}
+
+
+def best_goal_dist(trace: dict, layout: dict) -> int:
+    """궤적에서 **목표까지의 최소 접근**(셀 맨해튼) — 방향 무관 진척 신호. 개미별:
+      픽업한 적 있으면 목표=home(귀환 거리), 아니면 목표=candy(접근 거리). 전 개미 중 최소.
+    best_min_y(항상 '위로' 보상)를 대체 — candy가 아래(S14)면 하강을, 위(S11/S12)면 상승을 보상한다."""
+    candy = layout.get("candy")
+    home = layout.get("home")
+    best = 1 << 30
+    for si in sorted({int(k) for k in trace.keys()}) if trace else []:
+        ss = _samples(trace, si)
+        if not ss:
+            continue
+        carried = any(s[3] == 1 for s in ss)
+        if carried and home is not None:
+            for s in ss:
+                if s[3] == 1:
+                    best = min(best, abs(s[1] - home[0]) + abs(s[2] - home[1]))
+        elif candy is not None:
+            for s in ss:
+                best = min(best, abs(s[1] - candy[0]) + abs(s[2] - candy[1]))
+    return best
 
 
 def _skills_by_routing(inventory: dict, metas: dict) -> dict[str, list[str]]:
@@ -218,46 +254,39 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     by_r = _skills_by_routing(inventory, metas)
     cands: list[dict] = []
 
-    # ① 낙하 차단(반전) — 낙하 가장자리 직전 x에서 개미 반전(물·추락 회피 + 사다리 쪽 상승 유도).
-    # **x 변형**(off=0,1,2칸): 반전점을 가장자리에서 한두 칸 당겨 **하강 낙하 컬럼을 비운다**(carrying
-    # 귀환 개미가 그 블로커에 막혀 무한루프 빠지는 것 회피, 사용자 S12 통찰). 엔진이 갇힘 없이 saved
-    # 최대인 변형을 고른다.
+    # ① 낙하 차단(반전) + ①' 방어 대응(safe_fall) — 둘 다 **동선 backpath**를 따라 후보를 낸다.
+    # 낙하 가장자리에서 개미를 반전(reverse)하거나 안전낙하(safe_fall) 시킨다. **off=0,1,2는 좌표(x-off)가
+    # 아니라 backpath의 grounded 타일을 거슬러**(사용자 통찰) — 공중 낙하 타일을 건너뛰어 실제 보행 타일에
+    # 정확히 놓이고, 거슬러 갈수록 발화 여유(lead time)가 커진다. 물 익사 가장자리가 reverse_targets 앞쪽
+    # (물 우선 정렬)이라 _w 가중도 그쪽이 높다. select/cmp는 가장자리에서의 진행 방향으로 결정.
     sel_cmp = {1: ("max_x", "ge"), -1: ("min_x", "le")}
-    for sid in by_r.get("reverse", []):
-        for (pcx, pcy, d) in diag["fall_edges"]:
-            sel, cmp = sel_cmp[1 if d > 0 else -1]
-            y_min, y_max = _band(cs, pcy)
-            for off in (0, 1, 2):
-                col = pcx - d * off
-                label = "%s@r%d:%s%s%d" % (sid, pcy, sel, cmp, col)
-                if label in exclude:
-                    continue
-                action = {"skill": sid,
-                          "target": {"mode": "ant", "select": sel, "y_min": y_min, "y_max": y_max},
-                          "trigger": {"type": "ant_reaches_x", "cmp": cmp, "x": (col + 0.5) * cs}}
-                cands.append({"action": action, "label": label, "_w": _note_w(notes, sid) * 4 + (2 - off)})
+    n_tgt = len(diag["reverse_targets"])
+    for routing in ("reverse", "safe_fall"):
+        for sid in by_r.get(routing, []):
+            for ti, tgt in enumerate(diag["reverse_targets"]):
+                d = tgt["dir"]
+                sel, cmp = sel_cmp[1 if d > 0 else -1]
+                bp: list = tgt["backpath"] or [tgt["cell"]]
+                water_w = 4 if tgt["to_water"] else 0       # 물 익사 가장자리 우선 가중
+                tgt_w = (n_tgt - ti)                        # reverse_targets 정렬 순위 가중(물·깊이)
+                for off in range(min(3, len(bp))):
+                    col, row = bp[off]
+                    y_min, y_max = _band(cs, row)
+                    label = "%s@%d,%d:%s%s" % (sid, col, row, sel, cmp)
+                    if label in exclude:
+                        continue
+                    action = {"skill": sid,
+                              "target": {"mode": "ant", "select": sel, "y_min": y_min, "y_max": y_max},
+                              "trigger": {"type": "ant_reaches_x", "cmp": cmp, "x": (col + 0.5) * cs}}
+                    cands.append({"action": action, "label": label,
+                                  "_w": _note_w(notes, sid) * 8 + water_w + tgt_w + (2 - off)})
 
-    # ①' 방어 대응(floater 등 routing=safe_fall) — 낙하 가장자리에 정착자를 두어 지나는 개미가 **안전
-    # 낙하**(낙하사 회피). 반전과 달리 개미를 *살려서 아래로* 보낸다(candy가 아래 있고 floater 보유 시 핵심).
-    # blocker와 같은 select+ant_reaches_x. **대응 지점 한두 타일 전(off)** 에서 발화해 여유 확보(사용자:
-    # -2타일 필요 — 정확히 가장자리면 타이밍이 늦어 현실적 클리어 불가).
-    for sid in by_r.get("safe_fall", []):
-        for (pcx, pcy, d) in diag["fall_edges"]:
-            sel, cmp = sel_cmp[1 if d > 0 else -1]
-            y_min, y_max = _band(cs, pcy)
-            for off in (0, 1, 2):
-                col = pcx - d * off
-                label = "%s@r%d:%s%s%d" % (sid, pcy, sel, cmp, col)
-                if label in exclude:
-                    continue
-                action = {"skill": sid,
-                          "target": {"mode": "ant", "select": sel, "y_min": y_min, "y_max": y_max},
-                          "trigger": {"type": "ant_reaches_x", "cmp": cmp, "x": (col + 0.5) * cs}}
-                cands.append({"action": action, "label": label, "_w": _note_w(notes, sid) * 4 + (2 - off)})
-
-    # ② 무장 up(climber 등) — 타이밍 두 가지 모두 후보로 내고 엔진이 고른다(사용자 통찰):
+    # ② 무장 up(climber 등) — 세 타이밍·타깃을 후보로 내고 엔진이 고른다(사용자 통찰):
     #   early(스폰 직후 개미별 무장): S13처럼 일찍 줘도 무방하고 늦으면 시간초과인 경우.
-    #   late(회수 완료 picked_ge 후): S14처럼 일찍이면 벽에서 반전 대신 등반→무한루프인 경우.
+    #   carry(픽업 후 운반 개미 무장): **S14 귀환 핵심** — 운반 개미가 벽에서 climb로 귀가(바닥→벽→상단→
+    #     home). select=min_x+state=carrying = 가장 왼쪽(벽 근처) 운반 개미부터 단계별로 무장. picked_ge n
+    #     로 n번째 픽업 시점에 발화 → 5조각이면 carry1..5가 서로 다른 개미에 분배(무장 개미는 climb로 빠짐).
+    #   late(회수 완료 후 max_x 무장): 일반 상승 보조.
     # 귀로 단계(전 사탕 회수됨)면 climber를 최우선으로(귀환 확보), 아니면 후순위(상승은 blocker 우선).
     cnt = diag["candy_hp"]
     return_phase = diag["picked_total"] >= cnt > 0
@@ -272,7 +301,16 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
             action = {"skill": sid, "target": {"mode": "ant", "select": "spawn_index", "spawn_index": si},
                       "trigger": {"type": "immediate"}}
             cands.append({"action": action, "label": label, "_w": base + _note_w(notes, sid)})
-        for n in range(1, cnt + 1):                      # late: 회수 완료 후 무장
+        # carry: 픽업이 하나라도 발생했으면(picked_total>0) 운반 개미 귀환 무장을 제안. 귀로 단계면 최우선.
+        carry_base = (220 if return_phase else 40) if diag["picked_total"] > 0 else 0
+        for n in range(1, cnt + 1):
+            label = "%s@carry%d" % (sid, n)
+            if carry_base <= 0 or label in exclude:
+                continue
+            action = {"skill": sid, "target": {"mode": "ant", "select": "min_x", "state": "carrying"},
+                      "trigger": {"type": "picked_ge", "n": n}}
+            cands.append({"action": action, "label": label, "_w": carry_base + (cnt - n) + _note_w(notes, sid)})
+        for n in range(1, cnt + 1):                      # late: 회수 완료 후 max_x 무장
             label = "%s@afterpick%d" % (sid, n)
             if label in exclude:
                 continue

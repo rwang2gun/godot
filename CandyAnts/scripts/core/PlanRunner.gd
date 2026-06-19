@@ -238,7 +238,9 @@ func _track_progress() -> void:
 		if _trace_enabled:
 			_record_trace(a)
 
-# 트레이스 기록(D10) — 개미 셀이 바뀔 때만 [frame, cx, cy, carry01] 추가(샘플 압축). body_cell 관례.
+# 트레이스 기록(D10) — 개미 셀이 바뀔 때만 [frame, cx, cy, carry01, state] 추가(샘플 압축). body_cell 관례.
+# state(D10 보강): 모델이 낙하-생존 vs 낙하사 vs 익사를 **추측 없이** 구분하도록 현재 state 코드를 동봉
+# (walk/fall/climb/carry/dead/lost/other). 가산적·결정론 — 기존 트레이스 동작/바이트동일성 불변.
 func _record_trace(a: Ant) -> void:
 	var si: int = a.spawn_index
 	var cx: int = int(floor(a.global_position.x / float(_cs)))
@@ -249,7 +251,26 @@ func _record_trace(a: Ant) -> void:
 	_trace_last[si] = cell
 	if not _trace.has(si):
 		_trace[si] = []
-	(_trace[si] as Array).append([_frame, cx, cy, 1 if a.has_candy else 0])
+	(_trace[si] as Array).append([_frame, cx, cy, 1 if a.has_candy else 0, _state_code(a)])
+
+# 현재 AntState → 짧은 코드. terminal(dead=기절, lost=익사/낙사)·이동(fall/climb/carry/walk) 구분용.
+func _state_code(a: Ant) -> String:
+	if a.state_machine == null:
+		return "other"
+	var s: AntState = a.state_machine.current_state
+	if s is DeadState:
+		return "dead"
+	if s is LostState:
+		return "lost"
+	if s is CarryingState:
+		return "carry"
+	if s is ClimberState:
+		return "climb"
+	if s is FallerState:
+		return "fall"
+	if s is WalkerState:
+		return "walk"
+	return "other"
 
 func _evaluate_actions() -> void:
 	for a in _actions:

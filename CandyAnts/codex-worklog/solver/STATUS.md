@@ -125,10 +125,62 @@ plan SoT를 생성 중심으로 개정([auto-solver-plan.md](../../phases/solver
 
 **verify 게이트:** 결정론×2 + PlanReplayHarnessTest + SkillMetadataDriftTest + run_plan --selftest = **5/5 PASS**.
 
+## Phase 2 WIP 속행 (2026-06-19 세션2) — S14 물리 규명 + 모델 4-fix + lookahead 인프라
+
+> 이 세션 동기: S14 계단 하강. **상태 트레이스로 S14 실패 물리를 규명**하고, 사용자 통찰을 모델에 정밀
+> 반영. S14는 **검증된 해 존재**(수동 구성, 엔진 verdict로 100% 확인)이나 닫힌루프 자동발견은 미완.
+
+### S14 물리 규명 (상태 트레이스 도입으로 확정)
+- **낙하 드리프트가 사인**: `FallerState`가 낙하 중 수평속도(`velocity.x = direction × speed × 0.5`)를 줌.
+  P_r4 우측끝(x23)에서 10칸 낙하 시 x23→x24로 밀려 **바닥(x23 solid)을 놓치고 물(x24)에 빠짐** —
+  `is_on_floor()`가 한 번도 참이 안 돼 stun 미발생, `AdriftState`(=익사, is_alive=false)로 종착.
+- **낮은 낙하점 생존**(사용자 통찰 확증): P_r10(row9→바닥 4칸)은 드리프트 적어 **x23 바닥 착지·생존** 후
+  보행. 즉 "낮은 낙하지점에서 생존해서 물로 걸어감"이 정확. candy(22,13)는 우측 가장자리 낙하가 전부
+  물행인 "주머니" — **좌측에서 바닥을 걸어 접근**해야 도달.
+- 레이아웃(48px셀): P_r4(x12-22,row3)→P_r7(x8-18,row6)→P_r10(x12-22,row9)→바닥(x0-23,row13). 좌측 매시프
+  (x0-4) + 사다리(x3,row2-5). 귀환 = 바닥→x4 벽 **climber** 등반→상단→home.
+
+### 모델 4-fix (사용자 통찰 정밀 반영)
+1. **물 우선 + 동선 backpath** (`model.diagnose`/`propose`): 반전 타깃을 **물 익사 가장자리 우선** 정렬.
+   off=0,1,2 변형을 **좌표(x-off)가 아닌 개미 동선의 grounded 타일을 거슬러** 잡음(공중 낙하 타일 건너뜀)
+   — 계단처럼 접근이 비수평이어도 실제 보행 타일에 정착, 거슬러 갈수록 발화 여유↑.
+2. **상태 트레이스** (`PlanRunner._record_trace`/`_state_code`): 샘플에 walk/fall/climb/carry/dead/lost 동봉
+   (가산적·결정론, **트레이스 byte-identical·verdict 불변**). 모델이 낙하생존 vs 낙하사 vs 익사를 추측 없이 구분.
+3. **`count_retired` 수정**: 옛 `_max_fall_run>=5` 휴리스틱이 **낙하 생존자를 거짓 낙하사 카운트** →
+   score 오염(하강 기피)시키던 버그 제거. 실제 종단 상태(dead) + below-hazard(익사) 사용. (`_max_fall_run`/
+   `FALL_STUN_CELLS` 제거.)
+4. **`best_goal_dist` score**: `best_min_y`(항상 '위로' 보상)를 candy/home 셀 맨해튼 접근으로 교체 →
+   candy가 아래(S14)면 하강을, 위(S11/S12)면 상승을 보상(방향 무관 진척).
+- 추가: **carry-climber 제안**(`select=min_x, state=carrying`, picked_ge n) — 운반 개미 귀환 무장(S14 핵심).
+- 추가: **2-스텝 lookahead**(`solve.py`) — 1-스텝 정체 시 **goal_dist 최근접 first-step**에서 재진단→second
+  평가(retired-우선 score 아님 — candy 근처서 익사한 디딤돌이 핵심). S13 문서화 과제(2-액션 lookahead) 겸용.
+
+### S14 검증된 해 (수동 구성, 엔진 D4 verdict = 100%)
+- 플랜: **blocker×3 계단**(P_r4 reverse-left @x22,row3 · P_r7 reverse-right @x8,row6 · P_r10 reverse-left
+  @x21,row9) + **climber×5**(운반 개미, `min_x/carrying`, picked_ge 1..5). → **saved=5/5, frame=4560**
+  (시간제한 6000 이내). 5마리 전원 candy 픽업(reached=5 @frame 4694) 후 x4 벽 등반 귀가.
+- **시간 타당성 확인**: 계단 하강 자체는 충분히 빠름(reached 4694). 1-블로커 단독 지그재그가 느렸던 것.
+
+### 자동발견 미완 (다음 세션 핵심)
+- 닫힌루프가 **blocker@22,3 1개만 채택 후 정체**. 2-스텝 lookahead 추가했으나 S14 미발견(21롤서 정지).
+  원인 추정: (a) 정확히 **3개 blocker 연쇄**가 필요한데 lookahead 깊이 2로는 [22,3] 이후 (P_r7+P_r10) 쌍을
+  못 잡거나, (b) frontier/제안 상호작용. **다음 세션: LA2 롤аут 상세 로그로 어느 쌍이 평가됐는지 확인** →
+  3-스텝 또는 first-step을 "지그재그 다음 가장자리"로 좁히는 제안 튜닝.
+- 정책: 사용자 = "**해를 찾아내는 것만으로 phase 성공**, 솔버는 계속 고도화". 검증된 해 존재 = 성공 신호.
+
+### 검증/회귀 (이 세션)
+- **verify 게이트 5/5 PASS**: DeterminismReplay/SpawnSchedule + **PlanReplayHarnessTest(byte-identical 포함)**
+  + SkillMetadataDrift + run_plan --selftest(골든 5/5, s12 frame=2385 동일). 트레이스 state 추가가 무영향.
+- **회귀 0**: S11 100%(2롤)·S12 100%(11롤) 유지. `stage12.solve.json`은 search_meta 필드만 추가(해 동일).
+- (게이트 주: `PlanReplayHarnessTest`는 13런이라 run_test 기본 `--quit-after 3600`에 걸려 EXIT 0[timeout-마스킹].
+  `--fixed-fps 60 --quit-after 60000`로 완주시 **PASS 명시 확인**. 선존 게이트 약점 — 차후 게이트에 fixed-fps 추가 검토.)
+
 ## 다음 작업 (다음 세션)
-- **S14**: 생존한 개미를 candy(아래)로 보내는 **계단형 하강 유도**(중간 표면 row4/7/10 활용한 단계 하강).
-- **S13**: 깔끔한 climber 조합 — **타겟 블로커-수정**(saved==0+carry-trap이면 그 블로커 특정→재배치) 또는 2-액션 lookahead.
-- 100% 해 확보 시 CI 리플레이 게이트 편입 + plan frontmatter `verify` 갱신.
+- **S14 자동발견**: LA2 상세 로그 분석 → 3-blocker 연쇄를 닫힌루프가 잡도록 lookahead/제안 튜닝(또는 3-스텝).
+  검증된 해(위)가 타깃. 자동발견 시 `stage14.solve.json` + CI 리플레이 게이트 편입.
+- **S13**: 깔끔한 climber 조합 — 타겟 블로커-수정 또는 2-액션 lookahead(이번에 추가한 인프라 활용).
+- 100% 자동 해 확보 시 plan frontmatter `verify` 갱신.
+- 게이트 약점: `PlanReplayHarnessTest`에 `--fixed-fps`/큰 `--quit-after` 부여(timeout-마스킹 제거) 검토.
 
 ## 블로커
 - 없음.

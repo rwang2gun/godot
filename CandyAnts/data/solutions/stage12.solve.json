@@ -12,7 +12,14 @@
     "rollouts": 11,
     "tool": "solve.py",
     "phase": 2,
-    "method": "predictive"
+    "method": "predictive",
+    "retired_ants": {
+      "water": 0,
+      "fall": 0,
+      "total": 0
+    },
+    "total_ants": 8,
+    "tools_used": 3
   },
   "actions": [
     {

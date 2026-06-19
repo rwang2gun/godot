@@ -80,9 +80,11 @@ def is_full_clear(res: dict, hp: int) -> bool:
 
 
 def score(res: dict, layout: dict) -> tuple:
-    """작을수록 좋음: saved 많음 > **리타이어 적음** > picked 많음 > 갇힘 적음 > home 근접 > 도달 최고점.
+    """작을수록 좋음: saved 많음 > **리타이어 적음** > picked 많음 > 갇힘 적음 > **목표 접근**.
     **리타이어 최소가 picked보다 우선**(사용자 최우선 규칙): candy에서 멀어지더라도 전원 생존을 먼저
-    확보해야 그 살아있는 상태에서 경로를 만들 수 있다(예: S14 치명 낙하 직전 blocker 반전 = 생존 발판)."""
+    확보해야 그 살아있는 상태에서 경로를 만들 수 있다(예: S14 치명 낙하 직전 blocker 반전 = 생존 발판).
+    **목표 접근 = best_goal_dist**(픽업 전=candy, 픽업 후=home 셀 맨해튼) — best_min_y(항상 위로 보상)를
+    대체해 candy가 아래(S14)면 하강을 보상한다."""
     saved = int(res.get("saved", 0))
     picked = int(res.get("picked_total", 0))
     retired = model.count_retired(res.get("trace", {}), layout)["total"]
@@ -92,13 +94,8 @@ def score(res: dict, layout: dict) -> tuple:
     carry_tr = 0
     if saved == 0:
         carry_tr, _tot = model.count_trapped(res.get("trace", {}))
-    home_d = float(res.get("best_carry_home_dist", 1e20))
-    if home_d < 0:
-        home_d = 1e20
-    miny = float(res.get("best_min_y", 1e20))
-    if miny < 0:
-        miny = 1e20
-    return (-saved, retired, -picked, carry_tr, home_d, miny)
+    goal_d = model.best_goal_dist(res.get("trace", {}), layout)
+    return (-saved, retired, -picked, carry_tr, goal_d)
 
 
 def _fmt(res: dict, hp: int) -> str:
@@ -143,12 +140,17 @@ def solve(stage_id: int, max_rollouts: int) -> int:
     print(f"  candy={layout['candy']} home={layout['home']} cap={max_rollouts} rollouts")
 
     rollouts = 0
+
+    def rollout(p: list[dict]) -> dict:
+        nonlocal rollouts
+        rollouts += 1
+        return run_plan(stage_scene, p, deadline, trace=True)
+
     plan: list[dict] = []
     tried: set = set()
 
     # ① 베이스라인 관측.
-    best = run_plan(stage_scene, plan, deadline, trace=True)
-    rollouts += 1
+    best = rollout(plan)
     if "error" in best:
         print("  [에러] 베이스라인 롤아웃 실패:", best.get("error"))
         return 1
@@ -156,39 +158,74 @@ def solve(stage_id: int, max_rollouts: int) -> int:
     if is_full_clear(best, hp):
         return _save(stage_id, stage_scene, deadline, inv, plan, best, rollouts, hp, layout, meta["total_ants"])
 
-    # ②~④ 관측 → 진단 → 개입(라운드별 후보 평가 후 **최선** 채택) → 재관측 (상한까지).
-    while rollouts < max_rollouts:
-        diag = model.diagnose(best.get("trace", {}), layout, hp)
-        cands = model.propose(layout, diag, inv, metas, notes, exclude=tried,
-                              max_n=min(max_rollouts - rollouts, 6))   # 라운드당 후보 cap(롤아웃 절약)
-        if not cands:
-            print("  [정지] 제안할 개입 후보 없음(진단으로 더 둘 곳 없음).")
-            break
-        evaluated: list = []
+    class _Clear(Exception):
+        def __init__(self, p, r):
+            self.plan, self.res = p, r
+
+    def eval_cands(base: list[dict], cands: list, tag: str) -> list:
+        """후보들을 base 플랜 위에 롤아웃. full clear면 _Clear로 즉시 탈출. 반환 (cand,res) 리스트."""
+        out: list = []
         for cand in cands:
             if rollouts >= max_rollouts:
                 break
             tried.add(cand["label"])
-            res = run_plan(stage_scene, plan + [cand["action"]], deadline, trace=True)
-            rollouts += 1
+            res = rollout(base + [cand["action"]])
             ct, tt = model.count_trapped(res.get("trace", {}))
-            print(f"  롤아웃 {rollouts}: +{cand['label']} → {_fmt(res, hp)} trapped(carry/all)={ct}/{tt}")
+            print(f"  롤아웃 {rollouts}{tag}: +{cand['label']} → {_fmt(res, hp)} trapped(carry/all)={ct}/{tt}")
             if "error" in res:
                 continue
             if is_full_clear(res, hp):
+                raise _Clear(base + [cand["action"]], res)
+            out.append((cand, res))
+        return out
+
+    # ②~④ 관측 → 진단 → 개입(라운드별 후보 평가 후 **최선** 채택) → 재관측 (상한까지).
+    # 1-스텝이 정체하면 **2-스텝 lookahead**(사용자: S13/S14는 단일 개입이 일시적으로 악화[물 익사↑]된 뒤
+    # 두 번째 개입으로 닫히므로 그리디로는 못 넘음 — 유망 first-step에서 재진단→second 평가).
+    try:
+        while rollouts < max_rollouts:
+            diag = model.diagnose(best.get("trace", {}), layout, hp)
+            cands = model.propose(layout, diag, inv, metas, notes, exclude=tried,
+                                  max_n=min(max_rollouts - rollouts, 6))
+            if not cands:
+                print("  [정지] 제안할 개입 후보 없음(진단으로 더 둘 곳 없음).")
+                break
+            evaluated = eval_cands(plan, cands, "")
+            if not evaluated:
+                break
+            cand, res = min(evaluated, key=lambda cr: score(cr[1], layout))
+            if score(res, layout) < score(best, layout):
                 plan = plan + [cand["action"]]
-                return _save(stage_id, stage_scene, deadline, inv, plan, res, rollouts, hp, layout, meta["total_ants"])
-            evaluated.append((cand, res))
-        if not evaluated:
+                best = res
+                print(f"    채택(최선): +{cand['label']} → plan={[a.get('skill') for a in plan]}")
+                continue
+            # 1-스텝 정체 → 2-스텝 lookahead. **유망 first-step = goal_dist 최근접**(retired-우선 score가
+            # 아니라!) — candy 근처까지 갔다가 익사한 스텝이 핵심 디딤돌이다(두 번째 스텝이 그 죽음을 고침).
+            # retired-우선으로 뽑으면 안전하지만 막다른 top-trap에서 헛 lookahead한다(사용자 통찰 정합).
+            print("  [1-스텝 정체] 2-스텝 lookahead 시도(frontier=goal_dist 최근접)")
+            frontier = sorted(evaluated, key=lambda cr: model.best_goal_dist(cr[1].get("trace", {}), layout))[:2]
+            combo = None
+            for c1, res1 in frontier:
+                if rollouts >= max_rollouts:
+                    break
+                diag1 = model.diagnose(res1.get("trace", {}), layout, hp)
+                cands2 = model.propose(layout, diag1, inv, metas, notes, exclude=tried,
+                                      max_n=min(max_rollouts - rollouts, 4))
+                ev2 = eval_cands(plan + [c1["action"]], cands2, "(LA2)")
+                for c2, res2 in ev2:
+                    if score(res2, layout) < score(best, layout) and (
+                            combo is None or score(res2, layout) < score(combo[2], layout)):
+                        combo = (c1, c2, res2)
+            if combo is not None:
+                c1, c2, res2 = combo
+                plan = plan + [c1["action"], c2["action"]]
+                best = res2
+                print(f"    채택(LA2): +{c1['label']}+{c2['label']} → plan={[a.get('skill') for a in plan]}")
+                continue
+            print("  [정지] 1-스텝·2-스텝 모두 진척을 못 냄.")
             break
-        cand, res = min(evaluated, key=lambda cr: score(cr[1], layout))   # 라운드 최선
-        if score(res, layout) < score(best, layout):
-            plan = plan + [cand["action"]]
-            best = res
-            print(f"    채택(최선): +{cand['label']} → plan={[a.get('skill') for a in plan]}")
-        else:
-            print("  [정지] 이번 라운드 후보가 진척을 못 냄.")
-            break
+    except _Clear as c:
+        return _save(stage_id, stage_scene, deadline, inv, c.plan, c.res, rollouts, hp, layout, meta["total_ants"])
 
     # 상한 도달 또는 정체 — 100% 미달 → 체크포인트. 최고 기록 시도의 리타이어 개미·사용 도구 수도 보고.
     saved = int(best.get("saved", 0))
