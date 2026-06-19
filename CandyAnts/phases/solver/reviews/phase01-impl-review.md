@@ -65,3 +65,10 @@ Next steps:
 
 ## Self-Review Round 2 (clean)
 _finish의 remove_child가 stage_cleared 콜백 중 안전한지(S11/S12 정상 클리어로 확인), stage_id 가드의 실제 verdict 오거부 없음(전 골든 통과·미상 폴백 수락), ④ 검출력(미분리 2개/ foreign 수락 시 FAIL). 게이트 GREEN(결정론2 + PlanReplayHarnessTest[새×2+재사용×2+분리+출처가드] + SkillMetadataDriftTest + selftest 5골든). **HIGH/CRITICAL 0건.**
+
+## R3 대응 (수정)
+- **HIGH (stage_id 가드가 stable StageData.id라 같은 스테이지 stale/동시 런 미구분)**: verdict 수신을 글로벌 EventBus → **인스턴스-스코프 시그널**로 전환. StageRunner에 가산적 `signal concluded(result)` 추가(글로벌 stage_cleared/failed는 그대로 emit; 같은 결과 dict를 인스턴스 시그널로도 발행, 게임 동작·D4 불변). PlanRunner는 run()에서 *자기 스테이지의* StageRunner.concluded만 연결 → 다른/stale 스테이지 verdict가 구조적으로 닿지 않음. `_is_foreign_verdict`/`_expected_stage_id`/글로벌 verdict 핸들러 제거. `_teardown`/`_finish`가 인스턴스 시그널 해제.
+- **테스트 강화**: ④a 재실행 직후 살아있는 StageRunner==1(분리), ④b 같은 stage_id(11) stale verdict를 *글로벌 버스*에 주입 → 무시 단언(인스턴스 스코프 증명, codex R3 시나리오 직접 반증).
+
+## Self-Review Round 3 (clean)
+StageRunner 변경의 게임 회귀(S11/S13/BeginGate/ToolbarDisable/SandMound·LeafJumpSign PASS = 동작 불변), 결과 dict 1회 빌드 동치, concluded 1회 emit(_completed 가드), 인스턴스 시그널 연결/해제 수명, sr=null 폴백(deadline). **HIGH/CRITICAL 0건.** 게이트+회귀 GREEN.

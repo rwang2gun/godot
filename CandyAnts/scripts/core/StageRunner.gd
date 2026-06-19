@@ -1,5 +1,11 @@
 class_name StageRunner extends Node
 
+# auto-solver Phase 1 (codex R3 HIGH) — verdict의 **인스턴스-스코프** 사본. 글로벌 EventBus.stage_cleared/
+# failed는 그대로 emit(게임/UI/SaveData/SceneFlow 의존)하되, 솔버 하니스(PlanRunner)가 *자기 스테이지의*
+# verdict만 구독해 글로벌 버스 cross-talk(같은 stage_id 동시/stale 런)를 구조적으로 차단하도록, 같은
+# 결과 dict를 이 인스턴스 시그널로도 발행한다. 판정 자체는 무수정 게임 코드가 그대로 계산(D4 불변).
+signal concluded(result: Dictionary)
+
 const GameAction := preload("res://scripts/input/GameAction.gd")
 const RR_STEP: int = 5
 
@@ -203,12 +209,15 @@ func _conclude_stage(fail_reason: String) -> void:
 	# 클리어 = 별 1개 이상 = 사탕 조각 1개 이상 회수 (Scoring 규칙 단일 SoT, HP 무관).
 	var cleared: bool = Scoring.compute_stars(score_system.saved_pieces, score_system.original_hp) >= 1
 	# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
+	var result: Dictionary = _make_result(cleared, "" if cleared else (fail_reason if fail_reason != "" else "incomplete"))
 	if cleared:
 		EventBus.sfx_request.emit(&"stage_cleared")
-		EventBus.stage_cleared.emit(_make_result(true, ""))
+		EventBus.stage_cleared.emit(result)
 	else:
 		EventBus.sfx_request.emit(&"stage_failed")
-		EventBus.stage_failed.emit(_make_result(false, fail_reason if fail_reason != "" else "incomplete"))
+		EventBus.stage_failed.emit(result)
+	# 인스턴스-스코프 사본(auto-solver) — 같은 결과 dict. 글로벌 emit과 동시 발행(게임 동작 불변).
+	concluded.emit(result)
 	_disable_toolbar()
 
 func _disable_toolbar() -> void:

@@ -68,17 +68,19 @@ func _ready() -> void:
 	var live_stages: int = reuse.find_children("*", "StageRunner", true, false).size()
 	if live_stages != 1:
 		_failures.append("④a 재실행 후 살아있는 스테이지 %d개(기대 1) — 옛 스테이지 미분리(누수)" % live_stages)
-	# ④b 출처 가드: 다른 stage_id의 stale verdict를 주입 → 무시돼야(현재 런이 STALE로 끝나면 안 됨).
-	#    글로벌 EventBus 직접 emit은 SceneFlow 등 다른 리스너 부작용이 있어, 핸들러를 직접 호출해 가드만 검증.
-	reuse._on_failed({"stage_id": 99, "reason": "STALE_INJECTED", "saved": 0})
-	reuse._on_cleared({"stage_id": 99, "reason": "STALE_INJECTED", "saved": 0, "cleared": true})
+	# ④b 출처(provenance): PlanRunner는 글로벌 EventBus가 아니라 자기 스테이지의 concluded(인스턴스
+	#    시그널)만 듣는다. *같은 stage_id(11)*의 stale verdict를 글로벌 버스에 주입해도 무시돼야 한다
+	#    (codex R3가 우려한 "같은 스테이지 stale verdict" 시나리오 — 인스턴스 스코프라 닿지 않음).
+	#    테스트 씬엔 SceneFlow 없음. SaveData는 pid-격리 throwaway 저장이라 무해.
+	EventBus.stage_failed.emit({"stage_id": 11, "reason": "STALE_GLOBAL", "saved": 0, "original_hp": 4})
+	EventBus.stage_cleared.emit({"stage_id": 11, "reason": "STALE_GLOBAL", "saved": 4, "original_hp": 4, "cleared": true})
 	var rb: Dictionary = await reuse.finished
 	reuse.queue_free()
 	await get_tree().process_frame
 	if not bool(ra.get("cleared", false)) or not bool(rb.get("cleared", false)):
 		_failures.append("④ reuse: cleared ra=%s rb=%s" % [ra.get("cleared"), rb.get("cleared")])
-	if str(rb.get("reason", "")) == "STALE_INJECTED":
-		_failures.append("④b stale verdict가 수락됨 — 출처 가드(_is_foreign_verdict) 실패")
+	if str(rb.get("reason", "")) == "STALE_GLOBAL":
+		_failures.append("④b 글로벌 버스 stale verdict가 수락됨 — PlanRunner가 인스턴스 시그널만 듣지 않음")
 	if int(ra.get("frame", -1)) != int(r1.get("frame", -2)) or int(rb.get("frame", -1)) != int(r1.get("frame", -3)):
 		_failures.append("④ reuse frame drift(=상태누수): r1=%s ra=%s rb=%s" % [r1.get("frame"), ra.get("frame"), rb.get("frame")])
 	if int(rb.get("saved", -1)) != int(r1.get("saved", -2)) or int(rb.get("actions_fired", -1)) != 1:

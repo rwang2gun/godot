@@ -47,9 +47,10 @@ var _running: bool = false
 var _picked_total: int = 0
 var _fired_frame: Dictionary = {}     # action label/index → 발화 프레임(after 트리거용)
 var _actions_fired: int = 0
-# verdict 출처 가드(codex R2 HIGH) — 현재 런 스테이지의 StageData.id. 글로벌 EventBus verdict가
-# 다른(stale/오배치) 스테이지의 것이면 stage_id 불일치로 무시한다. -999 = 미상(가드 비활성, 폴백).
-var _expected_stage_id: int = -999
+# verdict 수신은 글로벌 EventBus가 아니라 **현재 런 스테이지의 StageRunner 인스턴스 시그널**(concluded)로만
+# 받는다(codex R3 HIGH). 같은 stage_id의 stale/동시 런이라도 다른 인스턴스의 시그널은 우리에게 안 오므로
+# cross-talk가 구조적으로 불가능(StageData.id 비교 같은 약한 가드 불필요).
+var _stage_runner: Node = null
 
 # 진척 휴리스틱 (Phase 2 탐색 원료 — spike에서 이관).
 var _best_min_y: float = 1.0e20
@@ -57,19 +58,15 @@ var _any_picked: bool = false
 var _best_carry_home_dist: float = 1.0e20
 var _home_pos: Vector2 = Vector2(1.0e20, 1.0e20)
 
-# EventBus 시그널은 **인스턴스 수명 동안 1회만** 연결(런마다 연결/해제하지 않음). verdict 귀속은
-# 3중 방어로 보장(codex R1·R2 HIGH):
-#   (1) `_running`/`_done` 가드 — 런 밖/종료 후 verdict 무시.
-#   (2) 종료/재시작 시 스테이지를 트리에서 **동기 분리**(_finish·_teardown의 remove_child) — 분리 즉시
-#       _process/emit이 멈춰, finished 콜백서 곧장 재실행해도 옛 스테이지가 late verdict를 못 흘린다.
-#   (3) `_is_foreign_verdict` — 결과 stage_id가 현재 런 스테이지와 다르면 무시(다른 스테이지 emit 차단).
+# verdict는 글로벌 버스가 아니라 현재 스테이지의 StageRunner.concluded(인스턴스 시그널)로 받는다(run()에서
+# 연결). 여기선 진척 휴리스틱용 candy_piece_picked(글로벌)만 1회 연결 — 이건 verdict가 아니라 보조 지표라
+# _running 가드로 충분. verdict 귀속 방어:
+#   (1) 인스턴스 시그널 — 우리 스테이지 인스턴스만 우리에게 emit(다른/stale 스테이지는 닿지 않음).
+#   (2) `_running`/`_done` 가드 — 런 밖/종료 후 무시.
+#   (3) 종료/재시작 시 스테이지를 트리에서 **동기 분리**(_finish·_teardown의 remove_child) — 옛 스테이지 정지.
 func _ready() -> void:
 	if not EventBus.candy_piece_picked.is_connected(_on_picked):
 		EventBus.candy_piece_picked.connect(_on_picked)
-	if not EventBus.stage_cleared.is_connected(_on_cleared):
-		EventBus.stage_cleared.connect(_on_cleared)
-	if not EventBus.stage_failed.is_connected(_on_failed):
-		EventBus.stage_failed.connect(_on_failed)
 
 func run(plan: Dictionary) -> void:
 	# 이전 런이 남긴(또는 중단된) 스테이지를 즉시 강제 정리 — stale stage가 새 런에 verdict를
@@ -100,8 +97,10 @@ func run(plan: Dictionary) -> void:
 		var sd: Resource = sr.get("stage_data")
 		if sd != null and "skill_inventory" in sd:
 			_inventory = (sd.skill_inventory as Dictionary).duplicate(true)
-		if sd != null and "id" in sd:
-			_expected_stage_id = int(sd.id)   # verdict 출처 가드 기준(codex R2 HIGH)
+	# verdict는 이 스테이지 인스턴스의 concluded 시그널로만 수신(codex R3 HIGH — 글로벌 버스 cross-talk 차단).
+	_stage_runner = sr
+	if sr != null and sr.has_signal("concluded") and not sr.concluded.is_connected(_on_concluded):
+		sr.concluded.connect(_on_concluded)
 	var homes: Array = _stage.find_children("*", "Home", true, false)
 	if not homes.is_empty():
 		_home_pos = (homes[0] as Node2D).global_position
@@ -112,6 +111,10 @@ func run(plan: Dictionary) -> void:
 # 진행 중이던(또는 직전) 스테이지를 트리에서 즉시 떼어내고 free. run() 컨텍스트(시그널 콜백 밖)
 # 호출이라 free() 안전. 정상 종료 시엔 _finish가 이미 queue_free·_stage=null 했으니 보통 no-op.
 func _teardown() -> void:
+	if _stage_runner != null and is_instance_valid(_stage_runner) \
+			and _stage_runner.has_signal("concluded") and _stage_runner.concluded.is_connected(_on_concluded):
+		_stage_runner.concluded.disconnect(_on_concluded)
+	_stage_runner = null
 	if _stage != null and is_instance_valid(_stage):
 		var parent: Node = _stage.get_parent()
 		if parent != null:
@@ -131,7 +134,7 @@ func _reset_state() -> void:
 	_picked_total = 0
 	_fired_frame = {}
 	_actions_fired = 0
-	_expected_stage_id = -999
+	_stage_runner = null
 	_best_min_y = 1.0e20
 	_any_picked = false
 	_best_carry_home_dist = 1.0e20
@@ -334,24 +337,14 @@ func _find_node_of_class(cls: String) -> Node:
 		return found[0]
 	return null
 
-func _on_cleared(result: Dictionary) -> void:
-	if not _running or _done or _is_foreign_verdict(result):
+# 현재 런 스테이지(StageRunner)의 인스턴스 시그널 — 무수정 게임이 계산한 결과 dict를 그대로 받는다(D4).
+# 인스턴스 스코프라 다른/stale 스테이지의 verdict는 여기 오지 않는다(codex R3 HIGH 해소).
+func _on_concluded(result: Dictionary) -> void:
+	if not _running or _done:
 		return
-	_report(bool(result.get("cleared", true)), int(result.get("saved", -1)),
-		int(result.get("lost", -1)), int(result.get("original_hp", -1)), str(result.get("reason", "cleared")))
-
-func _on_failed(result: Dictionary) -> void:
-	if not _running or _done or _is_foreign_verdict(result):
-		return
-	_report(false, int(result.get("saved", -1)), int(result.get("lost", -1)),
-		int(result.get("original_hp", -1)), str(result.get("reason", "failed")))
-
-# verdict 출처 가드(codex R2 HIGH) — 결과의 stage_id가 현재 런 스테이지와 다르면 stale/오배치로 보고 무시.
-# stage_id 미상(_expected_stage_id=-999)이거나 결과에 stage_id 없으면 가드 비활성(폴백 = 수락).
-func _is_foreign_verdict(result: Dictionary) -> bool:
-	if _expected_stage_id == -999 or not result.has("stage_id"):
-		return false
-	return int(result["stage_id"]) != _expected_stage_id
+	_report(bool(result.get("cleared", false)), int(result.get("saved", -1)),
+		int(result.get("lost", -1)), int(result.get("original_hp", -1)),
+		str(result.get("reason", "concluded")))
 
 func _report(cleared: bool, saved: int, lost: int, hp: int, reason: String) -> void:
 	if _done:
@@ -374,6 +367,11 @@ func _finish(result: Dictionary) -> void:
 		return
 	_done = true
 	_running = false
+	# 인스턴스 verdict 시그널 해제(곧 free될 스테이지지만 명시적으로). 자기 콜백 중 disconnect 안전.
+	if _stage_runner != null and is_instance_valid(_stage_runner) \
+			and _stage_runner.has_signal("concluded") and _stage_runner.concluded.is_connected(_on_concluded):
+		_stage_runner.concluded.disconnect(_on_concluded)
+	_stage_runner = null
 	# 스테이지를 트리에서 **동기적으로** 분리한 뒤 queue_free — 분리 즉시 _process/emit이 멈춰,
 	# finished 콜백서 곧장 재실행해도 옛 스테이지가 late verdict를 흘릴 수 없다(codex R2 HIGH).
 	# remove_child는 시그널 콜백 안에서도 안전(노드는 살아있고 트리에서만 빠짐), 메모리 해제는 지연.
