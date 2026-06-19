@@ -19,7 +19,8 @@ enum CursorKind { ICON, SETTLE_FORM, SIGN, DEVICE }
 const SKILL_CATEGORY := {
 	"climber":    Category.ANT_ARMED,   # ③ 무장·자동발동
 	"bridge":     Category.ANT_ARMED,
-	"builder":    Category.ANT_ARMED,
+	"slideR":     Category.ANT_ARMED,   # 오른쪽 경사면 (구 builder)
+	"slideL":     Category.ANT_ARMED,   # 왼쪽 경사면 (좌우 반전)
 	"blocker":    Category.ANT_SETTLE,  # ② 정착·이탈
 	"floater":    Category.ANT_SETTLE,
 	"sand_mound": Category.SIGN,        # ① 표지판 설치

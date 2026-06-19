@@ -20,8 +20,8 @@ func _ready() -> void:
 	stage_data.total_ants = 0
 	stage_data.release_rate_initial = 30
 	stage_data.time_limit_seconds = 999.0
-	stage_data.available_skills = ["builder"]
-	stage_data.skill_inventory = {"builder": 2}
+	stage_data.available_skills = ["slideR"]
+	stage_data.skill_inventory = {"slideR": 2}
 
 	var candy: Candy = _CANDY_SCENE.instantiate()
 	candy.name = "Candy"
@@ -42,7 +42,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 
 	# 초기 상태: toolbar enabled
-	var slot: SkillSlot = toolbar._slots.get("builder") as SkillSlot
+	var slot: SkillSlot = toolbar._slots.get("slideR") as SkillSlot
 	if slot == null:
 		failures.append("builder SkillSlot not created")
 	elif slot.disabled:

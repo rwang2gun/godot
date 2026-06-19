@@ -1,7 +1,8 @@
 extends Node
 
 const SKILL_SCRIPTS: Array[Script] = [
-	preload("res://scripts/skills/BuilderSkill.gd"),
+	preload("res://scripts/skills/SlideRSkill.gd"),
+	preload("res://scripts/skills/SlideLSkill.gd"),
 	preload("res://scripts/skills/BlockerSkill.gd"),
 	preload("res://scripts/skills/ClimberSkill.gd"),
 	preload("res://scripts/skills/FloaterSkill.gd"),

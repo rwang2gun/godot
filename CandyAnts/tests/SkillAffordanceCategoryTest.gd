@@ -35,7 +35,8 @@ func _ready() -> void:
 	var expected_cat := {
 		"climber":    SkillAffordance.Category.ANT_ARMED,
 		"bridge":     SkillAffordance.Category.ANT_ARMED,
-		"builder":    SkillAffordance.Category.ANT_ARMED,
+		"slideR":     SkillAffordance.Category.ANT_ARMED,
+		"slideL":     SkillAffordance.Category.ANT_ARMED,
 		"blocker":    SkillAffordance.Category.ANT_SETTLE,
 		"floater":    SkillAffordance.Category.ANT_SETTLE,
 		"sand_mound": SkillAffordance.Category.SIGN,

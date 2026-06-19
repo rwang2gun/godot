@@ -11,8 +11,8 @@ layout = ExtResource("1_layout")
 total_ants = 5
 candy_hp = 5
 time_limit_seconds = 110.0
-available_skills = Array[String](["builder"])
+available_skills = Array[String](["slideR"])
 skill_inventory = {
-"builder": 1
+"slideR": 1
 }
 release_rate_initial = 30

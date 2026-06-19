@@ -60,6 +60,10 @@ var bridge_armed: bool = false
 # 매 frame try_build_armed_builder()로 검사 → 개미가 낭떠러지(전방 바닥 없음)에 도달하면 그 자리에서 자동으로
 # WorkerState("builder") 진입(대각 계단 건설). 이미 낭떠러지에서 부여하면 apply가 즉시 건설.
 var builder_armed: bool = false
+# slideR/slideL 방향 유지(2026-06-18) — 계단 스킬 apply가 부여 시 지정 방향(+1=우/-1=좌)을 저장한다.
+# try_build_armed_builder가 이 방향 낭떠러지에서만 자동 건설하고, 발동 시 direction을 이 값으로 정렬한다
+# (걷다 벽에서 flip됐어도 지정 방향 계단 보장). 0이면 미저장 — 방어적으로 현재 direction을 쓴다.
+var builder_armed_dir: int = 0
 # 굴착 무장(armed basher, 2026-06-05) — BridgeSkill/BuilderSkill 패턴 복제. BasherSkill.apply가 전방이
 # 막히지 않은(열린) 곳에서 부여되면 즉시 굴착하지 않고 이 플래그만 세운다(인벤토리는 부여 시점 차감 = 소비).
 # Walker.update가 매 frame try_bash_armed_wall()로 검사 → 개미가 흙 벽(전방 셀이 earth)에 도달하면 그
@@ -462,15 +466,20 @@ func try_build_armed_bridge() -> bool:
 	state_machine.change_state(WorkerState.new("bridge"))
 	return true
 
-# 계단 무장 자동 건설 — Walker/Carrying.update가 매 frame 호출. 무장 상태 + 낭떠러지 도달 시
+# 계단 무장 자동 건설 — Walker/Carrying.update가 매 frame 호출. 무장 상태 + 지정 방향 낭떠러지 도달 시
 # 무장 해제 후 WorkerState("builder") 진입(대각 계단 건설). 전이했으면 true(호출부는 즉시 return).
-# try_build_armed_bridge의 복제 — 공용 cliff_ahead() 술어 사용, work_type만 "builder".
+# slideR/slideL 방향 유지 — 부여 시 저장한 builder_armed_dir 방향(±1)을 cliff_ahead에 넘겨 그 방향
+# 낭떠러지에서만 발동하고, 발동 직전 direction을 그 값으로 정렬한다(걷다 flip됐어도 지정 방향 계단).
 func try_build_armed_builder() -> bool:
 	if not builder_armed:
 		return false
-	if state_machine == null or not cliff_ahead():
+	# builder_armed_dir==0인 구 경로 방어: cliff_ahead(0)이 현재 direction을 쓴다.
+	if state_machine == null or not cliff_ahead(builder_armed_dir):
 		return false
+	if builder_armed_dir != 0:
+		direction = builder_armed_dir
 	builder_armed = false
+	builder_armed_dir = 0
 	state_machine.change_state(WorkerState.new("builder"))
 	return true
 
@@ -538,8 +547,11 @@ func _forward_body_cell_kind() -> String:
 # 발판 위 + 진행 방향 전방이 낭떠러지인지 — 전방 셀이 벽이 아니고(벽이면 flip/climb/step-up이 처리)
 # 전방 아래 셀에 바닥이 없을 때(=한 칸 더 가면 추락). bridge/builder 무장 즉시 건설 분기와 공용(2026-06-03 리네임).
 # add_tile은 target=발밑 전방 셀(body_cell+(dir,+1))에 놓으므로, 이 셀이 비어야(낭떠러지) 건설 가능.
-func cliff_ahead() -> bool:
-	if state_machine == null or direction == 0 or not is_on_floor():
+func cliff_ahead(dir_override: int = 0) -> bool:
+	# dir_override!=0이면 그 방향, 아니면 현재 direction (stair_climb_ahead/ladder_climb_ahead 패턴).
+	# slideR/slideL armed 자동 건설이 지정 방향을 넘겨 그 방향 낭떠러지만 검사하는 데 쓴다.
+	var dir: int = dir_override if dir_override != 0 else direction
+	if state_machine == null or dir == 0 or not is_on_floor():
 		return false
 	var terrain: Terrain = _find_terrain()
 	if terrain == null:
@@ -549,8 +561,8 @@ func cliff_ahead() -> bool:
 		int(floor(global_position.x / cs)),
 		int(floor((global_position.y - 2.0) / cs))
 	)
-	var forward: Vector2i = body_cell + Vector2i(direction, 0)
-	var forward_down: Vector2i = body_cell + Vector2i(direction, 1)
+	var forward: Vector2i = body_cell + Vector2i(dir, 0)
+	var forward_down: Vector2i = body_cell + Vector2i(dir, 1)
 	return not terrain.is_cell_occupied(forward) and not terrain.is_cell_occupied(forward_down)
 
 # 나뭇잎 점프대(leaf_jump) 홉 착지 셀 — 전방 cells칸 열에서 "빈 셀 + 바로 아래 점유(=바닥)"인 착지면을

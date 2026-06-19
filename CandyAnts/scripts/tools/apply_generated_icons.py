@@ -56,7 +56,7 @@ def process_all(to_live: bool = False):
     CURSOR_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     skills = [
-        "blocker", "builder", "climber", "floater", "distributor",
+        "blocker", "slideR", "slideL", "climber", "floater", "distributor",
         "sand_mound", "bridge", "basher", "digger", "cutter"
     ]
     

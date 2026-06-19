@@ -172,6 +172,12 @@ def builder(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
     ant = fit_sprite(load_sprite("build", 1), s(58))
     paste_center(img, ant, 43, 104)
 
+# slideR(오른쪽 경사면) = builder(우향 대각 계단) 그림을 그대로 재사용한다.
+# slideL(왼쪽 경사면) = 그 그림을 좌우 반전한다. (builder 함수는 Ant.tscn BuilderBadge 아이콘용으로 잔존.)
+def slide_l(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
+    builder(img, d)
+    img.paste(img.transpose(Image.FLIP_LEFT_RIGHT), (0, 0))
+
 def climber(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
     draw_candy_badge_bg(img, d, *theme_for("climber"))
     # Candy cane ladder side rails
@@ -289,7 +295,9 @@ def main() -> None:
     CURSOR_OUT.mkdir(parents=True, exist_ok=True)
     painters = {
         "blocker": blocker,
-        "builder": builder,
+        "builder": builder,       # Ant.tscn BuilderBadge(계단 무장 표식) 아이콘용 잔존
+        "slideR": builder,        # 오른쪽 경사면 = builder 디자인 재사용
+        "slideL": slide_l,        # 왼쪽 경사면 = 좌우 반전
         "climber": climber,
         "floater": floater,
         "distributor": distributor,

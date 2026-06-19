@@ -3,7 +3,7 @@ extends Node
 # CRITICAL 회귀 가드 — Codex review HIGH Round 7 #1 (INPUT_PLAN §6.6 #8).
 # World Ant @ global_position=(0,0) — Vector2.ZERO sentinel 오인 안 함 검증.
 #
-# - SkillToolbar mock(_pending_skill_id="builder")로 SKILL_ASSIGN 흐름 검증.
+# - SkillToolbar mock(_pending_skill_id="slideR")로 SKILL_ASSIGN 흐름 검증.
 # - position_valid: true + world_pos == Vector2.ZERO 인 페이로드를 직접 emit해서
 #   _try_assign이 Vector2.ZERO를 sentinel로 reject 안 하고 정상 진행하는지 검증.
 
@@ -21,8 +21,8 @@ func _ready() -> void:
 
 	var toolbar := SkillToolbar.new()
 	var stage_data: StageData = STAGE_DATA_SCRIPT.new()
-	stage_data.available_skills = ["builder"]
-	stage_data.skill_inventory = {"builder": 2}
+	stage_data.available_skills = ["slideR"]
+	stage_data.skill_inventory = {"slideR": 2}
 	toolbar.stage_data = stage_data
 	var hbox: Control = HBoxContainer.new()
 	hbox.name = "HBox"
@@ -31,7 +31,7 @@ func _ready() -> void:
 	add_child(toolbar)
 	await get_tree().process_frame
 
-	toolbar._pending_skill_id = "builder"
+	toolbar._pending_skill_id = "slideR"
 
 	# world_pos == Vector2.ZERO + position_valid:true emit:
 	# 핵심 검증 = SkillToolbar가 Vector2.ZERO를 sentinel로 reject 하지 않고 _try_assign 진입.

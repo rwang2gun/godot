@@ -11,9 +11,9 @@ layout = ExtResource("1_ilw81")
 total_ants = 5
 candy_hp = 5
 time_limit_seconds = 150.0
-available_skills = Array[String](["builder", "digger", "cutter", "leaf_jump", "climber"])
+available_skills = Array[String](["slideR", "digger", "cutter", "leaf_jump", "climber"])
 skill_inventory = {
-"builder": 1,
+"slideR": 1,
 "climber": 5,
 "cutter": 1,
 "digger": 1,

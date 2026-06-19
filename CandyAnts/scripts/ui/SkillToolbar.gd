@@ -34,7 +34,8 @@ const SIGN_DEVICE_CURSOR_SCALE: float = 2.0
 # Registered skill PNG icons — reused by SkillSlot.icon_texture and the custom mouse cursor.
 const ICONS: Dictionary = {
 	"blocker": preload("res://assets/icons/skills/blocker.png"),
-	"builder": preload("res://assets/icons/skills/builder.png"),
+	"slideR": preload("res://assets/icons/skills/slideR.png"),
+	"slideL": preload("res://assets/icons/skills/slideL.png"),
 	"climber": preload("res://assets/icons/skills/climber.png"),
 	"floater": preload("res://assets/icons/skills/floater.png"),
 	"sand_mound": preload("res://assets/icons/skills/sand_mound.png"),
@@ -46,7 +47,8 @@ const ICONS: Dictionary = {
 }
 const CURSOR_ICONS: Dictionary = {
 	"blocker": preload("res://assets/icons/skills/cursors/blocker.png"),
-	"builder": preload("res://assets/icons/skills/cursors/builder.png"),
+	"slideR": preload("res://assets/icons/skills/cursors/slideR.png"),
+	"slideL": preload("res://assets/icons/skills/cursors/slideL.png"),
 	"climber": preload("res://assets/icons/skills/cursors/climber.png"),
 	"floater": preload("res://assets/icons/skills/cursors/floater.png"),
 	"sand_mound": preload("res://assets/icons/skills/cursors/sand_mound.png"),
