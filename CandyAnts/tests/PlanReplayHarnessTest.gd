@@ -24,6 +24,18 @@ const PLAN_EMPTY := {
 	"deadline_frames": 7000,
 	"actions": [],
 }
+# after 트리거 by index 검증용 — action[1]이 action[0](index 0) 발화 후 50프레임 뒤 발화.
+# index "0"이 _fired_frame에 기록돼 풀려야 둘 다 발화(actions_fired==2). S12는 blocker×3라 둘 다 적용 가능.
+const PLAN_AFTER_INDEX := {
+	"stage": "res://scenes/stages/Stage12.tscn",
+	"deadline_frames": 7000,
+	"actions": [
+		{"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "y_min": 584.0, "y_max": 648.0},
+			"trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 72.0}},
+		{"skill": "blocker", "target": {"mode": "ant", "select": "max_x", "y_min": 0.0, "y_max": 99999.0},
+			"trigger": {"type": "after", "ref": "0", "delay": 50}},
+	],
+}
 
 var _failures: Array[String] = []
 
@@ -105,8 +117,35 @@ func _ready() -> void:
 	if not bool(resA.get("cleared", false)) or int(resA.get("frame", -1)) != int(r1.get("frame", -2)) or int(resA.get("saved", -1)) != int(r1.get("saved", -3)):
 		_failures.append("⑤ 동시 런이 A를 오염: resA=%s (기대 r1=%s)" % [str(resA), str(r1)])
 
+	# ⑥ 같은 인스턴스 재진입 거부(codex R5 HIGH) — 첫 런 진행 중 run() 재호출은 첫 런 스테이지를
+	#    교체/해제하지 않고(보존) no-op이어야 하고, 첫 런은 정상 완료해야 한다.
+	var r6: PlanRunner = PlanRunner.new()
+	add_child(r6)
+	r6.run(PLAN_S11)                  # 첫 런 활성(_running=true)
+	var stage_before: Node = r6._stage
+	r6.run(PLAN_S11)                  # 재진입 — 거부(teardown/replace 없이)
+	var stage_after: Node = r6._stage
+	if stage_after == null or stage_before != stage_after:
+		_failures.append("⑥ 재진입이 첫 런 스테이지를 교체/해제함(가드 우회): same=%s" % str(stage_before == stage_after))
+	var r6res: Dictionary = await r6.finished
+	r6.queue_free()
+	await get_tree().process_frame
+	if not bool(r6res.get("cleared", false)) or int(r6res.get("frame", -1)) != int(r1.get("frame", -2)):
+		_failures.append("⑥ 첫 런이 재진입에 의해 변질됨: %s" % str(r6res))
+
+	# ⑦ after 트리거 by index(codex R5 MED) — action[1]이 after{ref:"0"}로 action[0] 발화 후 지연 발화.
+	#    index "0"이 _fired_frame에 기록돼 풀려야 둘 다 발화(actions_fired==2). 깨졌으면 1에 머문다.
+	var r7: PlanRunner = PlanRunner.new()
+	add_child(r7)
+	r7.run(PLAN_AFTER_INDEX)
+	var r7res: Dictionary = await r7.finished
+	r7.queue_free()
+	await get_tree().process_frame
+	if int(r7res.get("actions_fired", -1)) != 2:
+		_failures.append("⑦ after-by-index 미해결: actions_fired=%s (기대 2) — index ref가 _fired_frame에 없음?" % str(r7res.get("actions_fired")))
+
 	if _failures.is_empty():
-		print("[PlanReplayHarnessTest] PASS — S11 cleared saved=%d/%d frame=%d (새 인스턴스 ×2 + 재사용 ×2 + 분리/출처가드 + 동시런 거부), empty negative" % [
+		print("[PlanReplayHarnessTest] PASS — S11 cleared saved=%d/%d frame=%d (새×2 + 재사용×2 + 분리/출처 + 동시런거부 + 재진입거부 + after-by-index), empty negative" % [
 			int(r1.get("saved", -1)), int(r1.get("hp", -1)), int(r1.get("frame", -1))])
 		get_tree().quit(0)
 	else:

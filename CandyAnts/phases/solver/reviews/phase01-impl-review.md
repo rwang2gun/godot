@@ -79,3 +79,11 @@ StageRunner 변경의 게임 회귀(S11/S13/BeginGate/ToolbarDisable/SandMound·
 
 ## Self-Review Round 4 (clean)
 가드 락 획득/해제(run 끝·_finish·_teardown), B 거부 시 A·_active_run 불간섭, deadline 경로도 _finish로 해제, static 락 테스트 간 누수 없음(순차 해제). 동시성 전제 제거가 HIGH/MED 둘 다 닫음. ScoreSystem 재설계는 범위 밖(아키텍처상 동시 in-process 스테이지 없음)으로 의도적 미수행. 게이트 GREEN(가드 테스트 ⑤ 포함). **HIGH/CRITICAL 0건.**
+
+## R5 대응 (수정)
+- **HIGH (같은 인스턴스 재진입이 가드 우회)**: `_active_run != self` 가드는 같은 인스턴스 재호출을 막지 못해, 첫 런 진행 중 run() 재호출 시 teardown→첫 런이 finished 없이 중단(await hang). → run()에 `if _running:` 분기 추가 — 첫 런 진행 중이면 teardown/emit 없이 거부(첫 런 보존). 다른-인스턴스 케이스는 종전대로 자기 finished({error}).
+- **MED (after{ref:index} 미해결)**: 액션이 `_label=skill#i`만 기록해 index 참조가 `_fired_frame`에 없어 영영 안 풀림. → `_mark_fired`가 label·index(문자열) 두 키 모두 기록. 액션에 `_index` 저장 + 명시 `label` 필드 지원. after.ref가 label/index 어느 쪽이든 해결.
+- **테스트**: ⑥ 재진입 시 첫 런 스테이지 보존(stage_before==stage_after) + 첫 런 정상 완료 단언. ⑦ after{ref:"0"}로 둘째 액션 지연 발화(actions_fired==2) 단언.
+
+## Self-Review Round 5 (clean)
+재진입 가드(첫 런 보존·emit 없음), 다른-인스턴스 emit 분리, after 두-키 기록의 label/index 양립, 게임 코드 무변경(회귀 0). 게이트 GREEN(⑥⑦ 포함 PlanReplayHarnessTest + drift + selftest). **HIGH/CRITICAL 0건.**

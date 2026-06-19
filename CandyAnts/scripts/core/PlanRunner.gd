@@ -82,6 +82,12 @@ func run(plan: Dictionary) -> void:
 		push_error("[PlanRunner] concurrent in-process run unsupported — 솔버 병렬화는 subprocess로(run_plan.py)")
 		finished.emit({"error": "concurrent_run_unsupported"})
 		return
+	if _running:
+		# 같은 인스턴스 재진입(첫 런 진행 중 run() 재호출) — 첫 런을 teardown으로 중단하면 그 런의
+		# finished가 영영 안 나와 await 호출자가 hang한다(codex R5 HIGH). 첫 런을 보존하기 위해
+		# teardown/emit 없이 거부한다(여기서 finished.emit하면 첫 런 await 호출자가 오인).
+		push_error("[PlanRunner] run() while this instance is still running — ignored(첫 런 보존)")
+		return
 	# 이전 런이 남긴(또는 중단된) 스테이지를 즉시 강제 정리 — stale stage가 새 런에 verdict를
 	# 흘리는 race 차단(codex R1 HIGH). run()은 시그널 콜백 밖이라 free() 안전.
 	_teardown()
@@ -94,8 +100,9 @@ func run(plan: Dictionary) -> void:
 	for i in range(_actions.size()):
 		var a: Dictionary = _actions[i]
 		a["_fired"] = false
-		if not a.has("_label"):
-			a["_label"] = str(a.get("skill", "?")) + "#" + str(i)
+		a["_index"] = i
+		# 명시 label 우선, 없으면 skill#i. after 트리거 ref는 label 또는 index(문자열) 둘 다 가능.
+		a["_label"] = str(a.get("label", "%s#%d" % [str(a.get("skill", "?")), i]))
 	var stage_path: String = str(plan.get("stage", ""))
 	var packed: PackedScene = load(stage_path) as PackedScene
 	if packed == null:
@@ -213,7 +220,9 @@ func _evaluate_actions() -> void:
 
 func _mark_fired(act: Dictionary) -> void:
 	act["_fired"] = true
+	# after 트리거가 label 또는 index(문자열) 어느 쪽으로 참조해도 풀리도록 두 키 모두 기록(codex R5 MED).
 	_fired_frame[str(act.get("_label"))] = _frame
+	_fired_frame[str(act.get("_index"))] = _frame
 	_actions_fired += 1
 
 # 대상 방식 결정 — target.mode 우선, 없으면 스킬 SOLVER_META.target(D7), 그래도 없으면 "ant".
