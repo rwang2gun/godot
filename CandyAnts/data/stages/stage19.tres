@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://btyptag07ogla"]
+
+[ext_resource type="Resource" uid="uid://bqgvx4yuosnhk" path="res://data/stage_layouts/stage19_layout.tres" id="1_lkhln"]
+[ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="2_hskp6"]
+
+[resource]
+script = ExtResource("2_hskp6")
+id = 19
+display_name = "사다리 놓기"
+layout = ExtResource("1_lkhln")
+total_ants = 5
+candy_hp = 5
+time_limit_seconds = 100.0
+available_skills = Array[String](["sand_mound"])
+skill_inventory = {
+"sand_mound": 2
+}
+release_rate_initial = 30
