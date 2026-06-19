@@ -94,3 +94,10 @@ StageRunner 변경의 게임 회귀(S11/S13/BeginGate/ToolbarDisable/SandMound·
 
 ## Self-Review Round 6 (clean)
 첫-발화 고정(record-if-absent), actions_fired 카운트 의미 불변(⑦ non-repeat 여전히 2), 게임 코드 무변경. 게이트 GREEN(⑧ 포함 PlanReplayHarnessTest + selftest). **HIGH/CRITICAL 0건.**
+
+## R7 대응 (수정, HIGH 0 / MED 1)
+- **MED (전역 deterministic 미복원)**: PlanRunner가 `SimConfig.set_deterministic(true)`를 강제하나 복원 안 해, in-process 호출 시 이후 게임 타이밍이 결정론 모드로 누수. → `_prior_deterministic`/`_det_forced`로 *우리가 켠 경우에만* 종료 시(`_finish`·`_teardown`·load-error) 이전 값 복원(`_restore_deterministic`, 멱등). 캡처는 _teardown(복원) 후 현재값.
+- **테스트**: ⑨ deterministic=false에서 시작 → 플랜 실행(중엔 결정론) → 종료 후 false 복원 단언 + 클리어 확인.
+
+## Self-Review Round 7 (clean)
+_det_forced 표식으로 우리가 켠 경우만 복원(env/외부 true 오버라이드 안 함), 멱등 복원, 정상/중단/에러 종료 모두 복원, DeterminismReplayTest·CampaignS11 회귀 0(SimConfig 복원은 솔버 경로 한정). 게이트 GREEN(⑨ 포함). **HIGH/CRITICAL 0건.**

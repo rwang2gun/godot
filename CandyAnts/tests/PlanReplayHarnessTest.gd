@@ -152,6 +152,16 @@ func _ready() -> void:
 	if anchor_norepeat <= 0 or anchor_repeat != anchor_norepeat:
 		_failures.append("⑧ repeat 앵커 드리프트: norepeat=%d repeat=%d (첫 발화로 고정돼야 동일)" % [anchor_norepeat, anchor_repeat])
 
+	# ⑨ 전역 deterministic 복원(codex R7 MED) — false에서 시작해 플랜 실행 후 false로 복원돼야(누수 0).
+	#    PlanRunner는 실행 동안만 강제로 켜고(스테이지 결정론 보장), 종료 시 이전 값으로 되돌린다.
+	SimConfig.set_deterministic(false)
+	var r9: Dictionary = await _run(PLAN_S11)
+	if SimConfig.deterministic != false:
+		_failures.append("⑨ deterministic 미복원: run 후 %s (기대 false)" % str(SimConfig.deterministic))
+	if not bool(r9.get("cleared", false)):
+		_failures.append("⑨ 복원 케이스 S11 미클리어(실행 중엔 결정론이어야): %s" % str(r9))
+	SimConfig.set_deterministic(true)   # 이후(없지만) 일관성 위해 원복
+
 	if _failures.is_empty():
 		print("[PlanReplayHarnessTest] PASS — S11 cleared saved=%d/%d frame=%d (새×2 + 재사용×2 + 분리/출처 + 동시런거부 + 재진입거부 + after-by-index), empty negative" % [
 			int(r1.get("saved", -1)), int(r1.get("hp", -1)), int(r1.get("frame", -1))])

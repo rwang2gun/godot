@@ -58,6 +58,10 @@ var _stage_runner: Node = null
 # (run_plan.py가 헤드리스 subprocess + CANDYANTS_SAVE_PATH pid 격리로 띄움 → 프로세스마다 autoload 독립).
 # 한 프로세스엔 활성 PlanRunner 런이 1개뿐임을 이 가드가 강제 → 동시 cross-talk의 전제를 구조적으로 제거.
 static var _active_run: PlanRunner = null
+# SimConfig.deterministic는 프로세스-전역 플래그(StageRunner/AntSpawner/Home/Ant 타이밍 소비). run()이
+# 강제로 켜므로, **우리가 켠 경우에만** 종료 시 이전 값으로 복원해 in-process 누수를 막는다(codex R7 MED).
+var _prior_deterministic: bool = false
+var _det_forced: bool = false
 
 # 진척 휴리스틱 (Phase 2 탐색 원료 — spike에서 이관).
 var _best_min_y: float = 1.0e20
@@ -90,9 +94,13 @@ func run(plan: Dictionary) -> void:
 		return
 	# 이전 런이 남긴(또는 중단된) 스테이지를 즉시 강제 정리 — stale stage가 새 런에 verdict를
 	# 흘리는 race 차단(codex R1 HIGH). run()은 시그널 콜백 밖이라 free() 안전.
+	# (_teardown은 우리가 강제했던 deterministic도 복원하므로, 아래 capture는 복원된 현재값을 읽는다.)
 	_teardown()
-	# 결정론은 스테이지 인스턴스 *전에* 켜야 stage _ready가 플래그를 본다(spike 관행).
+	# 결정론은 스테이지 인스턴스 *전에* 켜야 stage _ready가 플래그를 본다(spike 관행). 이전 값을
+	# 잡아 두고(우리가 켠 표식) 종료 시 복원 — 전역 플래그 in-process 누수 차단(codex R7 MED).
+	_prior_deterministic = SimConfig.deterministic
 	SimConfig.set_deterministic(true)
+	_det_forced = true
 	_reset_state()
 	_plan = plan
 	_deadline_frames = int(plan.get("deadline_frames", 16000))
@@ -131,7 +139,14 @@ func run(plan: Dictionary) -> void:
 
 # 진행 중이던(또는 직전) 스테이지를 트리에서 즉시 떼어내고 free. run() 컨텍스트(시그널 콜백 밖)
 # 호출이라 free() 안전. 정상 종료 시엔 _finish가 이미 queue_free·_stage=null 했으니 보통 no-op.
+# 우리가 강제했던 SimConfig.deterministic를 이전 값으로 복원(우리가 켠 경우에만). 멱등.
+func _restore_deterministic() -> void:
+	if _det_forced:
+		SimConfig.set_deterministic(_prior_deterministic)
+		_det_forced = false
+
 func _teardown() -> void:
+	_restore_deterministic()
 	if _stage_runner != null and is_instance_valid(_stage_runner) \
 			and _stage_runner.has_signal("concluded") and _stage_runner.concluded.is_connected(_on_concluded):
 		_stage_runner.concluded.disconnect(_on_concluded)
@@ -398,6 +413,7 @@ func _finish(result: Dictionary) -> void:
 		return
 	_done = true
 	_running = false
+	_restore_deterministic()   # 전역 deterministic 복원(우리가 켠 경우만) — in-process 누수 차단(codex R7 MED)
 	# 인스턴스 verdict 시그널 해제(곧 free될 스테이지지만 명시적으로). 자기 콜백 중 disconnect 안전.
 	if _stage_runner != null and is_instance_valid(_stage_runner) \
 			and _stage_runner.has_signal("concluded") and _stage_runner.concluded.is_connected(_on_concluded):
