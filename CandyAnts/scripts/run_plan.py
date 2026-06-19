@@ -9,8 +9,10 @@ Usage:
     GODOT_BIN=... python scripts/run_plan.py <plan.json>          # 단일 플랜 실행 → 결과 JSON 출력
     GODOT_BIN=... python scripts/run_plan.py --selftest           # data/solutions/golden/*.plan.json 골든 검증
 
---selftest: 손작성 골든 플랜들을 실행해 각 파일의 "expect"와 무수정 게임 verdict가 일치하는지 단언한다.
-  다중 스킬(ANT 대상 blocker, CELL 대상 SIGN/DEVICE) + 양성 클리어 + 음성을 커버. 하나라도 어긋나면 exit 1.
+--selftest: 골든(Phase 1 손작성 메커니즘, golden/*.plan.json) + solve(Phase 2 자동발견 해,
+  solutions/*.solve.json)를 모두 실행해 각 "expect"와 무수정 게임 verdict가 일치하는지 단언한다.
+  다중 스킬(ANT 대상 blocker, CELL 대상 SIGN/DEVICE) + 양성/음성 + **자동발견 해의 CI 회귀 게이트**
+  (엔진/스킬 변경이 확보된 해를 깨면 여기서 잡힌다, D4). 하나라도 어긋나면 exit 1.
 
 Env: GODOT_BIN (run_test.py가 사용). 항상 CANDYANTS_DETERMINISTIC=1 + --fixed-fps 60로 실행(결정론·가속).
 """
@@ -26,6 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent      # .../CandyAnts
 RUN_TEST = ROOT / "scripts" / "run_test.py"
 HARNESS_SCENE = "tests/PlanReplayHarness.tscn"
 GOLDEN_DIR = ROOT / "data" / "solutions" / "golden"
+SOLUTIONS_DIR = ROOT / "data" / "solutions"
 
 
 def run_plan_file(plan_path: Path) -> dict:
@@ -76,13 +79,18 @@ def check_expect(result: dict, expect: dict) -> list[str]:
 
 
 def selftest() -> int:
-    plans = sorted(GOLDEN_DIR.glob("*.plan.json"))
-    if not plans:
-        print("[selftest] no golden plans in %s" % GOLDEN_DIR)
+    """골든(Phase 1 손작성 메커니즘) + solve(Phase 2 자동발견 해)를 모두 리플레이해 game verdict와 대조.
+    solve.json은 솔버 산출 해의 **CI 회귀 게이트** — 엔진/스킬 변경이 확보된 해(saved 100%)를 조용히
+    깨면 여기서 잡힌다(D4). 솔버를 다시 돌릴 필요 없이 확정 플랜만 결정론 리플레이하므로 빠르다."""
+    golden = sorted(GOLDEN_DIR.glob("*.plan.json"))
+    solves = sorted(SOLUTIONS_DIR.glob("*.solve.json"))
+    targets = golden + solves
+    if not targets:
+        print("[selftest] no golden/solve plans in %s" % SOLUTIONS_DIR.relative_to(ROOT))
         return 1
-    print("[selftest] %d golden plans in %s" % (len(plans), GOLDEN_DIR.relative_to(ROOT)))
+    print("[selftest] %d golden + %d solve plans" % (len(golden), len(solves)))
     all_ok = True
-    for pf in plans:
+    for pf in targets:
         spec = json.loads(pf.read_text(encoding="utf-8"))
         expect = spec.get("expect", {})
         result = run_plan_file(pf)
@@ -95,9 +103,9 @@ def selftest() -> int:
             print("        - %s" % f)
             all_ok = False
     if all_ok:
-        print("[selftest] PASS - all %d golden plans match game verdict" % len(plans))
+        print("[selftest] PASS - all %d plans (golden+solve) match game verdict" % len(targets))
         return 0
-    print("[selftest] FAIL - golden mismatch")
+    print("[selftest] FAIL - verdict mismatch")
     return 1
 
 

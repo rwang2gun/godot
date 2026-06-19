@@ -193,10 +193,40 @@ plan SoT를 생성 중심으로 개정([auto-solver-plan.md](../../phases/solver
 **회귀 0**: S11 2롤·S12 11롤 100% 불변, run_plan --selftest 골든5 PASS.
 **cap 메모**: S14=40롤·S12=11롤로 기본 cap10 초과(사용자 "해 찾으면 성공" 정책 하 허용 — 미달 시 사용자 승인).
 
-## 다음 작업 (다음 세션)
-- **S13**: climber 조합(early). 이번 세션 carry 연쇄·전원픽업 디딤돌 인프라 활용.
-- `stage14.solve.json` CI 리플레이 게이트 편입 + 100% 자동 해 확보분 plan frontmatter `verify` 갱신.
-- 게이트 약점: `PlanReplayHarnessTest`에 `--fixed-fps`/큰 `--quit-after` 부여(timeout-마스킹 제거) 검토.
+## S13 자동발견 성공 (2026-06-20) — Phase 2 완료 (S11~S14 전부 무힌트 자동 해결)
+
+> S14 인프라(carry 연쇄 + 전원픽업 디딤돌 score)로 **코드 변경 0**(tools/solver 무수정). cap만 올려(40)
+> 기존 예측 솔버가 그대로 풀었다. "솔버 진단은 LA 롤아웃 로그로 좁히고 가설은 재실행으로 검증" 교훈 재확인.
+
+**진단(롤아웃 로그)**: 베이스라인 saved=0(no_more_ants — 무개입은 candy 미도달). 솔버가 blocker@(17,6)을
+**전원픽업 디딤돌**로 채택(reached=5, 단 5마리 carrying 갇힘). 이어 climber **carry1~5 연쇄**가 saved를
+1→2→3→4→5로 **단조 증가**(S14와 동일 메커니즘) → carry5 롤아웃에서 saved=5 `_Clear`. 정체 근본원인은
+**cap 10 부족 하나**뿐이었음(blocker 탐색 6롤 + carry 연쇄 5라운드 > 10). S12(11롤)·S14(40롤) 선례대로
+cap 상향(사용자 "해 찾으면 성공" 정책). carry가 saved를 못 늘리는 로직 문제는 **없었음**(cap 25 재실행으로
+carry1→saved1, carry2→saved2, carry3→saved3 단조 증가를 직접 관측해 반증).
+
+**해**: blocker×1 @ (17,6) max_x(x=840 ge) + climber×5 (carry1~5, picked_ge n / min_x·carrying).
+saved=5/5, frame=2719, rollouts=26. `data/solutions/stage13.solve.json` (결정론 재현 확인).
+
+**CI 회귀 게이트 편입**: `scripts/run_plan.py --selftest`를 확장 — 기존 golden(5) + **`data/solutions/*.solve.json`(4)**
+까지 결정론 리플레이해 무수정 game verdict와 대조. S11~S14 자동발견 해(saved 100%)가 엔진/스킬 변경에 조용히
+깨지면 selftest가 잡는다(D4). **verify 프론트매터 문자열은 무변경**(이미 `--selftest` 포함) — selftest 내용
+확장이 곧 Phase 2 게이트 편입(중복 없는 강제 계약).
+
+**검증**: ① S13 해 리플레이 saved=5/5 frame=2719(solve.py와 byte-identical) ② verify 게이트 5/5 PASS
+(회귀 0: DeterminismReplay/SpawnSchedule/PlanReplayHarness S11 4/4/SkillMetadataDrift 11/selftest)
+③ selftest **9/9**(golden 5 + solve 4: stage11 saved4 · stage12·13·14 saved5).
+
+**Phase 2 Acceptance(plan §Phase 2) 충족**: S11(2롤)·S12(11)·S13(26)·S14(40) 전부 실제 인벤토리로
+무힌트 자동 해결 + 게임 verdict 100%(D4). **탐색 솔버 단계 완료.**
+
+## 다음 작업 (Phase 3 또는 솔버 고도화)
+- **Phase 3 진입**(반응-윈도우·인간타당성·난이도, plan §Phase 3): max-margin 해의 각 필수 명령에 대해
+  (프레임·위치) 윈도우를 스윕 측정 → `T_human` 필터(정합성) + 난이도 점수. 최소화/크레딧 할당(잉여 액션 제거).
+- (선택) 솔버 효율 고도화: S13 26롤은 매 carry 라운드 early 후보가 cap을 1개씩 낭비(S13선 무용). carry
+  연쇄 우선·early 후순위로 cap 내 해결 가능 — 사용자 정책상 해 확보가 우선이라 defer 가능(회귀 위험 ↔ 효율).
+- 게이트 약점(잔존): `PlanReplayHarnessTest`가 run_test 기본 `--quit-after`에 timeout-마스킹(EXIT 0).
+  verify에 `--fixed-fps`/큰 `--quit-after` 부여 검토(이번 검증은 명시 옵션으로 PASS 확인).
 
 ## 블로커
 - 없음.

@@ -86,7 +86,13 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 - `SkillMetadataDriftTest` PASS — 등록·스테이지 스킬 메타 완전성 + 솔버 열거==레지스트리 단언(자동 동기화 D7 강제).
 - **Phase 1 완료의 정의 = 위 체크를 `verify` 프론트매터에 *반영*(결정론 테스트 && PlanReplayHarnessTest && SkillMetadataDriftTest && `run_plan.py --selftest`)하고 그 단일 `verify` 명령이 그린.** execute.py·`complete`가 실행하는 건 `verify` 하나뿐이므로(L809) 별도/inert 키를 두지 않는다 — `verify` 갱신 자체가 silent bypass를 막는 강제 계약. (지금 `verify`는 산출물 미존재라 Phase 0만; 갱신 전엔 Phase 1 미완료.)
 
-## Phase 2 — 탐색 솔버 (경험 생성) · **[근시일 계획 · 스케치]**
+## Phase 2 — 탐색 솔버 (경험 생성) · **[근시일 계획] ✅ 완료 (2026-06-20, S11~S14 무힌트 자동 해결)**
+> **산출**: `tools/solver/{model,solve}.py`(예측 닫힌-루프 — 베이스라인 관측→진단→개입 제안→엔진 검증, D10) +
+> `tests/SolverMetaDump.{gd,tscn}`(D7 메타 브리지) + 스킬 `SOLVER_META.routing/purpose`(D11) + `PlanRunner`
+> 궤적 트레이스 확장. **해 4종** `data/solutions/stage{11,12,13,14}.solve.json`: S11(2롤 blocker×1)·S12(11롤
+> blocker×3)·S13(26롤 blocker×1+climber×5)·S14(40롤 blocker×3+climber×5), 전부 무수정 게임 verdict
+> 100%(D4). **CI 게이트**: `run_plan.py --selftest`가 solve.json까지 결정론 리플레이 검증(자동발견 해 회귀
+> 방지). cap>10(S12 11·S13 26·S14 40)은 사용자 "해 찾으면 성공" 정책 하 허용. 상세: `codex-worklog/solver/STATUS.md`.
 ### 목표
 스테이지+인벤토리 → **풀이 플랜 탐색**(없으면 "탐색범위 내 미해결"). 산출 = 해 + 탐색 트레이스(학습 원료).
 ### 설계
@@ -141,7 +147,7 @@ Phase 2~4를 **레벨 품질 오라클**로 패키징(생성의 적합도 함수
 ---
 
 ## 검증 방법 (게이트 = 프론트매터 `verify` 단일 필드)
-> execute.py가 실행하는 게이트는 `verify` 하나뿐(L809). 그래서 **각 단계 완료 = `verify`를 그 단계 게이트로 갱신하고 그린**(R2-HIGH). inert 키 금지. 현재 `verify` = Phase 0(아래 1). Phase 1 완료 시 `verify`에 2를 && 추가.
+> execute.py가 실행하는 게이트는 `verify` 하나뿐(L809). 그래서 **각 단계 완료 = `verify`를 그 단계 게이트로 갱신하고 그린**(R2-HIGH). inert 키 금지. 현재 `verify` = Phase 0+1(아래 1+2). **Phase 2는 `--selftest`가 `data/solutions/*.solve.json`(자동발견 해)까지 검증하도록 확장돼 verify 문자열 무변경으로 게이트 편입** — 중복 키 없이 selftest 내용 확장이 곧 강제 계약(엔진/스킬 변경이 확보된 해를 깨면 selftest FAIL).
 1. **결정론(✅, 현재 `verify`)**: `DeterminismReplayTest`(per-frame) + `DeterminismSpawnScheduleTest`(스폰 드리프트 0).
 2. **하니스/자동동기화(Phase 1 완료 시 `verify`에 편입)**: `PlanReplayHarnessTest`(+배치 누수 0) + `run_plan.py --selftest` + `SkillMetadataDriftTest`(스킬 메타 완전성·솔버 열거==레지스트리, D7 강제).
 3. **기존 회귀 무파손**: `CampaignS11~S14`·`GameFlow`·`StageRunnerBeginGate` 등(SkillApplier 리팩터·시계 프레임화에도 플레이 불변).
