@@ -161,11 +161,10 @@ plan SoT를 생성 중심으로 개정([auto-solver-plan.md](../../phases/solver
   (시간제한 6000 이내). 5마리 전원 candy 픽업(reached=5 @frame 4694) 후 x4 벽 등반 귀가.
 - **시간 타당성 확인**: 계단 하강 자체는 충분히 빠름(reached 4694). 1-블로커 단독 지그재그가 느렸던 것.
 
-### 자동발견 미완 (다음 세션 핵심)
-- 닫힌루프가 **blocker@22,3 1개만 채택 후 정체**. 2-스텝 lookahead 추가했으나 S14 미발견(21롤서 정지).
-  원인 추정: (a) 정확히 **3개 blocker 연쇄**가 필요한데 lookahead 깊이 2로는 [22,3] 이후 (P_r7+P_r10) 쌍을
-  못 잡거나, (b) frontier/제안 상호작용. **다음 세션: LA2 롤аут 상세 로그로 어느 쌍이 평가됐는지 확인** →
-  3-스텝 또는 first-step을 "지그재그 다음 가장자리"로 좁히는 제안 튜닝.
+### 자동발견 → 2026-06-19 세션3에서 해결 (아래 "S14 자동발견 성공" 참조)
+- (당시 추정) lookahead 깊이/frontier 문제로 봤으나 **실제 원인은 score 기각**: 솔버는 LA2로 blocker×3 →
+  reached=5(전원픽업) 디딤돌을 이미 발견(롤16~21)했으나, climber 없이 귀환 불가→사망→retired 정당→
+  score(retired>picked)가 "0픽업0사망"(blocker1)을 우대해 디딤돌을 기각, climber 얹을 trace에 미도달.
 - 정책: 사용자 = "**해를 찾아내는 것만으로 phase 성공**, 솔버는 계속 고도화". 검증된 해 존재 = 성공 신호.
 
 ### 검증/회귀 (이 세션)
@@ -175,11 +174,28 @@ plan SoT를 생성 중심으로 개정([auto-solver-plan.md](../../phases/solver
 - (게이트 주: `PlanReplayHarnessTest`는 13런이라 run_test 기본 `--quit-after 3600`에 걸려 EXIT 0[timeout-마스킹].
   `--fixed-fps 60 --quit-after 60000`로 완주시 **PASS 명시 확인**. 선존 게이트 약점 — 차후 게이트에 fixed-fps 추가 검토.)
 
+## S14 자동발견 성공 (2026-06-19 세션3) — score 전원픽업 디딤돌 + carry 연쇄
+
+> 동기화(b49d0d6=다른 PC Phase2 WIP) 직후 S14 자동발견 완료. LA2 로그로 정체 근본원인 규명 후 2-fix.
+> 사용자 2통찰이 핵심. (반증 기록: 첫 가설 "count_retired water 오판"은 수정해도 결과 0변경 → 갇힌
+> 개미는 실제 사망, retired 정당 → 되돌림. 진짜 원인은 score 디딤돌 기각.)
+
+**2-fix (tools/solver/ 18줄, 엔진/PlanRunner/테스트 무변경):**
+1. **전원픽업 디딤돌 우대** (`solve.score`): `remaining_hp==0`이면 picked를 retired보다 우선
+   (retired>picked는 전원픽업 전까지만 적용). 디딤돌(blocker3=전원픽업) 기각 해소 → climber 얹을 trace 도달.
+   사용자 통찰: 사탕과 충돌(픽업)=방향전환 → 그 다음 집으로 가는 장애물을 climber로 대응.
+2. **carry 연쇄** (`model.propose` carry exclude 면제 + `solve.eval_cands` action-dup 가드): carry가 tried로
+   막히면 early/afterpick으로 흩어져 **비운반 개미 무장→candy 미도달·등반 무한루프**(사용자 통찰). carry를
+   plan 누적 시 재평가 가능케 → carry1→2→…→5 연쇄 채택. 중복 롤아웃은 action-dup 가드가 차단.
+
+**결과:** S14 **SOLVED 100%** — blocker×3 + climber×5(8액션), saved=5/5, frame=4624, rollouts=40.
+검증 수동해와 일치. `data/solutions/stage14.solve.json`(결정론 재현: run_plan 리플레이 cleared/saved=5/frame=4624).
+**회귀 0**: S11 2롤·S12 11롤 100% 불변, run_plan --selftest 골든5 PASS.
+**cap 메모**: S14=40롤·S12=11롤로 기본 cap10 초과(사용자 "해 찾으면 성공" 정책 하 허용 — 미달 시 사용자 승인).
+
 ## 다음 작업 (다음 세션)
-- **S14 자동발견**: LA2 상세 로그 분석 → 3-blocker 연쇄를 닫힌루프가 잡도록 lookahead/제안 튜닝(또는 3-스텝).
-  검증된 해(위)가 타깃. 자동발견 시 `stage14.solve.json` + CI 리플레이 게이트 편입.
-- **S13**: 깔끔한 climber 조합 — 타겟 블로커-수정 또는 2-액션 lookahead(이번에 추가한 인프라 활용).
-- 100% 자동 해 확보 시 plan frontmatter `verify` 갱신.
+- **S13**: climber 조합(early). 이번 세션 carry 연쇄·전원픽업 디딤돌 인프라 활용.
+- `stage14.solve.json` CI 리플레이 게이트 편입 + 100% 자동 해 확보분 plan frontmatter `verify` 갱신.
 - 게이트 약점: `PlanReplayHarnessTest`에 `--fixed-fps`/큰 `--quit-after` 부여(timeout-마스킹 제거) 검토.
 
 ## 블로커

@@ -84,7 +84,12 @@ def score(res: dict, layout: dict) -> tuple:
     **리타이어 최소가 picked보다 우선**(사용자 최우선 규칙): candy에서 멀어지더라도 전원 생존을 먼저
     확보해야 그 살아있는 상태에서 경로를 만들 수 있다(예: S14 치명 낙하 직전 blocker 반전 = 생존 발판).
     **목표 접근 = best_goal_dist**(픽업 전=candy, 픽업 후=home 셀 맨해튼) — best_min_y(항상 위로 보상)를
-    대체해 candy가 아래(S14)면 하강을 보상한다."""
+    대체해 candy가 아래(S14)면 하강을 보상한다.
+    **전원 픽업 디딤돌 예외(2026-06-19, 사용자 통찰)**: remaining_hp==0(전 사탕 픽업)이면 picked를
+    retired보다 우선한다. 전원 픽업은 '귀로만 남은' 강한 디딤돌인데(사탕과 충돌=방향전환 → 다음은 집으로
+    가는 장애물을 climber로 대응), 그 상태의 잔존 retired(climber 미부여로 귀환 못해 사망)를 retired-우선
+    으로 매기면 0픽업0사망(blocker 1개)에 기각돼 **climber를 얹을 trace에 도달조차 못 한다**(S14 정체
+    근본 원인). 전원 픽업 전까지는 종전대로 retired 우선(생존 발판 먼저)."""
     saved = int(res.get("saved", 0))
     picked = int(res.get("picked_total", 0))
     retired = model.count_retired(res.get("trace", {}), layout)["total"]
@@ -95,6 +100,8 @@ def score(res: dict, layout: dict) -> tuple:
     if saved == 0:
         carry_tr, _tot = model.count_trapped(res.get("trace", {}))
     goal_d = model.best_goal_dist(res.get("trace", {}), layout)
+    if int(res.get("remaining_hp", -1)) == 0:        # 전원 픽업 = 귀로만 남은 디딤돌 → picked 우선(위 통찰)
+        return (-saved, -picked, retired, carry_tr, goal_d)
     return (-saved, retired, -picked, carry_tr, goal_d)
 
 
@@ -163,11 +170,15 @@ def solve(stage_id: int, max_rollouts: int) -> int:
             self.plan, self.res = p, r
 
     def eval_cands(base: list[dict], cands: list, tag: str) -> list:
-        """후보들을 base 플랜 위에 롤아웃. full clear면 _Clear로 즉시 탈출. 반환 (cand,res) 리스트."""
+        """후보들을 base 플랜 위에 롤아웃. full clear면 _Clear로 즉시 탈출. 반환 (cand,res) 리스트.
+        이미 base에 든 액션은 건너뛴다 — carry 후보는 exclude 면제(plan 누적 재평가)라, 채택돼 base에
+        들어간 carry n이 다시 후보로 와도 중복 롤аут하지 않게 막는다(연쇄만 진행)."""
         out: list = []
         for cand in cands:
             if rollouts >= max_rollouts:
                 break
+            if cand["action"] in base:        # 이미 채택된 액션 — 중복 롤아웃 방지
+                continue
             tried.add(cand["label"])
             res = rollout(base + [cand["action"]])
             ct, tt = model.count_trapped(res.get("trace", {}))

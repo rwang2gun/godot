@@ -303,9 +303,13 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
             cands.append({"action": action, "label": label, "_w": base + _note_w(notes, sid)})
         # carry: 픽업이 하나라도 발생했으면(picked_total>0) 운반 개미 귀환 무장을 제안. 귀로 단계면 최우선.
         carry_base = (220 if return_phase else 40) if diag["picked_total"] > 0 else 0
+        # carry(운반 개미 무장)는 exclude(tried) 면제 — plan 누적 시 재평가돼야 carry1→2→…→n 연쇄 채택이
+        # 된다(사용자 통찰: carry가 tried로 막히면 early/afterpick으로 흩어져 *비운반* 개미에 climber가 가고,
+        # 그 개미는 candy 미도달·등반 무한루프가 된다). 이미 채택된 carry의 중복 롤아웃은 solve.eval_cands의
+        # action-dup 가드가 차단하므로 면제해도 폭주하지 않는다.
         for n in range(1, cnt + 1):
             label = "%s@carry%d" % (sid, n)
-            if carry_base <= 0 or label in exclude:
+            if carry_base <= 0:
                 continue
             action = {"skill": sid, "target": {"mode": "ant", "select": "min_x", "state": "carrying"},
                       "trigger": {"type": "picked_ge", "n": n}}
