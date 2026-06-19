@@ -72,3 +72,10 @@ _finish의 remove_child가 stage_cleared 콜백 중 안전한지(S11/S12 정상 
 
 ## Self-Review Round 3 (clean)
 StageRunner 변경의 게임 회귀(S11/S13/BeginGate/ToolbarDisable/SandMound·LeafJumpSign PASS = 동작 불변), 결과 dict 1회 빌드 동치, concluded 1회 emit(_completed 가드), 인스턴스 시그널 연결/해제 수명, sr=null 폴백(deadline). **HIGH/CRITICAL 0건.** 게이트+회귀 GREEN.
+
+## R4 대응 (수정)
+- **HIGH (concluded verdict가 글로벌-오염 가능한 ScoreSystem에서 계산됨) + MED (picked_ge가 글로벌 candy 이벤트 cross-talk)**: 둘 다 **한 프로세스에 두 스테이지가 동시 생존**할 때만 발생. 우리 아키텍처는 그런 적이 없다 — 게임은 스테이지 1개, 솔버 병렬화는 `run_plan.py`가 **별도 subprocess + CANDYANTS_SAVE_PATH pid 격리**로 띄움(프로세스마다 autoload 독립). ScoreSystem(CRITICAL 4-카운터 게임 코드)을 스테이지-스코프로 재설계하는 건 Phase 1 범위 밖·회귀 위험 큼. → **비례적 정공법**: PlanRunner에 `static _active_run` 단일-활성-런 가드 — 다른 PlanRunner 활성 중 run()은 error로 거부. 동시 in-process 런(=오염의 전제)을 구조적으로 제거. ScoreSystem/picked는 단일 스테이지만 생존하므로 글로벌이라도 모호하지 않음. 게임 코드 무변경.
+- **테스트**: ⑤ A 진행 중 B.run()→B error 거부 + A는 r1과 동일(오염 0) 단언.
+
+## Self-Review Round 4 (clean)
+가드 락 획득/해제(run 끝·_finish·_teardown), B 거부 시 A·_active_run 불간섭, deadline 경로도 _finish로 해제, static 락 테스트 간 누수 없음(순차 해제). 동시성 전제 제거가 HIGH/MED 둘 다 닫음. ScoreSystem 재설계는 범위 밖(아키텍처상 동시 in-process 스테이지 없음)으로 의도적 미수행. 게이트 GREEN(가드 테스트 ⑤ 포함). **HIGH/CRITICAL 0건.**

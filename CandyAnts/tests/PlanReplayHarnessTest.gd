@@ -86,8 +86,27 @@ func _ready() -> void:
 	if int(rb.get("saved", -1)) != int(r1.get("saved", -2)) or int(rb.get("actions_fired", -1)) != 1:
 		_failures.append("④ reuse drift: saved rb=%s(want %s) actions_fired=%s(want 1)" % [rb.get("saved"), r1.get("saved"), rb.get("actions_fired")])
 
+	# ⑤ 동시 in-process 런 거부(codex R4 HIGH) — A 진행 중 B.run()은 error로 거부되고, A는 오염 없이
+	#    정상 완료(r1과 동일)해야 한다. 단일-활성-런 가드가 ScoreSystem/picked 글로벌 cross-talk의 전제를 막음.
+	var rA: PlanRunner = PlanRunner.new()
+	add_child(rA)
+	var rB: PlanRunner = PlanRunner.new()
+	add_child(rB)
+	var b_results: Array = []
+	rB.finished.connect(func(res: Dictionary) -> void: b_results.append(res))
+	rA.run(PLAN_S11)   # A가 단일 활성 락 획득
+	rB.run(PLAN_S11)   # B는 거부 → 동기 finished({error})
+	var resA: Dictionary = await rA.finished
+	rA.queue_free()
+	rB.queue_free()
+	await get_tree().process_frame
+	if b_results.is_empty() or not (b_results[0] as Dictionary).has("error"):
+		_failures.append("⑤ 동시 런 B가 거부되지 않음(가드 실패): %s" % str(b_results))
+	if not bool(resA.get("cleared", false)) or int(resA.get("frame", -1)) != int(r1.get("frame", -2)) or int(resA.get("saved", -1)) != int(r1.get("saved", -3)):
+		_failures.append("⑤ 동시 런이 A를 오염: resA=%s (기대 r1=%s)" % [str(resA), str(r1)])
+
 	if _failures.is_empty():
-		print("[PlanReplayHarnessTest] PASS — S11 cleared saved=%d/%d frame=%d (새 인스턴스 ×2 + 같은 인스턴스 재사용 ×2 identical), empty negative" % [
+		print("[PlanReplayHarnessTest] PASS — S11 cleared saved=%d/%d frame=%d (새 인스턴스 ×2 + 재사용 ×2 + 분리/출처가드 + 동시런 거부), empty negative" % [
 			int(r1.get("saved", -1)), int(r1.get("hp", -1)), int(r1.get("frame", -1))])
 		get_tree().quit(0)
 	else:

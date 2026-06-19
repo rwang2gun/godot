@@ -52,6 +52,13 @@ var _actions_fired: int = 0
 # cross-talk가 구조적으로 불가능(StageData.id 비교 같은 약한 가드 불필요).
 var _stage_runner: Node = null
 
+# 프로세스 단일 활성 런 가드(codex R4 HIGH). ScoreSystem·글로벌 candy 이벤트(candy_piece_picked 등)는
+# 스테이지-스코프가 아니라, 한 프로세스에 **두 스테이지가 동시에 살아있으면** 회계(saved/lost/in_transit)와
+# picked_ge 트리거가 오염된다. 솔버 병렬화는 ScoreSystem을 재설계하는 대신 **별도 프로세스**로 한다
+# (run_plan.py가 헤드리스 subprocess + CANDYANTS_SAVE_PATH pid 격리로 띄움 → 프로세스마다 autoload 독립).
+# 한 프로세스엔 활성 PlanRunner 런이 1개뿐임을 이 가드가 강제 → 동시 cross-talk의 전제를 구조적으로 제거.
+static var _active_run: PlanRunner = null
+
 # 진척 휴리스틱 (Phase 2 탐색 원료 — spike에서 이관).
 var _best_min_y: float = 1.0e20
 var _any_picked: bool = false
@@ -69,6 +76,12 @@ func _ready() -> void:
 		EventBus.candy_piece_picked.connect(_on_picked)
 
 func run(plan: Dictionary) -> void:
+	# 동시 in-process 런 금지(codex R4 HIGH) — 다른 PlanRunner가 활성이면 ScoreSystem/글로벌 candy
+	# 이벤트가 오염되므로 시작하지 않고 error 반환. (자기 자신이 잡고 있던 락은 아래 _teardown이 해제.)
+	if _active_run != null and is_instance_valid(_active_run) and _active_run != self:
+		push_error("[PlanRunner] concurrent in-process run unsupported — 솔버 병렬화는 subprocess로(run_plan.py)")
+		finished.emit({"error": "concurrent_run_unsupported"})
+		return
 	# 이전 런이 남긴(또는 중단된) 스테이지를 즉시 강제 정리 — stale stage가 새 런에 verdict를
 	# 흘리는 race 차단(codex R1 HIGH). run()은 시그널 콜백 밖이라 free() 안전.
 	_teardown()
@@ -104,6 +117,7 @@ func run(plan: Dictionary) -> void:
 	var homes: Array = _stage.find_children("*", "Home", true, false)
 	if not homes.is_empty():
 		_home_pos = (homes[0] as Node2D).global_position
+	_active_run = self     # 단일 활성 런 락 획득(codex R4 HIGH)
 	_running = true
 	print("[PlanRunner] stage=%s actions=%d deadline=%d inventory=%s" % [
 		stage_path, _actions.size(), _deadline_frames, str(_inventory)])
@@ -123,6 +137,8 @@ func _teardown() -> void:
 	_stage = null
 	_running = false
 	_done = false
+	if _active_run == self:
+		_active_run = null     # 단일 활성 런 락 해제
 
 func _reset_state() -> void:
 	_stage = null
@@ -381,4 +397,6 @@ func _finish(result: Dictionary) -> void:
 			parent.remove_child(_stage)
 		_stage.queue_free()
 		_stage = null
+	if _active_run == self:
+		_active_run = null     # 단일 활성 런 락 해제
 	finished.emit(result)
