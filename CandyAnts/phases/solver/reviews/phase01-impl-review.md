@@ -35,3 +35,33 @@ Next steps:
 
 ## Self-Review Round 1 (clean)
 가혹 점검 — finished 콜백 내 재실행 시 free 안전성(emit 전 _stage=null), 두 인스턴스 동시 연결(끝난 쪽 _running=false 무시), in-flight 중단 재실행(teardown 즉시 free), effect-invariant 변별 마진(520/472 vs 300/450), 라이브 게임 회귀(PlanRunner 솔버 전용·미사용). **HIGH/CRITICAL 0건.** 게이트 재실행 GREEN(결정론2 + PlanReplayHarnessTest[새×2+재사용×2] + SkillMetadataDriftTest + selftest 5골든).
+
+## Round 2 (codex, needs-attention)
+
+```
+# Codex Adversarial Review
+
+Target: branch diff against 493940b
+Verdict: needs-attention
+
+No-ship: the stale-stage fix is not actually closed, and the new reuse test can pass while the broken cleanup remains in place.
+
+Findings:
+- [high] Queued old stage is no longer reachable for teardown on immediate reuse (CandyAnts/scripts/core/PlanRunner.gd:357-364)
+  `_finish()` calls `_stage.queue_free()` and immediately sets `_stage = null`. Because `queue_free()` is deferred, a caller that starts the next `run()` from the `finished` continuation enters `_teardown()` with no reference to the old queued stage, so the old stage is not removed from the tree before the new stage is added. The `_running` guard is then true for the new run, so any late `stage_cleared`/`stage_failed` emission from the old stage would be accepted and reported as the new run's verdict. This is the exact stale-verdict class the change claims to close; the code comment says the next run's `_teardown` will force cleanup, but line 364 makes that impossible.
+  Recommendation: Detach the stage from the tree synchronously before deferring deletion, e.g. `parent.remove_child(_stage); _stage.queue_free()`, or keep a pending reference that `_teardown()` can remove. Also add a per-run token/source check so EventBus verdicts from non-current stages are ignored rather than relying only on single-stage lifetime assumptions.
+- [medium] Reuse regression test does not force the stale-callback race it claims to cover (CandyAnts/tests/PlanReplayHarnessTest.gd:62-65)
+  The reuse path awaits the first `finished`, immediately calls `reuse.run(PLAN_S11)`, then awaits the second `finished`. That only proves two happy-path S11 runs are byte-stable. It does not create or assert a late verdict from the old queued stage while `_running` is true for the second run, and it does not assert that the old stage was removed from the tree. With the current `_finish()` bug, this test can still pass because the old StageRunner has already set `_completed` and normally emits only once.
+  Recommendation: Make the test adversarial: after the second `run()` starts, inject a stale `EventBus.stage_failed`/`stage_cleared` emission or use a minimal test stage that emits a deferred verdict after `finished`, and assert it is ignored. Also assert there is only one live stage subtree immediately after reuse starts.
+
+Next steps:
+- Fix PlanRunner cleanup before relying on `_running` as a verdict ownership guard.
+- Replace the reuse test with a deterministic stale-emission test that fails against the current implementation.
+```
+
+## R2 대응 (수정)
+- **HIGH (큐된 옛 스테이지가 즉시 재사용 시 teardown 불가 → late verdict 수락)**: `_finish`가 `queue_free`만 하고 `_stage=null` 해 다음 `_teardown`이 옛 스테이지를 못 잡던 문제. → `_finish`에서 **동기 `remove_child` 후 queue_free**(분리 즉시 _process/emit 정지). 추가로 verdict 출처 가드 `_is_foreign_verdict` 신설 — 결과 `stage_id`가 현재 런 스테이지(StageData.id)와 다르면 무시(단일-스테이지 lifetime 가정에만 의존하지 않음). `_on_cleared`/`_on_failed`에 적용.
+- **MED (재사용 테스트가 race 미강제)**: `PlanReplayHarnessTest` ④를 적대적으로 — ④a 재실행 직후 reuse 하위 살아있는 StageRunner==1 단언(옛 스테이지 분리 검증), ④b foreign stage_id의 stale `_on_failed`/`_on_cleared` 주입 → 무시(현재 런이 STALE로 끝나지 않음) 단언.
+
+## Self-Review Round 2 (clean)
+_finish의 remove_child가 stage_cleared 콜백 중 안전한지(S11/S12 정상 클리어로 확인), stage_id 가드의 실제 verdict 오거부 없음(전 골든 통과·미상 폴백 수락), ④ 검출력(미분리 2개/ foreign 수락 시 FAIL). 게이트 GREEN(결정론2 + PlanReplayHarnessTest[새×2+재사용×2+분리+출처가드] + SkillMetadataDriftTest + selftest 5골든). **HIGH/CRITICAL 0건.**

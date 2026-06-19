@@ -61,12 +61,24 @@ func _ready() -> void:
 	add_child(reuse)
 	reuse.run(PLAN_S11)
 	var ra: Dictionary = await reuse.finished
-	reuse.run(PLAN_S11)   # 직후 재실행 — _teardown이 직전 스테이지를 즉시 정리해야 정상
+	# finished 직후 같은 인스턴스 재실행 — _finish가 옛 스테이지를 *동기 분리*했어야 한다(codex R2 HIGH).
+	reuse.run(PLAN_S11)
+	# ④a 분리 단언: 재실행 직후 reuse 하위 살아있는 StageRunner는 새 것 1개뿐(옛 것은 트리서 제거됨).
+	#    옛 스테이지가 남아있으면(누수) 2개 → 그건 late verdict를 흘릴 수 있는 상태.
+	var live_stages: int = reuse.find_children("*", "StageRunner", true, false).size()
+	if live_stages != 1:
+		_failures.append("④a 재실행 후 살아있는 스테이지 %d개(기대 1) — 옛 스테이지 미분리(누수)" % live_stages)
+	# ④b 출처 가드: 다른 stage_id의 stale verdict를 주입 → 무시돼야(현재 런이 STALE로 끝나면 안 됨).
+	#    글로벌 EventBus 직접 emit은 SceneFlow 등 다른 리스너 부작용이 있어, 핸들러를 직접 호출해 가드만 검증.
+	reuse._on_failed({"stage_id": 99, "reason": "STALE_INJECTED", "saved": 0})
+	reuse._on_cleared({"stage_id": 99, "reason": "STALE_INJECTED", "saved": 0, "cleared": true})
 	var rb: Dictionary = await reuse.finished
 	reuse.queue_free()
 	await get_tree().process_frame
 	if not bool(ra.get("cleared", false)) or not bool(rb.get("cleared", false)):
 		_failures.append("④ reuse: cleared ra=%s rb=%s" % [ra.get("cleared"), rb.get("cleared")])
+	if str(rb.get("reason", "")) == "STALE_INJECTED":
+		_failures.append("④b stale verdict가 수락됨 — 출처 가드(_is_foreign_verdict) 실패")
 	if int(ra.get("frame", -1)) != int(r1.get("frame", -2)) or int(rb.get("frame", -1)) != int(r1.get("frame", -3)):
 		_failures.append("④ reuse frame drift(=상태누수): r1=%s ra=%s rb=%s" % [r1.get("frame"), ra.get("frame"), rb.get("frame")])
 	if int(rb.get("saved", -1)) != int(r1.get("saved", -2)) or int(rb.get("actions_fired", -1)) != 1:
