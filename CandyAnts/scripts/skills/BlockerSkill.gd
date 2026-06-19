@@ -8,6 +8,8 @@ const ID: String = "blocker"
 const SOLVER_META := {
 	"target": "ant",
 	"category": "ANT_SETTLE",
+	"routing": "reverse",
+	"purpose": "앞 보행 개미를 정지시켜 벽을 만들고 뒤따르는 개미를 반전시킨다",
 	"hints": {"effect": "stop_and_reverse_walkers"},
 }
 

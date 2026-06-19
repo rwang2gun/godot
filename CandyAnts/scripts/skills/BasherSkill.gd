@@ -6,6 +6,8 @@ const ID: String = "basher"
 const SOLVER_META := {
 	"target": "cell",
 	"category": "SIGN",
+	"routing": "break",
+	"purpose": "앞의 흙벽을 가로로 부숴 통로를 연다",
 	"hints": {"effect": "dig_horizontal", "needs": "earth_wall"},
 }
 

@@ -69,6 +69,14 @@ var _any_picked: bool = false
 var _best_carry_home_dist: float = 1.0e20
 var _home_pos: Vector2 = Vector2(1.0e20, 1.0e20)
 
+# auto-solver Phase 2 (D10) — 궤적 트레이스(가산적·게이트). plan "trace":true일 때만 개미별 셀-변화
+# 샘플(spawn_index → [[frame, cx, cy, carry01], ...])을 기록해 결과에 포함한다(모델 보정용; 게임/기존
+# 런 동작 불변). 셀 = 게임 body_cell 관례(floor(x/cs), floor((y-2)/cs))로 모델과 동일 좌표.
+var _trace_enabled: bool = false
+var _trace: Dictionary = {}        # spawn_index(int) → Array[[frame,cx,cy,carry]]
+var _trace_last: Dictionary = {}   # spawn_index(int) → Vector2i (마지막 기록 셀)
+var _cs: int = 48
+
 # verdict는 글로벌 버스가 아니라 현재 스테이지의 StageRunner.concluded(인스턴스 시그널)로 받는다(run()에서
 # 연결). 여기선 진척 휴리스틱용 candy_piece_picked(글로벌)만 1회 연결 — 이건 verdict가 아니라 보조 지표라
 # _running 가드로 충분. verdict 귀속 방어:
@@ -132,6 +140,12 @@ func run(plan: Dictionary) -> void:
 	var homes: Array = _stage.find_children("*", "Home", true, false)
 	if not homes.is_empty():
 		_home_pos = (homes[0] as Node2D).global_position
+	# 트레이스(D10, 가산적): plan "trace":true일 때만. 셀 크기는 Terrain에서 1회 캡처.
+	_trace_enabled = bool(plan.get("trace", false))
+	if _trace_enabled:
+		var terrain: Node = _find_node_of_class("Terrain")
+		if terrain != null and "cell_size" in terrain:
+			_cs = int(terrain.cell_size)
 	_active_run = self     # 단일 활성 런 락 획득(codex R4 HIGH)
 	_running = true
 	print("[PlanRunner] stage=%s actions=%d deadline=%d inventory=%s" % [
@@ -189,6 +203,8 @@ func _reset_state() -> void:
 	_any_picked = false
 	_best_carry_home_dist = 1.0e20
 	_home_pos = Vector2(1.0e20, 1.0e20)
+	_trace = {}
+	_trace_last = {}
 
 func _physics_process(_delta: float) -> void:
 	if not _running or _done:
@@ -219,6 +235,21 @@ func _track_progress() -> void:
 				var d: float = a.global_position.distance_to(_home_pos)
 				if d < _best_carry_home_dist:
 					_best_carry_home_dist = d
+		if _trace_enabled:
+			_record_trace(a)
+
+# 트레이스 기록(D10) — 개미 셀이 바뀔 때만 [frame, cx, cy, carry01] 추가(샘플 압축). body_cell 관례.
+func _record_trace(a: Ant) -> void:
+	var si: int = a.spawn_index
+	var cx: int = int(floor(a.global_position.x / float(_cs)))
+	var cy: int = int(floor((a.global_position.y - 2.0) / float(_cs)))
+	var cell := Vector2i(cx, cy)
+	if _trace_last.get(si) == cell:
+		return
+	_trace_last[si] = cell
+	if not _trace.has(si):
+		_trace[si] = []
+	(_trace[si] as Array).append([_frame, cx, cy, 1 if a.has_candy else 0])
 
 func _evaluate_actions() -> void:
 	for a in _actions:
@@ -407,13 +438,21 @@ func _on_concluded(result: Dictionary) -> void:
 func _report(cleared: bool, saved: int, lost: int, hp: int, reason: String) -> void:
 	if _done:
 		return
+	# picked_total = candy_piece_picked 이벤트 수 = 사탕에서 조각을 집은 횟수 = "사탕까지 도달한 수".
+	# 남은 사탕 HP = hp - picked_total (집힌 적 없는 조각). saved = 그중 집까지 배달된 수.
+	# (picked(bool)은 진척 휴리스틱용 _any_picked로 유지; picked_total은 카운트 보고용 추가.)
 	var out: Dictionary = {
 		"cleared": cleared, "saved": saved, "lost": lost, "hp": hp,
 		"reason": reason, "frame": _frame, "actions_fired": _actions_fired,
+		"picked_total": _picked_total,
+		"remaining_hp": (hp - _picked_total if hp >= 0 else -1),
 		"best_min_y": (_best_min_y if _best_min_y < 1.0e19 else -1.0),
 		"picked": _any_picked,
 		"best_carry_home_dist": (_best_carry_home_dist if _best_carry_home_dist < 1.0e19 else -1.0),
 	}
+	if _trace_enabled:
+		out["trace"] = _trace
+		out["cell_size"] = _cs
 	_finish(out)
 
 # 결과 emit + 스테이지 정리. 시그널은 _ready에서 1회 연결돼 인스턴스 수명 동안 유지(해제 안 함);

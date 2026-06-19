@@ -6,6 +6,8 @@ const ID: String = "bridge"
 const SOLVER_META := {
 	"target": "ant",
 	"category": "ANT_ARMED",
+	"routing": "cross",
+	"purpose": "낭떠러지/간격에 다리를 놓아 건너게 한다",
 	"hints": {"effect": "bridge_gap", "arms_until": "cliff"},
 }
 

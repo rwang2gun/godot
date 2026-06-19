@@ -6,6 +6,8 @@ const ID: String = "digger"
 const SOLVER_META := {
 	"target": "cell",
 	"category": "SIGN",
+	"routing": "down",
+	"purpose": "발밑을 수직으로 파 개미를 아래층으로 내려보낸다",
 	"hints": {"effect": "dig_down"},
 }
 

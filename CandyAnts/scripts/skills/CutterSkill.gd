@@ -6,6 +6,8 @@ const ID: String = "cutter"
 const SOLVER_META := {
 	"target": "cell",
 	"category": "SIGN",
+	"routing": "break",
+	"purpose": "앞의 식물벽을 잘라 통로를 연다",
 	"hints": {"effect": "cut_plant", "needs": "plant_wall"},
 }
 

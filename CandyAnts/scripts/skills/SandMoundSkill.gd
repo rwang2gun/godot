@@ -7,6 +7,8 @@ const ID: String = "sand_mound"
 const SOLVER_META := {
 	"target": "cell",
 	"category": "SIGN",
+	"routing": "up",
+	"purpose": "표면에 사다리를 세워 개미를 위층으로 올린다",
 	"hints": {"effect": "build_ladder_up"},
 }
 

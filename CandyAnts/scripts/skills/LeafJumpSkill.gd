@@ -18,6 +18,8 @@ const LEAF_JUMP_CELLS: int = 4
 const SOLVER_META := {
 	"target": "cell",
 	"category": "DEVICE",
+	"routing": "jump",
+	"purpose": "장치를 설치해 개미를 전방으로 점프시켜 끈끈이·좁은 틈을 넘게 한다",
 	"hints": {"effect": "jump_forward", "range_cells": LEAF_JUMP_CELLS},
 }
 

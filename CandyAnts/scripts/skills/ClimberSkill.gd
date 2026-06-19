@@ -6,6 +6,8 @@ const ID: String = "climber"
 const SOLVER_META := {
 	"target": "ant",
 	"category": "ANT_ARMED",
+	"routing": "up",
+	"purpose": "개미를 무장해 벽을 만나면 반전 대신 등반해 위로 넘게 한다",
 	"hints": {"effect": "climb_wall"},
 }
 

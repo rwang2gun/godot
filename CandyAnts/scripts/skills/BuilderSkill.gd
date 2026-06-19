@@ -6,6 +6,8 @@ const ID: String = "builder"
 const SOLVER_META := {
 	"target": "ant",
 	"category": "ANT_ARMED",
+	"routing": "up",
+	"purpose": "낭떠러지에 계단을 놓아 개미를 위층으로 올린다",
 	"hints": {"effect": "build_stair", "arms_until": "cliff"},
 }
 

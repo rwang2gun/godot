@@ -6,6 +6,8 @@ const ID: String = "floater"
 const SOLVER_META := {
 	"target": "ant",
 	"category": "ANT_SETTLE",
+	"routing": "safe_fall",
+	"purpose": "높은 낙하의 기절을 막아 개미를 안전하게 내려보낸다",
 	"hints": {"effect": "distribute_slow_fall"},
 }
 

@@ -14,6 +14,9 @@ extends Node
 #   ④ capabilities.tres 로드 가능 + 필수 필드 존재.
 
 const VALID_TARGETS := ["ant", "cell"]
+# auto-solver Phase 2 (D11) — 표준 routing 어휘. 모델이 스킬 id 하드코딩 없이 이 어휘로 라우팅을
+# 디스패치한다(신규 도구 = 메타만 선언). routing/purpose 완전성을 아래 ②에서 강제.
+const VALID_ROUTINGS := ["reverse", "up", "down", "cross", "break", "jump", "safe_fall"]
 const CATEGORY_NAME_TO_ENUM := {
 	"ANT_ARMED": SkillAffordance.Category.ANT_ARMED,
 	"ANT_SETTLE": SkillAffordance.Category.ANT_SETTLE,
@@ -67,6 +70,12 @@ func _ready() -> void:
 		if not CATEGORY_NAME_TO_ENUM.has(category):
 			failures.append("② skill '%s' SOLVER_META.category invalid: %r" % [id, category])
 			continue
+		# --- ② routing/purpose 완전성 (D11): 모델 디스패치 어휘 + 용처 명시 ---
+		var routing: String = str(meta.get("routing", ""))
+		if not VALID_ROUTINGS.has(routing):
+			failures.append("② skill '%s' SOLVER_META.routing invalid: %r (어휘 %s)" % [id, routing, str(VALID_ROUTINGS)])
+		if str(meta.get("purpose", "")).strip_edges() == "":
+			failures.append("② skill '%s' SOLVER_META.purpose 누락 — 용처 명시 필수(D11)" % id)
 		# --- ③ category 종속(단일 권위 뷰): 솔버 메타 == UI 카테고리 ---
 		if SkillAffordance.category_of(id) != CATEGORY_NAME_TO_ENUM[category]:
 			failures.append("③ skill '%s' SOLVER_META.category(%s) != SkillAffordance.category_of" % [id, category])
