@@ -273,14 +273,25 @@ def cutter(img: Image.Image, d: ImageDraw.ImageDraw) -> None:
     ant = fit_sprite(load_sprite("dig", 4), s(64))
     paste_center(img, ant, 49, 106)
 
-def draw_icon(name: str, painter: Callable[[Image.Image, ImageDraw.ImageDraw], None]) -> None:
+def draw_icon(
+    name: str,
+    painter: Callable[[Image.Image, ImageDraw.ImageDraw], None],
+    cursor_painter: Callable[[Image.Image, ImageDraw.ImageDraw], None] | None = None,
+) -> None:
     img, d = base_canvas()
     painter(img, d)
     button_img = img.resize((SIZE, SIZE), Image.Resampling.LANCZOS)
     button_img.save(OUT / f"{name}.png")
 
-    cursor_img = img.copy()
-    cursor_draw = ImageDraw.Draw(cursor_img)
+    # 커서는 cursor_painter가 지정되면 그것으로 따로 그린다(slideL처럼 버튼만 반전하고
+    # 커서는 비반전 유지하는 경우). 미지정 시 버튼 그림을 재사용.
+    # 포인터(화살표 tip)는 항상 좌상단 — SkillToolbar의 hotspot=(0,0)과 일치해야 클릭이 정확하다.
+    if cursor_painter is not None:
+        cursor_img, cursor_draw = base_canvas()
+        cursor_painter(cursor_img, cursor_draw)
+    else:
+        cursor_img = img.copy()
+        cursor_draw = ImageDraw.Draw(cursor_img)
     draw_pointer(cursor_draw)
     cursor_img = cursor_img.resize((SIZE, SIZE), Image.Resampling.LANCZOS)
     cursor_img.save(CURSOR_OUT / f"{name}.png")
@@ -308,8 +319,13 @@ def main() -> None:
         "cutter": cutter,
         "leaf_jump": leaf_jump,
     }
+    # slideL 커서는 버튼과 달리 반전하지 않는다 — 커서 포인터(화살표 tip)는 항상 좌상단이어야
+    # SkillToolbar의 hotspot=(0,0)과 일치한다. slide_l처럼 전체를 반전하면 tip이 우상단으로 가
+    # 클릭 지점이 어긋난다(개미 클릭 불가). 좌/우 방향 구분은 버튼 아이콘(slideL.png, 반전 유지)이
+    # 담당하고, slideR/slideL 커서는 동일(builder 그림 + 좌상단 포인터)하게 둔다.
+    cursor_overrides: dict[str, Callable] = {"slideL": builder}
     for name, painter in painters.items():
-        draw_icon(name, painter)
+        draw_icon(name, painter, cursor_overrides.get(name))
     print("Successfully generated %d premium skill PNG icons!" % len(painters))
 
 if __name__ == "__main__":
