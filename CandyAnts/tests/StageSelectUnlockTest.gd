@@ -4,7 +4,7 @@ extends Node
 # campaign-50 Phase A — StageSelect 챕터 컨텍스트화. menu_layout 고정 10슬롯 폐기 →
 #   current_chapter 주입 후 Campaign.stage_ids_in_chapter로 가변 슬롯 생성. 슬롯 상태는
 #   Campaign(매니페스트 순서) 언락 기반.
-# campaign-50 B1 — 라이브 매니페스트 Ch1=[1,11,12,13,14,2,15,16,17,18](15~18 등록 2026-06-17) · Ch2=[3,4,5].
+# campaign-50 B1 — 라이브 매니페스트 Ch1=[1,11,12,13,14,2,15,16,17,18] · Ch2=[3,4,5,19,20,21,22,23,24,25](19~25 등록 2026-06-19).
 
 const StageSelectScene := preload("res://scenes/ui/StageSelect.tscn")
 const TEST_PATH := "user://test_savedata_select_unlock.cfg"
@@ -69,8 +69,8 @@ func _case_chapter1_initial() -> void:
 	await get_tree().process_frame
 	print("[StageSelectUnlockTest] case chapter1 initial OK")
 
-# Ch2=[3,4,5]: stage18(Ch1 마지막) cleared → slot3=PLAYABLE(prev=18), slot4·5=LOCKED.
-# (15~18 등록 2026-06-17으로 매니페스트 순서상 stage3 직전 = stage2 → stage18 이동.)
+# Ch2=[3,4,5,19,20,21,22,23,24,25]: stage18(Ch1 마지막) cleared → slot1=stage3 PLAYABLE(prev=18),
+# slot2~10=LOCKED. 19~25 등재(2026-06-19)로 건설 챕터 10칸 꽉 참 → placeholder 0.
 func _case_chapter2_gating() -> void:
 	_reset()
 	SaveData.record_clear(18, 10, 10)
@@ -79,27 +79,29 @@ func _case_chapter2_gating() -> void:
 	add_child(node)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	# Ch2=[3,4,5] → 실제 3칸 + placeholder 7칸 = 10.
+	# Ch2=[3,4,5,19,20,21,22,23,24,25] → 실제 10칸 + placeholder 0칸 = 10.
 	var grid: GridContainer = node.get_node("MarginContainer/VBox/SlotGrid")
 	if grid.get_child_count() != 10:
 		node.queue_free()
 		return _fail("chapter2 expected 10 slots, got %d" % grid.get_child_count())
+	# stage18 cleared → 첫 칸(stage3) PLAYABLE, 나머지(stage4,5,19~25)는 직전 미클리어로 LOCKED.
 	var expected := [
-		StageSlotCard.SlotState.PLAYABLE,  # stage3 (prev=2 cleared)
-		StageSlotCard.SlotState.LOCKED,    # stage4 (prev=3 not cleared)
+		StageSlotCard.SlotState.PLAYABLE,  # stage3 (prev=18 cleared)
+		StageSlotCard.SlotState.LOCKED,    # stage4
 		StageSlotCard.SlotState.LOCKED,    # stage5
+		StageSlotCard.SlotState.LOCKED,    # stage19
+		StageSlotCard.SlotState.LOCKED,    # stage20
+		StageSlotCard.SlotState.LOCKED,    # stage21
+		StageSlotCard.SlotState.LOCKED,    # stage22
+		StageSlotCard.SlotState.LOCKED,    # stage23
+		StageSlotCard.SlotState.LOCKED,    # stage24
+		StageSlotCard.SlotState.LOCKED,    # stage25
 	]
 	for i in 10:
 		var card: StageSlotCard = grid.get_child(i) as StageSlotCard
-		var want: int = expected[i] if i < expected.size() else StageSlotCard.SlotState.COMING_SOON
-		if card.slot_state != want:
+		if card.slot_state != expected[i]:
 			node.queue_free()
-			return _fail("ch2 slot[%d] state expected %d, got %d" % [i, want, card.slot_state])
-	# placeholder(슬롯3=첫 빈칸) 라벨이 "임시"로 갱신됐는지 — set_state만으로 텍스트 미갱신되던 회귀 차단.
-	var ph_label: Label = grid.get_child(3).get_node("MainPanel/VBox/StageLabel") as Label
-	if ph_label.text != Strings.t("stage.coming_soon"):
-		node.queue_free()
-		return _fail("placeholder label expected '%s', got '%s'" % [Strings.t("stage.coming_soon"), ph_label.text])
+			return _fail("ch2 slot[%d] state expected %d, got %d" % [i, expected[i], card.slot_state])
 	node.queue_free()
 	await get_tree().process_frame
 	print("[StageSelectUnlockTest] case chapter2 gating OK")

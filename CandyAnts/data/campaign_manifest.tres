@@ -9,7 +9,7 @@ chapters = [{
 "theme": "basics",
 "title": "기초"
 }, {
-"stage_ids": [3, 4, 5],
+"stage_ids": [3, 4, 5, 19, 20, 21, 22, 23, 24, 25],
 "theme": "building",
 "title": "건설"
 }, {

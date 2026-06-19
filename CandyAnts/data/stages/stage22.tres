@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="StageData" format=3 uid="uid://dbde74skv2j3n"]
+
+[ext_resource type="Resource" uid="uid://ck3r333jfomm3" path="res://data/stage_layouts/stage22_layout.tres" id="1_pcfan"]
+[ext_resource type="Script" uid="uid://br1gfmwp8hvr3" path="res://scripts/core/StageData.gd" id="2_4cihn"]
+
+[resource]
+script = ExtResource("2_4cihn")
+id = 22
+display_name = "이상한 계단"
+layout = ExtResource("1_pcfan")
+total_ants = 5
+candy_hp = 5
+time_limit_seconds = 100.0
+available_skills = Array[String](["climber", "bridge"])
+skill_inventory = {
+"bridge": 2,
+"climber": 5
+}
+release_rate_initial = 30
