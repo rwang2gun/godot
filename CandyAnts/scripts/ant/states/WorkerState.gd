@@ -285,6 +285,7 @@ func _place_one_tile(a: Ant) -> void:
 			_aborted = true
 			return
 		terrain.deactivate_hazards_for_placement(body_cell)
+		_eject_stuck_ants(terrain, body_cell)
 		_place_stair_fill_below(terrain, body_cell, a.direction)
 		a.global_position += Vector2(0.0, float(-cs))
 		_remaining -= 1
@@ -302,6 +303,7 @@ func _place_one_tile(a: Ant) -> void:
 		return
 	# Phase 17 — Bridge/Water 정책 (D8). hazard 없는 stage는 no-op.
 	terrain.deactivate_hazards_for_placement(target)
+	_eject_stuck_ants(terrain, target)
 	_place_stair_fill_below(terrain, target, a.direction)
 	a.global_position += Vector2(float(a.direction) * cs, float(-cs))
 	_remaining -= 1
@@ -348,6 +350,7 @@ func _place_sand_mound_tile(a: Ant) -> void:
 			if placed and capped:
 				terrain.deactivate_hazards_for_placement(body_cell)
 				_apply_ladder_root_once(terrain, body_cell)
+				_eject_stuck_ants(terrain, body_cell)
 				a.global_position.y -= float(cs) * 2.0
 				EventBus.sfx_request.emit(&"skill_build")
 		# solid(위도 막힘) 또는 cap 불가(body_cell 점유·slope·plant·동적·미등록) → 종료(아무 변경 없음).
@@ -360,6 +363,7 @@ func _place_sand_mound_tile(a: Ant) -> void:
 		return
 	terrain.deactivate_hazards_for_placement(body_cell)
 	_apply_ladder_root_once(terrain, body_cell)
+	_eject_stuck_ants(terrain, body_cell)
 	a.global_position.y -= float(cs)
 	_remaining -= 1
 	EventBus.sfx_request.emit(&"skill_build")
@@ -413,6 +417,7 @@ func _place_bridge_tile(a: Ant) -> void:
 		return
 	# Phase 17 — Bridge/Water 정책 (D8). hazard 없는 stage는 no-op.
 	terrain.deactivate_hazards_for_placement(target)
+	_eject_stuck_ants(terrain, target)
 	a.global_position += Vector2(float(a.direction) * cs, 0.0)
 	_remaining -= 1
 	EventBus.sfx_request.emit(&"skill_build")
@@ -438,6 +443,32 @@ func _far_side_floor_reached(a: Ant) -> bool:
 	down_query.exclude = [a.get_rid()]
 	var hit: Dictionary = space.intersect_ray(down_query)
 	return not hit.is_empty()
+
+# 건설 타일이 놓인 셀에 끼인 **다른** 개미를 진행 방향 반대로 1칸 밀어내고 낙하시킨다(2026-06-20).
+# 시전 개미가 새 solid 타일(계단/사다리/다리)을 놓을 때, 그 셀에 서 있던 다른 개미가 타일에 박히는 것을
+# 방지 — 낀 개미를 자기 진행 방향 반대로 1셀 빼낸 뒤 FallerState(낙하 모션)로 전환한다. 시전 개미(ant) 본인은
+# 제외. 같은 셀에 여러 마리면 모두 밀어낸다. body_cell 계산은 placement 헬퍼와 동일((y-2)/cs).
+func _eject_stuck_ants(terrain: Terrain, cell: Vector2i) -> void:
+	var a: Ant = ant as Ant
+	if a == null:
+		return
+	var cs: int = terrain.cell_size
+	for n in a.get_tree().get_nodes_in_group("ants"):
+		var other: Ant = n as Ant
+		if other == null or other == a or not is_instance_valid(other) or not other.is_alive():
+			continue
+		if other.state_machine == null:
+			continue
+		var ocell: Vector2i = Vector2i(
+			int(floor(other.global_position.x / cs)),
+			int(floor((other.global_position.y - 2.0) / cs))
+		)
+		if ocell != cell:
+			continue
+		# direction(개미가 향한 방향)은 유지한 채(반전 금지 — 사용자 정정) 위치만 진행 방향 반대로 1칸 옮긴
+		# 뒤 낙하 모션으로 전환. 밀려난 개미는 계속 원래 방향을 향한다(FallerState도 velocity.x=dir*speed로 유지).
+		other.global_position.x -= float(other.direction) * float(cs)
+		other.state_machine.change_state(FallerState.new(NAN, true))
 
 func _find_terrain(a: Ant) -> Terrain:
 	# Stage scene tree에서 가장 가까운 Terrain 노드 검색. ancestor 탐색.
