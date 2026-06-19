@@ -7,7 +7,7 @@ class_name SkillSign extends Node2D
 # 과거 const SIGN_SKILLS 하드코딩 리스트는 제거 — 라우팅은 SkillAffordance.category_of() 파생.
 
 const SIGN_BOARD_TEXTURE: Texture2D = preload("res://assets/sprites/world/skill_sign_board.png")
-# 표지판 표시 배율 — 셀 크기의 2배(2026-06-07 요청). 발동 트리거는 열(x) 기준이라 시각만 커지고 게임플레이는 불변.
+# 표지판 표시 배율 — 셀 크기의 2배(2026-06-07 요청). 발동 트리거는 개미 점유 셀(x,y) 기준이라 시각만 커지고 게임플레이는 불변.
 const DISPLAY_SCALE: float = 2.0
 # 보드 텍스처 내 패널(글씨칸) 영역 — skill_sign_board.png 크림 내부 측정값(2026-06-07): 24×15px, 중심 y −0.188(보드 중심 기준).
 # 아이콘이 패널 밖으로 넘치지 않도록 이 비율에 맞춘다. 정사각 아이콘이라 패널 높이(15px)가 한계 → FRAC 0.30(0.30×48≈14.4<15).
@@ -15,7 +15,7 @@ const DISPLAY_SCALE: float = 2.0
 const PANEL_ICON_FRAC: float = 0.30             # 아이콘 변 길이 ÷ 보드 폭
 const PANEL_ICON_CENTER_Y_FRAC: float = -0.188  # 아이콘 중심 y ÷ 보드 높이 (패널 중심)
 # 기둥 밑동을 surface 위 가장자리에 딱 붙이지 않고 지면 안으로 살짝 묻어 "꽂힌" 느낌을 준다(2026-06-07 요청).
-# z_index=120이라 지형 위에 그려져 기둥·그림자가 surface 타일을 덮는다. 발동은 열(x) 기준이라 시각만 변함.
+# z_index=120이라 지형 위에 그려져 기둥·그림자가 surface 타일을 덮는다. 발동은 개미 셀(x,y) 기준이라 시각만 변함.
 const EMBED_DEPTH_FRAC: float = 0.40            # surface 안으로 내릴 깊이 ÷ 셀
 
 var skill_id: String = ""
@@ -88,4 +88,9 @@ func _ant_at_cell(a: Ant) -> bool:
 	if not a.is_on_floor():
 		return false
 	var cs: int = _terrain.cell_size
-	return int(floor(a.global_position.x / cs)) == cell.x
+	# x(열)뿐 아니라 y(층)도 일치해야 발동. x만 보면 같은 열의 **위층 발판**에 선 개미가 아래층 표지판을
+	# 오발동시킨다(다층 버그). 표지판 cell은 SignPlacement._ground_cell이 "발판 위 빈 셀"로 스냅한 것이라
+	# 개미가 그 위에 설 때 floor(ant_y/cs)==cell.y가 성립(설치-발동 대칭).
+	if int(floor(a.global_position.x / cs)) != cell.x:
+		return false
+	return int(floor(a.global_position.y / cs)) == cell.y
