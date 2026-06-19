@@ -6,14 +6,16 @@
 [resource]
 script = ExtResource("2_3hiin")
 id = 21
-display_name = "이상한 계단"
+display_name = "어디로 내려가지?"
 layout = ExtResource("1_ttpye")
-total_ants = 5
-candy_hp = 5
+total_ants = 8
+candy_hp = 7
 time_limit_seconds = 100.0
-available_skills = Array[String](["climber", "bridge"])
+available_skills = Array[String](["slideL", "blocker", "sand_mound", "bridge"])
 skill_inventory = {
+"blocker": 2,
 "bridge": 2,
-"climber": 5
+"sand_mound": 2,
+"slideL": 2
 }
 release_rate_initial = 30
