@@ -81,7 +81,9 @@ plan SoT를 생성 중심으로 개정([auto-solver-plan.md](../../phases/solver
 - D7 자동 동기화(솔버 게임지식 하드코딩 0 — 엔진 인-더-루프 + self-describing 스킬 메타 + 전역 능력 config). D8 누적 학습(전술 라이브러리 CBR/EBL). D9 북극성=생성(생성-후-검증 + 구성적, 처리량 1급).
 - 개정 phase: 0(✅) → 1 하니스+능력명세 → 2 탐색 → 3 반응윈도우/난이도 → 4 전술라이브러리 → 5 감사 오라클 → 6 생성(6a 실증→6b PCG→6c 구성적).
 
-## Phase 1 구현 완료 (2026-06-18) — 리플레이 하니스 + 능력 명세 (게이트 그린, 적대적 리뷰 대기)
+## Phase 1 완료 (2026-06-18) — 리플레이 하니스 + 능력 명세 (게이트 그린 + 적대적 리뷰 R9 approve)
+> **적대적 리뷰 종결**: codex impl-stage R1 HIGH(stale stage)→R2 HIGH(동기 분리)→R3 HIGH(인스턴스-스코프 verdict)→R4 HIGH(단일활성런 가드)→R5 HIGH(재진입+after-index)→R6 MED(repeat 앵커)→R7 MED(deterministic 복원)→R8 MED(취소 _exit_tree)→**R9 approve**. 매 라운드 사이 자체 적대적 리뷰 clean. 트레일: [phase01-impl-review.md](../../phases/solver/reviews/phase01-impl-review.md). 커밋: 본체 `3004ce5` + sweep `2a50c14`/`6463cf2`/`b8405d0`/`79ef494`/`cd11aed`/`5b10166`/`757435d`/`d032cb5`.
+> PlanRunner 강건성(리뷰 산출): 인스턴스-스코프 `StageRunner.concluded` verdict(글로벌 버스 cross-talk 0) + `static _active_run` 단일-활성-런 가드(동시 in-process 금지; 병렬화는 subprocess) + 동기 스테이지 분리(late verdict 0) + after 앵커 첫-발화 고정 + deterministic 복원(_finish/_teardown/_exit_tree).
 손코딩 드라이버를 **데이터(플랜)** 로 대체 + 솔버가 능력을 **읽어** 행동공간 구성(D7). spike(blocker 전용)를 일반화·다중스킬화.
 
 ### 산출물
@@ -101,8 +103,7 @@ plan SoT를 생성 중심으로 개정([auto-solver-plan.md](../../phases/solver
 - `SkillDropAssignTest`는 **선존 플래키**(개미 WalkerState 진입 타이밍; git stash 베이스라인에서도 동일 산발 FAIL, 내 버전 4/4 PASS) — 변경 무관.
 
 ## 다음 작업
-- **Phase 1 impl-stage 적대적 리뷰**(`/codex:adversarial-review`, 사용자 트리거) → clean까지 자체리뷰↔codex 루프 → 커밋. (모델이 직접 호출 불가, [[codex-adversarial-review-invocation]].)
-- 이후 Phase 2: 탐색 솔버(`tools/solver/solve.py`) — 능력 명세 generic 열거 × 타이밍 트리거 × 랜드마크로 행동공간 enumeration, max-margin 해 우선. PlanRunner를 후보 평가기로.
+- **Phase 2: 탐색 솔버**(`tools/solver/solve.py`) — 능력 명세 generic 열거 × 타이밍 트리거(D5) × 랜드마크로 행동공간 enumeration, max-margin 해 우선(D6). PlanRunner를 후보 평가기로(병렬은 subprocess 격리). spike `solve_spike.py`를 일반화.
 
 ## 블로커
 - 없음.

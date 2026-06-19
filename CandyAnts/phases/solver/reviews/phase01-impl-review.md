@@ -108,3 +108,21 @@ _det_forced 표식으로 우리가 켠 경우만 복원(env/외부 true 오버�
 
 ## Self-Review Round 8 (clean)
 _exit_tree가 정상/취소 모든 종료에서 전역 상태 복원, finished 미emit(취소 오해 방지), 게임 무영향. 게이트 GREEN(⑩ 포함). **HIGH/CRITICAL 0건.**
+
+## Round 9 (codex, **approve** — clean)
+
+```
+# Codex Adversarial Review
+
+Target: branch diff against 493940b
+Verdict: approve
+
+Clean: no defensible R8/Phase 1 blocker found from the diff. Static review only; targeted Godot test commands were blocked by policy.
+
+No material findings.
+
+Next steps:
+- Run PlanReplayHarnessTest, SkillMetadataDriftTest, and run_plan.py --selftest in an environment that permits Godot execution.
+```
+
+**impl-stage 적대적 리뷰 종결**: R1 HIGH×1+MED×2 → R2 HIGH×1+MED×1 → R3 HIGH×1 → R4 HIGH×1+MED×1 → R5 HIGH×1+MED×1 → R6 MED×1 → R7 MED×1 → R8 MED×1 → **R9 approve**. 매 라운드 사이 자체 적대적 리뷰 clean 확인.
