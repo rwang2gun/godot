@@ -220,6 +220,11 @@ saved=5/5, frame=2719, rollouts=26. `data/solutions/stage13.solve.json` (결정�
 **Phase 2 Acceptance(plan §Phase 2) 충족**: S11(2롤)·S12(11)·S13(26)·S14(40) 전부 실제 인벤토리로
 무힌트 자동 해결 + 게임 verdict 100%(D4). **탐색 솔버 단계 완료.**
 
+**적대적 리뷰 종결**: codex R1(needs-attention, HIGH = selftest fail-open "golden 존재 시 solve 누락/빈
+expect가 verdict-only 통과") → fail-closed 수정(EXPECTED_SOLVE_STAGES 누락 즉시 FAIL + solve glob 멤버십에
+`cleared:true`+`saved≥1` 강제 + `_selfcheck_schema` 음성 자가검증) → self-review R1(self-HIGH 정규식→멤버십)
+→ **R2 approve**. 커밋 `bdb23c1`(S13+게이트) + sweep `94078f0`(fail-closed). 트레일 `phases/solver/reviews/phase02-impl-review.md`.
+
 ## 다음 작업 (Phase 3 또는 솔버 고도화)
 - **Phase 3 진입**(반응-윈도우·인간타당성·난이도, plan §Phase 3): max-margin 해의 각 필수 명령에 대해
   (프레임·위치) 윈도우를 스윕 측정 → `T_human` 필터(정합성) + 난이도 점수. 최소화/크레딧 할당(잉여 액션 제거).

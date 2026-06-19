@@ -53,3 +53,18 @@ codex R1-HIGH(fail-open) 수정 결과물을 codex와 동일 기준으로 가혹
 self-HIGH 수정 후 재점검 = **HIGH 0**. 직접 검증 통과: `_solve_expect_invalid` 음성 4종(empty/no_cleared/
 saved0/saved=True) reject·valid 통과, `missing(14 gone)→[14]`, `_selfcheck_schema→True` + 정상 9개
 selftest PASS 유지. → codex 재리뷰(Round 2)로.
+
+---
+
+## Round 2 (codex) — approve, 종결
+
+실행: `--base HEAD~1`(sweep `94078f0`만 — 중간 `50998ef`는 사용자 slideL 커서, 솔버 무관 제외).
+
+**Verdict**: approve. No material findings.
+**Summary**: 제공된 diff에 ship-blocking fail-open 없음 — 기대 S11~S14 부재가 리플레이 전 FAIL,
+모든 globbed solve fixture가 파일명 형태가 아니라 **멤버십**으로 강한 expect precheck를 받음, detector
+selfcheck가 약/빈 expect 케이스를 커버.
+
+**적대적 리뷰 종결**: R1(needs-attention, HIGH fail-open) → Self-Review R1(self-HIGH 정규식→멤버십, 수정
+clean) → **R2 approve**. impl-stage 정책(CRITICAL/HIGH 0 + codex clean) 충족.
+커밋: 원본 `bdb23c1`(S13 + selftest 게이트 확장) + sweep `94078f0`(fail-closed).
