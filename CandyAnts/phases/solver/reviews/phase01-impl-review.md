@@ -101,3 +101,10 @@ StageRunner 변경의 게임 회귀(S11/S13/BeginGate/ToolbarDisable/SandMound·
 
 ## Self-Review Round 7 (clean)
 _det_forced 표식으로 우리가 켠 경우만 복원(env/외부 true 오버라이드 안 함), 멱등 복원, 정상/중단/에러 종료 모두 복원, DeterminismReplayTest·CampaignS11 회귀 0(SimConfig 복원은 솔버 경로 한정). 게이트 GREEN(⑨ 포함). **HIGH/CRITICAL 0건.**
+
+## R8 대응 (수정, HIGH 0 / MED 1)
+- **MED (취소 시 전역 상태 누수)**: 런 도중 queue_free/씬 teardown 시 _finish/_teardown이 안 불려 deterministic·_active_run 락이 누수. → `_exit_tree()` 추가 — deterministic 복원 + _active_run(==self) 해제 + concluded 시그널 해제(finished는 emit 안 함). _stage는 자식이라 자동 free.
+- **테스트**: ⑩ deterministic=false 시작 → 런 도중 queue_free → 프레임 경과 후 deterministic false + _active_run null 단언.
+
+## Self-Review Round 8 (clean)
+_exit_tree가 정상/취소 모든 종료에서 전역 상태 복원, finished 미emit(취소 오해 방지), 게임 무영향. 게이트 GREEN(⑩ 포함). **HIGH/CRITICAL 0건.**

@@ -162,6 +162,21 @@ func _ready() -> void:
 		_failures.append("⑨ 복원 케이스 S11 미클리어(실행 중엔 결정론이어야): %s" % str(r9))
 	SimConfig.set_deterministic(true)   # 이후(없지만) 일관성 위해 원복
 
+	# ⑩ 취소(queue_free) 시 전역 상태 복원(codex R8 MED) — 런 도중 free → _exit_tree가 deterministic
+	#    복원·락 해제. finished 없이 끝나도 누수 0이어야 한다.
+	SimConfig.set_deterministic(false)
+	var r10: PlanRunner = PlanRunner.new()
+	add_child(r10)
+	r10.run(PLAN_S11)                  # 실행 시작(deterministic 강제 true, _active_run=r10)
+	r10.queue_free()                   # 완료 전 취소
+	await get_tree().process_frame     # queue_free 처리 → _exit_tree
+	await get_tree().process_frame
+	if SimConfig.deterministic != false:
+		_failures.append("⑩ 취소 후 deterministic 미복원: %s (기대 false)" % str(SimConfig.deterministic))
+	if PlanRunner._active_run != null and is_instance_valid(PlanRunner._active_run):
+		_failures.append("⑩ 취소 후 _active_run 미해제: %s" % str(PlanRunner._active_run))
+	SimConfig.set_deterministic(true)
+
 	if _failures.is_empty():
 		print("[PlanReplayHarnessTest] PASS — S11 cleared saved=%d/%d frame=%d (새×2 + 재사용×2 + 분리/출처 + 동시런거부 + 재진입거부 + after-by-index), empty negative" % [
 			int(r1.get("saved", -1)), int(r1.get("hp", -1)), int(r1.get("frame", -1))])

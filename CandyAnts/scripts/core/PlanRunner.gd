@@ -139,6 +139,18 @@ func run(plan: Dictionary) -> void:
 
 # 진행 중이던(또는 직전) 스테이지를 트리에서 즉시 떼어내고 free. run() 컨텍스트(시그널 콜백 밖)
 # 호출이라 free() 안전. 정상 종료 시엔 _finish가 이미 queue_free·_stage=null 했으니 보통 no-op.
+# 런 도중 queue_free/씬 teardown으로 **취소**될 때 전역 상태 누수 차단(codex R8 MED):
+# deterministic 복원 + 단일-활성-런 락 해제 + verdict 시그널 해제. finished는 emit하지 않는다
+# (취소를 정상 종료로 오해시키지 않음). _stage는 자식이라 이 노드와 함께 자동 free.
+func _exit_tree() -> void:
+	_restore_deterministic()
+	if _active_run == self:
+		_active_run = null
+	if _stage_runner != null and is_instance_valid(_stage_runner) \
+			and _stage_runner.has_signal("concluded") and _stage_runner.concluded.is_connected(_on_concluded):
+		_stage_runner.concluded.disconnect(_on_concluded)
+	_stage_runner = null
+
 # 우리가 강제했던 SimConfig.deterministic를 이전 값으로 복원(우리가 켠 경우에만). 멱등.
 func _restore_deterministic() -> void:
 	if _det_forced:
