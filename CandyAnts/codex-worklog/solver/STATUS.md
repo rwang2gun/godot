@@ -303,13 +303,38 @@ comfortable·sampled@stride 추정). pos는 informational pos_hint. **Phase 3a �
 > **상태**: analyze.py + 4 analysis.json + plan.md(verify 편입) + STATUS **워킹트리 미커밋**(codex 리뷰 후
 > 커밋 예정). PlanRunner 가산①②는 선커밋 `02c2d43`. 워킹트리에 사용자 챕터2 WIP 동시 존재 — analyze.py 무관.
 
-## 다음 작업 (Phase 3 또는 솔버 고도화)
-- **Phase 3 진입**(반응-윈도우·인간타당성·난이도, plan §Phase 3): max-margin 해의 각 필수 명령에 대해
-  (프레임·위치) 윈도우를 스윕 측정 → `T_human` 필터(정합성) + 난이도 점수. 최소화/크레딧 할당(잉여 액션 제거).
-- (선택) 솔버 효율 고도화: S13 26롤은 매 carry 라운드 early 후보가 cap을 1개씩 낭비(S13선 무용). carry
-  연쇄 우선·early 후순위로 cap 내 해결 가능 — 사용자 정책상 해 확보가 우선이라 defer 가능(회귀 위험 ↔ 효율).
-- 게이트 약점(잔존): `PlanReplayHarnessTest`가 run_test 기본 `--quit-after`에 timeout-마스킹(EXIT 0).
-  verify에 `--fixed-fps`/큰 `--quit-after` 부여 검토(이번 검증은 명시 옵션으로 PASS 확인).
+## 트랙 범위·게이트 신뢰도 갱신 (2026-06-20) — 미커밋(적대 리뷰 R1→R3 approve, 커밋 대기)
+
+> 사용자 정렬 2건. 상세는 plan SoT §"트랙 범위·게이트 갱신".
+
+**① 트랙 범위 축소**: 생성은 솔버 역할 아님 → 솔버 학습 결과를 *참조하는 별개 소비자*. **Phase 5(감사
+오라클)·6(생성)은 auto-solver에서 분리해 별도 브랜치**로. 본 트랙 = **Phase 0~4(학습 결과 생산)** 까지.
+고도화 방침 = 실제 미검증 스테이지를 솔버가 풀어보며 함께 개선(현 검증 = S11~S14).
+
+**② 게이트 false-green 제거 (신뢰도)**: 옛 약점 — `PlanReplayHarnessTest`(멀티런, >18000f 필요)를 bare
+`run_test.py`로 돌리면 `--quit-after` 안전망이 **exit 0(=PASS와 동일)** 으로 끝나 타임아웃이 통과로 위장.
+실측 확정: 게이트-기본 호출이 ⑤에서 잘려도 EXIT 0·PASS 마커 없음(126s) / `--fixed-fps`+18000도 잘림
+(예산 부족) / `--fixed-fps`+120000만 완주·PASS. → **순수 프레임 예산 부족 + exit-code 충돌**.
+- 수정 = **`tools/solver/try_solve.py` front-door 분리**(사용자 원칙 "run_test 기능중심, 스테이지 풀이는
+  try_solve"). replay/selftest/search는 `run_plan.py`·`solve.py` import-위임(동작 불변), 신규 `harness-test`는
+  **PASS = 마커 AND exit 0 둘 다 요구**로 판정 + `--fixed-fps 60`·budget 120000. 두 fail-open 모두 차단:
+  타임아웃("exit 0 + 마커 없음", 가드 실증 budget=2000→FAIL) + 마커 후 비정상 종료("마커 + nonzero"→FAIL, codex R2).
+- 게이트 재구성: Determinism×2·SkillMetadataDrift는 run_test 유지 / PlanReplayHarnessTest→`try_solve harness-test`
+  / `run_plan --selftest`→`try_solve selftest`. run_test.py docstring drift(3600→18000) 정정 + exit-0 caveat 명시.
+- **전체 게이트 그린(최종 코드)**: 6/6 PASS·EXIT 0·269s (harness-test PASS·selftest 9/9·analyze --verify 4스테이지).
+  회귀 0(replay/selftest frame byte-identical s12=2385·s13=2719·s14=4624). `run_plan.py`는 back-compat 유지.
+- **적대 리뷰(impl, codex working-tree)**: R1 MEDIUM(§검증 방법 옛 게이트 레시피 drift)→수정 / R2 MEDIUM×2
+  (harness_test가 마커 후 nonzero 삼킴=fail-open + §검증 item4 max-margin 과대주장)→수정 / **R3 approve(no material
+  findings)**. 매 라운드 사이 자체 적대 리뷰. cross-doc 정정: §검증 방법·Phase1 Acceptance·Phase2 CI게이트·Phase5/6
+  헤더·item4. (STATUS 과거 세션 로그·`reviews/*.md`는 immutable 히스토리라 의도적 미수정.)
+
+## 다음 작업 (Phase 3b 또는 솔버 고도화)
+- **게이트 수정 적대 리뷰 → 커밋** (현재 단계): 자체 적대 리뷰 → codex `/codex:adversarial-review` → clean → 커밋.
+- **Phase 3b**(스케치, plan §3b): T_human 티어 보정 + 대안 해 탐색(max-margin) + 권위 난이도(binding 윈도우 full-scan).
+- **고도화 = 실제 레벨 풀기**: 미검증 스테이지(S1~S9 재설계·S15~S18·S19~S25 ch2 등)에 `try_solve search`를
+  들이대며 솔버 일반성 개선(현 휴리스틱은 S11~S14에 튜닝됨). 실패 케이스가 곧 개선 입력.
+- (선택) 솔버 효율: S13 26롤은 매 carry 라운드 early 후보가 cap 1개씩 낭비 — carry 연쇄 우선·early 후순위로
+  cap 내 해결 가능(회귀 위험 ↔ 효율, 사용자 정책상 해 확보 우선이라 defer 가능).
 
 ## 블로커
 - 없음.

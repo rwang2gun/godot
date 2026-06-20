@@ -3,7 +3,10 @@
 auto-solver Phase 1 — 플랜 리플레이 CLI.
 
 플랜(JSON)을 헤드리스(`--fixed-fps`, 결정론)로 실제 게임에 재생하고 무수정 게임 verdict를 보고한다(D4).
-PlanReplayHarness 씬을 띄워 SOLVER_RESULT를 파싱한다. spike의 solve_spike.run_plan을 일반화한 단일 진입점.
+PlanReplayHarness 씬을 띄워 SOLVER_RESULT를 파싱한다. spike의 solve_spike.run_plan을 일반화.
+
+NOTE: 통합 front-door는 `tools/solver/try_solve.py`(replay/selftest/search/harness-test). 이 모듈의
+run_plan_file/selftest 구현은 거기서 import해 위임하므로 동작은 동일하다. 본 CLI는 back-compat로 유지.
 
 Usage:
     GODOT_BIN=... python scripts/run_plan.py <plan.json>          # 단일 플랜 실행 → 결과 JSON 출력

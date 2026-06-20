@@ -1,10 +1,10 @@
 ---
 name: auto-solver
 duration_estimate: 28800
-verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn && python scripts/run_test.py tests/PlanReplayHarnessTest.tscn && python scripts/run_test.py tests/SkillMetadataDriftTest.tscn && python scripts/run_plan.py --selftest && python tools/solver/analyze.py --verify
+verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn && python scripts/run_test.py tests/SkillMetadataDriftTest.tscn && python tools/solver/try_solve.py harness-test && python tools/solver/try_solve.py selftest && python tools/solver/analyze.py --verify
 large_change_ok: false
 sot: phases/solver/auto-solver-plan.md
-sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/SceneFlow.gd, scripts/core/ScoreSystem.gd, scripts/ant/Ant.gd, scripts/world/Home.gd, scripts/core/AntSpawner.gd, scripts/ui/SkillToolbar.gd, scripts/core/SkillRegistry.gd, scripts/core/SkillApplier.gd, scripts/core/PlanRunner.gd, scripts/core/SolverCapabilities.gd, scripts/run_test.py, scripts/run_plan.py, tests/SolverHarness.gd, tests/PlanReplayHarness.gd, tests/PlanReplayHarnessTest.gd, tests/SkillMetadataDriftTest.gd, data/solver/capabilities.tres, tools/solver/solve_spike.py, tools/solver/analyze.py]
+sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/SceneFlow.gd, scripts/core/ScoreSystem.gd, scripts/ant/Ant.gd, scripts/world/Home.gd, scripts/core/AntSpawner.gd, scripts/ui/SkillToolbar.gd, scripts/core/SkillRegistry.gd, scripts/core/SkillApplier.gd, scripts/core/PlanRunner.gd, scripts/core/SolverCapabilities.gd, scripts/run_test.py, scripts/run_plan.py, tests/SolverHarness.gd, tests/PlanReplayHarness.gd, tests/PlanReplayHarnessTest.gd, tests/SkillMetadataDriftTest.gd, data/solver/capabilities.tres, tools/solver/solve_spike.py, tools/solver/analyze.py, tools/solver/try_solve.py]
 ---
 
 # 트랙: 스테이지 자동 솔버 → 레벨 생성 (auto-solver)
@@ -14,7 +14,8 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 - **비전(방향, 미확정)**: 북극성 + 비전 결정 D8~D9 + Phase 4~6. "우리가 향하는 곳"이지 확정 범위 아님.
 - **확정(리뷰·구현 대상)**: 결정 D1~D7 + **Phase 1**. falsifiable acceptance를 가진다.
 - **근시일 계획(스케치)**: Phase 2~3. 방향은 정했으나 상세는 Phase 1 산출 후 확정.
-- **로드맵(증거 후 재계획)**: Phase 4~6. 앞 단계 증거가 나온 뒤 상세 계획·진입 여부 결정. Phase 6a(생성 가설 실증)가 6b/6c의 게이트.
+- **로드맵(증거 후 재계획)**: Phase 4. 앞 단계 증거가 나온 뒤 상세 계획·진입 여부 결정.
+- **트랙 밖(별도 브랜치)**: Phase 5(감사 오라클)·Phase 6(생성). 2026-06-20 사용자 결정 — 생성은 솔버의 역할이 아니라 **솔버 학습 결과를 참조하는 별개 소비자**다(아래 "트랙 범위·게이트 갱신" 참조). auto-solver 트랙은 **학습 결과 생산(~Phase 4)** 까지가 범위.
 
 ## 비전 / 북극성 (방향 — 확정 범위 아님, 사용자 정렬 2026-06-18)
 **다양하고 비자명한(non-trivial) 레벨을 자동 생성**한다. 솔버는 그 자체가 목적이 아니라 **레벨 품질을 판정하는 적합도 오라클(fitness oracle)**이다.
@@ -22,6 +23,26 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 - **정직한 경계**: 오라클은 *풀림·비자명·난이도·도구필요성·정합성*은 보장하지만 그 너머의 *재미/미감*은 지표로 다 못 잡는다. 이 시스템은 **바닥을 확실히 올리고**(트리비얼·단층 박멸, 목표 난이도 적중) 다양성의 큰 부분을 자동화하되, 최상급 디자인은 사람 큐레이션이 낫다. 생성 가설("학습→다양 생성")은 **가정하지 않고 일찍 실증**한다(Phase 6a).
 
 이 문서는 plan SoT. 게임플레이 phase와 직교한 **툴링 트랙**이고, 산출 코드는 Godot 컨벤션대로 `scripts/`·`tests/`·`tools/`에, 트레일은 `codex-worklog/solver/STATUS.md`에 누적한다.
+
+## 트랙 범위·게이트 갱신 (2026-06-20, 사용자 정렬)
+**① 트랙 범위 축소 — Phase 5~6은 별도 브랜치.** 솔버의 책임 = **학습 결과(오라클) 생산**(풀이가능성 +
+난이도 + 전술 라이브러리). 자동 레벨 생성은 솔버의 역할이 **아니며**, 구현 시 솔버의 학습 결과를 *참조하는
+별개 시스템*이다. 따라서 Phase 5(감사 오라클)·Phase 6(생성)은 auto-solver 트랙에서 분리해 **별도 브랜치**로
+진행한다. 본 트랙 범위 = Phase 0~4(학습 결과 생산까지). Phase 4(전술 라이브러리)가 생성기가 참조할 핵심
+산출. 고도화 방침: **실제 레벨(미검증 스테이지)을 솔버가 풀어보며 함께 개선**(현 검증 범위 = S11~S14).
+
+**② 게이트 신뢰도 보강 — false-green 제거 + try_solve front-door.** 직전 게이트 약점: `PlanReplayHarnessTest`
+(멀티런, >18000f 필요)를 bare `run_test.py`로 돌리면 `--quit-after` 안전망이 exit 0(=PASS와 동일)으로 끝나
+**타임아웃이 통과로 위장**됐다(실측: 게이트-기본 호출이 ⑤에서 잘려도 exit 0). 신뢰도 문제라 해소.
+- **분리 원칙(사용자)**: `run_test.py`는 **단일 테스트 씬 러너**로 기능 유지(솔버 전용 플래그 금지). "스테이지
+  풀이/실행"은 **`tools/solver/try_solve.py`**(통합 front-door)로 분리.
+- **try_solve.py** = replay/selftest/search/harness-test 단일 진입점. replay·selftest는 기존 `run_plan.py`,
+  search는 `solve.py` 구현을 **import-위임**(동작·결정론 불변). 신규 `harness-test`는 `PlanReplayHarnessTest`를
+  **exit-code가 아니라 PASS 마커로 판정**(+`--fixed-fps 60`·넉넉한 budget) → 안전망에 잘려 exit 0이어도
+  마커 없으면 FAIL. **false-green 구조적 불가**. (가드 실증: budget=2000 축소 시 exit 0이지만 try_solve가 FAIL 반환.)
+- **게이트(verify) 재구성**: Determinism×2 + SkillMetadataDrift는 run_test 유지(단발, 안전망 무관) /
+  PlanReplayHarnessTest → `try_solve.py harness-test` / `run_plan --selftest` → `try_solve.py selftest`.
+  전체 그린 재확인(261s, 회귀 0). `run_plan.py`는 back-compat로 유지(try_solve가 import).
 
 ## 핵심 결정
 
@@ -82,16 +103,19 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 - **`scripts/core/PlanRunner.gd`**: 플랜(JSON) → `_physics_process`마다 트리거 평가(스코프=활성 스테이지 루트, tie-break `(x, spawn_index, instance_id)`, repeat 규칙) → SkillApplier로 인벤토리-충실 적용 → `EventBus.stage_cleared/failed` 캐치 → 결과 dict. **타이밍 트리거(D5) 지원**: `nth_by_spawn`·`at_frame`·`active_ants_le`·`picked_ge`·`ant_at_cliff/on_wall`·상대지연·K번째. (spike `SolverHarness`를 일반화·다중스킬화한 것.)
 - **`scripts/run_plan.py`**: 플랜 파일 → 헤드리스(`--fixed-fps`) 실행, 결과 JSON. `--selftest`(손작성 메커니즘 골든), 배치(씬 reload·상태누수 0).
 ### Acceptance — **실행 게이트 = 프론트매터 `verify` 단일 필드**(R2-HIGH, execute.py가 실제 실행하는 그것)
+> 게이트 invocation 갱신(2026-06-20, §"트랙 범위·게이트 갱신"): 아래 항목의 *검증 내용은 불변*이나
+> **호출은 `tools/solver/try_solve.py`를 거친다** — `PlanReplayHarnessTest`→`try_solve harness-test`(마커 판정,
+> false-green 제거), `run_plan.py --selftest`→`try_solve selftest`. Determinism×2·SkillMetadataDrift는 run_test 유지.
 - `PlanReplayHarnessTest` PASS(+배치 상태누수 0). 다중 스킬 손작성 골든이 게임 verdict대로(`run_plan.py --selftest`).
 - `SkillMetadataDriftTest` PASS — 등록·스테이지 스킬 메타 완전성 + 솔버 열거==레지스트리 단언(자동 동기화 D7 강제).
-- **Phase 1 완료의 정의 = 위 체크를 `verify` 프론트매터에 *반영*(결정론 테스트 && PlanReplayHarnessTest && SkillMetadataDriftTest && `run_plan.py --selftest`)하고 그 단일 `verify` 명령이 그린.** execute.py·`complete`가 실행하는 건 `verify` 하나뿐이므로(L809) 별도/inert 키를 두지 않는다 — `verify` 갱신 자체가 silent bypass를 막는 강제 계약. (지금 `verify`는 산출물 미존재라 Phase 0만; 갱신 전엔 Phase 1 미완료.)
+- **Phase 1 완료의 정의 = 위 체크를 `verify` 프론트매터에 *반영*(결정론 테스트 && PlanReplayHarnessTest && SkillMetadataDriftTest && `run_plan.py --selftest`)하고 그 단일 `verify` 명령이 그린.** execute.py·`complete`가 실행하는 건 `verify` 하나뿐이므로(L809) 별도/inert 키를 두지 않는다 — `verify` 갱신 자체가 silent bypass를 막는 강제 계약. (Phase 1 작성 당시 주: `verify`엔 Phase 0만 반영돼 있었고 이 갱신 전엔 Phase 1 미완료였다 — **현재 `verify`는 Phase 0~3a 모두 반영**, 호출은 try_solve front-door, §"검증 방법" 참조.)
 
 ## Phase 2 — 탐색 솔버 (경험 생성) · **[근시일 계획] ✅ 완료 (2026-06-20, S11~S14 무힌트 자동 해결)**
 > **산출**: `tools/solver/{model,solve}.py`(예측 닫힌-루프 — 베이스라인 관측→진단→개입 제안→엔진 검증, D10) +
 > `tests/SolverMetaDump.{gd,tscn}`(D7 메타 브리지) + 스킬 `SOLVER_META.routing/purpose`(D11) + `PlanRunner`
 > 궤적 트레이스 확장. **해 4종** `data/solutions/stage{11,12,13,14}.solve.json`: S11(2롤 blocker×1)·S12(11롤
 > blocker×3)·S13(26롤 blocker×1+climber×5)·S14(40롤 blocker×3+climber×5), 전부 무수정 게임 verdict
-> 100%(D4). **CI 게이트**: `run_plan.py --selftest`가 solve.json까지 결정론 리플레이 검증(자동발견 해 회귀
+> 100%(D4). **CI 게이트**: selftest(현 호출 `try_solve selftest`, 구 `run_plan.py --selftest`)가 solve.json까지 결정론 리플레이 검증(자동발견 해 회귀
 > 방지). cap>10(S12 11·S13 26·S14 40)은 사용자 "해 찾으면 성공" 정책 하 허용. 상세: `codex-worklog/solver/STATUS.md`.
 ### 목표
 스테이지+인벤토리 → **풀이 플랜 탐색**(없으면 "탐색범위 내 미해결"). 산출 = 해 + 탐색 트레이스(학습 원료).
@@ -213,7 +237,8 @@ D6의 "가장 여유로운(max-margin) 해의 최소 윈도우 = 난이도" 정�
 ### Acceptance
 - S11에서 학습한 전술이 S12/S13에 전이돼 **동일 난이도 해를 더 적은 롤아웃**으로 발견(시행착오 감소 실측). 라이브러리 영속·성장.
 
-## Phase 5 — 난이도·설계 감사 오라클 · **[로드맵 · 미확정, Phase 3~4 증거 후 재계획]**
+## Phase 5 — 난이도·설계 감사 오라클 · **[트랙 밖 · 별도 브랜치 (2026-06-20)]**
+> 2026-06-20 사용자 결정으로 auto-solver 트랙에서 분리(§"트랙 범위·게이트 갱신"). 아래는 방향 맥락으로 보존.
 ### 목표
 Phase 2~4를 **레벨 품질 오라클**로 패키징(생성의 적합도 함수).
 ### 산출
@@ -221,7 +246,8 @@ Phase 2~4를 **레벨 품질 오라클**로 패키징(생성의 적합도 함수
 ### Acceptance
 - 기존 스테이지에 리포트가 직관과 일치(트리비얼 검출·필수 스킬 식별·정합성 경고). 캘리브레이션 루프.
 
-## Phase 6 — 생성 (북극성) · **[로드맵 · 미확정, 6a가 6b/6c 게이트]**
+## Phase 6 — 생성 (북극성) · **[트랙 밖 · 별도 브랜치 (2026-06-20)]**
+> 생성은 솔버 역할이 아니라 솔버 학습 결과를 *참조하는 별개 소비자*(§"트랙 범위·게이트 갱신"). 방향 맥락 보존.
 ### 6a · 생성 가설 실증 (de-risk, 먼저)
 기존 레벨을 변형(타일 길이·인벤토리·구조)해 후보 생성 → Phase 5 오라클로 채점 → **트리비얼/비자명을 실제로 가려내고 난이도가 의도대로 움직이는지** 확인. (S12 spike가 솔버를 실증했듯 *생성 루프*를 실증.) 여기서 "오라클이 좋은 레벨을 골라낸다"가 보여야 본격 진입.
 ### 6b · 생성-후-검증 PCG (확신 높음)
@@ -234,11 +260,11 @@ Phase 2~4를 **레벨 품질 오라클**로 패키징(생성의 적합도 함수
 ---
 
 ## 검증 방법 (게이트 = 프론트매터 `verify` 단일 필드)
-> execute.py가 실행하는 게이트는 `verify` 하나뿐(L809). 그래서 **각 단계 완료 = `verify`를 그 단계 게이트로 갱신하고 그린**(R2-HIGH). inert 키 금지. 현재 `verify` = Phase 0+1(아래 1+2). **Phase 2는 `--selftest`가 `data/solutions/*.solve.json`(자동발견 해)까지 검증하도록 확장돼 verify 문자열 무변경으로 게이트 편입** — 중복 키 없이 selftest 내용 확장이 곧 강제 계약(엔진/스킬 변경이 확보된 해를 깨면 selftest FAIL).
-1. **결정론(✅, 현재 `verify`)**: `DeterminismReplayTest`(per-frame) + `DeterminismSpawnScheduleTest`(스폰 드리프트 0).
-2. **하니스/자동동기화(Phase 1 완료 시 `verify`에 편입)**: `PlanReplayHarnessTest`(+배치 누수 0) + `run_plan.py --selftest` + `SkillMetadataDriftTest`(스킬 메타 완전성·솔버 열거==레지스트리, D7 강제).
+> execute.py가 실행하는 게이트는 `verify` 하나뿐(L809). 그래서 **각 단계 완료 = `verify`를 그 단계 게이트로 갱신하고 그린**(R2-HIGH). inert 키 금지. 현재 `verify` = Phase 0+1+2+3a(아래 1+2 + selftest + `analyze.py --verify`). **게이트 invocation은 2026-06-20부터 `tools/solver/try_solve.py` front-door를 거친다**(§"트랙 범위·게이트 갱신" — false-green 제거): 검증 *내용*은 불변, *호출*만 이동.
+1. **결정론(✅, `verify`)**: `DeterminismReplayTest`(per-frame) + `DeterminismSpawnScheduleTest`(스폰 드리프트 0) — **`run_test.py`로 실행**(단발, `--quit-after` 안전망 무관).
+2. **하니스/자동동기화(`verify` 편입)**: `PlanReplayHarnessTest`(+배치 누수 0)는 **`python tools/solver/try_solve.py harness-test`**(exit-code 아닌 PASS 마커로 판정 → false-green 제거) / 손작성+자동발견 골든 검증은 **`python tools/solver/try_solve.py selftest`**(구 `run_plan.py --selftest`은 back-compat·비-게이트로 잔류) / `SkillMetadataDriftTest`(스킬 메타 완전성·솔버 열거==레지스트리, D7 강제)는 **`run_test.py`로 실행**.
 3. **기존 회귀 무파손**: `CampaignS11~S14`·`GameFlow`·`StageRunnerBeginGate` 등(SkillApplier 리팩터·시계 프레임화에도 플레이 불변).
-4. **솔버/난이도**: 각 스테이지 max-margin 해 + 반응-윈도우 난이도·정합성 리포트가 직관 일치.
+4. **솔버/난이도(현 게이트=3a)**: `analyze.py --verify`가 *발견된 해*(solve.json, 1-minimal)의 반응-윈도우를 결정론 리플레이로 재검증(interval 내=clear/밖·gap=fail). **max-margin 대안 해·권위 난이도는 Phase 3b로 아직 게이트 밖**(본문 §3a "측정 대상=발견된 해, max-margin 아님" R1-H4와 정합).
 5. **학습**: 전이로 롤아웃 감소 실측. **생성**: 6a 오라클 선별력 → 6b 비자명 레벨 산출.
 
 ## 회귀 주의 (사전 식별)
