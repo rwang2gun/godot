@@ -261,7 +261,7 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     # (물 우선 정렬)이라 _w 가중도 그쪽이 높다. select/cmp는 가장자리에서의 진행 방향으로 결정.
     sel_cmp = {1: ("max_x", "ge"), -1: ("min_x", "le")}
     n_tgt = len(diag["reverse_targets"])
-    for routing in ("reverse", "safe_fall"):
+    for routing in ("reverse", "safe_fall", "cross"):
         for sid in by_r.get(routing, []):
             for ti, tgt in enumerate(diag["reverse_targets"]):
                 d = tgt["dir"]

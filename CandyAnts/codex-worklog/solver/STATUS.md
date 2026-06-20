@@ -328,13 +328,68 @@ comfortable·sampled@stride 추정). pos는 informational pos_hint. **Phase 3a �
   findings)**. 매 라운드 사이 자체 적대 리뷰. cross-doc 정정: §검증 방법·Phase1 Acceptance·Phase2 CI게이트·Phase5/6
   헤더·item4. (STATUS 과거 세션 로그·`reviews/*.md`는 immutable 히스토리라 의도적 미수정.)
 
-## 다음 작업 (Phase 3b 또는 솔버 고도화)
-- **게이트 수정 적대 리뷰 → 커밋** (현재 단계): 자체 적대 리뷰 → codex `/codex:adversarial-review` → clean → 커밋.
-- **Phase 3b**(스케치, plan §3b): T_human 티어 보정 + 대안 해 탐색(max-margin) + 권위 난이도(binding 윈도우 full-scan).
-- **고도화 = 실제 레벨 풀기**: 미검증 스테이지(S1~S9 재설계·S15~S18·S19~S25 ch2 등)에 `try_solve search`를
-  들이대며 솔버 일반성 개선(현 휴리스틱은 S11~S14에 튜닝됨). 실패 케이스가 곧 개선 입력.
-- (선택) 솔버 효율: S13 26롤은 매 carry 라운드 early 후보가 cap 1개씩 낭비 — carry 연쇄 우선·early 후순위로
-  cap 내 해결 가능(회귀 위험 ↔ 효율, 사용자 정책상 해 확보 우선이라 defer 가능).
+## Phase 3b plan-stage → ⛔ DEFERRED (2026-06-20, 실측 증거 + 사용자 Option C)
+
+> 트레일: [phase03b-plan-review.md](../../phases/solver/reviews/phase03b-plan-review.md). plan §3b = DEFERRED 배너.
+
+- **범위 정렬(Option A)**: 3a 증거(S11~S14 전부 comfortable 동일 티어, spread 0)로 T_human 보정 시기상조 →
+  3b를 **max-margin 대안 해 탐색**만으로 좁힘(R1-H4 해소). placement coordinate-ascent 설계(knob=position-
+  triggered blocker 변형 → 전 필수 액션 min-window 최대화; binding non-knob이면 간접 완화 기대).
+- **codex plan-review R1**: needs-attention(4H+2M+1L). HIGH-1 격자 도메인 미정의 / HIGH-2 verify fail-open /
+  HIGH-3 candidate-local 재발화 누락 / HIGH-4 빈 탐색 통과 / MEDIUM-1 sampled 과대주장 / MEDIUM-2 cross-doc /
+  LOW S14 간접완화 추측. HIGH-1/2/3·MEDIUM-2는 plan 수정 반영.
+- **실측 probe(엔진 D4)가 핵심 전제 반증**: placement 변형이 binding 윈도우를 **전혀 못 움직임**.
+  - S12(binding blocker#2 81f): 18변형 9클리어 **0 widened** (다른 knob·자기 knob 전부 81f 불변).
+  - S14(binding climber#3 86f): 18변형 9클리어 **0 widened** (blocker 간접완화 가설 거짓).
+  - 근본: 난이도=구조/메커닉 결정(placement 아님). 3a binding이 이미 placement-local max-margin →
+    placement-only coordinate-ascent vacuous(codex R1-H4가 가설 아닌 현실). T_human 축도 spread 0으로 막힘.
+- **결정 = Option C(사용자)**: 3b 보류. **미검증 실제 레벨을 풀어 difficulty spread + 새 구조 코퍼스 먼저 생성.**
+  3b 재진입 시 우선 = **cross-structure 대안**(placement 아닌 다른 스킬 multiset; placement는 실측 무효).
+- **코드 무변경**(maxmargin.py 미구현, verify 프론트매터 그대로). 회귀 0.
+
+## Option C 킥오프 (2026-06-20) — 챕터-그라운드 landscape + bridge routing 추가 (S3 solved)
+
+> 사용자 정정: 솔버 타깃은 **파일 넘버링이 아니라 `data/campaign_manifest.tres` 챕터 배치** 기준.
+> Ch1 기초=[1,11,12,13,14,2,15,16,17,18] / Ch2 건설=[3,4,5,19,20,21,22,23,24,25] / Ch3 파괴=[6,7] /
+> Ch4 장치=[8] / Ch5 종합=[9,10].
+
+**솔버 커버리지 landscape (try_solve search, cap 8~10):**
+- **즉시 SOLVED**: S2(floater 2롤)·S4(slideR 2롤) — 기존 routing으로 풀림. solve.json 신규 생성.
+- **NO-PROPOSE(routing 부재)**: S3·S9(bridge=cross) / S5·S19(sand_mound=cell-up SIGN) / S7(basher=break) /
+  S8(cutter/leaf_jump) — `model.propose`가 해당 routing 미처리. (basher/cutter/digger/leaf_jump=Ch3/4, 후순위.)
+- **CHECKPOINT(제안하나 cap 내 미해결)**: S1(climber 부분 saved1/3) / S15~18(Ch1, blocker/climber/floater만 쓰나
+  cap10 미달 — S13 26롤·S14 40롤처럼 **cap 부족 의심**) / S20~25(Ch2, 일부 스킬만 제안·bridge/sand_mound 부재).
+- **결론**: Ch1은 routing 다 있음(cap·휴리스틱 튜닝 과제). **Ch2 핵심 = bridge(cross)+sand_mound(cell-up) 두 routing.**
+
+**bridge(cross) routing 추가 — S3 SOLVED (커밋 대기):**
+- **변경 = `model.propose` 1줄**: `("reverse","safe_fall")` → `(...,"cross")`. BridgeSkill이 ANT_ARMED·
+  `arms_until:cliff`(무장 개미가 낙하 가장자리서 자동 건설)라 **기존 ① 낙하-가장자리 기계에 그대로 편입**
+  (diagnose가 이미 물/허공 가장자리 검출). cell-target 신규 분기 불요.
+- **결과**: S3 "웅덩이 넘기" SOLVED 5/5(bridge×2, 5롤, `stage03.solve.json`). selftest **12 플랜 PASS**(golden5 +
+  solve7: 02·03·04·11·12·13·14) 회귀 0. 격리 확인: model.py diff=내 1줄만.
+- **자체 검토(clean)**: bridge 미보유 스테이지(S11~14 등)는 `by_r["cross"]` 빈 리스트 → 후보 0 → 검색 불변
+  (selftest 기존 해 frame byte-identical). 결정론(고정 순서·가중 정렬) 유지.
+- **게이트 커플링 수정(analyze.py verify decouple)**: 새 solve.json(02/03/04) 추가가 `analyze.py --verify`를
+  FAIL시킴 — `_verify_target_ids`가 `analysis ∪ solve` 합집합이라 "solve 있는데 analysis 없으면 FAIL"(R3-H1
+  1:1 시절 설계). **Option C는 측정(3a) 없이 해만 먼저 쌓으므로** verify 타깃을 **측정된 `analysis.json`만**으로
+  decouple(`return _analysis_stage_ids()`). solve-without-analysis = "풀렸으나 미측정" 유효 상태(replay 정합은
+  selftest가 모든 solve에 fail-closed 강제). **orphan analysis 가드(analysis→solve 바인딩, R3-H1 핵심)는 보존.**
+  ⚠ fail-closed 가드 의미 변경이라 codex 리뷰 후속 권장(이번은 사용자 "지금 커밋" 정책으로 선커밋).
+- **전체 게이트 green**: Determinism×2 + SkillMetadataDrift(11) + harness-test + selftest(12플랜 EXPECTED[2,3,4,
+  11~14]) + analyze --verify(decoupled, 4 analysis). 회귀 0(엔진 무변경; model.py/analyze.py는 솔버·게이트 툴).
+
+**⚠ 병행 사용자 WIP (워킹트리, 세션 시작 후 등장):** `SandMoundSkill.gd`(can_apply 운반자 통일 2026-06-20)·
+stage17/21/22/23/25(tres/tscn/layout)·project.godot·SandMoundCarryBuildTest = **사용자 ch2/sand_mound 능동 작업**.
+→ **내 커밋은 내 파일만 선택 staging**(model.py + stage02/03/04.solve.json + 3 docs), 사용자 WIP 미포함.
+→ **sand_mound 솔버 작업은 보류·코디**(사용자가 SandMound 능동 수정 중 — racing 방지). 내 sand_mound 스캔(S5/S19/
+S21~25)·S17/21/22/25 스캔은 in-flux 레벨 대상이라 잠정치.
+
+## 다음 작업 (Option C — 사용자 정렬 대기)
+- **bridge 유닛 커밋**(선택 staging) + 원하면 codex impl 리뷰. EXPECTED_SOLVE_STAGES에 2·3·4 추가 검토.
+- **sand_mound(cell-up) routing**: 사용자 SandMound WIP 정착 후 진행(Ch2 S5/19/21~25 핵심). cell-target propose
+  신규 분기(수직 벽 검출 → place_on_cell) — bridge보다 큰 작업.
+- **Ch1 cap 튜닝**: S15~18·S1을 높은 cap으로 재시도(routing 있음 — S13/14처럼 cap 상향이면 풀릴 가능성).
+- (미래 3b) cross-structure max-margin + dense 권위 binding — 코퍼스 확보 후.
 
 ## 블로커
 - 없음.

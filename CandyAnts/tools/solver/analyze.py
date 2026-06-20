@@ -1076,10 +1076,14 @@ def _analysis_stage_ids() -> list[int]:
 
 
 def _verify_target_ids() -> list[int]:
-    """기본 verify 대상 = analysis ∪ solve id의 **합집합**(R3-H1). solve만 있고 analysis 없으면 verify_one이
-    analysis 부재로 FAIL; analysis만 있고 solve 없으면(orphan) _solution_binding_fails가 solve 부재로 FAIL.
-    solve glob에만 의존하면 solve 삭제·rename 시 orphan analysis가 ids에서 빠져 stale 가드를 우회한다."""
-    return sorted(set(_expected_stage_ids()) | set(_analysis_stage_ids()))
+    """verify 대상 = **측정된 `analysis.json` id**(R3-H1 갱신, 2026-06-20 Option C decouple). 과거엔
+    analysis ∪ solve 합집합이라 solve만 있고 analysis 없으면 FAIL했으나, **Option C(실제 레벨 풀이)는
+    측정(3a) 없이 해(solve)만 먼저 쌓는다** → 그 결합을 끊는다: **solve-without-analysis = '풀렸으나 미측정'
+    = 유효 상태**(replay 정합은 `run_plan --selftest`가 모든 solve.json에 fail-closed로 강제하므로 별도 커버).
+    analyze --verify는 *측정된 해석*의 내부 정합 + **각 analysis가 유효 solve에 바인딩**됐는지(orphan analysis =
+    solve 부재 → verify_one의 `_solution_binding_fails`가 FAIL)만 본다. orphan analysis 가드는 analysis glob에
+    포함돼 그대로 유지된다(R3-H1의 핵심 — analysis→solve 방향 — 보존). `_expected_stage_ids`는 selftest 전용."""
+    return _analysis_stage_ids()
 
 
 def main() -> int:
