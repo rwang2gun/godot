@@ -1,0 +1,572 @@
+{
+  "solution_ref": "data/solutions/stage14.solve.json",
+  "stage": "res://scenes/stages/Stage14.tscn",
+  "deadline_frames": 7500,
+  "required_saved": 5,
+  "physics_fps": 60,
+  "minimal_kind": "1-minimal",
+  "minimal_plan": [
+    {
+      "skill": "blocker",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "y_min": 136.0,
+        "y_max": 248.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "ge",
+        "x": 1080.0
+      }
+    },
+    {
+      "skill": "blocker",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "y_min": 280.0,
+        "y_max": 392.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "le",
+        "x": 408.0
+      }
+    },
+    {
+      "skill": "blocker",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "y_min": 424.0,
+        "y_max": 536.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "ge",
+        "x": 1080.0
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 1
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 2
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 3
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 4
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 5
+      }
+    }
+  ],
+  "redundant": [],
+  "baseline": {
+    "cleared": true,
+    "saved": 5,
+    "frame": 4624
+  },
+  "per_action": [
+    {
+      "index": 0,
+      "label": "blocker#0",
+      "skill": "blocker",
+      "trigger_axis": "time+pos",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 0,
+        "target_pos": [
+          1080.74963378906,
+          184.425262451172
+        ]
+      },
+      "baseline_frame": 773,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 0,
+        "state": "any"
+      },
+      "time_window": {
+        "lo": 649,
+        "hi": 794,
+        "width_frames": 146,
+        "width_s": 2.4333,
+        "intervals": [
+          [
+            649,
+            794
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          533,
+          821
+        ],
+        "rollouts": 37
+      },
+      "pos_window": {
+        "baseline_x": 1080.0,
+        "lo_x": 48,
+        "hi_x": 1103,
+        "width_x": 1055,
+        "width_cells": 21.979,
+        "intervals": [
+          [
+            48,
+            1103
+          ]
+        ],
+        "gaps": [],
+        "saturated_lo": true,
+        "saturated_hi": true,
+        "domain": [
+          48,
+          1103
+        ],
+        "cell_bracket_frames": [
+          87,
+          757
+        ],
+        "incomplete": false,
+        "rollouts": 16
+      },
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 1,
+      "label": "blocker#1",
+      "skill": "blocker",
+      "trigger_axis": "time+pos",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 1,
+        "target_pos": [
+          407.996948242188,
+          328.425262451172
+        ]
+      },
+      "baseline_frame": 1292,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 1,
+        "state": "any"
+      },
+      "time_window": {
+        "lo": 1201,
+        "hi": 1313,
+        "width_frames": 113,
+        "width_s": 1.8833,
+        "intervals": [
+          [
+            1201,
+            1313
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          1180,
+          1340
+        ],
+        "rollouts": 36
+      },
+      "pos_window": {
+        "baseline_x": 408.0,
+        "lo_x": 377,
+        "hi_x": 1103,
+        "width_x": 726,
+        "width_cells": 15.125,
+        "intervals": [
+          [
+            377,
+            1103
+          ]
+        ],
+        "gaps": [],
+        "saturated_lo": false,
+        "saturated_hi": true,
+        "domain": [
+          48,
+          1103
+        ],
+        "cell_bracket_frames": [
+          349,
+          1276
+        ],
+        "incomplete": false,
+        "rollouts": 22
+      },
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 2,
+      "label": "blocker#2",
+      "skill": "blocker",
+      "trigger_axis": "time+pos",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 2,
+        "target_pos": [
+          1080.74975585938,
+          472.425262451172
+        ]
+      },
+      "baseline_frame": 1810,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 2,
+        "state": "any"
+      },
+      "time_window": {
+        "lo": 1718,
+        "hi": 1831,
+        "width_frames": 114,
+        "width_s": 1.9,
+        "intervals": [
+          [
+            1718,
+            1831
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          1698,
+          1858
+        ],
+        "rollouts": 37
+      },
+      "pos_window": {
+        "baseline_x": 1080.0,
+        "lo_x": 48,
+        "hi_x": 1103,
+        "width_x": 1055,
+        "width_cells": 21.979,
+        "intervals": [
+          [
+            48,
+            1103
+          ]
+        ],
+        "gaps": [],
+        "saturated_lo": true,
+        "saturated_hi": true,
+        "domain": [
+          48,
+          1103
+        ],
+        "cell_bracket_frames": [
+          258,
+          1794
+        ],
+        "incomplete": false,
+        "rollouts": 16
+      },
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 3,
+      "label": "climber#3",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 3,
+        "target_pos": [
+          1036.57275390625,
+          664.425231933594
+        ]
+      },
+      "baseline_frame": 2962,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 3,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 2962,
+        "hi": 3047,
+        "width_frames": 86,
+        "width_s": 1.4333,
+        "intervals": [
+          [
+            2962,
+            3047
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          2946,
+          3074
+        ],
+        "rollouts": 37
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 4,
+      "label": "climber#4",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 4,
+        "target_pos": [
+          348.4755859375,
+          664.425231933594
+        ]
+      },
+      "baseline_frame": 3635,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 4,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 3047,
+        "hi": 3635,
+        "width_frames": 589,
+        "width_s": 9.8167,
+        "intervals": [
+          [
+            3047,
+            3635
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          2627,
+          3651
+        ],
+        "rollouts": 43
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 5,
+      "label": "climber#5",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 5,
+        "target_pos": [
+          349.645751953125,
+          664.425231933594
+        ]
+      },
+      "baseline_frame": 3720,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 5,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 3133,
+        "hi": 3720,
+        "width_frames": 588,
+        "width_s": 9.8,
+        "intervals": [
+          [
+            3133,
+            3720
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          2712,
+          3736
+        ],
+        "rollouts": 43
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 6,
+      "label": "climber#6",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 6,
+        "target_pos": [
+          348.475769042969,
+          664.425231933594
+        ]
+      },
+      "baseline_frame": 3806,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 6,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 3218,
+        "hi": 3806,
+        "width_frames": 589,
+        "width_s": 9.8167,
+        "intervals": [
+          [
+            3218,
+            3806
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          2798,
+          3822
+        ],
+        "rollouts": 43
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 7,
+      "label": "climber#7",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 7,
+        "target_pos": [
+          349.645751953125,
+          664.425231933594
+        ]
+      },
+      "baseline_frame": 3891,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 7,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 3304,
+        "hi": 3976,
+        "width_frames": 673,
+        "width_s": 11.2167,
+        "intervals": [
+          [
+            3304,
+            3976
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          2883,
+          4003
+        ],
+        "rollouts": 45
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    }
+  ],
+  "stage_min_window_s": 1.4333,
+  "stage_provisional_flags": [],
+  "any_incomplete": false,
+  "capabilities": {
+    "comfortable_s": 0.3,
+    "hard_s": 0.15,
+    "machine_only_s": 0.1,
+    "tier_source": "default_uncalibrated"
+  },
+  "sweep_meta": {
+    "time_cap": 80,
+    "pos_cap": 60,
+    "gap_probes": 8,
+    "probe_offsets": [
+      16,
+      32,
+      64,
+      128,
+      256,
+      512,
+      1024,
+      2048
+    ],
+    "total_rollouts": 385
+  }
+}

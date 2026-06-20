@@ -248,16 +248,38 @@ expect가 verdict-only 통과") → fail-closed 수정(EXPECTED_SOLVE_STAGES 누
 - **작동 실증**: stage11 report_fired → blocker fired f*=581 si*=0. at_frame_exact 스윕(spawn_index 고정):
   frame 550·581 clear / 300·450·620+ 실패 = 시간 윈도우 [~550,~600] 드러남. no-retry 확인(450·620 fired=0).
 
-### 남은 impl (다음 세션)
-1. `tools/solver/analyze.py`(순수 오케스트레이터): 최소화(deletion-minimal) + 윈도우 측정(B) + T_human
-   분류(C) + 리포트(D, analysis.json) + `--verify`(E: coverage 선검증 + interval/gap 경계 + incomplete=FAIL).
-2. S11~S14 측정 → `data/solutions/stageNN.analysis.json`.
-3. T_human 라벨 pre-register 대조(사용자 입력) — Spearman·불일치 기록(게이트 아님).
-4. `analyze.py --verify`를 plan frontmatter `verify`에 편입.
-5. 자체 적대 리뷰 → codex impl 재리뷰(clean까지). 그 뒤 phase 커밋.
+### impl: analyze.py 완료 (2026-06-20, 회귀 0 · verify 게이트 그린)
+- **`tools/solver/analyze.py`**(순수 오케스트레이터, 엔진 무변경): (A) 최소화 deletion-minimal(identity
+  기반 제거 가드) + opt-in `--prove-cardinality`(부분집합 브루트포스, 기본 off·verify 미포함) / (B) 윈도우
+  측정 = baseline(1-minimal) report_fired+trace 1회 → 각 필수 액션의 `(spawn_index*, f*)` 획득 → spawn_index
+  고정 + at_frame_exact 스윕(기하 도메인 bracket → 경계 binary 정밀 → `_reconstruct_runs` gap 검출). 위치
+  윈도우는 ant_reaches_x 한정·보조(원본 x 스윕, **도메인=trace 도달 x로 제한**해 ge/le 단방향 포화를
+  `saturated_lo/hi`로 정직 표기; verify 게이트 비포함) / (C) T_human 분류 provisional(tier_source=
+  default_uncalibrated) / (D) `stageNN.analysis.json` + 콘솔 / (E) `--verify`: gate self-check(검출기 음성
+  6 거부) + 빈 대상 FAIL + coverage 선검증(index/label 1:1·incomplete 필수 액션 0) + interval 내부=clear/양
+  끝 밖=fail/gap 내부=fail 리플레이 + 1-minimal 자체 클리어.
+- **sweep_target 핵심**: spawn_index 고정 시 `y_min/y_max/dir` **드롭**(원본은 공간 *선택* 수단인데 핀하면
+  스윕 프레임에 개미가 밴드 밖이라 잘못 배제 — `_select_ant`가 y-band를 spawn_index 매칭 전에 거름),
+  `state`만 보존(없으면 "any"; 기본 walker면 carrying 미선택·S13 깨짐, R2-H2).
+- **측정 결과(S11~S14, `data/solutions/stageNN.analysis.json`)**: 전부 1-minimal=원해(잉여 0). 시간 윈도우
+  binding(스테이지 최소): S11=2.28s(blocker)·S12=1.35s(blocker#2)·S13=1.98s(blocker#0)·S14=1.43s(climber#3).
+  **전부 comfortable(>0.3s)·provisional_machine_only 0**(튜토리얼 난이도와 정합). 통찰: blocker 반전이
+  타이밍 binding, **carry climber는 5~72s로 매우 관대**(운반 개미는 무장 시점 여유). gap 0(전 액션 단일 연속
+  구간). cell-target 필수 액션 없음(스키마만 준비).
+- **게이트 = `analyze.py --verify` 그린**: S11(4체크)·S12(10)·S13(19)·S14(25) = 58 경계 재검증 롤아웃 전부
+  정확. plan frontmatter `verify`에 `&& python tools/solver/analyze.py --verify` 편입(3a 완료 정의).
+- **회귀 0**: 기존 verify 5종 그린 — DeterminismReplay(962f)·SpawnSchedule·PlanReplayHarness(S11 4/4)·
+  SkillMetadataDrift(11)·run_plan --selftest(골든5+solve4, frame byte-identical s12=2385·s13=2719·s14=4624).
+  analyze.py는 신규 툴이라 엔진/PlanRunner 무변경(가산①②는 선커밋 `02c2d43`).
+- **단위 검증**: prove_cardinality 양/음 분기 + classify_tier 경계 + _reconstruct_runs(연속·gap 분리) +
+  gate self-check 모킹 통과.
 
-> **상태**: plan.md(v3) + PlanRunner.gd(가산①②) + reviews/phase03-plan-review.md(R1~R4) **워킹트리 미커밋**
-> (phase 미완이라 커밋 보류). 워킹트리에 사용자 챕터2 WIP(stage19~25) 동시 존재 — analyze.py는 그와 무관.
+### 남은 작업
+1. T_human 라벨 pre-register 대조(사용자 난이도 순위 입력 시 `--labels`로 Spearman·불일치) — 게이트 아님, 정보.
+2. 자체 적대 리뷰(완료) → codex impl 적대 리뷰(clean까지) → phase 커밋.
+
+> **상태**: analyze.py + 4 analysis.json + plan.md(verify 편입) + STATUS **워킹트리 미커밋**(codex 리뷰 후
+> 커밋 예정). PlanRunner 가산①②는 선커밋 `02c2d43`. 워킹트리에 사용자 챕터2 WIP 동시 존재 — analyze.py 무관.
 
 ## 다음 작업 (Phase 3 또는 솔버 고도화)
 - **Phase 3 진입**(반응-윈도우·인간타당성·난이도, plan §Phase 3): max-margin 해의 각 필수 명령에 대해

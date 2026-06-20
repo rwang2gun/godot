@@ -1,0 +1,406 @@
+{
+  "solution_ref": "data/solutions/stage13.solve.json",
+  "stage": "res://scenes/stages/Stage13.tscn",
+  "deadline_frames": 7500,
+  "required_saved": 5,
+  "physics_fps": 60,
+  "minimal_kind": "1-minimal",
+  "minimal_plan": [
+    {
+      "skill": "blocker",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "y_min": 280.0,
+        "y_max": 392.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "ge",
+        "x": 840.0
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 1
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 2
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 3
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 4
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 5
+      }
+    }
+  ],
+  "redundant": [],
+  "baseline": {
+    "cleared": true,
+    "saved": 5,
+    "frame": 2719
+  },
+  "per_action": [
+    {
+      "index": 0,
+      "label": "blocker#0",
+      "skill": "blocker",
+      "trigger_axis": "time+pos",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 0,
+        "target_pos": [
+          840.0,
+          328.425262451172
+        ]
+      },
+      "baseline_frame": 680,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 0,
+        "state": "any"
+      },
+      "time_window": {
+        "lo": 584,
+        "hi": 702,
+        "width_frames": 119,
+        "width_s": 1.9833,
+        "intervals": [
+          [
+            584,
+            702
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          568,
+          728
+        ],
+        "rollouts": 36
+      },
+      "pos_window": {
+        "baseline_x": 840.0,
+        "lo_x": 249,
+        "hi_x": 863,
+        "width_x": 614,
+        "width_cells": 12.792,
+        "intervals": [
+          [
+            249,
+            863
+          ]
+        ],
+        "gaps": [],
+        "saturated_lo": false,
+        "saturated_hi": true,
+        "domain": [
+          48,
+          863
+        ],
+        "cell_bracket_frames": [
+          200,
+          664
+        ],
+        "incomplete": false,
+        "rollouts": 24
+      },
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 1,
+      "label": "climber#1",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 1,
+        "target_pos": [
+          643.5,
+          328.425262451172
+        ]
+      },
+      "baseline_frame": 866,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 1,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 866,
+        "hi": 1208,
+        "width_frames": 343,
+        "width_s": 5.7167,
+        "intervals": [
+          [
+            866,
+            1208
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          850,
+          1362
+        ],
+        "rollouts": 38
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 2,
+      "label": "climber#2",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 2,
+        "target_pos": [
+          643.5,
+          328.425262451172
+        ]
+      },
+      "baseline_frame": 952,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 2,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 952,
+        "hi": 1337,
+        "width_frames": 386,
+        "width_s": 6.4333,
+        "intervals": [
+          [
+            952,
+            1337
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          936,
+          1448
+        ],
+        "rollouts": 38
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 3,
+      "label": "climber#3",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 3,
+        "target_pos": [
+          643.5,
+          328.425262451172
+        ]
+      },
+      "baseline_frame": 1037,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 3,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 1037,
+        "hi": 1423,
+        "width_frames": 387,
+        "width_s": 6.45,
+        "intervals": [
+          [
+            1037,
+            1423
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          1021,
+          1533
+        ],
+        "rollouts": 40
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 4,
+      "label": "climber#4",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 4,
+        "target_pos": [
+          643.5,
+          328.425262451172
+        ]
+      },
+      "baseline_frame": 1122,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 4,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 1122,
+        "hi": 5456,
+        "width_frames": 4335,
+        "width_s": 72.25,
+        "intervals": [
+          [
+            1122,
+            5456
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          1106,
+          7501
+        ],
+        "rollouts": 46
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 5,
+      "label": "climber#5",
+      "skill": "climber",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 5,
+        "target_pos": [
+          769.824768066406,
+          328.424041748047
+        ]
+      },
+      "baseline_frame": 1960,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 5,
+        "state": "carrying"
+      },
+      "time_window": {
+        "lo": 1208,
+        "hi": 5542,
+        "width_frames": 4335,
+        "width_s": 72.25,
+        "intervals": [
+          [
+            1208,
+            5542
+          ]
+        ],
+        "gaps": [],
+        "incomplete": false,
+        "domain": [
+          952,
+          6040
+        ],
+        "rollouts": 56
+      },
+      "pos_window": null,
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    }
+  ],
+  "stage_min_window_s": 1.9833,
+  "stage_provisional_flags": [],
+  "any_incomplete": false,
+  "capabilities": {
+    "comfortable_s": 0.3,
+    "hard_s": 0.15,
+    "machine_only_s": 0.1,
+    "tier_source": "default_uncalibrated"
+  },
+  "sweep_meta": {
+    "time_cap": 80,
+    "pos_cap": 60,
+    "gap_probes": 8,
+    "probe_offsets": [
+      16,
+      32,
+      64,
+      128,
+      256,
+      512,
+      1024,
+      2048
+    ],
+    "total_rollouts": 286
+  }
+}
