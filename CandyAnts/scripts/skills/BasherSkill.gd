@@ -20,12 +20,13 @@ func can_apply(ant: Ant) -> bool:
 	if ant.basher_armed or ant.cutter_armed or ant.bridge_armed or ant.builder_armed:
 		return false
 	var s: AntState = ant.state_machine.current_state
-	# Walker만 — Carrying 거부(작업 중 has_candy 잔존 시 in_transit 영구 잔존 위험).
-	if not (s is WalkerState):
+	# 운반자 통일 (2026-06-20) — bridge/slide/sand_mound와 동일하게 Walker/Carrying 모두 허용. 구 "Carrying·
+	# has_candy 거부" 사유(작업 중 has_candy 잔존 → in_transit 영구 잔존)는 해소: WorkerState("basher")는
+	# has_candy를 변경하지 않고, 종료 시 return_to_walking()이 CarryingState로 복원한다(off-floor는
+	# FallerState→착지 시 운반 복원). 운반 개미가 옆파기로 통로를 뚫고 운반을 이어갈 수 있다.
+	if not (s is WalkerState or s is CarryingState):
 		return false
 	if not ant.is_on_floor():
-		return false
-	if ant.has_candy:
 		return false
 	return true
 
