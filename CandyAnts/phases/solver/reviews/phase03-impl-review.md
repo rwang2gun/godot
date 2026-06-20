@@ -307,3 +307,59 @@ R8 + 누적 확인. 신규 1건:
 - 재측정 후 verify(시간+위치 동형 gap 검증) 그린·prove-it(pos 내부 gap 누락 거부) 확인 예정.
 
 **Self-Review Round 10 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**
+
+---
+
+## Round 10 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1 (신규)
+
+R9 + 누적 확인. 신규 1건:
+- **[HIGH-1] pos 리플레이가 baseline spawn_index를 핀하지 않음**. `sweep_pos_plan`이 원본 `max_x`/`min_x`
+  셀렉터로 x만 스윕 → x 변경 시 *다른 개미*가 발화를 가로채, baseline 개미가 아닌 다른 개미 덕에 클리어되는
+  intervals/gaps를 수용(기록된 spawn_index/domain/cell_bracket은 baseline 개미를 기술). pos가 시간과 진짜
+  isomorphic이 아니라 R9의 핵심 보장이 selector drift에 silent-pass.
+
+## 수정 (R10 HIGH-1)
+
+- `sweep_pos_plan(minimal, idx, sweep_target, cmp, x)` — 시간과 **동일한 spawn_index 고정 target** + ant_reaches_x
+  {cmp,x}로 치환(x만 스윕). measure/verify 양쪽이 baseline 개미를 핀해 그 개미의 공간 윈도우만 측정·재검증.
+  analyze가 sweep_target+cmp 전달, verify가 저장 sweep_target + minimal[idx].trigger.cmp 사용. pos 측정값
+  변할 수 있어 재측정.
+
+## Self-Review Round 11 (수정 후 자체 적대, clean)
+
+- 단위: sweep_pos_plan이 target=spawn_index-pinned + trigger=ant_reaches_x{cmp,x} 생성 확인. selfcheck 통과. ✓.
+- 이로써 시간·위치 윈도우가 **완전 isomorphic**(둘 다 baseline 개미 spawn_index 고정, 한쪽은 at_frame_exact
+  시간 스윕·다른쪽은 ant_reaches_x x 스윕, 동일 gap 검출·경계·내부·밖 리플레이). selector drift 차단. ✓.
+- 재측정 후 verify 그린 확인 예정.
+
+**Self-Review Round 11 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**
+
+### R10 디버그 (사용자 지시 "버그 디버그 완료") — 근본 원인 2건 + pos 재설계
+
+R10 핀 적용 후 재측정·verify에서 stage14 blocker#2가 깨짐. 진단:
+- **버그①: UnicodeEncodeError로 `--all` 중단**. incomplete 경고의 `⚠` print가 cp949 콘솔에서 예외 →
+  stage12 직후 크래시 → stage13/14가 **stale(옛 unpinned 데이터) 잔존**. 이게 여러 차례 재측정이 stage14를
+  안 고친 진짜 이유(stored≠fresh-measure). → **수정: 모듈 로드 시 stdout/stderr UTF-8 강제**(`reconfigure`).
+- **버그②: pos x-스윕이 bouncing 개미에 근본적으로 모호**. stage12 blocker#2(cmp=le, select=min_x): 개미 2번
+  궤적이 cx 6→1→8→6으로 **위치 재방문** → `ant_reaches_x{le,312}`는 *첫* 교차(frame~275)서 발화, baseline은
+  *나중* 복귀(frame 1423)서 발화 → 핀해도 baseline 재현 불가 → incomplete. 직접 롤아웃으로 x=48~633 전부
+  time_out(fail) 실증, x≥1080만 clear. 즉 **위치 윈도우는 단방향 임계 스윕으로 권위 측정이 불가능한 케이스
+  존재**(개미가 x를 여러 번 지남).
+
+**해결 = pos를 권위 게이트에서 빼고 informational 파생으로**(codex R7이 명시 허용한 옵션 + plan "pos=보조,
+시간=1급" 정합): `measure_pos_window`/`sweep_pos_plan`/`_reachable_x_domain` 제거 → `_pos_hint`로 교체.
+**유효 시간 윈도우(1급 권위) 프레임 동안 핀된 개미가 점유한 x-셀 범위를 baseline trace에서 파생만** 한다
+(별도 롤아웃·게이트 없음, `authoritative:false` 마킹). verify는 pos를 재검증 안 함(파생값 — 시간 윈도우/궤적이
+이미 권위). _coverage_check은 pos_hint가 권위 위장(authoritative≠false)만 가볍게 거부. → **R7~R10가 파고든
+pos 비대칭·silent-pass 클래스 자체를 "pos는 게이트 대상이 아니다"로 종결**. 시간 윈도우 + 최소화(deletion) +
+solution 바인딩 + 파생 + tri-state가 1급 권위 게이트로 남음.
+
+## Self-Review Round 12 (재설계 후 자체 적대, clean)
+
+- 시간 윈도우는 at_frame_exact(정확 프레임)라 bouncing 무관·항상 재현 → 1급 권위로 견고(불변). pos만 모호해서
+  파생-informational로 격하 — 권위 주장 0이라 silent-pass 불가능(주장을 안 하니까). ✓.
+- UTF-8 수정으로 `--all`이 끝까지 완주(중간 stale 차단). ✓.
+- 단위: selfcheck(pos 케이스 제거, pos_hint authoritative-위장 거부) + _pos_hint 파생 통과. ✓.
+- 재측정(pos_window→pos_hint, 시간 윈도우 값 불변) + verify 그린 확인 예정. 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 12 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**

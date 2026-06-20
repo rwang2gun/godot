@@ -122,7 +122,7 @@
       "index": 0,
       "label": "blocker#0",
       "skill": "blocker",
-      "trigger_axis": "time+pos",
+      "trigger_axis": "time",
       "target": {
         "kind": "ant",
         "spawn_index": 0,
@@ -158,32 +158,16 @@
         ],
         "rollouts": 37
       },
-      "pos_window": {
-        "baseline_x": 1080.0,
-        "lo_x": 48,
-        "hi_x": 1103,
-        "width_x": 1055,
-        "width_cells": 21.979,
-        "intervals": [
-          [
-            48,
-            1103
-          ]
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 912,
+        "x_hi": 1103,
+        "cells": [
+          19,
+          22
         ],
-        "gaps": [],
-        "gap_check_stride": 117,
-        "saturated_lo": true,
-        "saturated_hi": true,
-        "domain": [
-          48,
-          1103
-        ],
-        "cell_bracket_frames": [
-          87,
-          757
-        ],
-        "incomplete": false,
-        "rollouts": 24
+        "width_cells": 4
       },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
@@ -193,7 +177,7 @@
       "index": 1,
       "label": "blocker#1",
       "skill": "blocker",
-      "trigger_axis": "time+pos",
+      "trigger_axis": "time",
       "target": {
         "kind": "ant",
         "spawn_index": 1,
@@ -229,32 +213,16 @@
         ],
         "rollouts": 38
       },
-      "pos_window": {
-        "baseline_x": 408.0,
-        "lo_x": 377,
-        "hi_x": 1103,
-        "width_x": 726,
-        "width_cells": 15.125,
-        "intervals": [
-          [
-            377,
-            1103
-          ]
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 384,
+        "x_hi": 527,
+        "cells": [
+          8,
+          10
         ],
-        "gaps": [],
-        "gap_check_stride": 80,
-        "saturated_lo": false,
-        "saturated_hi": true,
-        "domain": [
-          48,
-          1103
-        ],
-        "cell_bracket_frames": [
-          349,
-          1276
-        ],
-        "incomplete": false,
-        "rollouts": 31
+        "width_cells": 3
       },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
@@ -264,7 +232,7 @@
       "index": 2,
       "label": "blocker#2",
       "skill": "blocker",
-      "trigger_axis": "time+pos",
+      "trigger_axis": "time",
       "target": {
         "kind": "ant",
         "spawn_index": 2,
@@ -300,32 +268,16 @@
         ],
         "rollouts": 35
       },
-      "pos_window": {
-        "baseline_x": 1080.0,
-        "lo_x": 48,
-        "hi_x": 1103,
-        "width_x": 1055,
-        "width_cells": 21.979,
-        "intervals": [
-          [
-            48,
-            1103
-          ]
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 960,
+        "x_hi": 1103,
+        "cells": [
+          20,
+          22
         ],
-        "gaps": [],
-        "gap_check_stride": 117,
-        "saturated_lo": true,
-        "saturated_hi": true,
-        "domain": [
-          48,
-          1103
-        ],
-        "cell_bracket_frames": [
-          258,
-          1794
-        ],
-        "incomplete": false,
-        "rollouts": 24
+        "width_cells": 3
       },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
@@ -371,7 +323,17 @@
         ],
         "rollouts": 38
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 912,
+        "x_hi": 1007,
+        "cells": [
+          19,
+          20
+        ],
+        "width_cells": 2
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -416,7 +378,17 @@
         ],
         "rollouts": 44
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 336,
+        "x_hi": 1007,
+        "cells": [
+          7,
+          20
+        ],
+        "width_cells": 14
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -461,7 +433,17 @@
         ],
         "rollouts": 44
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 336,
+        "x_hi": 1007,
+        "cells": [
+          7,
+          20
+        ],
+        "width_cells": 14
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -506,7 +488,17 @@
         ],
         "rollouts": 44
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 336,
+        "x_hi": 1007,
+        "cells": [
+          7,
+          20
+        ],
+        "width_cells": 14
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -551,7 +543,17 @@
         ],
         "rollouts": 48
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 240,
+        "x_hi": 1007,
+        "cells": [
+          5,
+          20
+        ],
+        "width_cells": 16
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -568,7 +570,6 @@
   },
   "sweep_meta": {
     "time_cap": 80,
-    "pos_cap": 60,
     "gap_probe_budget": 8,
     "probe_offsets": [
       16,
@@ -580,6 +581,6 @@
       1024,
       2048
     ],
-    "total_rollouts": 417
+    "total_rollouts": 338
   }
 }

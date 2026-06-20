@@ -94,7 +94,7 @@
       "index": 0,
       "label": "blocker#0",
       "skill": "blocker",
-      "trigger_axis": "time+pos",
+      "trigger_axis": "time",
       "target": {
         "kind": "ant",
         "spawn_index": 0,
@@ -130,32 +130,16 @@
         ],
         "rollouts": 37
       },
-      "pos_window": {
-        "baseline_x": 840.0,
-        "lo_x": 249,
-        "hi_x": 863,
-        "width_x": 614,
-        "width_cells": 12.792,
-        "intervals": [
-          [
-            249,
-            863
-          ]
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 672,
+        "x_hi": 863,
+        "cells": [
+          14,
+          17
         ],
-        "gaps": [],
-        "gap_check_stride": 68,
-        "saturated_lo": false,
-        "saturated_hi": true,
-        "domain": [
-          48,
-          863
-        ],
-        "cell_bracket_frames": [
-          200,
-          664
-        ],
-        "incomplete": false,
-        "rollouts": 33
+        "width_cells": 4
       },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
@@ -201,7 +185,17 @@
         ],
         "rollouts": 38
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 576,
+        "x_hi": 863,
+        "cells": [
+          12,
+          17
+        ],
+        "width_cells": 6
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -246,7 +240,17 @@
         ],
         "rollouts": 40
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 528,
+        "x_hi": 863,
+        "cells": [
+          11,
+          17
+        ],
+        "width_cells": 7
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -291,7 +295,17 @@
         ],
         "rollouts": 41
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 528,
+        "x_hi": 863,
+        "cells": [
+          11,
+          17
+        ],
+        "width_cells": 7
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -336,7 +350,17 @@
         ],
         "rollouts": 47
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 96,
+        "x_hi": 863,
+        "cells": [
+          2,
+          17
+        ],
+        "width_cells": 16
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -381,7 +405,17 @@
         ],
         "rollouts": 57
       },
-      "pos_window": null,
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 96,
+        "x_hi": 863,
+        "cells": [
+          2,
+          17
+        ],
+        "width_cells": 16
+      },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
       "provisional_flags": []
@@ -398,7 +432,6 @@
   },
   "sweep_meta": {
     "time_cap": 80,
-    "pos_cap": 60,
     "gap_probe_budget": 8,
     "probe_offsets": [
       16,
@@ -410,6 +443,6 @@
       1024,
       2048
     ],
-    "total_rollouts": 301
+    "total_rollouts": 268
   }
 }

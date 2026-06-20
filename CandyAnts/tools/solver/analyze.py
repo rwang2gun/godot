@@ -45,6 +45,14 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
 from pathlib import Path
 
+# 콘솔 코드페이지(cp949 등)와 무관하게 한글·기호 print가 죽지 않도록 UTF-8 강제(Windows UnicodeEncodeError
+# 방지). 이게 없으면 ⚠ 같은 문자 print가 예외를 던져 --all 루프가 중간에 끊기고 뒤 스테이지가 stale해진다.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 ROOT = Path(__file__).resolve().parents[2]
 RUN_TEST = ROOT / "scripts" / "run_test.py"
 PLAN_HARNESS = "tests/PlanReplayHarness.tscn"
@@ -54,10 +62,8 @@ PHYS_FPS = 60
 
 # 측정 기본 파라미터. 윈도우는 보통 f* 주변 연속 구간 → 기하 확장으로 도메인을 적응적으로 잡고 경계만 정밀.
 TIME_CAP = 80          # 시간 윈도우 액션당 롤아웃 상한(초과 시 incomplete)
-POS_CAP = 60           # 위치 윈도우 액션당 상한
 GAP_PROBE_BUDGET = 8   # interval gap 스캔 내부 샘플 예산 → stride = 폭/(budget+1) (명시 기록·verify 강제)
 PROBE_OFFSETS = [16, 32, 64, 128, 256, 512, 1024, 2048]   # 도메인 기하 확장 step(시간)
-POS_PROBE_OFFSETS = [12, 24, 48, 96, 192, 384, 768]       # 위치(px) 기하 확장 step
 MINIMIZE_SUBSET_CAP = 8   # cardinality 증명 허용 최대 액션 수
 
 
@@ -177,16 +183,6 @@ def sweep_time_plan(minimal: list[dict], idx: int, sweep_target: dict, frame: in
         "target": dict(sweep_target),
         "trigger": {"type": "at_frame_exact", "frame": int(frame)},
     }
-    return plan
-
-
-def sweep_pos_plan(minimal: list[dict], idx: int, x: float) -> list[dict]:
-    """위치 윈도우 — 액션 idx의 원본 ant_reaches_x 트리거의 x만 스윕(select/cmp 보존). 나머지 baseline."""
-    plan = [dict(a) for a in minimal]
-    orig = minimal[idx]
-    trig = dict(orig.get("trigger", {}))
-    trig["x"] = float(x)
-    plan[idx] = {"skill": orig["skill"], "target": orig.get("target", {}), "trigger": trig}
     return plan
 
 
@@ -447,134 +443,24 @@ def _reconstruct_runs(test, lo: int, hi: int, cache: dict) -> tuple[list, list]:
     return intervals, gaps
 
 
-def _reachable_x_domain(trace: dict, spawn_index: int, cs: int) -> tuple[int, int]:
-    """개미 si의 trace 셀-x 범위 → 위치 스윕 도메인(px). trace 부재 시 보수적 광역 [0, 60셀]."""
+def _pos_hint(time_window: dict, trace: dict, spawn_index: int, cs: int):
+    """위치 힌트(informational, 비-authoritative·비-게이트). ant_reaches_x 단방향 임계 x-스윕은 개미가 위치를
+    재방문(bouncing)하면 첫 교차서 발화 ≠ baseline 발화라 권위 측정이 모호 — 그래서 별도 게이트 측정 대신,
+    **권위 시간 윈도우(1급)의 유효 명령 프레임 동안 그 개미가 점유한 x-셀 범위**를 baseline trace에서 *파생*만
+    한다. verify는 이걸 재검증하지 않는다(파생값 — 시간 윈도우/궤적이 이미 권위). 3b 공간 조준 난이도 1차 입력."""
     entries = trace.get(str(spawn_index)) or trace.get(spawn_index)
-    if not entries:
-        return 0, 60 * cs
-    cxs = [e[1] for e in entries]
-    return min(cxs) * cs, (max(cxs) + 1) * cs - 1
-
-
-def measure_pos_window(roll: Rollouter, idx: int, minimal: list[dict], baseline_x: float,
-                       spawn_index: int, trace: dict, cs: int, x_dom: tuple[int, int],
-                       required: int, cap: int) -> dict:
-    """위치 윈도우(공간 보조, ant_reaches_x 한정 — verify 게이트 비포함). 원본 트리거 x를 스윕 → 클리어
-    x 구간 [lo_x,hi_x]. **도메인은 개미가 실제 도달하는 x 범위(trace)로 제한** — ge/le는 단방향 임계라
-    무한 스윕하면 "즉시 발화"로 포화(개미가 닿지 않는 좌표는 물리적 무의미)되므로, 도달 범위 밖은 측정
-    대상이 아니다. 경계가 도메인 끝에 닿으면 `saturated_lo/hi`로 정직 표기(그 방향 무제한). baseline trace로
-    그 개미가 그 셀 범위 지나는 frame을 cell-bracket 교차검증(정보용; 프레임-정확은 report_fired가 authority)."""
-    cache: dict[int, bool] = {}
-    used = [0]
-    incomplete = [False]
-    x_lo_dom, x_hi_dom = x_dom
-
-    def test(x: int):
-        x = int(x)
-        if x < x_lo_dom or x > x_hi_dom:
-            return False
-        if x in cache:
-            return cache[x]
-        if used[0] >= cap:
-            incomplete[0] = True
-            return None
-        used[0] += 1
-        ok = is_full_clear(roll.exec_one(sweep_pos_plan(minimal, idx, x)), required)
-        cache[x] = ok
-        return ok
-
-    def test_batch(xs):
-        todo = sorted({int(v) for v in xs if x_lo_dom <= int(v) <= x_hi_dom and int(v) not in cache})
-        if not todo:
-            return
-        allow = max(0, cap - used[0])
-        if len(todo) > allow:
-            incomplete[0] = True
-            todo = todo[:allow]
-        if not todo:
-            return
-        used[0] += len(todo)
-        oks = roll.batch_clears([sweep_pos_plan(minimal, idx, x) for x in todo])
-        for x, ok in zip(todo, oks):
-            cache[x] = ok
-
-    x0 = int(round(baseline_x))
-    x0 = max(x_lo_dom, min(x_hi_dom, x0))
-    if test(x0) is not True:
-        return {"baseline_x": baseline_x, "lo_x": x0, "hi_x": x0, "width_x": 0, "width_cells": 0.0,
-                "intervals": [], "gaps": [], "incomplete": True, "domain": [x_lo_dom, x_hi_dom],
-                "note": "baseline_x_did_not_clear"}
-    test_batch([x0 - o for o in POS_PROBE_OFFSETS] + [x0 + o for o in POS_PROBE_OFFSETS])
-
-    def expand(direction: int) -> tuple:
-        """(last_clear, fail_or_None, saturated). 도메인 끝까지 클리어면 saturated=True(fail None)."""
-        step = 12
-        last_clear = x0
-        x = x0
-        while True:
-            nx = x + direction * step
-            if nx < x_lo_dom or nx > x_hi_dom:
-                # 도메인 edge까지 클리어 확장 — edge 자체를 테스트해 거기서도 클리어면 포화.
-                edge = x_lo_dom if direction < 0 else x_hi_dom
-                if edge != last_clear and test(edge) is True:
-                    last_clear = edge
-                return last_clear, None, True
-            r = test(nx)
-            if r is None:
-                return last_clear, None, True       # cap → 미완(포화로 보고, incomplete 플래그 동반)
-            if r:
-                last_clear = nx
-                step *= 2
-                x = nx
-            else:
-                return last_clear, nx, False
-
-    def refine(clear_x: int, fail_x: int) -> int:
-        a, b = clear_x, fail_x
-        while abs(b - a) > 1:
-            mid = (a + b) // 2
-            r = test(mid)
-            if r is None:
-                break
-            if r:
-                a = mid
-            else:
-                b = mid
-        return a
-
-    lc, lf, sat_lo = expand(-1)
-    rc, rf, sat_hi = expand(+1)
-    lo_x = refine(lc, lf) if lf is not None else lc
-    hi_x = refine(rc, rf) if rf is not None else rc
-
-    # 내부 gap 스캔(시간 윈도우와 **동형**, R9-H1) — 균일 stride + _reconstruct_runs. pos도 ant_reaches_x.x
-    # 변경이 발화 시점·선택 상태를 바꿔 비단조 가능하므로 단일 연속을 가정 못 함. gap_check_stride 명시.
-    stride = max(1, (hi_x - lo_x) // (GAP_PROBE_BUDGET + 1))
-    test_batch(_stride_points(lo_x, hi_x, stride))
-    intervals, gaps = _reconstruct_runs(test, lo_x, hi_x, cache)
-    width_x = max((b - a for a, b in intervals), default=0)
-
-    cell_bracket = None
-    entries = trace.get(str(spawn_index)) or trace.get(spawn_index)
-    if entries:
-        lo_cell = int(math.floor(lo_x / cs))
-        hi_cell = int(math.floor(hi_x / cs))
-        frs = [e[0] for e in entries if lo_cell <= e[1] <= hi_cell]
-        if frs:
-            cell_bracket = [min(frs), max(frs)]
-    return {
-        "baseline_x": baseline_x,
-        "lo_x": lo_x, "hi_x": hi_x,
-        "width_x": width_x,
-        "width_cells": round(width_x / cs, 3),
-        "intervals": intervals, "gaps": gaps,
-        "gap_check_stride": stride,
-        "saturated_lo": sat_lo, "saturated_hi": sat_hi,
-        "domain": [x_lo_dom, x_hi_dom],
-        "cell_bracket_frames": cell_bracket,
-        "incomplete": incomplete[0],
-        "rollouts": used[0],
-    }
+    ivs = time_window.get("intervals") or []
+    if not entries or not ivs or time_window.get("incomplete"):
+        return None
+    def _in(f):
+        return any(a <= f <= b for a, b in ivs)
+    cxs = [e[1] for e in entries if _in(e[0])]
+    if not cxs:
+        return None
+    lo_c, hi_c = min(cxs), max(cxs)
+    return {"authoritative": False, "source": "time_window+trace (derived, not gate-verified)",
+            "x_lo": lo_c * cs, "x_hi": (hi_c + 1) * cs - 1,
+            "cells": [lo_c, hi_c], "width_cells": hi_c - lo_c + 1}
 
 
 # ============================================================ (D) 오케스트레이션
@@ -634,7 +520,7 @@ def analyze_stage(stage_id: int, args) -> int:
                 "time_window": {"lo": None, "hi": None, "width_frames": 0, "width_s": 0.0,
                                 "intervals": [], "gaps": [], "incomplete": True,
                                 "note": "not_fired_in_baseline"},
-                "pos_window": None, "tier": "unknown", "tier_source": caps["tier_source"],
+                "pos_hint": None, "tier": "unknown", "tier_source": caps["tier_source"],
                 "provisional_flags": [],
             })
             continue
@@ -651,26 +537,26 @@ def analyze_stage(stage_id: int, args) -> int:
             axis = "time+pos" if trig_type == "ant_reaches_x" else "time"
 
         tw = measure_time_window(roll, idx, minimal, sweep_target, f_star, deadline, required, args.cap)
-        pw = None
-        if axis == "time+pos":
-            x_dom = _reachable_x_domain(trace, target["spawn_index"], cs)
-            pw = measure_pos_window(roll, idx, minimal, float(act["trigger"].get("x", 0.0)),
-                                    target["spawn_index"], trace, cs, x_dom, required, args.pos_cap)
+        # 위치 힌트(informational, 비-authoritative·비-게이트) — 시간 윈도우(1급)+baseline trace에서 파생.
+        # ant_reaches_x 단방향 임계 x-스윕은 개미가 위치를 재방문(bouncing)하면 첫 교차서 발화≠baseline 발화라
+        # 모호 → 권위 측정 불가. 대신 "유효 명령 프레임 동안 그 개미가 점유한 x 범위"를 궤적에서 *파생*만 한다.
+        pos_hint = None
+        if kind == "ant":
+            pos_hint = _pos_hint(tw, trace, target["spawn_index"], cs)
         if tw["incomplete"]:
             tier, flags = "unknown", []
         else:
             tier, flags = classify_tier(tw["width_s"], caps)
         per_action.append({
-            "index": idx, "label": label, "skill": skill, "trigger_axis": axis,
+            "index": idx, "label": label, "skill": skill, "trigger_axis": "time",
             "target": target, "baseline_frame": f_star, "sweep_target": sweep_target,
-            "time_window": tw, "pos_window": pw,
+            "time_window": tw, "pos_hint": pos_hint,
             "tier": tier, "tier_source": caps["tier_source"], "provisional_flags": flags,
         })
         wd = "incomplete" if tw["incomplete"] else "%.4fs (%s)" % (tw["width_s"], tier)
         extra = ""
-        if pw is not None:
-            extra = " | pos=[%s,%s] %.2f셀%s" % (pw["lo_x"], pw["hi_x"], pw["width_cells"],
-                                                 " incomplete" if pw["incomplete"] else "")
+        if pos_hint is not None:
+            extra = " | pos_hint=%.1f셀(informational)" % pos_hint["width_cells"]
         print("    [%s] f*=%d 시간윈도우 %s intervals=%s gaps=%s%s" % (
             label, f_star, wd, tw["intervals"], tw["gaps"], extra))
 
@@ -680,10 +566,8 @@ def analyze_stage(stage_id: int, args) -> int:
     stage_flags = []
     if stage_min is not None and stage_min < caps["machine_only_s"]:
         stage_flags.append("provisional_machine_only_flag")
-    # incomplete = 시간 윈도우 OR (측정한) 위치 윈도우 미완(R1-H1 — 보조 측정도 미완을 통과로 위장 금지).
-    any_incomplete = any(
-        p["time_window"]["incomplete"] or (p.get("pos_window") is not None and p["pos_window"].get("incomplete"))
-        for p in per_action)
+    # incomplete = 시간 윈도우 미완(1급 authority). pos_hint는 informational·파생이라 게이트 무관.
+    any_incomplete = any(p["time_window"]["incomplete"] for p in per_action)
 
     analysis = {
         "solution_ref": str(solve_path.relative_to(ROOT)).replace("\\", "/"),
@@ -704,7 +588,7 @@ def analyze_stage(stage_id: int, args) -> int:
         "any_incomplete": any_incomplete,
         "capabilities": caps,
         "sweep_meta": {
-            "time_cap": args.cap, "pos_cap": args.pos_cap, "gap_probe_budget": GAP_PROBE_BUDGET,
+            "time_cap": args.cap, "gap_probe_budget": GAP_PROBE_BUDGET,
             "probe_offsets": PROBE_OFFSETS, "total_rollouts": roll.count,
         },
     }
@@ -758,51 +642,11 @@ def _coverage_check(analysis: dict) -> list[str]:
             elif s != max(1, (hi - lo) // (GAP_PROBE_BUDGET + 1)):
                 fails.append("필수 액션 %s gap_check_stride %d != 기대 %d (누락/과대/변조)" % (
                     p.get("label"), s, max(1, (hi - lo) // (GAP_PROBE_BUDGET + 1))))
-        pw = p.get("pos_window")
-        if pw is not None:
-            if pw.get("incomplete"):                     # R1-H1 — 측정한 위치 윈도우 미완도 fail-closed
-                fails.append("필수 액션 %s pos_window incomplete=true (보조 측정도 미완 위장 금지)" % p.get("label"))
-            else:
-                # pos_window 스키마/파생 정합(R7-H1·R9-H1) — 시간 윈도우와 **동형**: intervals 엔벨로프,
-                # max-interval width, gap_check_stride 정확. 임의 위조·과대주장 pos를 fail-closed로 차단.
-                lx, hx, wx, ps = pw.get("lo_x"), pw.get("hi_x"), pw.get("width_x"), pw.get("gap_check_stride")
-                ivs = pw.get("intervals")
-                if not all(isinstance(v, int) and not isinstance(v, bool) for v in (lx, hx, wx)):
-                    fails.append("필수 액션 %s pos_window lo_x/hi_x/width_x 정수 아님" % p.get("label"))
-                elif not (isinstance(ivs, list) and ivs
-                          and all(isinstance(iv, list) and len(iv) == 2 for iv in ivs)):
-                    fails.append("필수 액션 %s pos_window intervals 스키마 부정" % p.get("label"))
-                else:
-                    if lx != ivs[0][0] or hx != ivs[-1][1]:
-                        fails.append("필수 액션 %s pos_window lo_x/hi_x가 intervals 엔벨로프와 불일치" % p.get("label"))
-                    if lx > hx:
-                        fails.append("필수 액션 %s pos_window lo_x>hi_x" % p.get("label"))
-                    if wx != max(b - a for a, b in ivs):
-                        fails.append("필수 액션 %s pos_window width_x %d != max-interval %d" % (
-                            p.get("label"), wx, max(b - a for a, b in ivs)))
-                    if isinstance(ps, bool) or not isinstance(ps, int) or ps < 1 \
-                            or ps != max(1, (hx - lx) // (GAP_PROBE_BUDGET + 1)):
-                        fails.append("필수 액션 %s pos_window gap_check_stride %r != 기대 %d" % (
-                            p.get("label"), ps, max(1, (hx - lx) // (GAP_PROBE_BUDGET + 1))))
-                    cs = analysis.get("cell_size")
-                    if not isinstance(cs, int) or cs <= 0:
-                        fails.append("cell_size 없음/부정 — pos width_cells 검증 불가")
-                    elif abs(float(pw.get("width_cells", -1)) - round(wx / cs, 3)) > 1e-9:
-                        fails.append("필수 액션 %s pos_window width_cells %s != 재계산 %.3f" % (
-                            p.get("label"), pw.get("width_cells"), round(wx / cs, 3)))
-                    # domain + 포화 플래그 정합(R8-H1) — saturated_lo/hi는 lo_x/hi_x가 도달 도메인 끝일 때만
-                    # 정당(밖=fail 검사 스킵의 근거). 위조 포화로 경계 검사 우회 차단.
-                    dom = pw.get("domain")
-                    if not (isinstance(dom, list) and len(dom) == 2
-                            and all(isinstance(v, int) and not isinstance(v, bool) for v in dom)):
-                        fails.append("필수 액션 %s pos_window domain 스키마 부정" % p.get("label"))
-                    else:
-                        if not (dom[0] <= lx <= hx <= dom[1]):
-                            fails.append("필수 액션 %s pos_window lo_x/hi_x가 domain 밖" % p.get("label"))
-                        if pw.get("saturated_lo") and lx != dom[0]:
-                            fails.append("필수 액션 %s saturated_lo인데 lo_x != domain[0]" % p.get("label"))
-                        if pw.get("saturated_hi") and hx != dom[1]:
-                            fails.append("필수 액션 %s saturated_hi인데 hi_x != domain[1]" % p.get("label"))
+        # pos_hint는 informational·파생(시간 윈도우+trace) — 권위 주장이 아니므로 게이트 검증 대상 아님.
+        # 존재 시 비-authoritative 마킹만 가볍게 확인(authoritative=true로 위장해 권위인 척 못 하게).
+        ph = p.get("pos_hint")
+        if isinstance(ph, dict) and ph.get("authoritative") is not False:
+            fails.append("필수 액션 %s pos_hint.authoritative가 false 아님(파생 힌트는 비-권위)" % p.get("label"))
     missing = set(range(len(minimal))) - seen
     if missing:
         fails.append("per_action 누락 index %s" % sorted(missing))
@@ -895,9 +739,7 @@ def _derived_consistency_fails(analysis: dict, caps: dict) -> list[str]:
             fails.append("stage_min_window_s %s != 재계산 None" % got_min)
     elif got_min is None or abs(float(got_min) - exp_min) > EPS:
         fails.append("stage_min_window_s %s != 재계산 %.4f" % (got_min, exp_min))
-    exp_any = any(p["time_window"].get("incomplete") or
-                  (p.get("pos_window") is not None and p["pos_window"].get("incomplete"))
-                  for p in analysis.get("per_action", []))
+    exp_any = any(p["time_window"].get("incomplete") for p in analysis.get("per_action", []))
     if bool(analysis.get("any_incomplete")) != bool(exp_any):
         fails.append("any_incomplete %s != 재계산 %s" % (analysis.get("any_incomplete"), exp_any))
     return fails
@@ -918,25 +760,9 @@ def _selfcheck_gate() -> bool:
                  "time_window": {"incomplete": False, "intervals": [[30, 40]], "lo": 30, "hi": 40, "gap_check_stride": 1}},
             ],
         }
-    def good_pos() -> dict:
-        a = good(); a["cell_size"] = 48
-        a["per_action"][0]["pos_window"] = {"incomplete": False, "lo_x": 100, "hi_x": 196,
-            "width_x": 96, "width_cells": round(96 / 48, 3), "intervals": [[100, 196]], "gaps": [],
-            "gap_check_stride": max(1, (196 - 100) // (GAP_PROBE_BUDGET + 1)),
-            "domain": [50, 300], "saturated_lo": False, "saturated_hi": False}
-        return a
     cov_cases: list[tuple] = [(good(), False)]   # (analysis, should_reject) — _coverage_check 대상
-    cov_cases.append((good_pos(), False))                                            # 정합 pos → 통과
-    a = good_pos(); a["per_action"][0]["pos_window"]["width_x"] = 999; cov_cases.append((a, True))   # pos width_x 변조
-    a = good_pos(); a["per_action"][0]["pos_window"]["width_cells"] = 9.9; cov_cases.append((a, True))  # pos width_cells 변조
-    a = good_pos(); a["per_action"][0]["pos_window"]["intervals"] = [[0, 9]]; cov_cases.append((a, True))  # pos intervals 변조
-    a = good_pos(); a["per_action"][0]["pos_window"]["lo_x"] = 300; cov_cases.append((a, True))      # lo_x>hi_x
-    a = good_pos(); del a["per_action"][0]["pos_window"]["domain"]; cov_cases.append((a, True))      # domain 누락(R8)
-    a = good_pos(); a["per_action"][0]["pos_window"]["domain"] = [150, 300]; cov_cases.append((a, True))  # lo_x<domain[0]
-    a = good_pos(); a["per_action"][0]["pos_window"]["saturated_lo"] = True; cov_cases.append((a, True))  # 위조 포화(lo_x!=dom[0])
-    a = good_pos(); pw = a["per_action"][0]["pos_window"]; pw["saturated_lo"] = True; pw["lo_x"] = 50; pw["width_x"] = 146; pw["width_cells"] = round(146 / 48, 3); pw["intervals"] = [[50, 196]]; pw["gap_check_stride"] = max(1, (196 - 50) // (GAP_PROBE_BUDGET + 1)); cov_cases.append((a, False))  # 정당 포화(lo_x==dom[0])
-    a = good_pos(); a["per_action"][0]["pos_window"]["gap_check_stride"] = 999; cov_cases.append((a, True))  # pos gap_check_stride 과대(R9)
-    a = good_pos(); pw = a["per_action"][0]["pos_window"]; pw["intervals"] = [[100, 140], [160, 196]]; pw["gaps"] = [[141, 159]]; pw["width_x"] = 40; pw["width_cells"] = round(40 / 48, 3); cov_cases.append((a, False))  # gap 있는 정합 pos → 통과
+    a = good(); a["per_action"][0]["pos_hint"] = {"authoritative": False, "width_cells": 4}; cov_cases.append((a, False))  # 비-권위 pos_hint → 통과
+    a = good(); a["per_action"][0]["pos_hint"] = {"authoritative": True}; cov_cases.append((a, True))  # pos_hint 권위 위장 → 거부
     a = good(); a["per_action"].pop(); cov_cases.append((a, True))                       # count mismatch / 누락
     a = good(); a["per_action"][1]["index"] = 0; cov_cases.append((a, True))             # duplicate index
     a = good(); a["per_action"][1]["index"] = 9; cov_cases.append((a, True))             # out of range
@@ -946,7 +772,6 @@ def _selfcheck_gate() -> bool:
     a = good(); del a["per_action"][0]["time_window"]["gap_check_stride"]; cov_cases.append((a, True))  # stride 누락(R2-H2)
     a = good(); a["per_action"][0]["time_window"]["gap_check_stride"] = 999; cov_cases.append((a, True))  # stride 과대(무력화)
     a = good(); a["per_action"][0]["time_window"]["gap_check_stride"] = 0; cov_cases.append((a, True))    # stride 비양수
-    a = good(); a["per_action"][0]["pos_window"] = {"incomplete": True}; cov_cases.append((a, True))  # pos 미완(R1-H1)
     a = good(); del a["minimal_kind"]; cov_cases.append((a, True))                        # minimal_kind 누락(R5-H1)
     a = good(); a["minimal_kind"] = "cardinality-minimal"; cov_cases.append((a, True))    # cardinality 증명 메타 부재
     a = good(); a["minimal_kind"] = "cardinality-minimal"; a["cardinality_meta"] = {"cardinality": 2}; cov_cases.append((a, False))  # 메타 일치 → 통과
@@ -1095,26 +920,7 @@ def verify_one(stage_id: int, workers: int) -> bool:
             gmid = (glo + ghi) // 2
             checks.append(("a%d gap[%d,%d] 내부=fail" % (idx, glo, ghi),
                            sweep_time_plan(minimal, idx, st, gmid), False))
-        # 위치 윈도우 리플레이(R7·R8·R9) — 시간 윈도우와 동형: 각 interval 경계(a,b)+내부 mid/stride=clear,
-        # 비-포화 엔벨로프 밖=fail, 각 gap 내부=fail. 포화 경계는 도달 끝이라 밖 검사 스킵.
-        pw = p.get("pos_window")
-        if pw is not None and not pw.get("incomplete"):
-            p_ivs = pw["intervals"]
-            pstride = int(pw["gap_check_stride"])
-            env_lo, env_hi = int(p_ivs[0][0]), int(p_ivs[-1][1])
-            for a, b in p_ivs:
-                for x in sorted({a, b, (a + b) // 2} | set(_stride_points(a, b, pstride))):
-                    checks.append(("a%d pos[%d,%d] %d=clear" % (idx, a, b, x),
-                                   sweep_pos_plan(minimal, idx, x), True))
-            if not pw.get("saturated_lo"):
-                checks.append(("a%d pos %d(下) 밖=fail" % (idx, env_lo - 1),
-                               sweep_pos_plan(minimal, idx, env_lo - 1), False))
-            if not pw.get("saturated_hi"):
-                checks.append(("a%d pos %d(上) 밖=fail" % (idx, env_hi + 1),
-                               sweep_pos_plan(minimal, idx, env_hi + 1), False))
-            for ga, gb in pw.get("gaps", []):
-                checks.append(("a%d pos gap[%d,%d] 내부=fail" % (idx, ga, gb),
-                               sweep_pos_plan(minimal, idx, (ga + gb) // 2), False))
+        # pos_hint는 informational·파생(시간 윈도우+trace) — verify가 재검증/리플레이하지 않는다(권위 아님).
 
     plans = [c[1] for c in checks]
     results = roll.batch_results(plans)      # tri-state — error/verdict-부재를 분리(R6-H1)
@@ -1216,7 +1022,6 @@ def main() -> int:
     ap.add_argument("--allow-incomplete", action="store_true", help="(탐색용) incomplete 측정도 verify 통과 허용")
     ap.add_argument("--workers", type=int, default=4, help="병렬 롤아웃 수(기본 4)")
     ap.add_argument("--cap", type=int, default=TIME_CAP, help="시간 윈도우 액션당 롤아웃 상한")
-    ap.add_argument("--pos-cap", type=int, default=POS_CAP, help="위치 윈도우 액션당 롤아웃 상한")
     ap.add_argument("--labels", type=str, default="", help='난이도 순위 pre-register "11,13,12,14"(쉬움→어려움)')
     args = ap.parse_args()
 

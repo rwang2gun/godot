@@ -34,7 +34,7 @@
       "index": 0,
       "label": "blocker#0",
       "skill": "blocker",
-      "trigger_axis": "time+pos",
+      "trigger_axis": "time",
       "target": {
         "kind": "ant",
         "spawn_index": 0,
@@ -70,32 +70,16 @@
         ],
         "rollouts": 37
       },
-      "pos_window": {
-        "baseline_x": 1032.0,
-        "lo_x": 859,
-        "hi_x": 1055,
-        "width_x": 196,
-        "width_cells": 4.083,
-        "intervals": [
-          [
-            859,
-            1055
-          ]
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 864,
+        "x_hi": 1055,
+        "cells": [
+          18,
+          21
         ],
-        "gaps": [],
-        "gap_check_stride": 21,
-        "saturated_lo": false,
-        "saturated_hi": true,
-        "domain": [
-          288,
-          1055
-        ],
-        "cell_bracket_frames": [
-          424,
-          565
-        ],
-        "incomplete": false,
-        "rollouts": 27
+        "width_cells": 4
       },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
@@ -113,7 +97,6 @@
   },
   "sweep_meta": {
     "time_cap": 80,
-    "pos_cap": 60,
     "gap_probe_budget": 8,
     "probe_offsets": [
       16,
@@ -125,6 +108,6 @@
       1024,
       2048
     ],
-    "total_rollouts": 67
+    "total_rollouts": 40
   }
 }
