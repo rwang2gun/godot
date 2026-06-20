@@ -167,3 +167,13 @@ R3 수정 확인. 신규 1건:
 - 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 5 결론: HIGH 0 → clean. codex 재리뷰 진행.**
+
+### 선제 강화 (R1~R4 패턴 = "verify가 변조 가능 analysis 필드를 신뢰" 클래스 전면 차단)
+
+codex R1~R4가 모두 "verify가 analysis.json의 어떤 필드를 무검증 신뢰"하는 fail-closed 누수였다(pos
+incomplete / gap_check_stride / solution 바인딩 / 파일명-해 바인딩). 같은 클래스의 마지막 표면 = **파생
+필드**(width_frames/width_s/tier/provisional_flags/stage_min_window_s/any_incomplete)를 verify가 무검증
+신뢰. → 선제로 `_derived_consistency_fails` 추가: 검증된 intervals + **권위 caps**(capabilities.tres 재로드,
+저장 caps와 일치 강제)에서 전부 재계산해 대조. 난이도 주장 변조를 fail-closed. prove-it: tier를
+machine_only로 변조 → "derived-field FAIL: tier machine_only != 재계산 comfortable", 복원 PASS. selfcheck
+6 케이스(일치 통과 / width_frames·width_s·tier·stage_min·any_incomplete 변조 거부). 순수 산술 → 재측정 불요.

@@ -787,6 +787,46 @@ def _solution_binding_fails(analysis: dict, expected_ref: str, solve_present: bo
     return fails
 
 
+def _derived_consistency_fails(analysis: dict, caps: dict) -> list[str]:
+    """파생 필드 재계산 정합(verify가 저장값을 신뢰하지 않고 검증된 intervals + 권위 caps에서 다시 계산해
+    대조). width_frames/width_s/tier/provisional_flags(액션) + stage_min_window_s + any_incomplete. 난이도
+    주장(width/tier/stage_min) 변조를 fail-closed로 차단. caps는 verify_one이 capabilities.tres에서 권위
+    로드해 주입(저장 caps 변조도 무력). 순수 함수."""
+    fails: list[str] = []
+    EPS = 1e-9
+    complete_ws: list[float] = []
+    for p in analysis.get("per_action", []):
+        lbl = p.get("label")
+        tw = p.get("time_window", {})
+        if tw.get("incomplete") or not tw.get("intervals"):
+            continue
+        exp_wf = max(b - a + 1 for a, b in tw["intervals"])
+        if tw.get("width_frames") != exp_wf:
+            fails.append("%s width_frames %s != 재계산 %d" % (lbl, tw.get("width_frames"), exp_wf))
+        exp_ws = round(exp_wf / PHYS_FPS, 4)
+        if abs(float(tw.get("width_s", -1)) - exp_ws) > EPS:
+            fails.append("%s width_s %s != 재계산 %.4f" % (lbl, tw.get("width_s"), exp_ws))
+        exp_tier, exp_flags = classify_tier(exp_ws, caps)
+        if p.get("tier") != exp_tier:
+            fails.append("%s tier %s != 재계산 %s" % (lbl, p.get("tier"), exp_tier))
+        if sorted(p.get("provisional_flags", []) or []) != sorted(exp_flags):
+            fails.append("%s provisional_flags %s != 재계산 %s" % (lbl, p.get("provisional_flags"), exp_flags))
+        complete_ws.append(exp_ws)
+    exp_min = min(complete_ws) if complete_ws else None
+    got_min = analysis.get("stage_min_window_s")
+    if exp_min is None:
+        if got_min is not None:
+            fails.append("stage_min_window_s %s != 재계산 None" % got_min)
+    elif got_min is None or abs(float(got_min) - exp_min) > EPS:
+        fails.append("stage_min_window_s %s != 재계산 %.4f" % (got_min, exp_min))
+    exp_any = any(p["time_window"].get("incomplete") or
+                  (p.get("pos_window") is not None and p["pos_window"].get("incomplete"))
+                  for p in analysis.get("per_action", []))
+    if bool(analysis.get("any_incomplete")) != bool(exp_any):
+        fails.append("any_incomplete %s != 재계산 %s" % (analysis.get("any_incomplete"), exp_any))
+    return fails
+
+
 def _selfcheck_gate() -> bool:
     """게이트 검출기(`_coverage_check` + `_solution_binding_fails`)의 음성/양성 자가검증 — fail-open 회귀
     방지(solve.py `_selfcheck_schema` 선례). 검출기가 약해지면 verify 자체가 먼저 FAIL한다.
@@ -838,6 +878,29 @@ def _selfcheck_gate() -> bool:
         if bool(_solution_binding_fails(analysis, exp, present, sv, sha)) != should_reject:
             print("[verify] GATE SELFCHECK FAIL (binding): should_reject=%s" % should_reject)
             return False
+
+    # derived-consistency 검출기 자가검증 — 검증된 intervals에서 재계산한 width/tier/stage_min/any_incomplete
+    # 대조. caps = 기본 티어값(comfortable=0.30 등). width_s=11/60=0.1833 → hard. stage_min=0.1833.
+    dcaps = {"comfortable_s": 0.30, "hard_s": 0.15, "machine_only_s": 0.10}
+    def dgood() -> dict:
+        return {
+            "per_action": [{"index": 0, "label": "b#0", "time_window": {
+                "incomplete": False, "intervals": [[10, 20]], "width_frames": 11, "width_s": 0.1833},
+                "tier": "hard", "provisional_flags": []}],
+            "stage_min_window_s": 0.1833, "any_incomplete": False,
+        }
+    d_cases = [
+        (dgood(), False),                                                          # 일치 → 통과
+    ]
+    d = dgood(); d["per_action"][0]["time_window"]["width_frames"] = 99; d_cases.append((d, True))   # width_frames 변조
+    d = dgood(); d["per_action"][0]["time_window"]["width_s"] = 9.9; d_cases.append((d, True))       # width_s 변조
+    d = dgood(); d["per_action"][0]["tier"] = "comfortable"; d_cases.append((d, True))               # tier 변조
+    d = dgood(); d["stage_min_window_s"] = 9.9; d_cases.append((d, True))                            # stage_min 변조
+    d = dgood(); d["any_incomplete"] = True; d_cases.append((d, True))                               # any_incomplete 변조
+    for analysis, should_reject in d_cases:
+        if bool(_derived_consistency_fails(analysis, dcaps)) != should_reject:
+            print("[verify] GATE SELFCHECK FAIL (derived): should_reject=%s" % should_reject)
+            return False
     return True
 
 
@@ -871,6 +934,22 @@ def verify_one(stage_id: int, workers: int) -> bool:
         print("[verify] stage%02d: solution-binding FAIL" % stage_id)
         for b in bind:
             print("    - %s" % b)
+        return False
+
+    # 파생 필드 정합 — width/tier/stage_min/any_incomplete를 검증된 intervals + **권위 caps**(capabilities.tres
+    # 재로드)에서 다시 계산해 대조. 저장 caps(analysis.capabilities)도 권위와 일치해야(난이도 기준 변조 차단).
+    caps_auth = load_caps()
+    a_caps = analysis.get("capabilities", {})
+    for k in ("comfortable_s", "hard_s", "machine_only_s"):
+        if float(a_caps.get(k, -1)) != float(caps_auth[k]):
+            print("[verify] stage%02d: capabilities FAIL — %s %s != tres %s" % (
+                stage_id, k, a_caps.get(k), caps_auth[k]))
+            return False
+    deriv = _derived_consistency_fails(analysis, caps_auth)
+    if deriv:
+        print("[verify] stage%02d: derived-field FAIL" % stage_id)
+        for d in deriv:
+            print("    - %s" % d)
         return False
 
     # 재검증 체크 묶음 — (설명, plan, 기대 클리어). 1-minimal 자체 + 액션별 interval/gap 경계 + interval
