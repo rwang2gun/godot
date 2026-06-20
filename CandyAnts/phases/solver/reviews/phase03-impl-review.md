@@ -177,3 +177,30 @@ incomplete / gap_check_stride / solution 바인딩 / 파일명-해 바인딩). �
 저장 caps와 일치 강제)에서 전부 재계산해 대조. 난이도 주장 변조를 fail-closed. prove-it: tier를
 machine_only로 변조 → "derived-field FAIL: tier machine_only != 재계산 comfortable", 복원 PASS. selfcheck
 6 케이스(일치 통과 / width_frames·width_s·tier·stage_min·any_incomplete 변조 거부). 순수 산술 → 재측정 불요.
+
+---
+
+## Round 5 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1 (신규)
+
+R4 + 파생 정합 확인. 신규 1건:
+- **[HIGH-1] verify가 1-minimal임을 증명 안 함**. binding은 minimal_plan 각 액션이 solve actions에 있는지만,
+  replay는 minimal_plan이 clear됨만 증명 → **deletion 트라이얼 부재**. stale/buggy/변조 analysis가 잉여 액션을
+  품은 비최소 플랜을 "전부 필수"로 통과시킴(최소-스킬 proxy·난이도 오염, 잉여가 더 빡빡한 윈도우면 특히).
+
+## 수정 (R5 HIGH-1)
+
+- verify_one에 **deletion 트라이얼** — 각 액션 제거 시 깨져야(non-clear) 강제. + `_coverage_check`에
+  `minimal_kind` 가드(1-minimal 또는 cardinality-minimal+증명메타(cardinality==len)만 허용). selfcheck
+  minimal_kind 케이스 추가.
+
+## Self-Review Round 6 (수정 후 자체 적대, clean)
+
+- **prove-it**: stage11 분석에 잉여 blocker 중복 주입(per_action도 복제해 다른 검사 통과) → verify가
+  "1-minimal: a0/a1 제거 → 깨져야 (got cleared=True)"로 FAIL, 복원 후 4스테이지 PASS(236체크 = +18 deletion
+  트라이얼). S11~S14가 실제 1-minimal임 deletion으로 확증. ✓.
+- 회귀: 측정·엔진·스키마 무변경(재측정 불요). ✓.
+- **R1~R5 종합**: verify가 신뢰하던 모든 analysis 필드(pos incomplete/gap stride/solution 바인딩/파일명-해/
+  파생/minimality)를 권위 출처(solve.json·capabilities.tres·엔진 deletion 리플레이)에서 재검증·재계산 →
+  "변조 가능 필드 무검증 신뢰" 클래스 전면 차단. 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 6 결론: HIGH 0 → clean. codex 재리뷰 진행.**

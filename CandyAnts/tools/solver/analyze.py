@@ -752,6 +752,14 @@ def _coverage_check(analysis: dict) -> list[str]:
     missing = set(range(len(minimal))) - seen
     if missing:
         fails.append("per_action 누락 index %s" % sorted(missing))
+    # minimal_kind 가드 — 1-minimal(기본) 또는 cardinality-minimal(증명 메타 동반)만 허용(R5-H1).
+    mk = analysis.get("minimal_kind")
+    if mk == "cardinality-minimal":
+        cm = analysis.get("cardinality_meta")
+        if not isinstance(cm, dict) or cm.get("cardinality") != len(minimal):
+            fails.append("minimal_kind=cardinality-minimal인데 증명 메타 부재/불일치(cardinality!=%d)" % len(minimal))
+    elif mk != "1-minimal":
+        fails.append("minimal_kind 미상 (%r)" % mk)
     return fails
 
 
@@ -833,6 +841,7 @@ def _selfcheck_gate() -> bool:
     `good()`의 time_window stride=1 = (20-10)//9 / (40-30)//9 기대값과 일치."""
     def good() -> dict:
         return {
+            "minimal_kind": "1-minimal",
             "minimal_plan": [{"skill": "blocker"}, {"skill": "climber"}],
             "per_action": [
                 {"index": 0, "label": "blocker#0", "sweep_target": {},
@@ -853,6 +862,9 @@ def _selfcheck_gate() -> bool:
     a = good(); a["per_action"][0]["time_window"]["gap_check_stride"] = 999; cov_cases.append((a, True))  # stride 과대(무력화)
     a = good(); a["per_action"][0]["time_window"]["gap_check_stride"] = 0; cov_cases.append((a, True))    # stride 비양수
     a = good(); a["per_action"][0]["pos_window"] = {"incomplete": True}; cov_cases.append((a, True))  # pos 미완(R1-H1)
+    a = good(); del a["minimal_kind"]; cov_cases.append((a, True))                        # minimal_kind 누락(R5-H1)
+    a = good(); a["minimal_kind"] = "cardinality-minimal"; cov_cases.append((a, True))    # cardinality 증명 메타 부재
+    a = good(); a["minimal_kind"] = "cardinality-minimal"; a["cardinality_meta"] = {"cardinality": 2}; cov_cases.append((a, False))  # 메타 일치 → 통과
     for analysis, should_reject in cov_cases:
         if bool(_coverage_check(analysis)) != should_reject:
             print("[verify] GATE SELFCHECK FAIL (coverage): should_reject=%s" % should_reject)
@@ -956,6 +968,11 @@ def verify_one(stage_id: int, workers: int) -> bool:
     # 내부를 **gap_check_stride로 dense 재스캔**(측정 해상도에서 sampled-clear 강제 = 숨은 gap·analysis 변조
     # 차단, R1-H2). stride가 클(넓은 interval)수록 적은 점이지만 측정과 동일 해상도라 정직.
     checks: list[tuple] = [("1-minimal self-clear", minimal, True)]
+    # 1-minimality 강제(R5-H1) — 각 액션 제거 시 **깨져야**(non-clear). 단순 clear만으론 잉여 액션을 품은
+    # 비최소 플랜이 통과해 최소-스킬 proxy·난이도를 오염시킨다(잉여가 더 빡빡한 윈도우면 특히). deletion 트라이얼.
+    for j in range(len(minimal)):
+        trial = [minimal[k] for k in range(len(minimal)) if k != j]
+        checks.append(("1-minimal: a%d(%s) 제거 → 깨져야" % (j, str(minimal[j].get("skill", "?"))), trial, False))
     for p in analysis["per_action"]:
         idx = p["index"]
         st = p["sweep_target"]
