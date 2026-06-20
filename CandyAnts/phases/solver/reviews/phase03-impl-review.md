@@ -231,3 +231,28 @@ R5 + R1~R5 종합 확인. 신규 1건:
 - 회귀: 엔진·스키마 무변경(재측정 불요). ✓. 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 7 결론: HIGH 0 → clean. codex 재리뷰 진행.**
+
+---
+
+## Round 7 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1 (신규)
+
+R6 + 누적 확인. 신규 1건:
+- **[HIGH-1] verify가 완료 pos_window를 무검증 수용**. `_coverage_check`은 pos를 incomplete=true일 때만 거부,
+  replay 루프는 시간 interval/gap만 sweep. 위조 pos(incomplete=false + 가짜 lo_x/hi_x/width/intervals)가 시간
+  검사만 통과하면 verify 통과 → 보조 공간 측정의 silent-pass.
+
+## 수정 (R7 HIGH-1)
+
+- analyze가 `cell_size` 저장(width_cells 재계산용). `_coverage_check`이 완료 pos의 스키마/파생 정합 강제
+  (lo_x≤hi_x, width_x==hi-lo, intervals==[[lo,hi]], gaps==[], width_cells==round(width_x/cs,3)). verify_one이
+  pos를 **리플레이**: 내부(mid)=clear + **비-포화 경계**(lo_x-1/hi_x+1)=fail(포화 경계는 도달 밖이라 스킵).
+  `_selfcheck_gate`에 pos 스키마 변조 5케이스. cell_size 추가 → S11~S14 재측정.
+
+## Self-Review Round 8 (수정 후 자체 적대, clean)
+
+- 단위: selfcheck pos 정합 통과 + width_x/width_cells/intervals/lo>hi 변조 거부. ✓.
+- pos 리플레이 포화 처리: S12 blocker#1(saturated_lo)·blocker#2(saturated_hi) 경계는 스킵, 내부만 검증 —
+  도달 범위 끝까지 클리어가 정당하므로 "밖" 단언 ill-defined 회피. 비-포화 경계만 fail 단언. ✓(재측정 후 실증).
+- 회귀: cell_size 필드 추가(값 불변), 재측정 필요. ✓.
+
+**Self-Review Round 8 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**

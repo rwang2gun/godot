@@ -685,6 +685,7 @@ def analyze_stage(stage_id: int, args) -> int:
         "deadline_frames": deadline,
         "required_saved": required,
         "physics_fps": PHYS_FPS,
+        "cell_size": cs,        # 위치 윈도우 width_cells 재계산 검증용(verify가 권위로 사용).
         "minimal_kind": minimal_kind,
         "minimal_plan": minimal,
         "redundant": redundant,
@@ -750,8 +751,30 @@ def _coverage_check(analysis: dict) -> list[str]:
                 fails.append("필수 액션 %s gap_check_stride %d != 기대 %d (누락/과대/변조)" % (
                     p.get("label"), s, max(1, (hi - lo) // (GAP_PROBE_BUDGET + 1))))
         pw = p.get("pos_window")
-        if pw is not None and pw.get("incomplete"):     # R1-H1 — 측정한 위치 윈도우 미완도 fail-closed
-            fails.append("필수 액션 %s pos_window incomplete=true (보조 측정도 미완 위장 금지)" % p.get("label"))
+        if pw is not None:
+            if pw.get("incomplete"):                     # R1-H1 — 측정한 위치 윈도우 미완도 fail-closed
+                fails.append("필수 액션 %s pos_window incomplete=true (보조 측정도 미완 위장 금지)" % p.get("label"))
+            else:
+                # pos_window 스키마/파생 정합(R7-H1) — 완료 pos는 lo_x/hi_x/width/intervals 내부 일관 +
+                # width_cells 재계산. 임의 위조 pos가 무검증 통과(silent-pass)하던 보조 차원 차단.
+                lx, hx, wx = pw.get("lo_x"), pw.get("hi_x"), pw.get("width_x")
+                if not all(isinstance(v, int) and not isinstance(v, bool) for v in (lx, hx, wx)):
+                    fails.append("필수 액션 %s pos_window lo_x/hi_x/width_x 정수 아님" % p.get("label"))
+                else:
+                    if lx > hx:
+                        fails.append("필수 액션 %s pos_window lo_x>hi_x" % p.get("label"))
+                    if wx != hx - lx:
+                        fails.append("필수 액션 %s pos_window width_x %d != hi-lo %d" % (p.get("label"), wx, hx - lx))
+                    if pw.get("intervals") != [[lx, hx]]:
+                        fails.append("필수 액션 %s pos_window intervals != [[lo_x,hi_x]]" % p.get("label"))
+                    if pw.get("gaps") not in ([], None):
+                        fails.append("필수 액션 %s pos_window gaps 비어있지 않음(보조는 gap 미검출)" % p.get("label"))
+                    cs = analysis.get("cell_size")
+                    if not isinstance(cs, int) or cs <= 0:
+                        fails.append("cell_size 없음/부정 — pos width_cells 검증 불가")
+                    elif abs(float(pw.get("width_cells", -1)) - round(wx / cs, 3)) > 1e-9:
+                        fails.append("필수 액션 %s pos_window width_cells %s != 재계산 %.3f" % (
+                            p.get("label"), pw.get("width_cells"), round(wx / cs, 3)))
     missing = set(range(len(minimal))) - seen
     if missing:
         fails.append("per_action 누락 index %s" % sorted(missing))
@@ -867,8 +890,17 @@ def _selfcheck_gate() -> bool:
                  "time_window": {"incomplete": False, "intervals": [[30, 40]], "lo": 30, "hi": 40, "gap_check_stride": 1}},
             ],
         }
+    def good_pos() -> dict:
+        a = good(); a["cell_size"] = 48
+        a["per_action"][0]["pos_window"] = {"incomplete": False, "lo_x": 100, "hi_x": 196,
+            "width_x": 96, "width_cells": round(96 / 48, 3), "intervals": [[100, 196]], "gaps": []}
+        return a
     cov_cases: list[tuple] = [(good(), False)]   # (analysis, should_reject) — _coverage_check 대상
-    a = good(); a["per_action"][0]["pos_window"] = {"incomplete": False}; cov_cases.append((a, False))  # 양성
+    cov_cases.append((good_pos(), False))                                            # 정합 pos → 통과
+    a = good_pos(); a["per_action"][0]["pos_window"]["width_x"] = 999; cov_cases.append((a, True))   # pos width_x 변조
+    a = good_pos(); a["per_action"][0]["pos_window"]["width_cells"] = 9.9; cov_cases.append((a, True))  # pos width_cells 변조
+    a = good_pos(); a["per_action"][0]["pos_window"]["intervals"] = [[0, 9]]; cov_cases.append((a, True))  # pos intervals 변조
+    a = good_pos(); a["per_action"][0]["pos_window"]["lo_x"] = 300; cov_cases.append((a, True))      # lo_x>hi_x
     a = good(); a["per_action"].pop(); cov_cases.append((a, True))                       # count mismatch / 누락
     a = good(); a["per_action"][1]["index"] = 0; cov_cases.append((a, True))             # duplicate index
     a = good(); a["per_action"][1]["index"] = 9; cov_cases.append((a, True))             # out of range
@@ -1025,6 +1057,19 @@ def verify_one(stage_id: int, workers: int) -> bool:
             gmid = (glo + ghi) // 2
             checks.append(("a%d gap[%d,%d] 내부=fail" % (idx, glo, ghi),
                            sweep_time_plan(minimal, idx, st, gmid), False))
+        # 위치 윈도우 리플레이(R7-H1) — 보조 차원도 권위 재검증. 내부=clear + 비-포화 경계=fail
+        # (포화 경계 = 도달 범위 끝까지 클리어 = 정당, "밖"이 도달 밖이라 ill-defined → 스킵).
+        pw = p.get("pos_window")
+        if pw is not None and not pw.get("incomplete"):
+            lx, hx = int(pw["lo_x"]), int(pw["hi_x"])
+            checks.append(("a%d pos[%d,%d] 내부=clear" % (idx, lx, hx),
+                           sweep_pos_plan(minimal, idx, (lx + hx) // 2), True))
+            if not pw.get("saturated_lo"):
+                checks.append(("a%d pos %d(下) 밖=fail" % (idx, lx - 1),
+                               sweep_pos_plan(minimal, idx, lx - 1), False))
+            if not pw.get("saturated_hi"):
+                checks.append(("a%d pos %d(上) 밖=fail" % (idx, hx + 1),
+                               sweep_pos_plan(minimal, idx, hx + 1), False))
 
     plans = [c[1] for c in checks]
     results = roll.batch_results(plans)      # tri-state — error/verdict-부재를 분리(R6-H1)

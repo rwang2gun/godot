@@ -5,6 +5,7 @@
   "deadline_frames": 7500,
   "required_saved": 5,
   "physics_fps": 60,
+  "cell_size": 48,
   "minimal_kind": "1-minimal",
   "minimal_plan": [
     {
