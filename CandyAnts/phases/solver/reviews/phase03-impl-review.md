@@ -444,3 +444,26 @@ R12 확인. **첫 비-HIGH**(MEDIUM):
 - 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 15 결론: HIGH 0 → clean. codex 재리뷰 진행.**
+
+---
+
+## Round 14 (codex adversarial-review, --base f3f0a10) — **approve** ✅ (impl-stage 종결)
+
+> Ship: I could not support a residual CRITICAL/HIGH silent-pass, fail-open leak, or new regression in the
+> Phase 3a analyzer gate from the diff against f3f0a10. **No material findings.**
+
+**impl-stage 적대 리뷰 종결**: R1~R6 HIGH(verify가 신뢰하던 모든 필드 권위 재검증) → R7~R10 HIGH(pos 차원,
+결국 informational 격하로 종결) → R11 HIGH(schema 버전 가드) → R12 HIGH(gap sampled 정직표기) → R13 MEDIUM
+(disclosure note) → **R14 approve**. 매 라운드 사이 자체 적대 리뷰 clean. 총 14 codex 라운드 + 15 자체 라운드.
+
+### 최종 권위 게이트 (analyze.py --verify) 구성
+시간 윈도우(at_frame_exact, baseline 개미 spawn_index 고정) 경계(lo/hi)·내부·밖·gap dense 리플레이 +
+sampled 정직표기(gap_verified/gap_coverage/note 강제, 과대주장 0) + 최소화(deletion 트라이얼 + minimal_kind
+가드) + solution sha256·파일명 정규경로 바인딩(stale/orphan/위장 거부) + 파생 필드 재계산(width/tier/stage_min)
++ tri-state verdict(infra 실패 fail-closed) + analysis_schema_version(의미변경 stale 차단) + gate self-check
+(검출기 자가검증). pos는 informational `pos_hint`(시간윈도우+trace 파생, authoritative:false, verify 비대상).
+
+### 디버그 교훈 (R10)
+①cp949 콘솔 UnicodeEncodeError가 `--all`을 중간 크래시시켜 뒤 스테이지 stale(여러 재측정이 안 고쳐진 원인)
+→ UTF-8 stdout 강제. ②pos x-임계 스윕은 bouncing 개미(위치 재방문)에 근본 모호 → 권위 측정 불가 → 파생
+informational로 격하가 정답(plan "pos=보조" 정합).

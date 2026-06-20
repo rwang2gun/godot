@@ -274,19 +274,31 @@ expect가 verdict-only 통과") → fail-closed 수정(EXPECTED_SOLVE_STAGES 누
 - **단위 검증**: prove_cardinality 양/음 분기 + classify_tier 경계 + _reconstruct_runs(연속·gap 분리) +
   gate self-check 모킹 통과.
 
-### 적대 리뷰 (impl stage, 트레일 `reviews/phase03-impl-review.md`)
-- **자체 R1 clean → codex R1(HIGH×2)**: (H1) pos_window.incomplete 게이트 미반영 (H2) 희소 gap 샘플
-  연속 interval 과대주장. → 수정: H1=pos incomplete도 fail-closed+self-check / H2=gap 균일 stride +
-  `gap_check_stride` 명시 + verify dense 재스캔. 자체 R2 clean. (커밋 `78736e6`)
-- **자체 R2 clean → codex R2(HIGH×2 신규)**: (H1) verify가 analysis↔solve.json 재바인딩 안 함(stale 통과)
-  (H2) gap_check_stride get-fallback라 누락/과대값이 dense 재스캔 무력화. → 수정: H1=analyze가 `solution_sha256`
-  저장, verify가 solve.json 로드·해시·파라미터·파생(부분집합) 정합(`_solution_binding_fails`) / H2=`_coverage_check`이
-  stride를 `(hi-lo)//(budget+1)`과 정확 일치 강제, verify fallback 제거. **자체 R3 clean**. S11~S14 재측정,
-  verify 218체크 그린 + **prove-it**(해시 변조→binding FAIL, stride 과대→coverage FAIL, 복원→PASS). **codex R3 대기.**
+### 적대 리뷰 (impl stage) — **종결: codex 14R → R14 approve** (트레일 `reviews/phase03-impl-review.md`)
+- **14 codex 라운드 + 15 자체 라운드**. 모두 "verify가 analysis.json 필드를 무검증 신뢰"하는 fail-closed
+  누수였고, 권위 출처(solve.json·capabilities.tres·엔진 리플레이)에서 재검증하도록 전부 닫음:
+  - R1~R6 HIGH: pos incomplete 게이트 / gap stride 명시·dense 재스캔 / solution sha256·파일명 바인딩 /
+    파생 재계산 / 1-minimality deletion 트라이얼 / tri-state verdict(infra 실패 fail-closed).
+  - R7~R10 HIGH: pos 차원(스키마·경계·gap·셀렉터 핀) → 결국 **bouncing 개미에 x-임계 스윕이 근본 모호**라
+    informational `pos_hint`(시간윈도우+trace 파생, authoritative:false, verify 비대상)로 격하해 종결.
+  - R11 HIGH: `analysis_schema_version` 가드(의미 변경 stale 차단) + 레거시 pos_window 거부.
+  - R12 HIGH: gap sampled 정직표기(gap_verified/gap_coverage, 과대주장 제거 — 사용자 결정 "sampled 표기" 채택).
+  - R13 MEDIUM: sampled disclosure note 강제. **R14 approve(no material findings)**.
+- **디버그(R10)**: cp949 UnicodeEncodeError가 `--all` 중간 크래시 → stale(여러 재측정 미반영 원인) → UTF-8
+  stdout 강제. 커밋: `78736e6`/`9c93785`/`4fdd8e1`/`f63211f`/`1513be3`/`7b21cb5`/`fdd1ae8`/`a422459`/`254a811`/
+  `5dc8c3c`/`3b2fed8`/`436205e`/`aa573d7`/`cb954f5`.
 
-### 남은 작업
-1. T_human 라벨 pre-register 대조(사용자 난이도 순위 입력 시 `--labels`로 Spearman·불일치) — 게이트 아님, 정보.
-2. codex impl 재리뷰 clean 확인 → phase 커밋 마무리.
+### 최종 게이트 (frontmatter `verify`, 그린)
+결정론×2 + PlanReplayHarness(S11 4/4) + SkillMetadataDrift(11) + run_plan --selftest(9/9) + **analyze.py --verify
+(4스테이지 272체크)**. 회귀 0(엔진 무변경, 가산①②는 선커밋 `02c2d43`).
+
+### 측정 결과
+S11~S14 전부 1-minimal=원해(잉여 0). stage_min(binding): S11 2.28s / S12 1.35s / S13 1.98s / S14 1.43s(전부
+comfortable·sampled@stride 추정). pos는 informational pos_hint. **Phase 3a 완료.**
+
+### 남은 작업 (선택)
+- T_human 라벨 pre-register 대조(`--labels` Spearman) — 게이트 아님, 사용자 난이도 순위 입력 시.
+- 3b(스케치): T_human 티어 보정 + 대안 해 탐색(max-margin) + 권위 난이도(binding 윈도우 full-scan).
 
 > **상태**: analyze.py + 4 analysis.json + plan.md(verify 편입) + STATUS **워킹트리 미커밋**(codex 리뷰 후
 > 커밋 예정). PlanRunner 가산①②는 선커밋 `02c2d43`. 워킹트리에 사용자 챕터2 WIP 동시 존재 — analyze.py 무관.

@@ -104,7 +104,13 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 ### Acceptance
 - 무힌트로 각 스테이지를 실제 인벤토리로 평가 → 클리어 가능하면 max-margin 유효 플랜(게임 verdict 클리어), 불가능하면 "불가" 리포트(D4). S11~S14 동일 잣대.
 
-## Phase 3 — 반응-윈도우 & 인간 타당성 (정합성 + 난이도) · **[3a 확정 v3 · 3b 스케치]**
+## Phase 3 — 반응-윈도우 & 인간 타당성 (정합성 + 난이도) · **[3a ✅ 완료 (2026-06-20, codex 14R→approve) · 3b 스케치]**
+> **3a 완료**: `tools/solver/analyze.py`(최소화 deletion-minimal + 시간 윈도우 at_frame_exact 스윕 +
+> sampled 정직표기 + T_human provisional + `--verify` 게이트) + `data/solutions/stageNN.analysis.json`(S11~S14,
+> 1-minimal=원해·stage_min 1.35~2.28s 전부 comfortable). 위치 윈도우는 bouncing 개미에 x-스윕이 근본 모호라
+> informational `pos_hint`(시간윈도우+trace 파생)로 격하. **게이트 = `analyze.py --verify`(272체크) frontmatter
+> 편입·그린**. 적대 리뷰 codex 14R(R1~R13 finding→R14 approve)+자체 15R. 트레일 `reviews/phase03-impl-review.md`.
+> PlanRunner 가산①②는 선커밋 `02c2d43`. 상세: `codex-worklog/solver/STATUS.md`.
 > **2-층 분리(2026-06-20 사용자 정렬)**: 범위를 **3a(확정·이번 구현 대상)**와 **3b(스케치·증거 후 재계획)**로
 > 쪼갠다. 3a = 순수 측정 인프라(최소화 + 윈도우 측정), 캘리브레이션 불요·falsifiable. 3a가 산출한 윈도우
 > 폭(초)을 본 뒤 3b(T_human 티어 보정·절대 난이도 점수)를 재계획한다. plan "증거 후 재계획" 철학과 일치.
