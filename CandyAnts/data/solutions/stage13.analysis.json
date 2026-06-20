@@ -143,6 +143,7 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 68,
         "saturated_lo": false,
         "saturated_hi": true,
         "domain": [
@@ -154,7 +155,7 @@
           664
         ],
         "incomplete": false,
-        "rollouts": 24
+        "rollouts": 33
       },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
@@ -409,6 +410,6 @@
       1024,
       2048
     ],
-    "total_rollouts": 292
+    "total_rollouts": 301
   }
 }

@@ -171,6 +171,7 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 117,
         "saturated_lo": true,
         "saturated_hi": true,
         "domain": [
@@ -182,7 +183,7 @@
           757
         ],
         "incomplete": false,
-        "rollouts": 16
+        "rollouts": 24
       },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
@@ -241,6 +242,7 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 80,
         "saturated_lo": false,
         "saturated_hi": true,
         "domain": [
@@ -252,7 +254,7 @@
           1276
         ],
         "incomplete": false,
-        "rollouts": 22
+        "rollouts": 31
       },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
@@ -311,6 +313,7 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 117,
         "saturated_lo": true,
         "saturated_hi": true,
         "domain": [
@@ -322,7 +325,7 @@
           1794
         ],
         "incomplete": false,
-        "rollouts": 16
+        "rollouts": 24
       },
       "tier": "comfortable",
       "tier_source": "default_uncalibrated",
@@ -577,6 +580,6 @@
       1024,
       2048
     ],
-    "total_rollouts": 392
+    "total_rollouts": 417
   }
 }

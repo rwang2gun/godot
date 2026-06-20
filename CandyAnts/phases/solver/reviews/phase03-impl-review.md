@@ -281,3 +281,29 @@ R7 + 누적 확인. 신규 1건:
 - 회귀: 스키마 무변경(domain/saturation 이미 존재, 재측정 불요). ✓. 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 9 결론: HIGH 0 → clean. codex 재리뷰 진행.**
+
+---
+
+## Round 9 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1 (신규)
+
+R8 + 누적 확인. 신규 1건:
+- **[HIGH-1] pos_window가 gap 미검출로 연속 과대주장**. measure_pos_window가 [lo_x,hi_x] 한 쌍만 잡고
+  무조건 `gaps:[]` 단일 interval 기록(내부 비-clear island 미스캔). _coverage_check은 gaps 빈 것을 강제,
+  verify는 lo_x/hi_x/mid/밖만 리플레이 → midpoint 아닌 내부 실패 x가 통과(시간 윈도우 R1-H2와 동일 문제가
+  pos엔 미적용). ant_reaches_x.x 변경이 발화 시점·선택 상태를 바꿔 단조 보장 없음.
+
+## 수정 (R9 HIGH-1) — pos를 시간 윈도우와 **완전 동형**으로
+
+- measure_pos_window가 [lo_x,hi_x] 확정 후 균일 stride 스캔 + `_reconstruct_runs`로 intervals/gaps 복원 +
+  `gap_check_stride` 기록(width_x=max-interval). `_coverage_check`이 pos를 시간과 동형 검증(intervals 엔벨로프·
+  max-interval width·gap_check_stride 정확). verify_one이 pos를 시간과 동형 리플레이(각 interval 경계+내부
+  stride=clear, 엔벨로프 밖=fail, 각 gap 내부=fail). selfcheck pos gap·stride 케이스. pos 스키마 변경 → 재측정.
+
+## Self-Review Round 10 (수정 후 자체 적대, clean)
+
+- 단위: selfcheck pos gap 정합(2 interval+1 gap) 통과, gap_check_stride 과대 거부, 위조 포화 거부. ✓.
+- pos가 이제 시간과 동일한 gap 검출·검증 모델 → R1~R9의 "pos 비대칭" 클래스 완전 종결. cell_bracket_frames만
+  informational(trace 교차참조, plan 명시 보조). ✓.
+- 재측정 후 verify(시간+위치 동형 gap 검증) 그린·prove-it(pos 내부 gap 누락 거부) 확인 예정.
+
+**Self-Review Round 10 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**
