@@ -116,3 +116,28 @@ R1 H1·H2 수정 **확인됨**. 그러나 verify에 신규 fail-closed 누수 2�
 - 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 3 결론: HIGH 0 → clean. 재측정 후 codex 재리뷰 진행.**
+
+---
+
+## Round 3 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1 (신규)
+
+R2 H1·H2 수정 **확인됨**. 신규 1건:
+- **[HIGH-1] 기본 verify가 orphan analysis를 건너뜀 → 삭제된 solve.json이 fail-closed 안 됨**. `--verify`
+  (stage 미지정)가 대상을 `stage*.solve.json`에서만 뽑음 → `stageNN.solve.json`이 삭제/rename됐는데
+  `stageNN.analysis.json`이 남으면 ids에서 누락돼 `_solution_binding_fails`의 삭제 가드를 영영 못 거침. 기본
+  프론트매터 게이트에서 stale 커밋 artifact가 조용히 생존(R2-H1 계약 우회).
+
+## 수정 (R3 HIGH-1)
+
+- 기본 verify 대상을 **analysis ∪ solve id 합집합**(`_verify_target_ids`)으로. solve만 있고 analysis 없으면
+  verify_one이 analysis 부재로 FAIL; analysis만 있고 solve 없으면(orphan) `_solution_binding_fails`가 solve
+  부재로 FAIL → 양방향 fail-closed. 순수 코드(스키마 무변경 → 재측정 불요).
+
+## Self-Review Round 4 (수정 후 자체 적대, clean)
+
+- **prove-it**: stage11.solve.json을 rename → 기본 `--verify`가 stage11을 (analysis glob에서) 포함하고
+  "solution-binding FAIL: solution_ref 파일 없음(stale/삭제)"로 거부, 복원 후 4스테이지 PASS. ✓.
+- 회귀: 특정 stage_id verify·측정 경로 불변, 엔진 무변경. ✓.
+- 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 4 결론: HIGH 0 → clean. codex 재리뷰 진행.**

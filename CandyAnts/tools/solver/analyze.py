@@ -910,7 +910,7 @@ def verify(stage_ids: list[int], workers: int) -> int:
     if not _selfcheck_gate():
         return 1
     if not stage_ids:        # fail-closed — 검증 대상 0개는 통과가 아니라 실패(빈 통과 위장 차단).
-        print("[verify] FAIL - 검증할 analysis 대상 없음(solve.json glob 0)")
+        print("[verify] FAIL - 검증할 대상 없음(analysis ∪ solve glob 0)")
         return 1
     all_ok = True
     for sid in stage_ids:
@@ -967,6 +967,22 @@ def _expected_stage_ids() -> list[int]:
     return ids
 
 
+def _analysis_stage_ids() -> list[int]:
+    ids = []
+    for p in sorted(SOLUTIONS_DIR.glob("stage*.analysis.json")):
+        m = re.match(r"stage(\d+)\.analysis\.json$", p.name)
+        if m:
+            ids.append(int(m.group(1)))
+    return ids
+
+
+def _verify_target_ids() -> list[int]:
+    """기본 verify 대상 = analysis ∪ solve id의 **합집합**(R3-H1). solve만 있고 analysis 없으면 verify_one이
+    analysis 부재로 FAIL; analysis만 있고 solve 없으면(orphan) _solution_binding_fails가 solve 부재로 FAIL.
+    solve glob에만 의존하면 solve 삭제·rename 시 orphan analysis가 ids에서 빠져 stale 가드를 우회한다."""
+    return sorted(set(_expected_stage_ids()) | set(_analysis_stage_ids()))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="auto-solver Phase 3a 최소화+윈도우 측정")
     ap.add_argument("stage_id", type=int, nargs="?", help="측정/검증할 stage id (없으면 --all/--verify 필요)")
@@ -981,7 +997,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.verify:
-        ids = [args.stage_id] if args.stage_id is not None else _expected_stage_ids()
+        ids = [args.stage_id] if args.stage_id is not None else _verify_target_ids()
         rc = verify(ids, args.workers)
         if args.labels:
             intuition_compare([int(x) for x in args.labels.split(",") if x.strip()])
