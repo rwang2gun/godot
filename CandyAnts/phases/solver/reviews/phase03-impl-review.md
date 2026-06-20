@@ -256,3 +256,28 @@ R6 + 누적 확인. 신규 1건:
 - 회귀: cell_size 필드 추가(값 불변), 재측정 필요. ✓.
 
 **Self-Review Round 8 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**
+
+---
+
+## Round 8 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1 (신규)
+
+R7 + 누적 확인. 신규 1건:
+- **[HIGH-1] 윈도우 경계(lo/hi/lo_x/hi_x)를 clear 리플레이 안 함**. verify가 내부 mid/stride + 양 끝 밖
+  (lo-1/hi+1)만 찍고 경계 자체는 미검증 → 경계를 fail 프레임으로 넓히고 폭 필드를 일관 갱신하면 내부 샘플이
+  clear인 한 통과(시간·위치 공통). 포화 플래그도 도메인 끝 대응 미증명으로 밖 검사 스킵.
+
+## 수정 (R8 HIGH-1)
+
+- verify_one이 각 interval의 **경계(lo,hi) 및 pos(lo_x,hi_x)를 clear 리플레이**(내부에 lo/hi 포함). +
+  `_coverage_check`이 pos `domain` 스키마 + 포화 정합(saturated_lo⟹lo_x==domain[0], saturated_hi⟹hi_x==
+  domain[1], domain[0]≤lo_x≤hi_x≤domain[1]) 강제 → 위조 포화로 밖 검사 우회 차단. selfcheck domain/포화 4케이스.
+
+## Self-Review Round 9 (수정 후 자체 적대, clean)
+
+- **prove-it**: time hi를 fail 프레임으로 20넓힘 + width/stride/tier/stage_min 전부 일관 갱신(파생·스키마
+  우회) → verify가 "interval[466,622] 622=clear (got cleared=False)"로 **경계 리플레이 FAIL**, 복원 PASS.
+  4스테이지 full verify 301체크 그린(경계 포함). ✓.
+- 위조 포화: selfcheck saturated_lo+lo_x!=domain[0] 거부, 정당 포화(lo_x==domain[0]) 통과. ✓.
+- 회귀: 스키마 무변경(domain/saturation 이미 존재, 재측정 불요). ✓. 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 9 결론: HIGH 0 → clean. codex 재리뷰 진행.**

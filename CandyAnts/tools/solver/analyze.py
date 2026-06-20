@@ -775,6 +775,19 @@ def _coverage_check(analysis: dict) -> list[str]:
                     elif abs(float(pw.get("width_cells", -1)) - round(wx / cs, 3)) > 1e-9:
                         fails.append("필수 액션 %s pos_window width_cells %s != 재계산 %.3f" % (
                             p.get("label"), pw.get("width_cells"), round(wx / cs, 3)))
+                    # domain + 포화 플래그 정합(R8-H1) — saturated_lo/hi는 lo_x/hi_x가 도달 도메인 끝일 때만
+                    # 정당(밖=fail 검사 스킵의 근거). 위조 포화로 경계 검사 우회 차단.
+                    dom = pw.get("domain")
+                    if not (isinstance(dom, list) and len(dom) == 2
+                            and all(isinstance(v, int) and not isinstance(v, bool) for v in dom)):
+                        fails.append("필수 액션 %s pos_window domain 스키마 부정" % p.get("label"))
+                    else:
+                        if not (dom[0] <= lx <= hx <= dom[1]):
+                            fails.append("필수 액션 %s pos_window lo_x/hi_x가 domain 밖" % p.get("label"))
+                        if pw.get("saturated_lo") and lx != dom[0]:
+                            fails.append("필수 액션 %s saturated_lo인데 lo_x != domain[0]" % p.get("label"))
+                        if pw.get("saturated_hi") and hx != dom[1]:
+                            fails.append("필수 액션 %s saturated_hi인데 hi_x != domain[1]" % p.get("label"))
     missing = set(range(len(minimal))) - seen
     if missing:
         fails.append("per_action 누락 index %s" % sorted(missing))
@@ -893,7 +906,8 @@ def _selfcheck_gate() -> bool:
     def good_pos() -> dict:
         a = good(); a["cell_size"] = 48
         a["per_action"][0]["pos_window"] = {"incomplete": False, "lo_x": 100, "hi_x": 196,
-            "width_x": 96, "width_cells": round(96 / 48, 3), "intervals": [[100, 196]], "gaps": []}
+            "width_x": 96, "width_cells": round(96 / 48, 3), "intervals": [[100, 196]], "gaps": [],
+            "domain": [50, 300], "saturated_lo": False, "saturated_hi": False}
         return a
     cov_cases: list[tuple] = [(good(), False)]   # (analysis, should_reject) — _coverage_check 대상
     cov_cases.append((good_pos(), False))                                            # 정합 pos → 통과
@@ -901,6 +915,10 @@ def _selfcheck_gate() -> bool:
     a = good_pos(); a["per_action"][0]["pos_window"]["width_cells"] = 9.9; cov_cases.append((a, True))  # pos width_cells 변조
     a = good_pos(); a["per_action"][0]["pos_window"]["intervals"] = [[0, 9]]; cov_cases.append((a, True))  # pos intervals 변조
     a = good_pos(); a["per_action"][0]["pos_window"]["lo_x"] = 300; cov_cases.append((a, True))      # lo_x>hi_x
+    a = good_pos(); del a["per_action"][0]["pos_window"]["domain"]; cov_cases.append((a, True))      # domain 누락(R8)
+    a = good_pos(); a["per_action"][0]["pos_window"]["domain"] = [150, 300]; cov_cases.append((a, True))  # lo_x<domain[0]
+    a = good_pos(); a["per_action"][0]["pos_window"]["saturated_lo"] = True; cov_cases.append((a, True))  # 위조 포화(lo_x!=dom[0])
+    a = good_pos(); pw = a["per_action"][0]["pos_window"]; pw["saturated_lo"] = True; pw["lo_x"] = 50; pw["width_x"] = 146; pw["width_cells"] = round(146 / 48, 3); pw["intervals"] = [[50, 196]]; cov_cases.append((a, False))  # 정당 포화(lo_x==dom[0])
     a = good(); a["per_action"].pop(); cov_cases.append((a, True))                       # count mismatch / 누락
     a = good(); a["per_action"][1]["index"] = 0; cov_cases.append((a, True))             # duplicate index
     a = good(); a["per_action"][1]["index"] = 9; cov_cases.append((a, True))             # out of range
@@ -1045,7 +1063,9 @@ def verify_one(stage_id: int, workers: int) -> bool:
             continue
         stride = int(tw["gap_check_stride"])    # _coverage_check가 존재·정합 강제 후 — fallback 불요(R2-H2)
         for lo, hi in tw["intervals"]:
-            interior = [(lo + hi) // 2] + _stride_points(lo, hi, stride)
+            # **경계(lo,hi) 자체를 clear 리플레이**(R8-H1) + 내부 mid/stride + 양 끝 밖 fail. 경계를 안 찍으면
+            # 한쪽을 fail 프레임으로 넓혀도(폭 일관 유지) 내부 샘플만 clear면 통과하는 silent-pass가 생긴다.
+            interior = [lo, hi, (lo + hi) // 2] + _stride_points(lo, hi, stride)
             for f in sorted(set(interior)):
                 checks.append(("a%d interval[%d,%d] %d=clear" % (idx, lo, hi, f),
                                sweep_time_plan(minimal, idx, st, f), True))
@@ -1062,8 +1082,10 @@ def verify_one(stage_id: int, workers: int) -> bool:
         pw = p.get("pos_window")
         if pw is not None and not pw.get("incomplete"):
             lx, hx = int(pw["lo_x"]), int(pw["hi_x"])
-            checks.append(("a%d pos[%d,%d] 내부=clear" % (idx, lx, hx),
-                           sweep_pos_plan(minimal, idx, (lx + hx) // 2), True))
+            # 경계(lo_x,hi_x)도 clear 리플레이(R8-H1) + 내부 mid. 비-포화 경계만 밖=fail.
+            for x in sorted({lx, hx, (lx + hx) // 2}):
+                checks.append(("a%d pos[%d,%d] %d=clear" % (idx, lx, hx, x),
+                               sweep_pos_plan(minimal, idx, x), True))
             if not pw.get("saturated_lo"):
                 checks.append(("a%d pos %d(下) 밖=fail" % (idx, lx - 1),
                                sweep_pos_plan(minimal, idx, lx - 1), False))
