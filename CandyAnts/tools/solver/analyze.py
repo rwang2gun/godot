@@ -755,18 +755,19 @@ def _coverage_check(analysis: dict) -> list[str]:
     return fails
 
 
-def _solution_binding_fails(analysis: dict, solve_present: bool, solve: dict | None,
+def _solution_binding_fails(analysis: dict, expected_ref: str, solve_present: bool, solve: dict | None,
                             current_sha: str | None) -> list[str]:
-    """analysis ↔ 측정 대상 solve.json 바인딩 검증(순수; verify_one이 I/O로 인자 채움, R2-H1). solve.json이
-    바뀌었/사라졌는데 stale analysis가 통과하는 fail-open 차단. 해시 + replay 파라미터(stage/deadline/required)
-    + minimal_plan 파생(부분집합) 정합. 어떤 불일치든 메시지(없으면 [])."""
+    """analysis ↔ 측정 대상 solve.json 바인딩 검증(순수; verify_one이 I/O로 인자 채움). fail-open 차단:
+    ① `solution_ref`가 이 stage_id의 **정규 경로**(`expected_ref`)와 일치 — 분석 파일명↔참조 해 불일치(다른
+       stage 분석을 stageNN.analysis.json으로 위장) 차단(R4-H1). solve는 정규 경로에서 로드(인자로 받음).
+    ② solve.json 존재 + 해시(R2-H1) — stale/변경/삭제 거부.
+    ③ replay 파라미터(stage/deadline/required) + minimal_plan 파생(부분집합) 정합. 어떤 불일치든 메시지."""
     fails: list[str] = []
     ref = analysis.get("solution_ref")
-    if not ref:
-        fails.append("solution_ref 없음")
-        return fails
+    if ref != expected_ref:
+        fails.append("solution_ref %r != 기대 %r (분석 파일명-해 불일치)" % (ref, expected_ref))
     if not solve_present or solve is None:
-        fails.append("solution_ref 파일 없음(stale/삭제): %s" % ref)
+        fails.append("solve.json 없음(stale/삭제): %s" % expected_ref)
         return fails
     if analysis.get("solution_sha256") != current_sha:
         fails.append("solution_sha256 불일치 — solve.json 변경됨, 재측정 필요 (%s != %s)" % (
@@ -817,22 +818,24 @@ def _selfcheck_gate() -> bool:
             print("[verify] GATE SELFCHECK FAIL (coverage): should_reject=%s" % should_reject)
             return False
 
-    # solution-binding 검출기 자가검증(R2-H1) — 순수 비교기에 in-memory 인자 주입.
-    a = good(); a["solution_ref"] = "x.solve.json"; a["solution_sha256"] = "deadbeef"
+    # solution-binding 검출기 자가검증(R2-H1·R4-H1) — 순수 비교기에 in-memory 인자 주입.
+    EXP = "data/solutions/stage11.solve.json"
+    a = good(); a["solution_ref"] = EXP; a["solution_sha256"] = "deadbeef"
     a["stage"] = "res://S.tscn"; a["deadline_frames"] = 100; a["required_saved"] = 4
     a["minimal_plan"] = [{"skill": "blocker"}]
     solve = {"stage": "res://S.tscn", "deadline_frames": 100, "result": {"hp": 4},
              "actions": [{"skill": "blocker"}]}
     bind_cases = [
-        (a, True, solve, "deadbeef", False),                 # 전부 일치 → 통과
-        (a, False, None, "deadbeef", True),                  # solve 파일 없음 → 거부
-        (a, True, solve, "OTHERHASH", True),                 # 해시 불일치 → 거부
-        (a, True, {**solve, "stage": "res://Z.tscn"}, "deadbeef", True),   # stage 불일치 → 거부
-        (a, True, {**solve, "result": {"hp": 5}}, "deadbeef", True),       # required 불일치 → 거부
-        (a, True, {**solve, "actions": [{"skill": "climber"}]}, "deadbeef", True),  # 파생 불일치 → 거부
+        (a, EXP, True, solve, "deadbeef", False),                 # 전부 일치 → 통과
+        (a, EXP, False, None, "deadbeef", True),                  # solve 파일 없음 → 거부
+        (a, EXP, True, solve, "OTHERHASH", True),                 # 해시 불일치 → 거부
+        (a, EXP, True, {**solve, "stage": "res://Z.tscn"}, "deadbeef", True),   # stage 불일치 → 거부
+        (a, EXP, True, {**solve, "result": {"hp": 5}}, "deadbeef", True),       # required 불일치 → 거부
+        (a, EXP, True, {**solve, "actions": [{"skill": "climber"}]}, "deadbeef", True),  # 파생 불일치 → 거부
+        (a, "data/solutions/stage12.solve.json", True, solve, "deadbeef", True),  # ref가 다른 stage → 거부(R4-H1)
     ]
-    for analysis, present, sv, sha, should_reject in bind_cases:
-        if bool(_solution_binding_fails(analysis, present, sv, sha)) != should_reject:
+    for analysis, exp, present, sv, sha, should_reject in bind_cases:
+        if bool(_solution_binding_fails(analysis, exp, present, sv, sha)) != should_reject:
             print("[verify] GATE SELFCHECK FAIL (binding): should_reject=%s" % should_reject)
             return False
     return True
@@ -855,13 +858,15 @@ def verify_one(stage_id: int, workers: int) -> bool:
             print("    - %s" % c)
         return False
 
-    # solution.json 바인딩(R2-H1) — solution_ref를 실제 로드해 해시·파라미터·파생 정합. stale/변경/삭제 차단.
-    ref = analysis.get("solution_ref", "")
-    sp = ROOT / ref if ref else None
-    present = bool(sp and sp.exists())
+    # solution.json 바인딩 — solve를 이 stage_id의 **정규 경로**에서 로드(분석이 임의 지정한 ref가 아니라)해
+    # 해시·파라미터·파생 정합 + analysis.solution_ref가 그 정규 경로와 일치하는지(R4-H1) 확인. stale/변경/삭제/
+    # 파일명-해 불일치 차단.
+    expected_ref = "data/solutions/stage%02d.solve.json" % stage_id
+    sp = ROOT / expected_ref
+    present = sp.exists()
     solve = json.loads(sp.read_text(encoding="utf-8")) if present else None
     cur_sha = hashlib.sha256(sp.read_bytes()).hexdigest() if present else None
-    bind = _solution_binding_fails(analysis, present, solve, cur_sha)
+    bind = _solution_binding_fails(analysis, expected_ref, present, solve, cur_sha)
     if bind:
         print("[verify] stage%02d: solution-binding FAIL" % stage_id)
         for b in bind:

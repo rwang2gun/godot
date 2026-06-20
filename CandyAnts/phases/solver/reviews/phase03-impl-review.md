@@ -141,3 +141,29 @@ R2 H1·H2 수정 **확인됨**. 신규 1건:
 - 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 4 결론: HIGH 0 → clean. codex 재리뷰 진행.**
+
+---
+
+## Round 4 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1 (신규)
+
+R3 수정 확인. 신규 1건:
+- **[HIGH-1] verify가 분석 파일명-stage를 참조 solve id에 안 묶음**. `verify_one(stage_id)`이
+  `stage{id}.analysis.json`을 로드하되 binding은 `analysis.solution_ref`만 신뢰 → `stage11.analysis.json`이
+  stage12 내용 + `solution_ref: stage12.solve.json`이면 stage12에 깨끗이 바인딩·Stage12 리플레이·"stage11
+  PASS" 보고(stage11.analysis.json 존재라 union도 누락 안 잡음) = silent-pass.
+
+## 수정 (R4 HIGH-1)
+
+- verify_one이 solve를 **이 stage_id의 정규 경로**(`stage{id}.solve.json`)에서 로드(분석이 지정한 ref가
+  아니라) + `_solution_binding_fails`가 `analysis.solution_ref == expected_ref`(정규 경로)인지 강제. 다른
+  stage 분석을 stageNN.analysis.json으로 위장하면 ref 불일치 + 정규 solve 해시 불일치로 이중 거부.
+  `_selfcheck_gate`에 ref-가 다른-stage 케이스 추가.
+
+## Self-Review Round 5 (수정 후 자체 적대, clean)
+
+- **prove-it**: stage11.analysis.json의 solution_ref를 stage12.solve.json으로 변조 → verify 11 "solution-binding
+  FAIL", 복원 후 PASS. 정상 4스테이지 default verify 218체크 그린(각 analysis.solution_ref=자기 stage solve). ✓.
+- 회귀: 측정·엔진 무변경, 스키마 무변경(재측정 불요). ✓.
+- 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 5 결론: HIGH 0 → clean. codex 재리뷰 진행.**
