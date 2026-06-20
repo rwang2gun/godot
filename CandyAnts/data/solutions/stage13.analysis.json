@@ -1,4 +1,5 @@
 {
+  "analysis_schema_version": 2,
   "solution_ref": "data/solutions/stage13.solve.json",
   "solution_sha256": "2144f792a61892c6cb1e5bb7b0ae80eda940ce81fad2a2ddb50300f98f7db477",
   "stage": "res://scenes/stages/Stage13.tscn",

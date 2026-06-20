@@ -363,3 +363,28 @@ solution 바인딩 + 파생 + tri-state가 1급 권위 게이트로 남음.
 - 재측정(pos_window→pos_hint, 시간 윈도우 값 불변) + verify 그린 확인 예정. 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 12 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**
+
+---
+
+## Round 11 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1 (신규)
+
+R10 디버그/재설계 확인. 신규 1건:
+- **[HIGH-1] verify가 레거시 권위 pos_window를 거부 안 함**. 새 coverage는 pos_hint만 보고 옛 `pos_window`
+  필드를 거부 안 함 + 스키마/analyzer 버전 바인딩 부재 → 같은 solve.json 해시의 **R9-스타일 stale analysis**(옛
+  pos_window 권위 측정 포함)가 시간/deletion 검사만 통과하면 verify 통과 → "pos 권위 0" 불변식 위반.
+
+## 수정 (R11 HIGH-1)
+
+- `ANALYSIS_SCHEMA_VERSION=2` 도입 + analysis에 `analysis_schema_version` 저장. `_coverage_check`이 정확
+  일치 강제(불일치/누락 → FAIL) → analyzer 의미 변경 후 같은 해시 stale analysis를 재생성 강제. + 레거시
+  `per_action.pos_window` 잔존 시 명시 거부(이중 방어). selfcheck 스키마버전 누락·옛버전·레거시 pos_window 거부.
+
+## Self-Review Round 13 (수정 후 자체 적대, clean)
+
+- 단위: selfcheck schema_version(누락·v1·레거시 pos_window) 거부 통과. 현 데이터(버전 부재)가 즉시 coverage
+  FAIL → 재측정 강제 실증. ✓.
+- 스키마버전 = 일반 가드: 앞으로 어떤 analyzer 의미 변경도 bump로 stale 차단(R7~R11류 "의미 변경 후 옛 산출물
+  통과" 클래스 종결). ✓.
+- 재측정(schema_version 추가) + verify 그린 확인 예정. 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 13 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**

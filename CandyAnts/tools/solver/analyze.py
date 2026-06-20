@@ -62,6 +62,9 @@ PHYS_FPS = 60
 
 # 측정 기본 파라미터. 윈도우는 보통 f* 주변 연속 구간 → 기하 확장으로 도메인을 적응적으로 잡고 경계만 정밀.
 TIME_CAP = 80          # 시간 윈도우 액션당 롤아웃 상한(초과 시 incomplete)
+# analysis.json 스키마 버전 — analyzer 의미가 바뀌면 bump. verify가 정확 일치를 강제해, 같은 solve.json
+# 해시라도 **옛 의미로 생성된 stale analysis**(예: R9 pos_window 권위 측정)를 거부하고 재생성을 강제한다(R11-H1).
+ANALYSIS_SCHEMA_VERSION = 2
 GAP_PROBE_BUDGET = 8   # interval gap 스캔 내부 샘플 예산 → stride = 폭/(budget+1) (명시 기록·verify 강제)
 PROBE_OFFSETS = [16, 32, 64, 128, 256, 512, 1024, 2048]   # 도메인 기하 확장 step(시간)
 MINIMIZE_SUBSET_CAP = 8   # cardinality 증명 허용 최대 액션 수
@@ -570,6 +573,7 @@ def analyze_stage(stage_id: int, args) -> int:
     any_incomplete = any(p["time_window"]["incomplete"] for p in per_action)
 
     analysis = {
+        "analysis_schema_version": ANALYSIS_SCHEMA_VERSION,
         "solution_ref": str(solve_path.relative_to(ROOT)).replace("\\", "/"),
         # 측정 대상 solve.json의 해시 — verify가 재계산해 stale/변경된 해 위에 선 analysis를 거부(R2-H1 바인딩).
         "solution_sha256": hashlib.sha256(solve_path.read_bytes()).hexdigest(),
@@ -610,12 +614,19 @@ def analyze_stage(stage_id: int, args) -> int:
 def _coverage_check(analysis: dict) -> list[str]:
     """index/label 1:1 coverage + incomplete 필수 액션 0 선검증(plan §E·R3-M2). 위반 메시지 목록."""
     fails: list[str] = []
+    # 스키마 버전 강제(R11-H1) — analyzer 의미 변경 후 같은 solve.json 해시로 통과하는 stale analysis 차단.
+    if analysis.get("analysis_schema_version") != ANALYSIS_SCHEMA_VERSION:
+        fails.append("analysis_schema_version %r != %d (옛 의미로 생성된 stale — 재측정 필요)" % (
+            analysis.get("analysis_schema_version"), ANALYSIS_SCHEMA_VERSION))
     minimal = analysis.get("minimal_plan", [])
     per = analysis.get("per_action", [])
     if len(per) != len(minimal):
         fails.append("per_action %d != minimal_plan %d" % (len(per), len(minimal)))
     seen: set = set()
     for p in per:
+        # 레거시 권위 필드 거부(R11-H1) — 옛 pos_window(게이트 검증되던 위치 측정)는 더 이상 권위 아님.
+        if "pos_window" in p:
+            fails.append("필수 액션 %s 레거시 pos_window 잔존(pos는 informational pos_hint로 격하, 재생성 필요)" % p.get("label"))
         idx = p.get("index")
         if idx in seen:
             fails.append("duplicate per_action index %s" % idx)
@@ -751,6 +762,7 @@ def _selfcheck_gate() -> bool:
     `good()`의 time_window stride=1 = (20-10)//9 / (40-30)//9 기대값과 일치."""
     def good() -> dict:
         return {
+            "analysis_schema_version": ANALYSIS_SCHEMA_VERSION,
             "minimal_kind": "1-minimal",
             "minimal_plan": [{"skill": "blocker"}, {"skill": "climber"}],
             "per_action": [
@@ -763,6 +775,9 @@ def _selfcheck_gate() -> bool:
     cov_cases: list[tuple] = [(good(), False)]   # (analysis, should_reject) — _coverage_check 대상
     a = good(); a["per_action"][0]["pos_hint"] = {"authoritative": False, "width_cells": 4}; cov_cases.append((a, False))  # 비-권위 pos_hint → 통과
     a = good(); a["per_action"][0]["pos_hint"] = {"authoritative": True}; cov_cases.append((a, True))  # pos_hint 권위 위장 → 거부
+    a = good(); del a["analysis_schema_version"]; cov_cases.append((a, True))             # 스키마 버전 누락(R11-H1)
+    a = good(); a["analysis_schema_version"] = 1; cov_cases.append((a, True))             # 옛 스키마 버전 → 거부
+    a = good(); a["per_action"][0]["pos_window"] = {"intervals": [[1, 2]]}; cov_cases.append((a, True))  # 레거시 pos_window 잔존 → 거부
     a = good(); a["per_action"].pop(); cov_cases.append((a, True))                       # count mismatch / 누락
     a = good(); a["per_action"][1]["index"] = 0; cov_cases.append((a, True))             # duplicate index
     a = good(); a["per_action"][1]["index"] = 9; cov_cases.append((a, True))             # out of range
