@@ -22,10 +22,17 @@ func _test_live_manifest() -> void:
 	if m.chapter_count() != 5:
 		return _fail("chapter_count expected 5, got %d" % m.chapter_count())
 	var ordered: Array[int] = m.ordered_stage_ids()
-	# campaign-50 B1: Ch1=[1,11,12,13,14,2,15,16,17,18] · Ch2=[3,4,5,19,20,21,22,23,24,25](19~25 등록 2026-06-19) · Ch3~Ch5 기존.
-	var expected: Array[int] = [1, 11, 12, 13, 14, 2, 15, 16, 17, 18, 3, 4, 5, 19, 20, 21, 22, 23, 24, 25, 6, 7, 8, 9, 10]
+	# Ch3~5(파괴/장치/종합)는 under_construction="공사 중" → ordered에서 제외, 캠페인은 Ch2(25)에서 끝.
+	# 재개 시 manifest 플래그 제거 + 본 기대값에 6,7,8,9,10 복원.
+	var expected: Array[int] = [1, 11, 12, 13, 14, 2, 15, 16, 17, 18, 3, 4, 5, 19, 20, 21, 22, 23, 24, 25]
 	if ordered != expected:
 		return _fail("ordered_stage_ids expected %s, got %s" % [str(expected), str(ordered)])
+	# 공사 중 플래그: Ch1/2 false, Ch3~5 true (카드는 chapters 그대로라 chapter_of/title은 5챕터 유지).
+	if m.is_chapter_under_construction(2) or m.is_chapter_under_construction(1):
+		return _fail("Ch1/Ch2 should NOT be under_construction")
+	for c in [3, 4, 5]:
+		if not m.is_chapter_under_construction(c):
+			return _fail("Ch%d should be under_construction" % c)
 	# chapter_of (1-based, 0=미등재)
 	_eq(m.chapter_of(1), 1, "chapter_of(1)")
 	_eq(m.chapter_of(12), 1, "chapter_of(12=B1 신규)")
@@ -39,18 +46,22 @@ func _test_live_manifest() -> void:
 	_eq(m.next_stage_id(11), 12, "next(11)")
 	_eq(m.next_stage_id(14), 2, "next(14)")
 	_eq(m.next_stage_id(2), 15, "next(2)")
-	_eq(m.next_stage_id(8), 9, "next(8)")
-	_eq(m.next_stage_id(10), 0, "next(10=last)")
+	_eq(m.next_stage_id(24), 25, "next(24)")
+	_eq(m.next_stage_id(25), 0, "next(25=last)")
+	# 공사 중 챕터 스테이지는 ordered 밖 → not-found(0). (진입/이어가기 차단의 근거.)
+	_eq(m.next_stage_id(8), 0, "next(8=공사중 제외)")
+	_eq(m.next_stage_id(10), 0, "next(10=공사중 제외)")
 	_eq(m.next_stage_id(99), 0, "next(99=미등재)")
 	# position_of
 	_eq(m.position_of(1), 1, "position(1)")
 	_eq(m.position_of(11), 2, "position(11)")
 	_eq(m.position_of(2), 6, "position(2)")
-	_eq(m.position_of(10), 25, "position(10)")
+	_eq(m.position_of(25), 20, "position(25=last)")
+	_eq(m.position_of(10), 0, "position(10=공사중 제외)")
 	_eq(m.position_of(99), 0, "position(99)")
-	# first/last
+	# first/last — 캠페인 끝은 Ch2 마지막(25).
 	_eq(m.first_stage_id(), 1, "first")
-	_eq(m.last_stage_id(), 10, "last")
+	_eq(m.last_stage_id(), 25, "last")
 	# stage_ids_in_chapter (1-based)
 	if m.stage_ids_in_chapter(1) != ([1, 11, 12, 13, 14, 2, 15, 16, 17, 18] as Array[int]):
 		return _fail("chapter1 stage_ids expected [1,11,12,13,14,2,15,16,17,18], got %s" % str(m.stage_ids_in_chapter(1)))

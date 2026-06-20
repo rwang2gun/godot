@@ -14,10 +14,13 @@ func _ready() -> void:
 
 	# (1) 기존 스테이지 반영
 	ok = _check(ok, SceneFlow.STAGE_SCENES.has(1), "scenes has 1")
-	ok = _check(ok, SceneFlow.STAGE_SCENES.has(10), "scenes has 10")
+	# STAGE_SCENES = 파일 스캔이라 Stage10.tscn 파일은 그대로 존재(캠페인 노출과 별개) — file vs campaign 구분 가드.
+	ok = _check(ok, SceneFlow.STAGE_SCENES.has(10), "scenes has 10 (파일 존재 — published와 무관)")
 	ok = _check(ok, SceneFlow.STAGE_SCENES.get(1, "") == "res://scenes/stages/Stage01.tscn", "stage1 path")
-	ok = _check(ok, SceneFlow.PUBLISHED_STAGE_IDS.has(10), "published has 10 (manifest 등재)")
-	ok = _check(ok, SceneFlow.LAST_STAGE_ID == 10, "LAST_STAGE_ID == 10 (manifest 순서상 마지막 published)")
+	# Ch3~5(6~10) under_construction → ordered 밖이라 published에서도 제외. 마지막 published = 25(Ch2 끝).
+	ok = _check(ok, SceneFlow.PUBLISHED_STAGE_IDS.has(25), "published has 25 (manifest 등재·공사중 아님)")
+	ok = _check(ok, not SceneFlow.PUBLISHED_STAGE_IDS.has(10), "published NOT 10 (Ch5 공사 중 제외)")
+	ok = _check(ok, SceneFlow.LAST_STAGE_ID == 25, "LAST_STAGE_ID == 25 (manifest 순서상 마지막 published)")
 
 	# (2) HIGH 회귀: 매니페스트 미등재 Stage11.tscn 파일 추가 → 씬 스캔엔 잡히나 캠페인엔 노출 안 됨.
 	var probe_id := 11
@@ -30,15 +33,15 @@ func _ready() -> void:
 		SceneFlow.ensure_stage_scan()
 		var scene_seen := SceneFlow.STAGE_SCENES.has(probe_id)        # 로드 가능(파일 존재)
 		var not_published := not SceneFlow.PUBLISHED_STAGE_IDS.has(probe_id)  # 캠페인 미노출(매니페스트 미등재)
-		var endpoint_held := SceneFlow.LAST_STAGE_ID == 10            # 엔드포인트 이동 안 함
+		var endpoint_held := SceneFlow.LAST_STAGE_ID == 25            # 엔드포인트 이동 안 함
 		# 정리 먼저(어서션 실패해도 임시 파일 누수 방지) → 스캔 원복
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 		SceneFlow._stage_scan_done = false
 		SceneFlow.ensure_stage_scan()
 		ok = _check(ok, scene_seen, "scene scan discovers Stage11 file")
 		ok = _check(ok, not_published, "Stage11 NOT in campaign (manifest 미등재)")
-		ok = _check(ok, endpoint_held, "LAST_STAGE_ID stays 10 (endpoint not moved by file presence)")
-		ok = _check(ok, SceneFlow.LAST_STAGE_ID == 10 and not SceneFlow.STAGE_SCENES.has(probe_id), "cleanup restored scan")
+		ok = _check(ok, endpoint_held, "LAST_STAGE_ID stays 25 (endpoint not moved by file presence)")
+		ok = _check(ok, SceneFlow.LAST_STAGE_ID == 25 and not SceneFlow.STAGE_SCENES.has(probe_id), "cleanup restored scan")
 	else:
 		print("[SceneFlowStageScanTest] NOTE: Stage11 이미 존재 — HIGH 회귀 케이스 skip")
 

@@ -44,6 +44,10 @@ func chapter_title(chapter_num: int) -> String:
 func chapter_of(scene_id: int) -> int:
 	return _manifest.chapter_of(scene_id) if _manifest != null else 0
 
+# "공사 중" 챕터(진행 순서엔 빠지지만 카드로는 노출). ChapterSelect가 카드 상태 결정에 쓴다.
+func is_chapter_under_construction(chapter_num: int) -> bool:
+	return _manifest.is_chapter_under_construction(chapter_num) if _manifest != null else false
+
 func next_stage_id(scene_id: int) -> int:
 	return _manifest.next_stage_id(scene_id) if _manifest != null else 0
 
@@ -95,6 +99,9 @@ func total_stars() -> int:
 		return 0
 	var sum: int = 0
 	for c in range(1, _manifest.chapter_count() + 1):
+		# 공사 중 챕터는 총합·상한 모두에서 제외(cap은 ordered가 자동 제외) — 푸터 비율이 100% 넘지 않도록.
+		if _manifest.is_chapter_under_construction(c):
+			continue
 		sum += chapter_stars(c)
 	return sum
 
