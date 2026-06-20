@@ -384,11 +384,17 @@ stage17/21/22/23/25(tres/tscn/layout)·project.godot·SandMoundCarryBuildTest = 
 → **sand_mound 솔버 작업은 보류·코디**(사용자가 SandMound 능동 수정 중 — racing 방지). 내 sand_mound 스캔(S5/S19/
 S21~25)·S17/21/22/25 스캔은 in-flux 레벨 대상이라 잠정치.
 
-## 다음 작업 (Option C — 사용자 정렬 대기)
-- **bridge 유닛 커밋**(선택 staging) + 원하면 codex impl 리뷰. EXPECTED_SOLVE_STAGES에 2·3·4 추가 검토.
-- **sand_mound(cell-up) routing**: 사용자 SandMound WIP 정착 후 진행(Ch2 S5/19/21~25 핵심). cell-target propose
+**Ch1 cap 튜닝 결과(cap40, 커밋 대기):** routing 있는 Ch1은 cap 상향으로 풀림(S13/14 선례 확인).
+- **S1 climber3 SOLVED 3/3(13롤)** / **S15 climber5+floater2 SOLVED 5/5(32롤)** / **S16 blocker3+floater1
+  SOLVED 5/5(32롤, floater 2액션 중 1 inventory no-op)** / **S18 부분 saved4/5(37/40롤 — cap 더 필요)**.
+- 신규 solve.json 3개(01/15/16). selftest **15플랜 PASS**(golden5+solve10). EXPECTED에 1·15·16 추가.
+- S17 제외(사용자 WIP). S18은 cap50+ 재시도 or 휴리스틱 개선 과제.
+
+## 다음 작업 (Option C)
+- **Ch1 잔여**: S18(부분 4/5 — cap50+ or 휴리스틱). Ch1 = 11~14·1·2·15·16 solved + 17(사용자WIP)·18(부분).
+- **sand_mound(cell-up) routing**: 사용자 SandMound WIP 정착 후(Ch2 S5/19/21~25 핵심). cell-target propose
   신규 분기(수직 벽 검출 → place_on_cell) — bridge보다 큰 작업.
-- **Ch1 cap 튜닝**: S15~18·S1을 높은 cap으로 재시도(routing 있음 — S13/14처럼 cap 상향이면 풀릴 가능성).
+- **Ch2 잔여**: S20(bridge+climber — bridge 추가됐으니 cap 재시도)·S21~25(bridge+sand_mound 복합).
 - (미래 3b) cross-structure max-margin + dense 권위 binding — 코퍼스 확보 후.
 
 ## 블로커
