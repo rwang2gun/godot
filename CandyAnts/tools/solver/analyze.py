@@ -32,6 +32,7 @@ Exit: 0=성공(측정/검증) / 1=에러 또는 verify FAIL.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -675,6 +676,8 @@ def analyze_stage(stage_id: int, args) -> int:
 
     analysis = {
         "solution_ref": str(solve_path.relative_to(ROOT)).replace("\\", "/"),
+        # 측정 대상 solve.json의 해시 — verify가 재계산해 stale/변경된 해 위에 선 analysis를 거부(R2-H1 바인딩).
+        "solution_sha256": hashlib.sha256(solve_path.read_bytes()).hexdigest(),
         "stage": stage,
         "deadline_frames": deadline,
         "required_saved": required,
@@ -732,6 +735,17 @@ def _coverage_check(analysis: dict) -> list[str]:
             fails.append("필수 액션 %s incomplete=true (미완 측정 통과 위장 금지)" % p.get("label"))
         elif not tw.get("intervals"):
             fails.append("필수 액션 %s time_window.intervals 비어있음" % p.get("label"))
+        else:
+            # gap_check_stride 정합(R2-H2) — lo/hi에서 결정론적으로 재계산한 값과 **정확히 일치**해야 한다.
+            # 누락(get-fallback 신뢰)·과대값(점 0개로 dense 재스캔 무력화)·변조를 fail-closed로 차단.
+            lo, hi, s = tw.get("lo"), tw.get("hi"), tw.get("gap_check_stride")
+            if not isinstance(lo, int) or not isinstance(hi, int):
+                fails.append("필수 액션 %s time_window lo/hi 정수 아님" % p.get("label"))
+            elif isinstance(s, bool) or not isinstance(s, int) or s < 1:
+                fails.append("필수 액션 %s gap_check_stride 양의 정수 아님 (%r)" % (p.get("label"), s))
+            elif s != max(1, (hi - lo) // (GAP_PROBE_BUDGET + 1)):
+                fails.append("필수 액션 %s gap_check_stride %d != 기대 %d (누락/과대/변조)" % (
+                    p.get("label"), s, max(1, (hi - lo) // (GAP_PROBE_BUDGET + 1))))
         pw = p.get("pos_window")
         if pw is not None and pw.get("incomplete"):     # R1-H1 — 측정한 위치 윈도우 미완도 fail-closed
             fails.append("필수 액션 %s pos_window incomplete=true (보조 측정도 미완 위장 금지)" % p.get("label"))
@@ -741,34 +755,85 @@ def _coverage_check(analysis: dict) -> list[str]:
     return fails
 
 
+def _solution_binding_fails(analysis: dict, solve_present: bool, solve: dict | None,
+                            current_sha: str | None) -> list[str]:
+    """analysis ↔ 측정 대상 solve.json 바인딩 검증(순수; verify_one이 I/O로 인자 채움, R2-H1). solve.json이
+    바뀌었/사라졌는데 stale analysis가 통과하는 fail-open 차단. 해시 + replay 파라미터(stage/deadline/required)
+    + minimal_plan 파생(부분집합) 정합. 어떤 불일치든 메시지(없으면 [])."""
+    fails: list[str] = []
+    ref = analysis.get("solution_ref")
+    if not ref:
+        fails.append("solution_ref 없음")
+        return fails
+    if not solve_present or solve is None:
+        fails.append("solution_ref 파일 없음(stale/삭제): %s" % ref)
+        return fails
+    if analysis.get("solution_sha256") != current_sha:
+        fails.append("solution_sha256 불일치 — solve.json 변경됨, 재측정 필요 (%s != %s)" % (
+            str(current_sha)[:12], str(analysis.get("solution_sha256"))[:12]))
+    if analysis.get("stage") != solve.get("stage"):
+        fails.append("stage 불일치 (%s != %s)" % (analysis.get("stage"), solve.get("stage")))
+    if int(analysis.get("deadline_frames", -1)) != int(solve.get("deadline_frames", -2)):
+        fails.append("deadline_frames 불일치")
+    req = int(solve.get("result", {}).get("hp", solve.get("expect", {}).get("saved", -2)))
+    if int(analysis.get("required_saved", -1)) != req:
+        fails.append("required_saved 불일치 (%s != %s)" % (analysis.get("required_saved"), req))
+    solve_actions = solve.get("actions", [])
+    for a in analysis.get("minimal_plan", []):
+        if a not in solve_actions:
+            fails.append("minimal_plan 액션이 solve.json actions에 없음(파생 불일치): %s" % a.get("skill"))
+            break
+    return fails
+
+
 def _selfcheck_gate() -> bool:
-    """coverage 검출기(`_coverage_check`)의 음성/양성 자가검증 — fail-open 회귀 방지(solve.py
-    `_selfcheck_schema` 선례). 검출기가 약해지면 verify 자체가 먼저 FAIL한다. 양성 1 + 음성 6."""
+    """게이트 검출기(`_coverage_check` + `_solution_binding_fails`)의 음성/양성 자가검증 — fail-open 회귀
+    방지(solve.py `_selfcheck_schema` 선례). 검출기가 약해지면 verify 자체가 먼저 FAIL한다.
+    `good()`의 time_window stride=1 = (20-10)//9 / (40-30)//9 기대값과 일치."""
     def good() -> dict:
         return {
             "minimal_plan": [{"skill": "blocker"}, {"skill": "climber"}],
             "per_action": [
                 {"index": 0, "label": "blocker#0", "sweep_target": {},
-                 "time_window": {"incomplete": False, "intervals": [[10, 20]]}},
+                 "time_window": {"incomplete": False, "intervals": [[10, 20]], "lo": 10, "hi": 20, "gap_check_stride": 1}},
                 {"index": 1, "label": "climber#1", "sweep_target": {},
-                 "time_window": {"incomplete": False, "intervals": [[30, 40]]}},
+                 "time_window": {"incomplete": False, "intervals": [[30, 40]], "lo": 30, "hi": 40, "gap_check_stride": 1}},
             ],
         }
-    cases: list[tuple] = [(good(), False)]   # (analysis, should_reject)
-    # 양성 변형 — pos_window가 있어도 incomplete=false면 통과.
-    a = good(); a["per_action"][0]["pos_window"] = {"incomplete": False}; cases.append((a, False))
-    # 음성 변형들 — 각각 거부되어야 함.
-    a = good(); a["per_action"].pop(); cases.append((a, True))                       # count mismatch / 누락
-    a = good(); a["per_action"][1]["index"] = 0; cases.append((a, True))             # duplicate index
-    a = good(); a["per_action"][1]["index"] = 9; cases.append((a, True))             # out of range
-    a = good(); a["per_action"][0]["label"] = "wrong#0"; cases.append((a, True))     # label mismatch
-    a = good(); a["per_action"][0]["time_window"]["incomplete"] = True; cases.append((a, True))  # incomplete 필수
-    a = good(); a["per_action"][0]["time_window"]["intervals"] = []; cases.append((a, True))     # 빈 intervals
-    a = good(); a["per_action"][0]["pos_window"] = {"incomplete": True}; cases.append((a, True))  # pos 미완(R1-H1)
-    for analysis, should_reject in cases:
-        rejected = bool(_coverage_check(analysis))
-        if rejected != should_reject:
-            print("[verify] GATE SELFCHECK FAIL: should_reject=%s 인데 rejected=%s" % (should_reject, rejected))
+    cov_cases: list[tuple] = [(good(), False)]   # (analysis, should_reject) — _coverage_check 대상
+    a = good(); a["per_action"][0]["pos_window"] = {"incomplete": False}; cov_cases.append((a, False))  # 양성
+    a = good(); a["per_action"].pop(); cov_cases.append((a, True))                       # count mismatch / 누락
+    a = good(); a["per_action"][1]["index"] = 0; cov_cases.append((a, True))             # duplicate index
+    a = good(); a["per_action"][1]["index"] = 9; cov_cases.append((a, True))             # out of range
+    a = good(); a["per_action"][0]["label"] = "wrong#0"; cov_cases.append((a, True))     # label mismatch
+    a = good(); a["per_action"][0]["time_window"]["incomplete"] = True; cov_cases.append((a, True))  # incomplete 필수
+    a = good(); a["per_action"][0]["time_window"]["intervals"] = []; cov_cases.append((a, True))     # 빈 intervals
+    a = good(); del a["per_action"][0]["time_window"]["gap_check_stride"]; cov_cases.append((a, True))  # stride 누락(R2-H2)
+    a = good(); a["per_action"][0]["time_window"]["gap_check_stride"] = 999; cov_cases.append((a, True))  # stride 과대(무력화)
+    a = good(); a["per_action"][0]["time_window"]["gap_check_stride"] = 0; cov_cases.append((a, True))    # stride 비양수
+    a = good(); a["per_action"][0]["pos_window"] = {"incomplete": True}; cov_cases.append((a, True))  # pos 미완(R1-H1)
+    for analysis, should_reject in cov_cases:
+        if bool(_coverage_check(analysis)) != should_reject:
+            print("[verify] GATE SELFCHECK FAIL (coverage): should_reject=%s" % should_reject)
+            return False
+
+    # solution-binding 검출기 자가검증(R2-H1) — 순수 비교기에 in-memory 인자 주입.
+    a = good(); a["solution_ref"] = "x.solve.json"; a["solution_sha256"] = "deadbeef"
+    a["stage"] = "res://S.tscn"; a["deadline_frames"] = 100; a["required_saved"] = 4
+    a["minimal_plan"] = [{"skill": "blocker"}]
+    solve = {"stage": "res://S.tscn", "deadline_frames": 100, "result": {"hp": 4},
+             "actions": [{"skill": "blocker"}]}
+    bind_cases = [
+        (a, True, solve, "deadbeef", False),                 # 전부 일치 → 통과
+        (a, False, None, "deadbeef", True),                  # solve 파일 없음 → 거부
+        (a, True, solve, "OTHERHASH", True),                 # 해시 불일치 → 거부
+        (a, True, {**solve, "stage": "res://Z.tscn"}, "deadbeef", True),   # stage 불일치 → 거부
+        (a, True, {**solve, "result": {"hp": 5}}, "deadbeef", True),       # required 불일치 → 거부
+        (a, True, {**solve, "actions": [{"skill": "climber"}]}, "deadbeef", True),  # 파생 불일치 → 거부
+    ]
+    for analysis, present, sv, sha, should_reject in bind_cases:
+        if bool(_solution_binding_fails(analysis, present, sv, sha)) != should_reject:
+            print("[verify] GATE SELFCHECK FAIL (binding): should_reject=%s" % should_reject)
             return False
     return True
 
@@ -790,6 +855,19 @@ def verify_one(stage_id: int, workers: int) -> bool:
             print("    - %s" % c)
         return False
 
+    # solution.json 바인딩(R2-H1) — solution_ref를 실제 로드해 해시·파라미터·파생 정합. stale/변경/삭제 차단.
+    ref = analysis.get("solution_ref", "")
+    sp = ROOT / ref if ref else None
+    present = bool(sp and sp.exists())
+    solve = json.loads(sp.read_text(encoding="utf-8")) if present else None
+    cur_sha = hashlib.sha256(sp.read_bytes()).hexdigest() if present else None
+    bind = _solution_binding_fails(analysis, present, solve, cur_sha)
+    if bind:
+        print("[verify] stage%02d: solution-binding FAIL" % stage_id)
+        for b in bind:
+            print("    - %s" % b)
+        return False
+
     # 재검증 체크 묶음 — (설명, plan, 기대 클리어). 1-minimal 자체 + 액션별 interval/gap 경계 + interval
     # 내부를 **gap_check_stride로 dense 재스캔**(측정 해상도에서 sampled-clear 강제 = 숨은 gap·analysis 변조
     # 차단, R1-H2). stride가 클(넓은 interval)수록 적은 점이지만 측정과 동일 해상도라 정직.
@@ -800,7 +878,7 @@ def verify_one(stage_id: int, workers: int) -> bool:
         tw = p["time_window"]
         if st is None:
             continue
-        stride = int(tw.get("gap_check_stride", max(1, (int(tw["hi"]) - int(tw["lo"])) // (GAP_PROBE_BUDGET + 1))))
+        stride = int(tw["gap_check_stride"])    # _coverage_check가 존재·정합 강제 후 — fallback 불요(R2-H2)
         for lo, hi in tw["intervals"]:
             interior = [(lo + hi) // 2] + _stride_points(lo, hi, stride)
             for f in sorted(set(interior)):

@@ -82,3 +82,37 @@ PlanRunner 가산①②는 선커밋 `02c2d43`(이 phase 범위 밖). 엔진/Pla
 - 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 2 결론: HIGH 0 → clean. 재측정 후 codex 재리뷰 진행.**
+
+---
+
+## Round 2 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×2 (신규)
+
+R1 H1·H2 수정 **확인됨**. 그러나 verify에 신규 fail-closed 누수 2건:
+- **[HIGH-1] verify가 analysis.json을 solve.json에 재바인딩 안 함**. `solution_ref` 기록만 하고 verify_one이
+  그 파일을 열어 "현재 발견 해에서 산출됐는지" 확인 안 함 → embedded stage/deadline/required/minimal_plan을
+  그대로 신뢰. solve.json이 바뀌거나 사라져도 stale analysis가 계속 통과 = 난이도/윈도우가 옛 해를 조용히 기술.
+- **[HIGH-2] gap_check_stride가 누락·약화돼도 verify 통과**. verify가 `tw.get("gap_check_stride", fallback)`로
+  임의 정수 신뢰 → 필드 없는 옛 analysis 통과, 과대 stride면 `_stride_points`가 점 0개 → dense 재스캔 무력화.
+  R1-H2 수정이 실효성 없음(필드가 실제 강제 아님).
+
+## 수정 (R2 HIGH-1·HIGH-2)
+
+- **HIGH-1**: analyze가 `solution_sha256`(solve.json 바이트 해시) 저장. verify_one이 `solution_ref` 로드
+  (없으면 FAIL) → 해시 재계산·비교 + stage/deadline/required 정합 + minimal_plan이 solve.json actions의
+  부분집합인지(파생 정합). 순수 비교기 `_solution_binding_fails`로 분리해 `_selfcheck_gate`가 6 케이스
+  (일치 통과 / 파일없음·해시·stage·required·파생 불일치 거부) 자가검증.
+- **HIGH-2**: `_coverage_check`가 `gap_check_stride`를 lo/hi에서 **결정론 재계산값 `(hi-lo)//(budget+1)`과
+  정확히 일치** 강제(누락·비양수·과대·변조 거부). verify_one은 fallback 제거하고 검증된 값 직접 사용.
+  `_selfcheck_gate`에 stride 누락·과대(999)·비양수(0) 거부 케이스 추가.
+
+## Self-Review Round 3 (수정 후 자체 적대, clean)
+
+- HIGH-1: 단위 — `_solution_binding_fails` 해시 불일치/파일없음 거부, 일치 통과. `_selfcheck_gate` binding 6
+  케이스 통과. verify_one이 실제 solve.json 로드·해시 비교. stale/삭제/변경 전부 fail-closed. ✓.
+- HIGH-2: 단위 — `_selfcheck_gate` stride 누락/과대/비양수 거부. `_coverage_check`가 정확값만 허용 →
+  verify가 dense 재스캔을 항상 측정 해상도로 수행(약화 불가). ✓.
+- 부작용: analysis.json 스키마에 `solution_sha256` 추가 → S11~S14 재측정 필요(값 불변·필드 추가). minimal_plan
+  부분집합 비교는 dict ==(JSON round-trip float 정합) — 실데이터로 검증 예정. ✓.
+- 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 3 결론: HIGH 0 → clean. 재측정 후 codex 재리뷰 진행.**

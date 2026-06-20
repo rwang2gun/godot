@@ -1,5 +1,6 @@
 {
   "solution_ref": "data/solutions/stage11.solve.json",
+  "solution_sha256": "235e458e97addda0defe0ef9cd6649e08af1c9e9447424f1d5e1f903f6b43a2e",
   "stage": "res://scenes/stages/Stage11.tscn",
   "deadline_frames": 6900,
   "required_saved": 4,

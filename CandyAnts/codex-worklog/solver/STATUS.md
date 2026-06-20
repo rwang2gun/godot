@@ -274,12 +274,15 @@ expect가 verdict-only 통과") → fail-closed 수정(EXPECTED_SOLVE_STAGES 누
 - **단위 검증**: prove_cardinality 양/음 분기 + classify_tier 경계 + _reconstruct_runs(연속·gap 분리) +
   gate self-check 모킹 통과.
 
-### 적대 리뷰 (impl stage)
-- **자체 R1 clean → codex R1(needs-attention, HIGH×2)**: (H1) pos_window.incomplete가 게이트/any_incomplete
-  미반영 (H2) 희소 gap 샘플이 연속 interval 과대주장·verify 미검출. → **둘 다 수정**: H1=coverage/any_incomplete가
-  pos incomplete도 fail-closed + self-check 케이스 / H2=gap 스캔 균일 stride + `gap_check_stride` 명시 기록
-  (해상도 한계 coverage proof) + verify가 그 stride로 interval dense 재스캔. **자체 R2 clean**. S11~S14 재측정
-  (값 불변·필드 추가), verify 218체크 그린. 트레일 `reviews/phase03-impl-review.md`. **codex 재리뷰 대기.**
+### 적대 리뷰 (impl stage, 트레일 `reviews/phase03-impl-review.md`)
+- **자체 R1 clean → codex R1(HIGH×2)**: (H1) pos_window.incomplete 게이트 미반영 (H2) 희소 gap 샘플
+  연속 interval 과대주장. → 수정: H1=pos incomplete도 fail-closed+self-check / H2=gap 균일 stride +
+  `gap_check_stride` 명시 + verify dense 재스캔. 자체 R2 clean. (커밋 `78736e6`)
+- **자체 R2 clean → codex R2(HIGH×2 신규)**: (H1) verify가 analysis↔solve.json 재바인딩 안 함(stale 통과)
+  (H2) gap_check_stride get-fallback라 누락/과대값이 dense 재스캔 무력화. → 수정: H1=analyze가 `solution_sha256`
+  저장, verify가 solve.json 로드·해시·파라미터·파생(부분집합) 정합(`_solution_binding_fails`) / H2=`_coverage_check`이
+  stride를 `(hi-lo)//(budget+1)`과 정확 일치 강제, verify fallback 제거. **자체 R3 clean**. S11~S14 재측정,
+  verify 218체크 그린 + **prove-it**(해시 변조→binding FAIL, stride 과대→coverage FAIL, 복원→PASS). **codex R3 대기.**
 
 ### 남은 작업
 1. T_human 라벨 pre-register 대조(사용자 난이도 순위 입력 시 `--labels`로 Spearman·불일치) — 게이트 아님, 정보.
