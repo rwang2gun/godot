@@ -104,16 +104,97 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 ### Acceptance
 - 무힌트로 각 스테이지를 실제 인벤토리로 평가 → 클리어 가능하면 max-margin 유효 플랜(게임 verdict 클리어), 불가능하면 "불가" 리포트(D4). S11~S14 동일 잣대.
 
-## Phase 3 — 반응-윈도우 & 인간 타당성 (정합성 + 난이도) · **[근시일 계획 · 스케치]**
+## Phase 3 — 반응-윈도우 & 인간 타당성 (정합성 + 난이도) · **[3a 확정 v3 · 3b 스케치]**
+> **2-층 분리(2026-06-20 사용자 정렬)**: 범위를 **3a(확정·이번 구현 대상)**와 **3b(스케치·증거 후 재계획)**로
+> 쪼갠다. 3a = 순수 측정 인프라(최소화 + 윈도우 측정), 캘리브레이션 불요·falsifiable. 3a가 산출한 윈도우
+> 폭(초)을 본 뒤 3b(T_human 티어 보정·절대 난이도 점수)를 재계획한다. plan "증거 후 재계획" 철학과 일치.
+> **v2(2026-06-20, plan-review R1 반영)**: codex R1이 "엔진 무변경" 주장을 반증(C1 f* 미노출 / C2 at_frame
+> 재시도 / H1·H2 selector 불안정 / H3 cardinality / H4 max-margin 모순 / M1·M2·L1). → D12를 **엔진 가산
+> opt-in 확장**(trace 패턴)으로 정직화. 트레일 `reviews/phase03-plan-review.md`.
+> **v3(2026-06-20, plan-review R2+R3 반영)**: report_fired 전용 flag·spawn_index 변환 state 보존·incomplete=게이트 FAIL·cardinality opt-in·cell-bracket 교차검증·per_action.target 통일·baseline 1회 실행(report_fired+trace 동시).
 ### 목표
 기계-클리어를 **인간-타당성**으로 거르고 난이도를 산출(D6).
-### 작업
-- **윈도우 측정 모듈**: max-margin 해의 각 필수 명령에 대해 적용 (프레임·위치)를 스윕 → 클리어 유지 연속 구간 = 윈도우(시간·공간). spike 국소 정밀탐색을 일반화.
-- **최소화/크레딧 할당**: 액션을 하나씩 빼 재실행 → 잉여 제거 → 필수 최소 플랜(난이도 "최소 스킬"도 산출).
-- **`T_human` 필터**: 윈도우 < 임계 = **정합성 오류**(기계전용). 공간 조준 난이도·입력 행위 비용 반영.
-- **난이도 점수**: 가장 여유로운 해의 최소 윈도우 + 최소스킬·시퀀스 의존성·margin·대안 해 수 → 절대·등급별 점수. 사용자 라벨로 캘리브레이션.
-### Acceptance
-- 기존 스테이지에 대해 난이도/정합성 리포트가 직관과 일치(짧은 사다리-후-구간 = 빡빡 윈도우 = 고난이도; 인간 불가 구간 = 정합성 오류 플래그).
+
+### 측정 대상 = "발견된 해"(현 solve.json) — max-margin 아님 (R1-H4)
+**3a는 현재 `data/solutions/stageNN.solve.json`(Phase 2가 발견한 첫 full-clear 해)의 윈도우를 측정**한다.
+D6의 "가장 여유로운(max-margin) 해의 최소 윈도우 = 난이도" 정의는 **대안 해 탐색을 전제**하는데, 현
+`solve.py`는 첫 full clear에서 즉시 저장·종료(`solve.py:188,238`)라 solve.json은 max-margin 해가 아니다.
+→ 3a 산출은 정직하게 **"이 해의 윈도우 프로파일"**이고, 절대 난이도(가장 여유로운 해 기준)는 **3b**에서
+대안 해 탐색과 함께 확정한다(모순 제거: 3a는 max-margin을 주장하지 않음).
+
+### 설계 결정 (D12 v3 — 윈도우 측정 = 엔진 가산 opt-in 확장, 트리거 자연축 스윕)
+- **"엔진 무변경"은 성립 안 함(R1-C1/C2 직시)** → **엔진 가산 opt-in 확장**으로 수정. PlanRunner에 **trace와
+  동형의 opt-in 기능**(plan flag로만 켜짐, 미설정 시 기존 동작·verdict·결정론·바이트동일성 불변)을 2개 더한다.
+  Phase 2가 trace를 같은 방식으로 가산 확장한 선례와 동일 패턴(STATUS "PlanRunner 가산 확장"). D10("엔진=
+  진실") 위반 0, 회귀 게이트(`run_plan --selftest`·`SkillMetadataDriftTest`·결정론 2종) 그린 유지가 **impl
+  입증 대상**.
+  1. **(가산①) fired-action 보고**: plan `report_fired:true`(전용 flag; **solve.py 저장 경로는 trace 동반 금지**, analyze.py baseline은 예외적으로 trace 동시 사용)일 때 `SOLVER_RESULT`에
+     `fired_actions:[{index,label,skill,target_kind:"ant"|"cell",frame,spawn_index?,target_pos?,target_cell?}]` 포함(ant=spawn_index/target_pos, cell=target_cell — place_on_cell `{placed,cell,reason}`에서; spawn_index는 ant 전용 optional) — 각 액션이 **실제 발화한
+     프레임·대상 개미 spawn_index·위치**. analyze.py가 baseline에서 `f*`·대상 ID를 깨끗이 획득(R1-C1·H2
+     해소; stdout regex 불요, duplicate climber 5개도 index로 구분). 솔버 산출 안정성: `solve.py._save`는 결과에서 `trace`·`fired_actions` **둘 다 제외**(solve.json 바이트동일 불변, R2-H1).
+  2. **(가산②) `at_frame_exact{frame}` 트리거**: `_frame == frame`인 **그 프레임에만** 평가(미충족 시
+     재시도 없이 그 액션 영영 미발화). 기존 `at_frame`(>=, 재시도)은 불변 — 신규 트리거 타입 추가(가산).
+     R1-C2 해소: 정확 프레임 발화 = 인간의 "한 순간 탭"과 1:1.
+- **시간 윈도우 측정 = spawn_index 고정 + at_frame_exact 스윕(통일·1급)**: 각 필수 액션을 baseline fired
+  `(spawn_index*, f*)`로 측정한 뒤 **`{target:{...원본 target 필터 보존(특히 `state`; 없으면 `"any"` 명시 — 기본 `"walker"`면 carrying 개미 미선택·S13 깨짐, R2-H2), select:"spawn_index", spawn_index:si*},
+  trigger:{type:"at_frame_exact", frame:f}}`로 변환**해 f를 격자 스윕 → **그 개미를 그 프레임에** 명령하는
+  시간 윈도우를 정확·재현적으로 측정(R1-H1 selector 불안정 해소 = 고정-ID 측정이 1급 산출). f가 일러 그
+  개미가 아직 부적격이면 미발화→클리어 깨짐=하한, 늦어 이미 막힘이면 상한.
+- **위치 윈도우(공간 차원, `ant_reaches_x` 한정·보조)**: 원본 트리거 `ant_reaches_x.x`를 격자 스윕 → 위치
+  구간 `[x_lo,x_hi]`. baseline trace(cell 변화 시만 기록 = cell-bracket 정밀도)로 그 개미가 x 지나는 frame을 **cell-bracket 교차검증**(프레임 정확 복원 아님; 정밀 필요 시 report_fired를 authority로, R2-M3). **analyze.py baseline은 report_fired+trace를 둘 다 켜 1회 실행**(둘 다 가산 보고 → 게임 거동 byte-identical; analyze는 `_save` 미사용이라 solve.json 무관 — "동반 금지"는 solve.py 경로 한정[R2-H1]). f*·target은 report_fired에서, cell bracket은 trace에서(R3-M1). 위치는 blocker류 보조 차원,
+  시간 윈도우가 모든 액션 공통 1급.
+- **스윕 가정 검증(R1 의미가정)**: ① 한 액션 축 스윕 중 **다른 액션은 baseline 그대로 고정** = "그 액션
+  단독 여유"(크레딧 할당과 정합). ② 윈도우가 **단일 연속 구간이라는 보장 없음** → 거친 격자로 도메인 전체를
+  평가해 **비연속(gap) 검출** 시 interval 리스트로 기록(가정 위반 직시). 정밀 스윕은 각 경계 양쪽만.
+
+### 3a · 최소화 + 윈도우 측정 (확정 v3 · 이번 구현)
+산출 = **`tools/solver/analyze.py`**(순수 오케스트레이터) + **PlanRunner 가산①②**(위) + 스테이지별
+`data/solutions/stageNN.analysis.json`.
+- **(A) 최소화 = 1-minimal (R1-H3 정직화)**: 현재 candidate plan에서 액션을 **고정 순서로 하나씩 제거**(제거 확정 시 candidate에서 빼고 진행 — 대체가능 A/B를 둘 다 redundant로 오분류하는 동시제거 함정 회피, **deletion-minimal=1-minimal** 보장)하고 나머지 그대로 `run_plan` 롤아웃 →
+  여전히 full clear면 **잉여**, 깨지면 **필수**. 산출 = **1-minimal 플랜**(각 액션이 개별 필수) + 잉여 목록.
+  **cardinality-minimal은 1-pass가 보장 못 함**을 명시 — 액션 수 ≤ `MINIMIZE_SUBSET_CAP`(기본 8, 현 최대)
+  이고 **`--prove-cardinality`(opt-in·기본 off·verify 미포함)** 지정 시 부분집합 브루트포스(작은 부분집합부터 크기순 조기종료, plan-hash 캐시·`--workers` 병렬)로 cardinality-minimal 승격·증명, 미지정/초과면
+  1-minimal로 정직 보고(`minimal_kind:"1-minimal"|"cardinality-minimal"`). 최소 액션 수 = 난이도 "최소 스킬"
+  proxy. 액션 간 의존(carry 연쇄)은 제거 시 클리어가 깨져 필수로 잡힌다.
+- **(B) 윈도우 측정**: 1-minimal 플랜의 각 필수 액션에 위 D12 스윕(시간 윈도우 폭 초 = 1급; 위치 윈도우 =
+  ant_reaches_x 한정). 거친 격자로 경계 괄호+gap 검출, 경계 정밀 스윕(spike 국소 정밀탐색 일반화). **결정론**
+  (고정 격자·순서). **스윕 예산 cap**(액션당 롤아웃 상한) 초과 시 `incomplete:true`(하한만) 정직 보고 —
+  silent 절단 금지. **cell-target(SIGN/DEVICE) 액션**: cell 고정이라 위치 차원 없음 → at_frame_exact 시간 윈도우만(spawn_index 불요). 현 S11~S14 4해엔 cell-target 필수 액션 없어 실측 대상 외(스키마만 준비, R2-M1 연계).
+- **(C) T_human 분류 = provisional (R1-L1 격하)**: 각 필수 액션 시간 윈도우 폭을 `capabilities.tres`
+  T_human 티어와 비교 → 티어 분류 + 스테이지 최소 윈도우. 단 현 티어는 **미보정 하드 기본값**이라
+  `tier_source:"default_uncalibrated"` 명시 + 최소 윈도우 < 기계전용 임계 = **`provisional_machine_only_flag`**
+  (정합성 "오류" 확정 아님 — 최종 판정은 3b 보정 후). 3a는 분류·플래그·리포트만.
+- **(D) 리포트**: `analysis.json` = {solution_ref, minimal_plan, minimal_kind, redundant[],
+  per_action[{index, label, trigger_axis, target:{kind:"ant",spawn_index,target_pos?}|{kind:"cell",target_cell}, time_window:{lo,hi,width_s,intervals,gaps,incomplete}, pos_window?, tier, provisional_flags}], stage_min_window_s, sweep_meta:{grid,cap,rollouts,domain}}. 콘솔 요약.
+- **(E) 게이트 = `analyze.py --verify` (R1-M1 강화)**: 풀 측정은 비싸(액션당 수십 롤아웃) verify에 안 넣고,
+  저장된 analysis.json을 재검증: 먼저 **`minimal_plan.actions`↔`per_action` index/label 1:1 coverage**(index 기준 전체 커버리지·duplicate index 0·label 일치·모든 필수 액션 window 존재)를 선검증(버그난 analyze.py의 per_action 누락으로 incomplete 검사 우회 차단, R3-M2), 그 뒤 **경계 주장을 싸게 재검증** — 액션별 **각 interval 내부 1점=clear + 양 끝 밖 1점=fail
+  + 각 gap 내부 1점=fail** 리플레이(비연속까지 핀) + 1-minimal 플랜 자체 클리어(D4). `incomplete:true`(cap
+  초과) 액션이 필수 액션 중 하나라도 있으면 **게이트 FAIL**(미완 측정을 통과로 위장 금지 — "제외" 아닌 "실패"). 탐색·재현용 `--allow-incomplete`만 incomplete 허용(R2-H3). verify 프론트매터 편입은 **3a 완료
+  시**(게이트 그린 후) — Phase 1/2 정책(verify 갱신 자체가 강제 계약) 동일.
+- **(F) 직관 대조 = 정보 산출, 게이트 아님 (R1-M2 격하)**: 측정된 S11~S14 스테이지 최소 윈도우 폭 순위와
+  **사용자 체감 난이도 라벨을 대조** — Spearman 순위상관·불일치 쌍 수를 리포트에 기록, 불일치 시 `flags`에
+  원인 분석. **pass/fail 게이트 아님**(사후 해석 방지). 라벨은 가능하면 **측정 전 pre-register**(사용자가
+  S11~S14 난이도 순위를 먼저 제시)해 반증 가능성 확보. 이 데이터는 3b T_human 보정 1차 입력.
+
+### 3b · T_human 티어 보정 + 절대 난이도 점수 (스케치 · 3a 증거 후 재계획)
+- `T_human` 티어 임계를 S11~S14 라벨로 보정(입력수단별 분리 여부 포함, plan §미정 파라미터).
+- **대안 해 탐색 + max-margin 난이도(R1-H4 이관)**: 같은 스테이지의 대안 해를 탐색해 **가장 여유로운(max-
+  margin) 해**를 고르고 그 해의 최소 윈도우를 절대 난이도로(D6 정의). 3a "이 해 윈도우 프로파일"을 발판.
+- **난이도 점수**: 최소 윈도우 + 최소스킬·시퀀스 의존성·margin·대안 해 수 + **공간 조준 난이도**(움직이는
+  무리 속 select 탭 — 3a가 고정-ID로 분리한 차원) → 절대·등급별(1성/3성 분리). 다중 명령 합산식·인간 모델
+  (이진 vs 확률 σ)은 3a 윈도우 데이터를 본 뒤 확정.
+
+### Acceptance — 3a (falsifiable)
+- **최소화**: S11~S14 각 해의 1-minimal 플랜 + 잉여 액션 식별(S11=1액션; S12~S14 다액션 잉여 0/목록) +
+  `minimal_kind` 정직 명시(`--prove-cardinality` 지정 시에만 cardinality-minimal 증명; **기본 3a 게이트는 1-minimal만 요구**, R3-H1). 1-minimal 플랜이 game verdict로 full clear(D4).
+- **윈도우**: 각 필수 액션의 시간 윈도우 폭(초)(+ ant_reaches_x는 위치 윈도우) + intervals·gaps 산출.
+  경계가 결정론 리플레이로 검증(interval 내=clear / 밖=fail / gap 내=fail) — `analyze.py --verify` 그린.
+- **정합성(provisional)**: T_human 기계전용 임계 미만 윈도우를 `provisional_machine_only_flag` 표기
+  (`tier_source` 동반). 확정 판정 아님.
+- **직관 대조(정보)**: S11~S14 최소 윈도우 순위 vs 사용자 라벨 Spearman·불일치 기록(게이트 아님).
+- **가산 확장 회귀 0**: PlanRunner 가산①②가 기존 plan(미설정)·verdict·결정론 불변 — `run_plan --selftest`
+  (golden5+solve4) + `SkillMetadataDriftTest` + 결정론 2종 그린, solve.json 바이트동일 재현 유지.
+- **게이트**: `analyze.py --verify`를 verify 프론트매터에 편입하고 그린(3a 완료 정의 = 게이트 갱신+그린).
 
 ## Phase 4 — 전술 라이브러리 (누적 학습, CBR/EBL) · **[로드맵 · 미확정, Phase 3 증거 후 재계획]**
 > 검증 가능한 단일 가설로 좁힘: *"한 레벨에서 추출한 전술이 다른 레벨로 전이돼 동일 난이도 해를 더 적은 롤아웃으로 찾는다."* 리프팅·서브골 추론의 구체 메커니즘은 Phase 2~3 산출(해 트레이스·윈도우 데이터)을 본 뒤 설계 — 지금은 미확정.
