@@ -148,6 +148,7 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 16,
         "incomplete": false,
         "domain": [
           533,
@@ -217,12 +218,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 12,
         "incomplete": false,
         "domain": [
           1180,
           1340
         ],
-        "rollouts": 36
+        "rollouts": 38
       },
       "pos_window": {
         "baseline_x": 408.0,
@@ -286,12 +288,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 12,
         "incomplete": false,
         "domain": [
           1698,
           1858
         ],
-        "rollouts": 37
+        "rollouts": 35
       },
       "pos_window": {
         "baseline_x": 1080.0,
@@ -355,12 +358,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 9,
         "incomplete": false,
         "domain": [
           2946,
           3074
         ],
-        "rollouts": 37
+        "rollouts": 38
       },
       "pos_window": null,
       "tier": "comfortable",
@@ -399,12 +403,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 65,
         "incomplete": false,
         "domain": [
           2627,
           3651
         ],
-        "rollouts": 43
+        "rollouts": 44
       },
       "pos_window": null,
       "tier": "comfortable",
@@ -443,12 +448,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 65,
         "incomplete": false,
         "domain": [
           2712,
           3736
         ],
-        "rollouts": 43
+        "rollouts": 44
       },
       "pos_window": null,
       "tier": "comfortable",
@@ -487,12 +493,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 65,
         "incomplete": false,
         "domain": [
           2798,
           3822
         ],
-        "rollouts": 43
+        "rollouts": 44
       },
       "pos_window": null,
       "tier": "comfortable",
@@ -531,12 +538,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 74,
         "incomplete": false,
         "domain": [
           2883,
           4003
         ],
-        "rollouts": 45
+        "rollouts": 48
       },
       "pos_window": null,
       "tier": "comfortable",
@@ -556,7 +564,7 @@
   "sweep_meta": {
     "time_cap": 80,
     "pos_cap": 60,
-    "gap_probes": 8,
+    "gap_probe_budget": 8,
     "probe_offsets": [
       16,
       32,
@@ -567,6 +575,6 @@
       1024,
       2048
     ],
-    "total_rollouts": 385
+    "total_rollouts": 392
   }
 }

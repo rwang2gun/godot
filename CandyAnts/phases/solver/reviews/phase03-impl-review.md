@@ -41,3 +41,44 @@ PlanRunner 가산①②는 선커밋 `02c2d43`(이 phase 범위 밖). 엔진/Pla
 - prove_cardinality 실엔진 미실측(opt-in·미게이트). 로직 단위 검증.
 
 **Self-Review Round 1 결론: CRITICAL/HIGH 0 → clean. codex 적대 리뷰 진행.**
+
+---
+
+## Round 1 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×2
+
+`node codex-companion.mjs adversarial-review --wait --base f3f0a10`. verdict=needs-attention.
+> No-ship: the gate can still silently accept incomplete or overclaimed window measurements.
+
+- **[HIGH-1] 위치 윈도우 미완이 게이트에 전파 안 됨** (`analyze.py` measure_pos_window / _coverage_check /
+  any_incomplete). `pos_window.incomplete=true`(pos cap 소진)여도 `_coverage_check`은 `time_window.incomplete`만
+  보고 `any_incomplete`도 시간만 집계 → 필수 ant_reaches_x 액션의 위치 측정이 미완인데 `--verify`가 통과 =
+  degraded 측정을 숨김(Phase 3a가 fail-closed 해야 할 바로 그 케이스). 제어흐름상 실재(가설 아님).
+- **[HIGH-2] 희소 gap 샘플이 연속 interval을 과대주장, verify가 못 잡음** (`analyze.py` 시간 윈도우).
+  내부 gap 검출이 고정 `GAP_PROBES` 점만 샘플 → 점 사이 좁은 fail island이면 `_reconstruct_runs`가 단일
+  연속 interval로 보고, verify는 interval mid·lo-1·hi+1·선언 gap만 확인 → 숨은 내부 fail island을 영영
+  미재생 = 조용히 부풀린 반응 윈도우 + byte-재현되나 거짓인 artifact.
+
+## 수정 (HIGH-1·HIGH-2, 둘 다 fail-closed 강화)
+
+- **HIGH-1**: `_coverage_check`가 `pos_window.incomplete=true`(측정된 보조 윈도우 한정)도 coverage FAIL 처리 +
+  `any_incomplete`에 pos 미완 포함 + `_selfcheck_gate`에 pos-incomplete 거부 케이스 추가(통과 불가 증명). 단,
+  `saturated_lo/hi`(도달 범위 끝까지 클리어 = 정당한 결과)는 incomplete 아니므로 비-게이트.
+- **HIGH-2**: gap 스캔을 **균일 stride**(`stride = 폭//(GAP_PROBE_BUDGET+1)`)로 하고 `gap_check_stride`를
+  time_window에 **명시 기록**(해상도 한계의 coverage proof — "stride 이하 간격에서 gap 미검출"; sub-stride
+  island은 배제 못 함을 정직 표기, 과대주장 제거). `--verify`가 각 interval 내부를 **같은 stride로 dense
+  재스캔**(`_stride_points`)해 sampled-clear 주장을 측정 해상도에서 강제(숨은 gap·analysis 변조 차단).
+  넓은 interval일수록 stride 큼 = 적은 점이지만 측정과 동일 해상도라 정직(좁은 binding 윈도우는 stride 작아
+  촘촘). 회귀: 측정값(lo/hi/intervals) 불변, `gap_check_stride` 필드만 추가.
+
+## Self-Review Round 2 (수정 후 자체 적대, clean)
+
+- HIGH-1 수정 검증: 단위 — pos incomplete → `_coverage_check` FAIL, pos complete → pass, `_selfcheck_gate`
+  양/음(pos 포함) 통과. `any_incomplete`가 pos 미완 반영. ✓.
+- HIGH-2 수정 검증: `_stride_points` 단위(0/100/30→[30,60,90], 좁은 구간→[]). 측정·verify가 동일 stride로
+  같은 점 재생성 = 결정론. gap_check_stride 명시 → 과대주장 제거(연속 "증명" 아닌 "stride 해상도 sampled-clear").
+  verify dense 재스캔이 측정 해상도에서 sampled-clear 강제. ✓.
+- 부작용 점검: gap_check_stride 추가로 analysis.json 스키마 변경 → S11~S14 **재측정 필요**(값 불변·필드 추가).
+  verify 비용 증가(interval당 ~stride 점) — binding 윈도우 촘촘, 넓은 윈도우 성김이라 과도하지 않음. ✓.
+- 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 2 결론: HIGH 0 → clean. 재측정 후 codex 재리뷰 진행.**

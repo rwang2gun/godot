@@ -54,7 +54,7 @@ PHYS_FPS = 60
 # 측정 기본 파라미터. 윈도우는 보통 f* 주변 연속 구간 → 기하 확장으로 도메인을 적응적으로 잡고 경계만 정밀.
 TIME_CAP = 80          # 시간 윈도우 액션당 롤아웃 상한(초과 시 incomplete)
 POS_CAP = 60           # 위치 윈도우 액션당 상한
-GAP_PROBES = 8         # [lo,hi] 내부 비연속(gap) 검출 샘플 수
+GAP_PROBE_BUDGET = 8   # interval gap 스캔 내부 샘플 예산 → stride = 폭/(budget+1) (명시 기록·verify 강제)
 PROBE_OFFSETS = [16, 32, 64, 128, 256, 512, 1024, 2048]   # 도메인 기하 확장 step(시간)
 POS_PROBE_OFFSETS = [12, 24, 48, 96, 192, 384, 768]       # 위치(px) 기하 확장 step
 MINIMIZE_SUBSET_CAP = 8   # cardinality 증명 허용 최대 액션 수
@@ -272,6 +272,19 @@ def _even_points(lo: int, hi: int, n: int) -> list[int]:
     return sorted({int(round(lo + step * (i + 1))) for i in range(n)})
 
 
+def _stride_points(lo: int, hi: int, stride: int) -> list[int]:
+    """[lo,hi] 내부를 stride 간격으로 샘플(양 끝 제외). 측정·verify가 동일 stride로 같은 점을 재생성 →
+    sampled-clear 주장의 결정론적 재검증(gap 검출 해상도 = stride, 명시 기록)."""
+    if stride < 1 or hi - lo <= 1:
+        return []
+    pts: list[int] = []
+    f = lo + stride
+    while f < hi:
+        pts.append(f)
+        f += stride
+    return pts
+
+
 def measure_time_window(roll: Rollouter, idx: int, minimal: list[dict], sweep_target: dict,
                         f_star: int, deadline: int, required: int, cap: int) -> dict:
     """액션 idx의 시간 윈도우(at_frame_exact 스윕). f* 주변 기하 확장으로 도메인 bracket → 경계 binary
@@ -359,8 +372,11 @@ def measure_time_window(roll: Rollouter, idx: int, minimal: list[dict], sweep_ta
     domain = [left_fail if left_fail is not None else lo,
               right_fail if right_fail is not None else hi]
 
-    # 내부 비연속(gap) 검출 — [lo,hi] 균등 샘플(병렬). 모두 클리어면 단일 interval(현 S11~S14 기대).
-    test_batch(_even_points(lo, hi, GAP_PROBES))
+    # 내부 비연속(gap) 검출 — [lo,hi]를 **균일 stride**로 스캔(병렬). stride = 폭/(budget+1)을 명시 기록해
+    # "stride 이하 간격에서 gap 미검출"을 정직 보고(sub-stride island은 배제 못 함 = gap_check_stride가 그
+    # 해상도 한계의 coverage proof; R1-H2 과대주장 차단). verify가 같은 stride로 재스캔해 sampled-clear 강제.
+    stride = max(1, (hi - lo) // (GAP_PROBE_BUDGET + 1))
+    test_batch(_stride_points(lo, hi, stride))
     intervals, gaps = _reconstruct_runs(test, lo, hi, cache)
 
     widths = [b - a + 1 for a, b in intervals]
@@ -370,6 +386,7 @@ def measure_time_window(roll: Rollouter, idx: int, minimal: list[dict], sweep_ta
         "width_frames": width_frames,
         "width_s": round(width_frames / PHYS_FPS, 4),
         "intervals": intervals, "gaps": gaps,
+        "gap_check_stride": stride,
         "incomplete": incomplete[0],
         "domain": domain,
         "rollouts": used[0],
@@ -651,7 +668,10 @@ def analyze_stage(stage_id: int, args) -> int:
     stage_flags = []
     if stage_min is not None and stage_min < caps["machine_only_s"]:
         stage_flags.append("provisional_machine_only_flag")
-    any_incomplete = any(p["time_window"]["incomplete"] for p in per_action)
+    # incomplete = 시간 윈도우 OR (측정한) 위치 윈도우 미완(R1-H1 — 보조 측정도 미완을 통과로 위장 금지).
+    any_incomplete = any(
+        p["time_window"]["incomplete"] or (p.get("pos_window") is not None and p["pos_window"].get("incomplete"))
+        for p in per_action)
 
     analysis = {
         "solution_ref": str(solve_path.relative_to(ROOT)).replace("\\", "/"),
@@ -669,7 +689,7 @@ def analyze_stage(stage_id: int, args) -> int:
         "any_incomplete": any_incomplete,
         "capabilities": caps,
         "sweep_meta": {
-            "time_cap": args.cap, "pos_cap": args.pos_cap, "gap_probes": GAP_PROBES,
+            "time_cap": args.cap, "pos_cap": args.pos_cap, "gap_probe_budget": GAP_PROBE_BUDGET,
             "probe_offsets": PROBE_OFFSETS, "total_rollouts": roll.count,
         },
     }
@@ -712,6 +732,9 @@ def _coverage_check(analysis: dict) -> list[str]:
             fails.append("필수 액션 %s incomplete=true (미완 측정 통과 위장 금지)" % p.get("label"))
         elif not tw.get("intervals"):
             fails.append("필수 액션 %s time_window.intervals 비어있음" % p.get("label"))
+        pw = p.get("pos_window")
+        if pw is not None and pw.get("incomplete"):     # R1-H1 — 측정한 위치 윈도우 미완도 fail-closed
+            fails.append("필수 액션 %s pos_window incomplete=true (보조 측정도 미완 위장 금지)" % p.get("label"))
     missing = set(range(len(minimal))) - seen
     if missing:
         fails.append("per_action 누락 index %s" % sorted(missing))
@@ -732,6 +755,8 @@ def _selfcheck_gate() -> bool:
             ],
         }
     cases: list[tuple] = [(good(), False)]   # (analysis, should_reject)
+    # 양성 변형 — pos_window가 있어도 incomplete=false면 통과.
+    a = good(); a["per_action"][0]["pos_window"] = {"incomplete": False}; cases.append((a, False))
     # 음성 변형들 — 각각 거부되어야 함.
     a = good(); a["per_action"].pop(); cases.append((a, True))                       # count mismatch / 누락
     a = good(); a["per_action"][1]["index"] = 0; cases.append((a, True))             # duplicate index
@@ -739,6 +764,7 @@ def _selfcheck_gate() -> bool:
     a = good(); a["per_action"][0]["label"] = "wrong#0"; cases.append((a, True))     # label mismatch
     a = good(); a["per_action"][0]["time_window"]["incomplete"] = True; cases.append((a, True))  # incomplete 필수
     a = good(); a["per_action"][0]["time_window"]["intervals"] = []; cases.append((a, True))     # 빈 intervals
+    a = good(); a["per_action"][0]["pos_window"] = {"incomplete": True}; cases.append((a, True))  # pos 미완(R1-H1)
     for analysis, should_reject in cases:
         rejected = bool(_coverage_check(analysis))
         if rejected != should_reject:
@@ -764,7 +790,9 @@ def verify_one(stage_id: int, workers: int) -> bool:
             print("    - %s" % c)
         return False
 
-    # 싼 재검증 체크 묶음 — (설명, plan, 기대 클리어). 1-minimal 자체 + 액션별 interval/gap 경계.
+    # 재검증 체크 묶음 — (설명, plan, 기대 클리어). 1-minimal 자체 + 액션별 interval/gap 경계 + interval
+    # 내부를 **gap_check_stride로 dense 재스캔**(측정 해상도에서 sampled-clear 강제 = 숨은 gap·analysis 변조
+    # 차단, R1-H2). stride가 클(넓은 interval)수록 적은 점이지만 측정과 동일 해상도라 정직.
     checks: list[tuple] = [("1-minimal self-clear", minimal, True)]
     for p in analysis["per_action"]:
         idx = p["index"]
@@ -772,10 +800,12 @@ def verify_one(stage_id: int, workers: int) -> bool:
         tw = p["time_window"]
         if st is None:
             continue
+        stride = int(tw.get("gap_check_stride", max(1, (int(tw["hi"]) - int(tw["lo"])) // (GAP_PROBE_BUDGET + 1))))
         for lo, hi in tw["intervals"]:
-            mid = (lo + hi) // 2
-            checks.append(("a%d interval[%d,%d] 내부=clear" % (idx, lo, hi),
-                           sweep_time_plan(minimal, idx, st, mid), True))
+            interior = [(lo + hi) // 2] + _stride_points(lo, hi, stride)
+            for f in sorted(set(interior)):
+                checks.append(("a%d interval[%d,%d] %d=clear" % (idx, lo, hi, f),
+                               sweep_time_plan(minimal, idx, st, f), True))
             checks.append(("a%d %d(下) 밖=fail" % (idx, lo - 1),
                            sweep_time_plan(minimal, idx, st, lo - 1), False))
             checks.append(("a%d %d(上) 밖=fail" % (idx, hi + 1),

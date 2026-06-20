@@ -88,12 +88,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 14,
         "incomplete": false,
         "domain": [
           168,
           328
         ],
-        "rollouts": 34
+        "rollouts": 36
       },
       "pos_window": {
         "baseline_x": 24.0,
@@ -157,12 +158,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 23,
         "incomplete": false,
         "domain": [
           707,
           995
         ],
-        "rollouts": 38
+        "rollouts": 39
       },
       "pos_window": {
         "baseline_x": 888.0,
@@ -226,12 +228,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 8,
         "incomplete": false,
         "domain": [
           1311,
           1439
         ],
-        "rollouts": 35
+        "rollouts": 36
       },
       "pos_window": {
         "baseline_x": 312.0,
@@ -276,7 +279,7 @@
   "sweep_meta": {
     "time_cap": 80,
     "pos_cap": 60,
-    "gap_probes": 8,
+    "gap_probe_budget": 8,
     "probe_offsets": [
       16,
       32,
@@ -287,6 +290,6 @@
       1024,
       2048
     ],
-    "total_rollouts": 167
+    "total_rollouts": 171
   }
 }

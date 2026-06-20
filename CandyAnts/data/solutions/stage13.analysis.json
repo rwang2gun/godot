@@ -120,12 +120,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 13,
         "incomplete": false,
         "domain": [
           568,
           728
         ],
-        "rollouts": 36
+        "rollouts": 37
       },
       "pos_window": {
         "baseline_x": 840.0,
@@ -189,6 +190,7 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 38,
         "incomplete": false,
         "domain": [
           850,
@@ -233,12 +235,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 42,
         "incomplete": false,
         "domain": [
           936,
           1448
         ],
-        "rollouts": 38
+        "rollouts": 40
       },
       "pos_window": null,
       "tier": "comfortable",
@@ -277,12 +280,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 42,
         "incomplete": false,
         "domain": [
           1021,
           1533
         ],
-        "rollouts": 40
+        "rollouts": 41
       },
       "pos_window": null,
       "tier": "comfortable",
@@ -321,12 +325,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 481,
         "incomplete": false,
         "domain": [
           1106,
           7501
         ],
-        "rollouts": 46
+        "rollouts": 47
       },
       "pos_window": null,
       "tier": "comfortable",
@@ -365,12 +370,13 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 481,
         "incomplete": false,
         "domain": [
           952,
           6040
         ],
-        "rollouts": 56
+        "rollouts": 57
       },
       "pos_window": null,
       "tier": "comfortable",
@@ -390,7 +396,7 @@
   "sweep_meta": {
     "time_cap": 80,
     "pos_cap": 60,
-    "gap_probes": 8,
+    "gap_probe_budget": 8,
     "probe_offsets": [
       16,
       32,
@@ -401,6 +407,6 @@
       1024,
       2048
     ],
-    "total_rollouts": 286
+    "total_rollouts": 292
   }
 }

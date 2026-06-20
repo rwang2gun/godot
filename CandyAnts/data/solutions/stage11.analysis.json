@@ -60,6 +60,7 @@
           ]
         ],
         "gaps": [],
+        "gap_check_stride": 15,
         "incomplete": false,
         "domain": [
           341,
@@ -110,7 +111,7 @@
   "sweep_meta": {
     "time_cap": 80,
     "pos_cap": 60,
-    "gap_probes": 8,
+    "gap_probe_budget": 8,
     "probe_offsets": [
       16,
       32,

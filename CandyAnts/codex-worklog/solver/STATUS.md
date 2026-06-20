@@ -274,9 +274,16 @@ expect가 verdict-only 통과") → fail-closed 수정(EXPECTED_SOLVE_STAGES 누
 - **단위 검증**: prove_cardinality 양/음 분기 + classify_tier 경계 + _reconstruct_runs(연속·gap 분리) +
   gate self-check 모킹 통과.
 
+### 적대 리뷰 (impl stage)
+- **자체 R1 clean → codex R1(needs-attention, HIGH×2)**: (H1) pos_window.incomplete가 게이트/any_incomplete
+  미반영 (H2) 희소 gap 샘플이 연속 interval 과대주장·verify 미검출. → **둘 다 수정**: H1=coverage/any_incomplete가
+  pos incomplete도 fail-closed + self-check 케이스 / H2=gap 스캔 균일 stride + `gap_check_stride` 명시 기록
+  (해상도 한계 coverage proof) + verify가 그 stride로 interval dense 재스캔. **자체 R2 clean**. S11~S14 재측정
+  (값 불변·필드 추가), verify 218체크 그린. 트레일 `reviews/phase03-impl-review.md`. **codex 재리뷰 대기.**
+
 ### 남은 작업
 1. T_human 라벨 pre-register 대조(사용자 난이도 순위 입력 시 `--labels`로 Spearman·불일치) — 게이트 아님, 정보.
-2. 자체 적대 리뷰(완료) → codex impl 적대 리뷰(clean까지) → phase 커밋.
+2. codex impl 재리뷰 clean 확인 → phase 커밋 마무리.
 
 > **상태**: analyze.py + 4 analysis.json + plan.md(verify 편입) + STATUS **워킹트리 미커밋**(codex 리뷰 후
 > 커밋 예정). PlanRunner 가산①②는 선커밋 `02c2d43`. 워킹트리에 사용자 챕터2 WIP 동시 존재 — analyze.py 무관.
