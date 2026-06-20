@@ -77,6 +77,12 @@ var _trace: Dictionary = {}        # spawn_index(int) → Array[[frame,cx,cy,car
 var _trace_last: Dictionary = {}   # spawn_index(int) → Vector2i (마지막 기록 셀)
 var _cs: int = 48
 
+# auto-solver Phase 3 (D12 가산①) — fired-action 보고(opt-in). plan "report_fired":true일 때만 각 액션의
+# 실제 발화 정보를 결과 fired_actions에 포함(analyze.py 윈도우 측정의 f*·대상 ID 출처). 미설정 시 기존
+# SOLVER_RESULT 불변(trace와 독립 flag). solve.py 저장 경로는 trace 동반 금지, analyze baseline만 동시 사용.
+var _report_fired: bool = false
+var _fired_actions: Array = []   # [{index,label,skill,frame,target_kind, spawn_index?/target_pos?/target_cell?}]
+
 # verdict는 글로벌 버스가 아니라 현재 스테이지의 StageRunner.concluded(인스턴스 시그널)로 받는다(run()에서
 # 연결). 여기선 진척 휴리스틱용 candy_piece_picked(글로벌)만 1회 연결 — 이건 verdict가 아니라 보조 지표라
 # _running 가드로 충분. verdict 귀속 방어:
@@ -142,6 +148,7 @@ func run(plan: Dictionary) -> void:
 		_home_pos = (homes[0] as Node2D).global_position
 	# 트레이스(D10, 가산적): plan "trace":true일 때만. 셀 크기는 Terrain에서 1회 캡처.
 	_trace_enabled = bool(plan.get("trace", false))
+	_report_fired = bool(plan.get("report_fired", false))
 	if _trace_enabled:
 		var terrain: Node = _find_node_of_class("Terrain")
 		if terrain != null and "cell_size" in terrain:
@@ -205,6 +212,8 @@ func _reset_state() -> void:
 	_home_pos = Vector2(1.0e20, 1.0e20)
 	_trace = {}
 	_trace_last = {}
+	_report_fired = false
+	_fired_actions = []
 
 func _physics_process(_delta: float) -> void:
 	if not _running or _done:
@@ -284,8 +293,11 @@ func _evaluate_actions() -> void:
 		if skill == "":
 			continue
 		if _target_mode(act, skill) == "cell":
-			if _fire_cell(act, skill):
-				_mark_fired(act)
+			var cell_res: Dictionary = _fire_cell(act, skill)
+			if bool(cell_res.get("placed", false)):
+				var tc: Variant = cell_res.get("cell")
+				_mark_fired(act, {"target_kind": "cell",
+					"target_cell": ([tc.x, tc.y] if tc is Vector2i else tc)})
 		else:
 			var ant: Ant = _select_ant(act)
 			if ant == null:
@@ -295,9 +307,10 @@ func _evaluate_actions() -> void:
 			if SkillApplier.apply_to_ant(skill, ant, _inventory):
 				print("[PlanRunner] %s -> spawn_index=%d pos=%s frame=%d" % [
 					skill, ant.spawn_index, str(ant.global_position), _frame])
-				_mark_fired(act)
+				_mark_fired(act, {"target_kind": "ant", "spawn_index": ant.spawn_index,
+					"target_pos": [ant.global_position.x, ant.global_position.y]})
 
-func _mark_fired(act: Dictionary) -> void:
+func _mark_fired(act: Dictionary, fired_info: Dictionary = {}) -> void:
 	act["_fired"] = true
 	# after 앵커는 **첫 발화** 프레임으로 고정한다(codex R6 MED). repeat:true 액션이 매번 덮어쓰면
 	# 의존 액션의 after가 "첫 발화+delay"가 아니라 마지막 발화까지 밀리므로, 키가 없을 때만 기록.
@@ -309,6 +322,12 @@ func _mark_fired(act: Dictionary) -> void:
 	if not _fired_frame.has(idx):
 		_fired_frame[idx] = _frame
 	_actions_fired += 1
+	# 가산① — report_fired일 때만 발화 정보 누적(index/label/skill/frame은 act, target 정보는 fired_info).
+	if _report_fired:
+		var entry: Dictionary = {"index": int(act.get("_index", -1)), "label": label,
+			"skill": str(act.get("skill", "")), "frame": _frame}
+		entry.merge(fired_info)
+		_fired_actions.append(entry)
 
 # 대상 방식 결정 — target.mode 우선, 없으면 스킬 SOLVER_META.target(D7), 그래도 없으면 "ant".
 func _target_mode(act: Dictionary, skill: String) -> String:
@@ -325,6 +344,9 @@ func _time_ready(act: Dictionary) -> bool:
 	match ttype:
 		"at_frame":
 			return _frame >= int(trig.get("frame", 0))
+		"at_frame_exact":
+			# 가산② — 그 프레임에만 평가(미충족 시 재시도 없이 미발화). 윈도우 측정용 정확 발화. at_frame(>=) 불변.
+			return _frame == int(trig.get("frame", -1))
 		"active_ants_le":
 			return _active_ant_count() <= int(trig.get("n", 0))
 		"picked_ge":
@@ -337,14 +359,15 @@ func _time_ready(act: Dictionary) -> bool:
 		_:
 			return true
 
-# 셀 대상 발화 — 표지판/장치를 cell(또는 world)에 설치. 성공 시 true.
-func _fire_cell(act: Dictionary, skill: String) -> bool:
+# 셀 대상 발화 — 표지판/장치를 cell(또는 world)에 설치. 성공 시 {placed:true, cell:Vector2i}, 아니면
+# {placed:false}. (가산① fired_actions가 실제 placed cell을 기록하도록 bool→Dictionary 반환.)
+func _fire_cell(act: Dictionary, skill: String) -> Dictionary:
 	var terrain: Terrain = _find_node_of_class("Terrain") as Terrain
 	if terrain == null:
-		return false
+		return {"placed": false}
 	var parent: Node = terrain.get_parent()
 	if parent == null:
-		return false
+		return {"placed": false}
 	var t: Dictionary = act.get("target", {})
 	var where: Variant
 	if t.has("cell"):
@@ -354,12 +377,12 @@ func _fire_cell(act: Dictionary, skill: String) -> bool:
 		var w: Array = t["world"]
 		where = Vector2(float(w[0]), float(w[1]))
 	else:
-		return false
+		return {"placed": false}
 	var res: Dictionary = SkillApplier.place_on_cell(skill, terrain, where, parent, _inventory)
 	if bool(res.get("placed", false)):
 		print("[PlanRunner] %s placed cell=%s frame=%d" % [skill, str(res.get("cell")), _frame])
-		return true
-	return false
+		return {"placed": true, "cell": res.get("cell")}
+	return {"placed": false}
 
 # 개미 대상 후보 선택 — 활성 스테이지 루트 하위 walker(또는 any) 중 y-band/dir 필터 통과분에서
 # select(max_x/min_x/spawn_index). tie-break = spawn_index(결정론). 없으면 null.
@@ -474,6 +497,8 @@ func _report(cleared: bool, saved: int, lost: int, hp: int, reason: String) -> v
 	if _trace_enabled:
 		out["trace"] = _trace
 		out["cell_size"] = _cs
+	if _report_fired:
+		out["fired_actions"] = _fired_actions
 	_finish(out)
 
 # 결과 emit + 스테이지 정리. 시그널은 _ready에서 1회 연결돼 인스턴스 수명 동안 유지(해제 안 함);

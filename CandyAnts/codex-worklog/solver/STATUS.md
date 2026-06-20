@@ -225,6 +225,40 @@ expect가 verdict-only 통과") → fail-closed 수정(EXPECTED_SOLVE_STAGES 누
 `cleared:true`+`saved≥1` 강제 + `_selfcheck_schema` 음성 자가검증) → self-review R1(self-HIGH 정규식→멤버십)
 → **R2 approve**. 커밋 `bdb23c1`(S13+게이트) + sweep `94078f0`(fail-closed). 트레일 `phases/solver/reviews/phase02-impl-review.md`.
 
+## Phase 3 진행 중 (2026-06-20) — plan stage approve + PlanRunner 가산①② (회귀 0, 미커밋·미완)
+
+> 트레일: plan-review [phase03-plan-review.md](../../phases/solver/reviews/phase03-plan-review.md) R1~R4.
+> plan SoT Phase 3 v3 확정([auto-solver-plan.md](../../phases/solver/auto-solver-plan.md)).
+
+### plan stage 종결 (codex 적대 4R → approve)
+- R1(C1C2H1H2H3H4M1M2L1) → R2(H1H2H3M1M2M3) → R3(H1M1M2M3L1) → **R4 approve**. R4는 사용자 cap 연장 승인.
+- **핵심 진화**: "엔진 무변경"→**"엔진 가산 opt-in 확장"**(trace 패턴). 윈도우 측정 = spawn_index 고정 +
+  at_frame_exact 스윕(시간 1급) + ant_reaches_x x스윕(위치 보조). 최소화 = deletion-minimal(고정순서 순차
+  제거), cardinality는 `--prove-cardinality` opt-in. 측정 대상 = "발견된 해(현 solve.json)"(max-margin은 3b).
+  T_human = provisional(tier_source=default_uncalibrated). 게이트 = analyze.py --verify(interval/gap +
+  coverage 선검증, incomplete=FAIL).
+
+### impl: PlanRunner 가산①② 완료 (회귀 0)
+- **가산①** `report_fired:true` → SOLVER_RESULT에 `fired_actions:[{index,label,skill,frame,target_kind,
+  spawn_index?/target_pos?/target_cell?}]`. analyze.py가 baseline에서 f*·대상 ID 획득(stdout regex 불요).
+- **가산②** `at_frame_exact{frame}`: `_frame==frame` 단발 평가(no-retry, 정확 프레임 발화). 기존 at_frame(>=) 불변.
+- `_fire_cell` bool→Dictionary(placed,cell)(cell-target fired 기록), `_mark_fired(act, fired_info)`.
+- **회귀 0(byte-identical)**: verify 게이트 5종 PASS — DeterminismReplay(962f)/SpawnSchedule/PlanReplayHarness
+  (S11 4/4)/SkillMetadataDrift(11)/run_plan --selftest(골든5+solve4, s12=2385·s13=2719·s14=4624 동일).
+- **작동 실증**: stage11 report_fired → blocker fired f*=581 si*=0. at_frame_exact 스윕(spawn_index 고정):
+  frame 550·581 clear / 300·450·620+ 실패 = 시간 윈도우 [~550,~600] 드러남. no-retry 확인(450·620 fired=0).
+
+### 남은 impl (다음 세션)
+1. `tools/solver/analyze.py`(순수 오케스트레이터): 최소화(deletion-minimal) + 윈도우 측정(B) + T_human
+   분류(C) + 리포트(D, analysis.json) + `--verify`(E: coverage 선검증 + interval/gap 경계 + incomplete=FAIL).
+2. S11~S14 측정 → `data/solutions/stageNN.analysis.json`.
+3. T_human 라벨 pre-register 대조(사용자 입력) — Spearman·불일치 기록(게이트 아님).
+4. `analyze.py --verify`를 plan frontmatter `verify`에 편입.
+5. 자체 적대 리뷰 → codex impl 재리뷰(clean까지). 그 뒤 phase 커밋.
+
+> **상태**: plan.md(v3) + PlanRunner.gd(가산①②) + reviews/phase03-plan-review.md(R1~R4) **워킹트리 미커밋**
+> (phase 미완이라 커밋 보류). 워킹트리에 사용자 챕터2 WIP(stage19~25) 동시 존재 — analyze.py는 그와 무관.
+
 ## 다음 작업 (Phase 3 또는 솔버 고도화)
 - **Phase 3 진입**(반응-윈도우·인간타당성·난이도, plan §Phase 3): max-margin 해의 각 필수 명령에 대해
   (프레임·위치) 윈도우를 스윕 측정 → `T_human` 필터(정합성) + 난이도 점수. 최소화/크레딧 할당(잉여 액션 제거).
