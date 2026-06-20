@@ -421,3 +421,26 @@ R11 확인. 신규(실은 R1-H2 회귀 — 시간 윈도우 gap 샘플링):
 - 추가 롤아웃 0(라벨링만) → verify 빠름 유지. 재측정(필드 추가·시간값 불변) + verify 그린 확인 예정. 새 HIGH 없음.
 
 **Self-Review Round 14 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**
+
+---
+
+## Round 13 (codex adversarial-review, --base f3f0a10) — needs-attention, **MEDIUM×1** (HIGH 0 — 수렴 신호)
+
+R12 확인. **첫 비-HIGH**(MEDIUM):
+- **[MEDIUM] verify가 sampled disclosure note를 강제 안 함**. R12가 `gap_coverage_note`로 난이도가 sampled임을
+  알리는데 `_coverage_check`은 per-action gap_verified/coverage만 검증, top-level note는 미요구 → 편집/생성된
+  v3 analysis가 note를 지우고 stage_min/tier를 권위처럼 보이게 해도 통과. disclosure 계약의 silent-pass.
+
+## 수정 (R13 MEDIUM — cheap·정공법, defer 대신 즉시 닫음)
+
+- `_coverage_check`: 결과가 sampled(완성 윈도우 중 gap_verified=false OR binding sampled)면 `gap_coverage_note`
+  present+non-empty 강제. note 삭제로 sampled를 권위로 위장하는 silent-pass 차단. selfcheck sampled(note O/X) 케이스.
+  코드 전용(현 파일이 이미 note 보유 → 재측정 불요), verify 그린.
+
+## Self-Review Round 15 (수정 후 자체 적대, clean)
+
+- 단위: selfcheck sampled+note 통과 / sampled-note부재 거부. 4 실데이터 coverage 통과(note 보유). ✓.
+- **수렴 신호**: R1~R12 전부 HIGH였는데 R13은 MEDIUM 1건(그마저 cheap fix). 권위 게이트 표면이 거의 닫힘. ✓.
+- 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 15 결론: HIGH 0 → clean. codex 재리뷰 진행.**

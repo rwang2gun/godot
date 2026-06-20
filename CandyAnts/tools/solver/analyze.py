@@ -685,6 +685,14 @@ def _coverage_check(analysis: dict) -> list[str]:
     missing = set(range(len(minimal))) - seen
     if missing:
         fails.append("per_action 누락 index %s" % sorted(missing))
+    # sampled disclosure 강제(R13) — 결과가 sampled(어떤 완성 윈도우 gap_verified=false OR binding sampled)면
+    # gap_coverage_note 필수. note를 지워 stage_min/tier를 권위처럼 보이게 하는 silent-pass 차단.
+    any_sampled = (analysis.get("stage_min_window_gap_verified") is False) or any(
+        (not p.get("time_window", {}).get("incomplete"))
+        and (p.get("time_window", {}).get("gap_verified") is False)
+        for p in per)
+    if any_sampled and not str(analysis.get("gap_coverage_note", "")).strip():
+        fails.append("sampled 결과인데 gap_coverage_note 부재/빈값(난이도 sampled disclosure 누락)")
     # minimal_kind 가드 — 1-minimal(기본) 또는 cardinality-minimal(증명 메타 동반)만 허용(R5-H1).
     mk = analysis.get("minimal_kind")
     if mk == "cardinality-minimal":
@@ -808,6 +816,17 @@ def _selfcheck_gate() -> bool:
     a = good(); a["per_action"][0]["pos_hint"] = {"authoritative": True}; cov_cases.append((a, True))  # pos_hint 권위 위장 → 거부
     a = good(); a["per_action"][0]["time_window"]["gap_verified"] = False; cov_cases.append((a, True))  # stride1인데 gap_verified=false (R12)
     a = good(); a["per_action"][0]["time_window"]["gap_coverage"] = "full@9"; cov_cases.append((a, True))  # gap_coverage 불일치(R12)
+    def sampled(note: bool) -> dict:
+        a = good(); tw = a["per_action"][0]["time_window"]
+        tw["lo"], tw["hi"], tw["intervals"] = 10, 100, [[10, 100]]
+        tw["gap_check_stride"] = max(1, (100 - 10) // (GAP_PROBE_BUDGET + 1))   # =10
+        tw["gap_verified"] = False; tw["gap_coverage"] = "sampled@10"
+        a["stage_min_window_gap_verified"] = False
+        if note:
+            a["gap_coverage_note"] = "sampled disclosure"
+        return a
+    cov_cases.append((sampled(note=True), False))     # sampled + note → 통과
+    cov_cases.append((sampled(note=False), True))      # sampled인데 note 부재 → 거부(R13)
     a = good(); del a["analysis_schema_version"]; cov_cases.append((a, True))             # 스키마 버전 누락(R11-H1)
     a = good(); a["analysis_schema_version"] = 1; cov_cases.append((a, True))             # 옛 스키마 버전 → 거부
     a = good(); a["per_action"][0]["pos_window"] = {"intervals": [[1, 2]]}; cov_cases.append((a, True))  # 레거시 pos_window 잔존 → 거부
