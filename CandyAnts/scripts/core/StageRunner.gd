@@ -266,14 +266,16 @@ func _living_ant_count() -> int:
 			continue
 		if not _spawn_parent.is_ancestor_of(n):
 			continue
-		# 2026-06-04 — 물 표류(AdriftState)·낙하 기절(DeadState) 개미는 정상 루트 복귀 불가한 종착 상태라
-		# "남은 개미"에서 제외. 종료까지 queue_free되지 않고 그룹에 남아도 no_more_ants(스테이지 종료)
-		# 판정을 막지 않도록 한다(기절도 표류처럼 종료까지 화면에 유지되는 정책으로 통일).
+		# 종착(terminal) 개미는 "남은 개미"에서 제외 — 정상 루트로 사탕을 더 옮길 수 없어 no_more_ants
+		# (스테이지 종료) 판정을 막으면 안 된다. terminal 식별은 Ant.is_alive() 단일 진입점으로 통일한다
+		# (SavedState/DeadState/SettledState/LostState/AdriftState). 직접 상태 나열은 신규 terminal 누락을
+		# 부른다 — 2026-06-20: SettledState(floater 낙하산 분배자 정착)가 빠져 있어, 분배자가 정착한 뒤
+		# 다른 개미가 모두 종착해도 살아있는 개미로 카운트돼 no_more_ants가 발화하지 못하고 time_out까지
+		# 대기하던 버그를 수정. AdriftState(swim 표류)·DeadState(기절)·SettledState(분배자 정착)는
+		# queue_free 없이 종료까지 그룹에 남으므로 본 가드가 특히 중요(SavedState/LostState는 queue_free).
 		var a: Ant = n as Ant
-		if a != null and a.state_machine != null:
-			var st: AntState = a.state_machine.current_state
-			if st is AdriftState or st is DeadState:
-				continue
+		if a != null and a.state_machine != null and not a.is_alive():
+			continue
 		count += 1
 	return count
 
