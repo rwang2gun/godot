@@ -119,11 +119,14 @@ class Rollouter:
         return is_full_clear(self.exec_one(actions), self.required)
 
     def batch_clears(self, plans: list[list[dict]]) -> list[bool]:
+        return [is_full_clear(r, self.required) for r in self.batch_results(plans)]
+
+    def batch_results(self, plans: list[list[dict]]) -> list[dict]:
+        """원시 결과 dict 리스트(병렬). verify는 error/verdict-부재를 클리어 여부와 분리해 tri-state 평가."""
         if not plans:
             return []
         with ThreadPoolExecutor(max_workers=self.workers) as ex:
-            results = list(ex.map(self.exec_one, plans))
-        return [is_full_clear(r, self.required) for r in results]
+            return list(ex.map(self.exec_one, plans))
 
 
 def is_full_clear(res: dict, required_saved: int) -> bool:
@@ -763,6 +766,20 @@ def _coverage_check(analysis: dict) -> list[str]:
     return fails
 
 
+def _verdict_check(res: dict, expect_clear: bool, required: int) -> str:
+    """verify 리플레이 결과 1건 tri-state 평가(순수). 통과면 "", 아니면 사유. **error/verdict-부재 = infra
+    실패 → 항상 거부**(음성 단언도 fail-closed, R6-H1): 서브프로세스 실패·no-result를 진짜 게임 non-clear와
+    구분. 음성 단언은 진짜 게임 verdict(cleared=false)만 인정."""
+    if not isinstance(res, dict) or "error" in res:
+        return "replay error: %s" % (res.get("error") if isinstance(res, dict) else res)
+    if "cleared" not in res:
+        return "게임 verdict 부재(infra 실패 의심)"
+    got = is_full_clear(res, required)
+    if got != expect_clear:
+        return "got cleared=%s saved=%s want clear=%s" % (res.get("cleared"), res.get("saved"), expect_clear)
+    return ""
+
+
 def _solution_binding_fails(analysis: dict, expected_ref: str, solve_present: bool, solve: dict | None,
                             current_sha: str | None) -> list[str]:
     """analysis ↔ 측정 대상 solve.json 바인딩 검증(순수; verify_one이 I/O로 인자 채움). fail-open 차단:
@@ -913,6 +930,21 @@ def _selfcheck_gate() -> bool:
         if bool(_derived_consistency_fails(analysis, dcaps)) != should_reject:
             print("[verify] GATE SELFCHECK FAIL (derived): should_reject=%s" % should_reject)
             return False
+
+    # verdict tri-state 검출기 자가검증(R6-H1) — error/verdict-부재는 음성 단언에서도 거부(fail-closed).
+    v_cases = [
+        ({"cleared": True, "saved": 4}, True, 4, False),    # 진짜 클리어 + expect clear → 통과
+        ({"cleared": False, "saved": 0}, False, 4, False),  # 진짜 non-clear + expect 非 → 통과
+        ({"error": "no SOLVER_RESULT"}, False, 4, True),    # infra 실패 + expect 非 → 거부(R6-H1 핵심)
+        ({"error": "boom"}, True, 4, True),                 # infra 실패 + expect clear → 거부
+        ({"saved": 0}, False, 4, True),                     # verdict 부재(cleared 없음) → 거부
+        ({"cleared": True, "saved": 4}, False, 4, True),    # 진짜 클리어인데 expect 非 → 거부
+        ({"cleared": False, "saved": 0}, True, 4, True),    # 진짜 non-clear인데 expect clear → 거부
+    ]
+    for res, expect_clear, req, should_reject in v_cases:
+        if bool(_verdict_check(res, expect_clear, req)) != should_reject:
+            print("[verify] GATE SELFCHECK FAIL (verdict): res=%s should_reject=%s" % (res, should_reject))
+            return False
     return True
 
 
@@ -995,14 +1027,15 @@ def verify_one(stage_id: int, workers: int) -> bool:
                            sweep_time_plan(minimal, idx, st, gmid), False))
 
     plans = [c[1] for c in checks]
-    oks = roll.batch_clears(plans)
+    results = roll.batch_results(plans)      # tri-state — error/verdict-부재를 분리(R6-H1)
     ok_all = True
-    for (desc, _plan, expect_clear), got in zip(checks, oks):
-        if got != expect_clear:
-            print("[verify] stage%02d FAIL: %s (got cleared=%s want %s)" % (stage_id, desc, got, expect_clear))
+    for (desc, _plan, expect_clear), res in zip(checks, results):
+        why = _verdict_check(res, expect_clear, required)
+        if why:
+            print("[verify] stage%02d FAIL: %s (%s)" % (stage_id, desc, why))
             ok_all = False
     if ok_all:
-        print("[verify] stage%02d PASS (%d 체크, %d 롤аут)" % (stage_id, len(checks), roll.count))
+        print("[verify] stage%02d PASS (%d 체크, %d 롤아웃)" % (stage_id, len(checks), roll.count))
     return ok_all
 
 

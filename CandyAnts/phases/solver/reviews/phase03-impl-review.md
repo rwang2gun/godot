@@ -204,3 +204,30 @@ R4 + 파생 정합 확인. 신규 1건:
   "변조 가능 필드 무검증 신뢰" 클래스 전면 차단. 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 6 결론: HIGH 0 → clean. codex 재리뷰 진행.**
+
+---
+
+## Round 6 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1 (신규)
+
+R5 + R1~R5 종합 확인. 신규 1건:
+- **[HIGH-1] 음성 단언이 infra 실패에 fail-open**. `Rollouter._run`이 no-result 시 `{error}` 반환 →
+  `is_full_clear`가 False로 뭉갬 → verify가 음성 단언(deletion 트라이얼·경계·gap)에서 그 False를 "정상
+  non-clear"로 인정. 서브프로세스 실패·malformed 경로·stdout 손실이 진짜 게임 non-clear와 구분 불가 →
+  깨진 하니스로도 1-minimal·경계가 통과(양성 단언만 fail-closed, 음성은 fail-open).
+
+## 수정 (R6 HIGH-1)
+
+- verify를 **tri-state**로: 순수 `_verdict_check(res, expect_clear, required)` — error/`cleared` 부재 =
+  infra 실패 → **항상 거부**(음성 단언도 fail-closed). 음성 단언은 진짜 게임 verdict(cleared=false)만 인정.
+  verify_one이 `batch_clears`(bool) 대신 `batch_results`(원시 dict)로 받아 tri-state 평가. `_selfcheck_gate`에
+  verdict 7 케이스(진짜 클리어/非클리어 통과 + error·verdict부재·기대불일치 거부).
+
+## Self-Review Round 7 (수정 후 자체 적대, clean)
+
+- 단위: `_verdict_check` — `{error}`+expect非 거부, 진짜 non-clear 통과, verdict 부재 거부. selfcheck verdict
+  7케이스 통과. 4스테이지 full verify 236체크 그린(전부 진짜 게임 verdict). ✓.
+- 측정(batch_clears)은 종전대로 보수적(error→fail) + exec_one 1회 재시도 — 측정은 게이트 아님(verify가 권위).
+  verify만 strict tri-state. ✓.
+- 회귀: 엔진·스키마 무변경(재측정 불요). ✓. 새 HIGH/CRITICAL 없음.
+
+**Self-Review Round 7 결론: HIGH 0 → clean. codex 재리뷰 진행.**
