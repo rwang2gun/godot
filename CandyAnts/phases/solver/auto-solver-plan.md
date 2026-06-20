@@ -128,7 +128,7 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 ### Acceptance
 - 무힌트로 각 스테이지를 실제 인벤토리로 평가 → 클리어 가능하면 max-margin 유효 플랜(게임 verdict 클리어), 불가능하면 "불가" 리포트(D4). S11~S14 동일 잣대.
 
-## Phase 3 — 반응-윈도우 & 인간 타당성 (정합성 + 난이도) · **[3a ✅ 완료 (2026-06-20, codex 14R→approve) · 3b 스케치]**
+## Phase 3 — 반응-윈도우 & 인간 타당성 (정합성 + 난이도) · **[3a ✅ 완료 (2026-06-20, codex 14R→approve) · 3b ⛔ DEFERRED (2026-06-20, 실측 증거 — placement max-margin vacuous; Option C 채택)]**
 > **3a 완료**: `tools/solver/analyze.py`(최소화 deletion-minimal + 시간 윈도우 at_frame_exact 스윕 +
 > sampled 정직표기 + T_human provisional + `--verify` 게이트) + `data/solutions/stageNN.analysis.json`(S11~S14,
 > 1-minimal=원해·stage_min 1.35~2.28s 전부 comfortable). 위치 윈도우는 bouncing 개미에 x-스윕이 근본 모호라
@@ -137,7 +137,9 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 > PlanRunner 가산①②는 선커밋 `02c2d43`. 상세: `codex-worklog/solver/STATUS.md`.
 > **2-층 분리(2026-06-20 사용자 정렬)**: 범위를 **3a(확정·이번 구현 대상)**와 **3b(스케치·증거 후 재계획)**로
 > 쪼갠다. 3a = 순수 측정 인프라(최소화 + 윈도우 측정), 캘리브레이션 불요·falsifiable. 3a가 산출한 윈도우
-> 폭(초)을 본 뒤 3b(T_human 티어 보정·절대 난이도 점수)를 재계획한다. plan "증거 후 재계획" 철학과 일치.
+> 폭(초)을 본 뒤 3b를 재계획한다. plan "증거 후 재계획" 철학과 일치. **재계획 결과(2026-06-20, 사용자
+> Option A) = §3b**: max-margin **local 대안 해 탐색**만 이번 범위; T_human 티어 보정·절대 난이도 점수는
+> difficulty spread 확보까지 **추가 defer**(3a 증거 = S11~S14 전부 동일 티어).
 > **v2(2026-06-20, plan-review R1 반영)**: codex R1이 "엔진 무변경" 주장을 반증(C1 f* 미노출 / C2 at_frame
 > 재시도 / H1·H2 selector 불안정 / H3 cardinality / H4 max-margin 모순 / M1·M2·L1). → D12를 **엔진 가산
 > opt-in 확장**(trace 패턴)으로 정직화. 트레일 `reviews/phase03-plan-review.md`.
@@ -149,8 +151,9 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 **3a는 현재 `data/solutions/stageNN.solve.json`(Phase 2가 발견한 첫 full-clear 해)의 윈도우를 측정**한다.
 D6의 "가장 여유로운(max-margin) 해의 최소 윈도우 = 난이도" 정의는 **대안 해 탐색을 전제**하는데, 현
 `solve.py`는 첫 full clear에서 즉시 저장·종료(`solve.py:188,238`)라 solve.json은 max-margin 해가 아니다.
-→ 3a 산출은 정직하게 **"이 해의 윈도우 프로파일"**이고, 절대 난이도(가장 여유로운 해 기준)는 **3b**에서
-대안 해 탐색과 함께 확정한다(모순 제거: 3a는 max-margin을 주장하지 않음).
+→ 3a 산출은 정직하게 **"이 해의 윈도우 프로파일"**이다. **대안 해 탐색(max-margin local)은 3b**(§3b Option A)
+에서 다룬다. 단 **절대 난이도 등급(가장 여유로운 해 기준 1성/3성 분리)은 difficulty spread 확보까지 추가
+defer** — 3b도 max-margin을 *전역*으로 주장하지 않고 placement-local로 한정(모순 제거: 3a는 max-margin 미주장).
 
 ### 설계 결정 (D12 v3 — 윈도우 측정 = 엔진 가산 opt-in 확장, 트리거 자연축 스윕)
 - **"엔진 무변경"은 성립 안 함(R1-C1/C2 직시)** → **엔진 가산 opt-in 확장**으로 수정. PlanRunner에 **trace와
@@ -204,15 +207,127 @@ D6의 "가장 여유로운(max-margin) 해의 최소 윈도우 = 난이도" 정�
 - **(F) 직관 대조 = 정보 산출, 게이트 아님 (R1-M2 격하)**: 측정된 S11~S14 스테이지 최소 윈도우 폭 순위와
   **사용자 체감 난이도 라벨을 대조** — Spearman 순위상관·불일치 쌍 수를 리포트에 기록, 불일치 시 `flags`에
   원인 분석. **pass/fail 게이트 아님**(사후 해석 방지). 라벨은 가능하면 **측정 전 pre-register**(사용자가
-  S11~S14 난이도 순위를 먼저 제시)해 반증 가능성 확보. 이 데이터는 3b T_human 보정 1차 입력.
+  S11~S14 난이도 순위를 먼저 제시)해 반증 가능성 확보. 이 데이터는 3b T_human 보정 1차 입력(보정 자체는
+  difficulty spread 확보까지 defer — §3b Option A).
 
-### 3b · T_human 티어 보정 + 절대 난이도 점수 (스케치 · 3a 증거 후 재계획)
-- `T_human` 티어 임계를 S11~S14 라벨로 보정(입력수단별 분리 여부 포함, plan §미정 파라미터).
-- **대안 해 탐색 + max-margin 난이도(R1-H4 이관)**: 같은 스테이지의 대안 해를 탐색해 **가장 여유로운(max-
-  margin) 해**를 고르고 그 해의 최소 윈도우를 절대 난이도로(D6 정의). 3a "이 해 윈도우 프로파일"을 발판.
-- **난이도 점수**: 최소 윈도우 + 최소스킬·시퀀스 의존성·margin·대안 해 수 + **공간 조준 난이도**(움직이는
-  무리 속 select 탭 — 3a가 고정-ID로 분리한 차원) → 절대·등급별(1성/3성 분리). 다중 명령 합산식·인간 모델
-  (이진 vs 확률 σ)은 3a 윈도우 데이터를 본 뒤 확정.
+### 3b · max-margin 대안 해 탐색 (⛔ DEFERRED — 증거 기반, 2026-06-20 · Option C 채택)
+
+> **⛔ 보류 결정 (2026-06-20, 실측 증거 + 사용자 Option C).** 아래는 placement coordinate-ascent 설계의
+> *완성 초안*이고 codex plan-review R1까지 거쳤으나, **구현 전 실측 probe가 핵심 전제를 반증**해 **구현 보류**한다.
+> 설계 본문은 미래 재진입(특히 cross-structure 확장) 대비 보존.
+>
+> **실측 반증 (probe, 엔진 D4, 2026-06-20):** 두 스테이지·서로 다른 binding 타입에서 placement 변형이
+> **binding 윈도우를 전혀 못 움직임** — 3a binding이 이미 placement-local max-margin.
+> | 스테이지 | binding | 변형(3 knob ×±3셀) | 클리어 | **binding 넓어짐** |
+> |---|---|---|---|---|
+> | S12 | blocker#2 (81f) | 18 | 9 | **0** (다른 knob·자기 knob 모두 81f 불변) |
+> | S14 | climber#3 (86f) | 18 | 9 | **0** (blocker 재배치 간접완화 가설 거짓) |
+>
+> **근본 원인:** 난이도(binding 윈도우)는 *placement가 아니라 구조/메커닉*이 결정 — carrying 개미 climb 가능
+> 구간·blocker 반전 타이밍은 개미 물리가 정하고, 클리어되는 placement 범위(±1~3셀) 안에선 robust. 따라서
+> placement-only coordinate-ascent는 S11~S14에서 vacuous(codex R1-H4 "빈 탐색"이 가설 아닌 현실). **3b의 다른
+> 축(T_human 보정)도 4개 동일-티어 spread 0으로 막힘.** → **두 축 모두 "4개 동일·유사 스테이지" 제약에 막힌
+> 것이고, max-margin/보정에 의미가 생기려면 *다른 구조의 레벨들*이 먼저 필요**(Option C).
+>
+> **결정 = Option C (사용자):** 3b 보류. **미검증 실제 레벨(S1~S9 재설계·S15~S18·ch2 등)을 `try_solve search`로
+> 풀어** difficulty spread + 새 해 구조를 먼저 생성한다. 그 코퍼스가 생기면 3b(max-margin·T_human 보정)가
+> 비로소 의미를 갖고, 솔버 일반성도 개선되며(현 휴리스틱은 S11~S14 튜닝), 북극성(레벨 생성 오라클) 커버리지도
+> 전진한다. STATUS "고도화 = 실제 레벨 풀기" 경로. **재진입 시 우선 = cross-structure 대안(placement 아닌
+> 다른 스킬 multiset)** — placement는 실측상 무효라 그쪽이 진짜 headroom.
+>
+> 트레일: codex plan-review R1 + probe = `reviews/phase03b-plan-review.md`. verify 프론트매터 무변경(maxmargin.py
+> 미구현). 아래 설계는 **참고용 보존**(확정 아님).
+
+#### (보존) 측정 대상 재정의: 발견된 해 → max-margin 해 — *원래 의도, vacuous 판명*
+3a는 정직하게 **"발견된 해(solve.json)의 윈도우 프로파일"**만 측정했다(R1-H4: `solve.py`는 첫 full clear에서
+종료라 그 placement는 임의 — 최여유 보장 아님). 3b는 D6 정의(*레벨 난이도 = "가장 여유로운 해"의 최소 윈도우*)로
+한 발 나아가 **같은 해 구조의 대안 placement를 탐색해 max-margin(가장 여유로운) 해를 고르고, 그 binding 윈도우를
+권위 난이도로** 산출한다. 3a "이 해 윈도우 프로파일"을 발판(analysis.json 불변).
+
+#### 정직한 범위 경계 (over-claim 방지 — 3a sampled/pos 교훈)
+- **max-margin = "발견된 해 구조의 placement-변형 공간 내 coordinate-ascent local 최적"**, **전역(다른 스킬
+  multiset·다른 구조) 최적도 joint-exhaustive 최적도 아님**. cross-structure max-margin·joint 동시 완화는 **명시
+  defer**. 근거: 전 구조 열거·joint 곱공간은 intractable, value/cost 빈약. 3b가 답하는 질문 = "이 도구로 이
+  레벨을 **가장 관대하게** 푸는 placement는?"(난이도-관련 핵심 질문). 리포트는
+  `max_margin_scope:"coordinate_ascent_placement_local"`로 경계 명시 표기(3a `tier_source`/`sampled` 선례).
+- **3a 증거 직시(가정 정정)**: binding 액션이 **항상 blocker가 아니다** — S11(blocker `ant_reaches_x ge`)·
+  S12(blocker `le`)·S13(blocker `ge`)는 binding=position-triggered blocker지만 **S14 binding=climber#3
+  (`picked_ge n=1`, carry, width 1.43s)** 로 **공간축이 없다**. 따라서 "binding 액션의 x-landmark를 직접
+  스윕"은 S14에 미적용. → 올바른 모델: **placement-variable 액션(=position-triggered ant-target: blocker류)을
+  control knob으로 변형**해 **전 필수 액션의 min-window(binding)를 최대화**. binding 액션 자신이 placement-
+  variable이 아니어도(S14 climber) **knob(blocker) 재배치가 궤적 타이밍을 바꿔 climber 윈도우를 간접 완화**
+  (S14에서 binding 1.43s가 blocker 재배치로 넓어질 수 있음 — S11~S13는 직접, S14는 간접). 모든 변형마다
+  **전 필수 액션 윈도우를 재측정해 min을 취함**(knob 이동이 다른 액션을 더 빡빡하게 만들면 min에 포착).
+
+#### 설계 결정 (D13 — max-margin = placement coordinate-ascent, 엔진 무변경)
+산출 = **`tools/solver/maxmargin.py`**(순수 오케스트레이터; analyze.py 기계 재사용 — `Rollouter` 병렬 +
+`measure_time_window` + `make_sweep_target`·`sweep_time_plan`) + 스테이지별 `data/solutions/stageNN.maxmargin.json`
+(**analysis.json 불변·별 파일** = 3a "발견 해 프로파일" 층 보존, 3b = 권위 난이도 층).
+- **(A) seed = 발견 해**: `stageNN.analysis.json`의 1-minimal 플랜 로드(sha256 바인딩). **placement-variable knob
+  집합** 식별 = position-triggered ant-target 액션(`trigger.type=="ant_reaches_x"` + `select:max_x/min_x`).
+  cell-target(SIGN/DEVICE)·event-triggered(`picked_ge`/`at_frame`) 액션은 knob 아님(placement 축 없음). **seed의
+  binding(=전 필수 액션 min-window)을 maxmargin 자신의 격자·cap으로 재측정**(아래 C) → `found_binding`. ⚠
+  **apples-to-apples**: `found_binding`은 analysis.json width를 신뢰하지 않고 **maxmargin이 동일 격자/cap으로
+  재측정한 값**(analysis.json width는 informational cross-ref). 측정 해상도 차이로 불변식이 거짓 위반되는 것 방지.
+- **(B) placement 격자 도메인(R1-H1 구체화)**: knob의 x-landmark 후보 = **baseline에서 그 knob이 실제 발화한
+  대상 개미(spawn_index)의 trace traversed x-범위**에서 뽑은 **셀-중심 x 목록**(`measure_time_window`이 쓰는 것과
+  동일한 trace 출처). 즉 `model.parse_layout`만으로 "도달가능 셀"이 안 나오므로(parse_layout은 occupied/kinds/
+  candy/home만 — codex R1-H1) **개미 trace의 점유 x-범위를 권위**로 삼고, layout 셀-중심으로 양자화 + stage
+  bounds clip + 원본 `cmp`·`y_min`·`y_max` 보존(=같은 개미·같은 방향 선택 유지). 후보 목록·해시를
+  `search_meta.domain`에 정확 기록(결정론·재현). cap = `MAXMARGIN_PLACEMENT_CAP`(기본값 plan-review 확정).
+- **(B') coordinate-ascent over knobs**: seed에서 시작, **고정 순서로 각 knob 1개씩** 위 도메인을 스윕. 각 후보
+  변형은 그 knob만 바꾸고 나머지는 현재 best 유지. **min-window가 개선되면 새 best로 채택**(seed에서 단조 비감소)
+  → 다음 knob. **`--passes`(기본 1)** = knob 전체 1회 순회(3a deletion-minimal 1-pass와 동형, 결정론·bounded).
+  knob 0개(placement-variable 액션 없는 퇴화)면 max-margin=seed(정직 보고, FAIL 아님) — 현 S11~S14는 blocker knob ≥1.
+- **(C) 변형 평가 = candidate-local 재발화 필수(R1-H3) + 2단 필터**: ① 각 변형 **1롤아웃 full-clear 필터**(D4,
+  `Rollouter` 병렬) — 안 풀리면 탈락. ② **클리어 변형은 반드시 `report_fired+trace`로 재실행해 그 변형 자신의
+  `fired_actions`(candidate-local f*·spawn_index)를 먼저 획득** — knob 이동이 downstream(예: S14 `picked_ge`
+  climber)을 재타이밍하므로 seed의 f*·spawn_index를 재사용하면 틀린다. **전 필수 액션이 정확히 발화(covered)** 안
+  되면 그 변형 탈락(측정 불가). ③ 그 candidate-local target으로 **현 binding 액션 윈도우를 먼저 측정**(싼 admissible
+  proxy: min ≤ 임의 단일 액션 윈도우 → 직전 binding 액션 폭이 현 best 이하면 개선 불가, 스킵); **초과 변형만 전
+  필수 액션 min-window를 full 측정**(`measure_time_window`)해 새 binding 확정(다른 액션이 새 binding 됐는지 확인).
+  스테이지당 롤아웃 cap 초과 시 `incomplete:true` **정직 보고**(silent 절단 금지 — 3a 동일).
+- **(D) max-margin 선택**: coordinate-ascent 종료 시 best = max-margin 해. 동률 채택은 결정론 tie-break(knob
+  순서·placement x 오름차순). 고정 격자·고정 순서 = 결정론. **local 최적**(joint·global 아님 — 위 경계 명시).
+- **(E) 리포트** `maxmargin.json` = {schema_version, analysis_ref, analysis_sha256, max_margin_scope,
+  alternative_search_status:"resolved"|"no_alternative_cleared", indirect_improved(bool), knobs[],
+  found_binding:{action,width_s,measured_by:"maxmargin_grid"}, max_margin_binding:{action,width_s},
+  max_margin_plan, **max_margin_per_action[전 필수 액션 {index,label,target,time_window:{lo,hi,width_s,intervals,
+  gaps,gap_check_stride,gap_verified,incomplete}}]**(verify가 coverage·재계산·경계리플레이에 필요), variants_evaluated,
+  variants_cleared, variants_cleared_excluding_seed, passes, search_meta:{grid,cap,rollouts,domain}, incomplete}.
+  콘솔 요약(found→max-margin binding 향상 폭).
+- **(F) 게이트 = `maxmargin.py --verify`(analyze --verify 와 동형 fail-closed, R1-H2)**: 저장된 maxmargin.json을
+  권위 출처에서 재검증 — 저장값 신뢰 금지, solve.json·analysis.json·엔진 리플레이에서 재도출:
+  - ① **analysis.json canonical 로드 + sha256 바인딩**(stale 차단) + ② **schema_version 가드**.
+  - ③ **`max_margin_per_action` coverage**(analyze `_coverage_check` 동형): max_margin_plan 필수 액션 ↔ per_action
+    index/label **1:1 전수**(누락·duplicate·label 불일치 FAIL) + **incomplete 필수 액션 0**(미완 통과 위장 금지,
+    `--allow-incomplete`만 예외).
+  - ④ **binding 재계산**: `max_margin_binding = min(per_action.width_s)`를 다시 계산해 저장값과 **정확히 일치**
+    확인(저장 binding 액션·폭 변조 FAIL).
+  - ⑤ **불변식 max_margin_binding ≥ found_binding**(둘 다 maxmargin 격자 재측정값; 위반 FAIL).
+  - ⑥ **전 필수 액션 경계 결정론 리플레이**(binding뿐 아니라 모든 액션): 각 interval 내부 1점=clear / 양 끝 밖
+    =fail / 각 gap 내부=fail(analyze verify와 동일 interval/gap 핀, tri-state fail-closed).
+  - ⑦ **max_margin_plan game-verdict full clear**(D4) + ⑧ **`alternative_search_status`·`variants_cleared` 정합**
+    (status=resolved면 variants_cleared_excluding_seed ≥ 1 강제, 아니면 FAIL — 빈 탐색이 resolved 위장 금지, R1-H4).
+  - verify 프론트매터 편입은 **3b 완료 시**(게이트 그린 후 — Phase 1/2/3a 정책 동일, verify 갱신 자체가 강제 계약).
+
+#### Acceptance — 3b (falsifiable)
+- **대안 탐색**: S11~S14 각각 **knob ≥1**(전부 blocker 보유) → coordinate-ascent가 seed 외 **≥1 변형 평가**
+  (`variants_evaluated > 1`). knob 0개 퇴화 스테이지는 그 사실 리포트(FAIL 아님)하되 S11~S14는 knob>0 실증.
+- **max-margin**: 각 스테이지 max-margin 해 선택 + **max_margin_binding_s ≥ found_binding_s**(불변식, 둘 다 동일
+  격자 재측정·seed 시작 단조라 보장) + max-margin 해 **game verdict full clear**(D4). (S14는 binding=climber가
+  blocker knob 재배치로 간접 완화되는지 실증 — 개선 0이어도 불변식·정직 보고 충족.)
+- **경계 검증**: max-margin binding 윈도우 경계 결정론 리플레이(interval 내=clear / 밖=fail) — `maxmargin.py
+  --verify` 그린.
+- **회귀 0**: `maxmargin.py`는 신규 툴(엔진·PlanRunner·analyze.py·solve.py **무변경**) → 기존 verify 전부 그린
+  + solve.json·analysis.json **바이트동일**.
+- **게이트**: `maxmargin.py --verify`를 verify 프론트매터에 편입·그린(3b 완료 정의).
+
+#### Defer (증거 후 재계획 — 명시)
+T_human 티어 보정(difficulty spread 코퍼스 필요) · 절대 난이도 등급 점수(1성/3성 분리) · 다중 명령 합산식 ·
+인간 모델(이진 vs 확률 σ) · 공간 조준 난이도 점수(움직이는 무리 속 select 탭) · cross-structure max-margin(다른
+스킬 multiset/구조) · joint multi-action 동시 완화. 모두 **미검증 스테이지 다수 풀이로 difficulty spread 확보 후
+재진입**(STATUS "고도화 = 실제 레벨 풀기" 경로와 합류).
 
 ### Acceptance — 3a (falsifiable)
 - **최소화**: S11~S14 각 해의 1-minimal 플랜 + 잉여 액션 식별(S11=1액션; S12~S14 다액션 잉여 0/목록) +
