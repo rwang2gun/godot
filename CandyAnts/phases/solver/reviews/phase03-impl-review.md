@@ -388,3 +388,36 @@ R10 디버그/재설계 확인. 신규 1건:
 - 재측정(schema_version 추가) + verify 그린 확인 예정. 새 HIGH/CRITICAL 없음.
 
 **Self-Review Round 13 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**
+
+---
+
+## Round 12 (codex adversarial-review, --base f3f0a10) — needs-attention, HIGH×1
+
+R11 확인. 신규(실은 R1-H2 회귀 — 시간 윈도우 gap 샘플링):
+- **[HIGH-1] 샘플 gap을 연속 권위 윈도우로 보고**. `measure_time_window`가 gap을 `stride=(hi-lo)//9` 간격만
+  샘플 → stride>1(넓은 윈도우, S13 climber stride=481)이면 sub-stride fail-island 미배제인데 `intervals`를
+  **연속**으로, `width_s`/난이도를 전 범위로 보고 → 과대주장. 전 프레임 검증은 넓은 윈도우(4334f)에 비현실적.
+
+## 결정(사용자) = "정직한 sampled 표기"(빠름) — full-scan 대신 과대주장 제거
+
+전 프레임 스캔(권위)은 verify를 ~10분으로 만들어 frontmatter 게이트에 비현실적. 사용자 선택 = **sampled를
+명시 표기해 과대주장만 제거**(codex가 제시한 두 옵션 중 "represent sampled coverage explicitly").
+
+## 수정 (R12 HIGH-1)
+
+- time_window에 `gap_verified`(=stride==1)·`gap_coverage`("full@1"|"sampled@N") 명시 — stride>1이면
+  intervals/width는 **그 해상도의 sampled 추정**(sub-stride 미배제)임을 정직 표기, 연속-권위 위장 차단.
+- stage 레벨 `stage_min_window_gap_verified`(binding 윈도우가 full인지) + `gap_coverage_note`. 대부분
+  sampled@stride라 난이도는 **sampled 추정**(정직 disclosure; 권위 난이도는 3b/정밀 full-scan 시).
+- `_coverage_check`: gap_verified==(stride==1)·gap_coverage 문자열 정합 강제(sampled를 full로 위장 거부).
+  `_derived_consistency`: stage_min_window_gap_verified=binding gap_verified 재계산. schema v2→v3(stale 차단).
+  selfcheck gap_verified/gap_coverage/stage_min_gv 변조 케이스.
+
+## Self-Review Round 14 (수정 후 자체 적대, clean)
+
+- 과대주장 제거 = codex 핵심 우려 해소(연속-권위로 오해 불가, 명시 sampled). binding 난이도가 sampled면
+  `stage_min_window_gap_verified:false`로 정직 disclosure. ✓.
+- 단위: selfcheck gap_verified/coverage/stage_min_gv 변조 거부 통과. schema v3로 옛 산출물 stale 차단. ✓.
+- 추가 롤아웃 0(라벨링만) → verify 빠름 유지. 재측정(필드 추가·시간값 불변) + verify 그린 확인 예정. 새 HIGH 없음.
+
+**Self-Review Round 14 결론: HIGH 0 → clean(재측정·verify 후 확정). codex 재리뷰 진행.**

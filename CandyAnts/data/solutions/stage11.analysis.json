@@ -1,5 +1,5 @@
 {
-  "analysis_schema_version": 2,
+  "analysis_schema_version": 3,
   "solution_ref": "data/solutions/stage11.solve.json",
   "solution_sha256": "235e458e97addda0defe0ef9cd6649e08af1c9e9447424f1d5e1f903f6b43a2e",
   "stage": "res://scenes/stages/Stage11.tscn",
@@ -64,6 +64,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 15,
+        "gap_verified": false,
+        "gap_coverage": "sampled@15",
         "incomplete": false,
         "domain": [
           341,
@@ -88,6 +90,8 @@
     }
   ],
   "stage_min_window_s": 2.2833,
+  "stage_min_window_gap_verified": false,
+  "gap_coverage_note": "gap 검출은 gap_check_stride 간격 샘플링 — stride>1 윈도우의 intervals/width는 그 해상도의 sampled 추정(sub-stride fail-island 미배제). plan R1 가정(윈도우 단일 연속)을 거친 격자로 검출. 권위 난이도는 binding이 gap_verified일 때만.",
   "stage_provisional_flags": [],
   "any_incomplete": false,
   "capabilities": {

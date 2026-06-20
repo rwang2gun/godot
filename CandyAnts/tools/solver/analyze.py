@@ -64,7 +64,8 @@ PHYS_FPS = 60
 TIME_CAP = 80          # 시간 윈도우 액션당 롤아웃 상한(초과 시 incomplete)
 # analysis.json 스키마 버전 — analyzer 의미가 바뀌면 bump. verify가 정확 일치를 강제해, 같은 solve.json
 # 해시라도 **옛 의미로 생성된 stale analysis**(예: R9 pos_window 권위 측정)를 거부하고 재생성을 강제한다(R11-H1).
-ANALYSIS_SCHEMA_VERSION = 2
+# v3: gap_verified/gap_coverage 명시(R12-H1 sampled 정직 표기) + stage_min_window_gap_verified.
+ANALYSIS_SCHEMA_VERSION = 3
 GAP_PROBE_BUDGET = 8   # interval gap 스캔 내부 샘플 예산 → stride = 폭/(budget+1) (명시 기록·verify 강제)
 PROBE_OFFSETS = [16, 32, 64, 128, 256, 512, 1024, 2048]   # 도메인 기하 확장 step(시간)
 MINIMIZE_SUBSET_CAP = 8   # cardinality 증명 허용 최대 액션 수
@@ -390,6 +391,11 @@ def measure_time_window(roll: Rollouter, idx: int, minimal: list[dict], sweep_ta
         "width_s": round(width_frames / PHYS_FPS, 4),
         "intervals": intervals, "gaps": gaps,
         "gap_check_stride": stride,
+        # gap 검출은 stride 간격 **샘플링**이다(R12-H1 정직화). stride==1이면 전 프레임 검증(full),
+        # stride>1이면 sub-stride fail-island은 배제 못 함 → intervals/width는 그 해상도의 **sampled 추정**.
+        # 권위(authoritative) 주장 아님을 명시해 "연속 구간"으로 오해(과대주장)되지 않게 한다.
+        "gap_verified": stride == 1,
+        "gap_coverage": ("full@1" if stride == 1 else "sampled@%d" % stride),
         "incomplete": incomplete[0],
         "domain": domain,
         "rollouts": used[0],
@@ -563,9 +569,12 @@ def analyze_stage(stage_id: int, args) -> int:
         print("    [%s] f*=%d 시간윈도우 %s intervals=%s gaps=%s%s" % (
             label, f_star, wd, tw["intervals"], tw["gaps"], extra))
 
-    # 스테이지 최소 윈도우(완성된 필수 액션 한정).
+    # 스테이지 최소 윈도우(완성된 필수 액션 한정) = binding 난이도. 그 윈도우가 full(stride==1) 검증인지
+    # 동반 보고 — 대부분 sampled@stride라 난이도는 **sampled 추정**(R12-H1 정직 표기).
     done = [p for p in per_action if not p["time_window"]["incomplete"]]
-    stage_min = min((p["time_window"]["width_s"] for p in done), default=None)
+    binding = min(done, key=lambda p: p["time_window"]["width_s"], default=None)
+    stage_min = binding["time_window"]["width_s"] if binding else None
+    stage_min_gv = bool(binding["time_window"].get("gap_verified")) if binding else False
     stage_flags = []
     if stage_min is not None and stage_min < caps["machine_only_s"]:
         stage_flags.append("provisional_machine_only_flag")
@@ -588,6 +597,12 @@ def analyze_stage(stage_id: int, args) -> int:
         "baseline": {"cleared": True, "saved": int(base.get("saved", 0)), "frame": int(base.get("frame", -1))},
         "per_action": per_action,
         "stage_min_window_s": stage_min,
+        # binding 윈도우가 full(stride==1) 검증인지 — false면 stage_min은 **sampled 추정**(sub-stride
+        # fail-island 미배제, R12-H1). 권위 난이도가 필요하면 binding 윈도우를 전 프레임 스캔해야(3b/정밀).
+        "stage_min_window_gap_verified": stage_min_gv,
+        "gap_coverage_note": ("gap 검출은 gap_check_stride 간격 샘플링 — stride>1 윈도우의 intervals/width는 "
+                              "그 해상도의 sampled 추정(sub-stride fail-island 미배제). plan R1 가정(윈도우 단일 "
+                              "연속)을 거친 격자로 검출. 권위 난이도는 binding이 gap_verified일 때만."),
         "stage_provisional_flags": stage_flags,
         "any_incomplete": any_incomplete,
         "capabilities": caps,
@@ -653,6 +668,15 @@ def _coverage_check(analysis: dict) -> list[str]:
             elif s != max(1, (hi - lo) // (GAP_PROBE_BUDGET + 1)):
                 fails.append("필수 액션 %s gap_check_stride %d != 기대 %d (누락/과대/변조)" % (
                     p.get("label"), s, max(1, (hi - lo) // (GAP_PROBE_BUDGET + 1))))
+            else:
+                # gap_verified 정합(R12-H1) — 전 프레임 검증(stride==1)일 때만 true. sampled(stride>1)를
+                # full로 위장하지 못하게(과대주장 차단). gap_coverage 문자열도 stride와 일치해야.
+                gv, gc = tw.get("gap_verified"), tw.get("gap_coverage")
+                if gv != (s == 1):
+                    fails.append("필수 액션 %s gap_verified %r != (stride==1) (sampled를 full로 위장)" % (p.get("label"), gv))
+                exp_gc = "full@1" if s == 1 else "sampled@%d" % s
+                if gc != exp_gc:
+                    fails.append("필수 액션 %s gap_coverage %r != %r" % (p.get("label"), gc, exp_gc))
         # pos_hint는 informational·파생(시간 윈도우+trace) — 권위 주장이 아니므로 게이트 검증 대상 아님.
         # 존재 시 비-authoritative 마킹만 가볍게 확인(authoritative=true로 위장해 권위인 척 못 하게).
         ph = p.get("pos_hint")
@@ -725,7 +749,7 @@ def _derived_consistency_fails(analysis: dict, caps: dict) -> list[str]:
     로드해 주입(저장 caps 변조도 무력). 순수 함수."""
     fails: list[str] = []
     EPS = 1e-9
-    complete_ws: list[float] = []
+    complete: list[tuple] = []   # (width_s, gap_verified)
     for p in analysis.get("per_action", []):
         lbl = p.get("label")
         tw = p.get("time_window", {})
@@ -742,14 +766,19 @@ def _derived_consistency_fails(analysis: dict, caps: dict) -> list[str]:
             fails.append("%s tier %s != 재계산 %s" % (lbl, p.get("tier"), exp_tier))
         if sorted(p.get("provisional_flags", []) or []) != sorted(exp_flags):
             fails.append("%s provisional_flags %s != 재계산 %s" % (lbl, p.get("provisional_flags"), exp_flags))
-        complete_ws.append(exp_ws)
-    exp_min = min(complete_ws) if complete_ws else None
+        complete.append((exp_ws, bool(tw.get("gap_verified"))))
+    exp_min = min((w for w, _ in complete), default=None)
     got_min = analysis.get("stage_min_window_s")
     if exp_min is None:
         if got_min is not None:
             fails.append("stage_min_window_s %s != 재계산 None" % got_min)
     elif got_min is None or abs(float(got_min) - exp_min) > EPS:
         fails.append("stage_min_window_s %s != 재계산 %.4f" % (got_min, exp_min))
+    # stage_min_window_gap_verified = binding(min width) 윈도우의 gap_verified 재계산(R12-H1).
+    exp_min_gv = min(complete, key=lambda t: t[0])[1] if complete else False
+    if bool(analysis.get("stage_min_window_gap_verified")) != exp_min_gv:
+        fails.append("stage_min_window_gap_verified %s != 재계산 %s" % (
+            analysis.get("stage_min_window_gap_verified"), exp_min_gv))
     exp_any = any(p["time_window"].get("incomplete") for p in analysis.get("per_action", []))
     if bool(analysis.get("any_incomplete")) != bool(exp_any):
         fails.append("any_incomplete %s != 재계산 %s" % (analysis.get("any_incomplete"), exp_any))
@@ -767,14 +796,18 @@ def _selfcheck_gate() -> bool:
             "minimal_plan": [{"skill": "blocker"}, {"skill": "climber"}],
             "per_action": [
                 {"index": 0, "label": "blocker#0", "sweep_target": {},
-                 "time_window": {"incomplete": False, "intervals": [[10, 20]], "lo": 10, "hi": 20, "gap_check_stride": 1}},
+                 "time_window": {"incomplete": False, "intervals": [[10, 20]], "lo": 10, "hi": 20,
+                                 "gap_check_stride": 1, "gap_verified": True, "gap_coverage": "full@1"}},
                 {"index": 1, "label": "climber#1", "sweep_target": {},
-                 "time_window": {"incomplete": False, "intervals": [[30, 40]], "lo": 30, "hi": 40, "gap_check_stride": 1}},
+                 "time_window": {"incomplete": False, "intervals": [[30, 40]], "lo": 30, "hi": 40,
+                                 "gap_check_stride": 1, "gap_verified": True, "gap_coverage": "full@1"}},
             ],
         }
     cov_cases: list[tuple] = [(good(), False)]   # (analysis, should_reject) — _coverage_check 대상
     a = good(); a["per_action"][0]["pos_hint"] = {"authoritative": False, "width_cells": 4}; cov_cases.append((a, False))  # 비-권위 pos_hint → 통과
     a = good(); a["per_action"][0]["pos_hint"] = {"authoritative": True}; cov_cases.append((a, True))  # pos_hint 권위 위장 → 거부
+    a = good(); a["per_action"][0]["time_window"]["gap_verified"] = False; cov_cases.append((a, True))  # stride1인데 gap_verified=false (R12)
+    a = good(); a["per_action"][0]["time_window"]["gap_coverage"] = "full@9"; cov_cases.append((a, True))  # gap_coverage 불일치(R12)
     a = good(); del a["analysis_schema_version"]; cov_cases.append((a, True))             # 스키마 버전 누락(R11-H1)
     a = good(); a["analysis_schema_version"] = 1; cov_cases.append((a, True))             # 옛 스키마 버전 → 거부
     a = good(); a["per_action"][0]["pos_window"] = {"intervals": [[1, 2]]}; cov_cases.append((a, True))  # 레거시 pos_window 잔존 → 거부
@@ -822,9 +855,10 @@ def _selfcheck_gate() -> bool:
     def dgood() -> dict:
         return {
             "per_action": [{"index": 0, "label": "b#0", "time_window": {
-                "incomplete": False, "intervals": [[10, 20]], "width_frames": 11, "width_s": 0.1833},
+                "incomplete": False, "intervals": [[10, 20]], "width_frames": 11, "width_s": 0.1833,
+                "gap_verified": False},
                 "tier": "hard", "provisional_flags": []}],
-            "stage_min_window_s": 0.1833, "any_incomplete": False,
+            "stage_min_window_s": 0.1833, "stage_min_window_gap_verified": False, "any_incomplete": False,
         }
     d_cases = [
         (dgood(), False),                                                          # 일치 → 통과
@@ -834,6 +868,7 @@ def _selfcheck_gate() -> bool:
     d = dgood(); d["per_action"][0]["tier"] = "comfortable"; d_cases.append((d, True))               # tier 변조
     d = dgood(); d["stage_min_window_s"] = 9.9; d_cases.append((d, True))                            # stage_min 변조
     d = dgood(); d["any_incomplete"] = True; d_cases.append((d, True))                               # any_incomplete 변조
+    d = dgood(); d["stage_min_window_gap_verified"] = True; d_cases.append((d, True))                # stage_min gap_verified 변조(R12)
     for analysis, should_reject in d_cases:
         if bool(_derived_consistency_fails(analysis, dcaps)) != should_reject:
             print("[verify] GATE SELFCHECK FAIL (derived): should_reject=%s" % should_reject)

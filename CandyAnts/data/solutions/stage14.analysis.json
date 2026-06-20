@@ -1,5 +1,5 @@
 {
-  "analysis_schema_version": 2,
+  "analysis_schema_version": 3,
   "solution_ref": "data/solutions/stage14.solve.json",
   "solution_sha256": "b900bc4fb4826fdcd548c617c6b4e0cdac5e643234636bb3c05862b36fea9e6f",
   "stage": "res://scenes/stages/Stage14.tscn",
@@ -152,6 +152,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 16,
+        "gap_verified": false,
+        "gap_coverage": "sampled@16",
         "incomplete": false,
         "domain": [
           533,
@@ -207,6 +209,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 12,
+        "gap_verified": false,
+        "gap_coverage": "sampled@12",
         "incomplete": false,
         "domain": [
           1180,
@@ -262,6 +266,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 12,
+        "gap_verified": false,
+        "gap_coverage": "sampled@12",
         "incomplete": false,
         "domain": [
           1698,
@@ -317,6 +323,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 9,
+        "gap_verified": false,
+        "gap_coverage": "sampled@9",
         "incomplete": false,
         "domain": [
           2946,
@@ -372,6 +380,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 65,
+        "gap_verified": false,
+        "gap_coverage": "sampled@65",
         "incomplete": false,
         "domain": [
           2627,
@@ -427,6 +437,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 65,
+        "gap_verified": false,
+        "gap_coverage": "sampled@65",
         "incomplete": false,
         "domain": [
           2712,
@@ -482,6 +494,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 65,
+        "gap_verified": false,
+        "gap_coverage": "sampled@65",
         "incomplete": false,
         "domain": [
           2798,
@@ -537,6 +551,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 74,
+        "gap_verified": false,
+        "gap_coverage": "sampled@74",
         "incomplete": false,
         "domain": [
           2883,
@@ -561,6 +577,8 @@
     }
   ],
   "stage_min_window_s": 1.4333,
+  "stage_min_window_gap_verified": false,
+  "gap_coverage_note": "gap 검출은 gap_check_stride 간격 샘플링 — stride>1 윈도우의 intervals/width는 그 해상도의 sampled 추정(sub-stride fail-island 미배제). plan R1 가정(윈도우 단일 연속)을 거친 격자로 검출. 권위 난이도는 binding이 gap_verified일 때만.",
   "stage_provisional_flags": [],
   "any_incomplete": false,
   "capabilities": {

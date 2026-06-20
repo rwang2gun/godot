@@ -1,5 +1,5 @@
 {
-  "analysis_schema_version": 2,
+  "analysis_schema_version": 3,
   "solution_ref": "data/solutions/stage13.solve.json",
   "solution_sha256": "2144f792a61892c6cb1e5bb7b0ae80eda940ce81fad2a2ddb50300f98f7db477",
   "stage": "res://scenes/stages/Stage13.tscn",
@@ -124,6 +124,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 13,
+        "gap_verified": false,
+        "gap_coverage": "sampled@13",
         "incomplete": false,
         "domain": [
           568,
@@ -179,6 +181,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 38,
+        "gap_verified": false,
+        "gap_coverage": "sampled@38",
         "incomplete": false,
         "domain": [
           850,
@@ -234,6 +238,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 42,
+        "gap_verified": false,
+        "gap_coverage": "sampled@42",
         "incomplete": false,
         "domain": [
           936,
@@ -289,6 +295,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 42,
+        "gap_verified": false,
+        "gap_coverage": "sampled@42",
         "incomplete": false,
         "domain": [
           1021,
@@ -344,6 +352,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 481,
+        "gap_verified": false,
+        "gap_coverage": "sampled@481",
         "incomplete": false,
         "domain": [
           1106,
@@ -399,6 +409,8 @@
         ],
         "gaps": [],
         "gap_check_stride": 481,
+        "gap_verified": false,
+        "gap_coverage": "sampled@481",
         "incomplete": false,
         "domain": [
           952,
@@ -423,6 +435,8 @@
     }
   ],
   "stage_min_window_s": 1.9833,
+  "stage_min_window_gap_verified": false,
+  "gap_coverage_note": "gap 검출은 gap_check_stride 간격 샘플링 — stride>1 윈도우의 intervals/width는 그 해상도의 sampled 추정(sub-stride fail-island 미배제). plan R1 가정(윈도우 단일 연속)을 거친 격자로 검출. 권위 난이도는 binding이 gap_verified일 때만.",
   "stage_provisional_flags": [],
   "any_incomplete": false,
   "capabilities": {
