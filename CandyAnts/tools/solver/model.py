@@ -244,6 +244,16 @@ def _band(cs: int, row: int) -> tuple[float, float]:
     return (row * cs - 8.0, (row + 2) * cs + 8.0)
 
 
+def _has_ceiling(occ: set, col: int, row: int) -> bool:
+    """blocker 셀 (col,row) **상공**(같은 열, 더 위 행)에 solid 타일(천장)이 있는가.
+    있으면 = 위층 개미가 그 열로 직접 낙하할 수 없다 → 그 자리 반전 blocker는 위층 낙하 개미와 **재충돌하지
+    않는다**(사용자 통찰, stage17 실측: L2 col17[천장 無]→재충돌 무한왕복 saved 0, col≤16[맨위 플랫폼이
+    천장]→saved 5/5). 천장 없는(상공 뻥 뚫린) 가장자리 셀에 두면 위층 낙하 개미가 착지 즉시 재충돌한다.
+    최상층(상공에 아무 층도 없음)도 False지만, 그쪽은 애초에 낙하 원본 층이 없어 무해 — reverse target
+    가중이 알아서 처리한다(천장 보너스는 동순위 타이브레이커)."""
+    return any((col, r) in occ for r in range(row - 1, -1, -1))
+
+
 def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
             notes: dict, exclude: set, max_n: int) -> list[dict]:
     """다음 개입 후보를 랭킹 반환. 각 후보 = {"action": v1액션, "label": str}.
@@ -253,6 +263,10 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     cs = layout["cell_size"]
     by_r = _skills_by_routing(inventory, metas)
     cands: list[dict] = []
+    # 천장 선호(사용자 통찰): 반전 blocker는 **상공에 천장(solid)이 있는 셀**에 두어야 위층에서 낙하한
+    # 개미가 그 위로 떨어지지 못해 착지 재충돌이 없다. 천장 없는 가장자리 셀(상공 뻥 뚫림)에 두면 위층 낙하
+    # 개미가 착지 즉시 반전돼 무한 왕복한다(stage17 실측). 같은 backpath 후보들 중 천장 있는 안쪽을 가중한다.
+    occ: set = layout["occupied"]
 
     # ① 낙하 차단(반전) + ①' 방어 대응(safe_fall) — 둘 다 **동선 backpath**를 따라 후보를 낸다.
     # 낙하 가장자리에서 개미를 반전(reverse)하거나 안전낙하(safe_fall) 시킨다. **off=0,1,2는 좌표(x-off)가
@@ -273,13 +287,20 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
                     col, row = bp[off]
                     y_min, y_max = _band(cs, row)
                     label = "%s@%d,%d:%s%s" % (sid, col, row, sel, cmp)
-                    if label in exclude:
+                    ceil = _has_ceiling(occ, col, row)
+                    # 천장 있는(재충돌 안전) reverse 후보는 exclude(tried) **면제** — plan 맥락이 바뀌면(다른
+                    # blocker와 조합) 재평가돼야 한다. 한 단계에서 단독 기각된 천장 blocker가 다른 blocker와
+                    # 함께라야 진척하는 상호의존(stage17: 16,6은 8,3과 함께라야 saved 5/5)을 greedy/LA가
+                    # 놓치지 않게 한다. 천장 없는 후보는 exclude 유지(폭증 방지). 중복 롤아웃은 eval_cands
+                    # action-dup 가드(이미 plan에 든 액션 skip)가 막는다 — carry 연쇄와 동일 패턴.
+                    if label in exclude and not ceil:
                         continue
                     action = {"skill": sid,
                               "target": {"mode": "ant", "select": sel, "y_min": y_min, "y_max": y_max},
                               "trigger": {"type": "ant_reaches_x", "cmp": cmp, "x": (col + 0.5) * cs}}
+                    ceil_w = 4 if ceil else 0                            # 천장 있는 셀 선호(낙하 재충돌 회피, 사용자 통찰)
                     cands.append({"action": action, "label": label,
-                                  "_w": _note_w(notes, sid) * 8 + water_w + tgt_w + (2 - off)})
+                                  "_w": _note_w(notes, sid) * 8 + water_w + tgt_w + (2 - off) + ceil_w})
 
     # ② 무장 up(climber 등) — 세 타이밍·타깃을 후보로 내고 엔진이 고른다(사용자 통찰):
     #   early(스폰 직후 개미별 무장): S13처럼 일찍 줘도 무방하고 늦으면 시간초과인 경우.

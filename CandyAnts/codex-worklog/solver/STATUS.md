@@ -390,11 +390,51 @@ S21~25)·S17/21/22/25 스캔은 in-flux 레벨 대상이라 잠정치.
 - 신규 solve.json 3개(01/15/16). selftest **15플랜 PASS**(golden5+solve10). EXPECTED에 1·15·16 추가.
 - S17 제외(사용자 WIP). S18은 cap50+ 재시도 or 휴리스틱 개선 과제.
 
+## stage17 "돌고 도는 길" SOLVED — 천장-인지 reverse 배치 (2026-06-22, 커밋 대기)
+
+> 사용자가 단계적 통찰을 주고 솔버가 **스스로 로직으로** 풀게 한 세션(사용자 요구: "의도된 위치를 받는 건
+> 의미 없다, 솔버가 개미 경로를 시뮬레이션해 논리로 찾아야 한다"). model.py만 변경, 엔진/PlanRunner 무변경.
+
+**레벨 구조(파일 17 = Ch1 9번째, blocker×4 / hp5 / 9마리)**: 피라미드 4단(바닥 row13 / L1 row10 / L2 row7 /
+맨위 row4) + 중앙 sand_mound 사다리(정적, 상승 전용 — 꼭대기 위가 solid라 위에서 진입 불가) + 양옆 물. home은
+사다리 **왼쪽**(col5), candy는 맨위(14,3). spawn dir=-1(왼쪽). 4난관: ①왼쪽 물 방지 ②사다리로 상승 ③candy
+픽업 후 **낙하**로 층층이 하강(사다리 하강 불가) ④사다리 **왼쪽**에 착지시켜 home 직행(오른쪽 착지 시 사다리가
+위로 빨아들여 무한 순환).
+
+**진단(방법론)**: `report_fired`+`trace`로 운반 개미 동선 vs 설치 blocker 위치를 셀 단위 대조 → 픽업 후 운반
+개미 5마리가 `(8,3)`↔`(17,6)` blocker 사이를 365프레임 주기로 시간 끝까지 **무한 왕복**(carry 방문 60회)임을
+규명. blocker 단계별 방문-타일 HTML 시각화로 사용자와 공유(파랑=빈손/상승, 빨강=운반/왕복).
+
+**근본 원인**: blocker는 영구·양방향 벽 → candy로 올려보내는 상승 유도 blocker `(17,6)`가 맨위 낙하 경로
+(col17, 상공이 뻥 뚫림) 위에 있어 착지 개미가 재충돌. climber 부재라 carry 연쇄 탈출구도 없음.
+
+**사용자 통찰 → 솔버 로직 2건 (model.py):**
+1. **천장 선호** (`_has_ceiling` + `ceil_w=4` 가중): reverse blocker는 **상공에 solid 천장이 있는 셀**을
+   선호한다. 천장이 있으면 위층 개미가 그 열로 못 떨어져 착지 재충돌이 없다. 실측 확증: L2 3번째 blocker가
+   col17(천장無)→saved 0 무한왕복, **col9~16(맨위 플랫폼이 천장)→전부 saved 5/5 CLEAR**.
+2. **천장 reverse 후보 exclude 면제**: 한 단계에서 단독 기각된 천장 blocker가 다른 blocker와 **함께라야**
+   진척하는 상호의존(`16,6`은 `8,3`과 함께라야 맨위 도달+귀환)을 greedy/LA2가 놓치지 않게, 천장 후보는
+   `exclude(tried)` 면제해 plan 맥락 변화 시 재평가(carry 연쇄와 동일 패턴, 중복은 action-dup 가드 차단).
+   *함정 규명*: 천장 보너스로 `16,6`이 1단계에 일찍 평가→tried 소진→2단계에서 exclude로 제외→LA2가
+   `16,6+8,3` 조합 못 만듦. 면제로 해소.
+
+**해**: `[@1,12, @24,12, @16,6, @8,3]`(전부 천장 있는 위치) → saved 5/5 frame 3367 rollouts 19.
+`data/solutions/stage17.solve.json`. selftest EXPECTED에 17 추가.
+
+**회귀 0**: selftest 16 plans PASS(golden5+solve11, stage17 포함 무결) + **S11~14 재탐색 전부 SOLVED**
+(S11 2롤·S12 8롤[11→8 개선]·S13 26롤·S14 40롤 — 천장 휴리스틱이 기존 자동발견 불변/개선). 임시 진단·시각화
+스크립트(`_probe17.py`/`_viz17.py`/`_viz17.json`)는 정리(삭제).
+
+**⚠ stage17 레벨 = 사용자 WIP였음**: `stage17_layout.tres`(sand_mound 위치 재배치)·`Stage17.tscn`은
+워킹트리 수정본이며 solve.json이 그 기준 → 해-레벨 일관성 위해 layout+tscn을 solve.json과 **함께 커밋**.
+(stage17.tres는 line-ending만, 21~25·project.godot 등 별개 사용자 WIP는 격리 제외.)
+
 ## 다음 작업 (Option C)
-- **Ch1 잔여**: S18(부분 4/5 — cap50+ or 휴리스틱). Ch1 = 11~14·1·2·15·16 solved + 17(사용자WIP)·18(부분).
+- **Ch1 잔여**: S18(부분 4/5 — cap50+ or 휴리스틱). Ch1 = 11~14·1·2·15·16·**17** solved + 18(부분).
 - **sand_mound(cell-up) routing**: 사용자 SandMound WIP 정착 후(Ch2 S5/19/21~25 핵심). cell-target propose
   신규 분기(수직 벽 검출 → place_on_cell) — bridge보다 큰 작업.
 - **Ch2 잔여**: S20(bridge+climber — bridge 추가됐으니 cap 재시도)·S21~25(bridge+sand_mound 복합).
+- (미래) 천장-인지를 일반 낙하 시뮬레이션으로 확장 — 다층 낙하 레벨 일반성↑.
 - (미래 3b) cross-structure max-margin + dense 권위 binding — 코퍼스 확보 후.
 
 ## 블로커
