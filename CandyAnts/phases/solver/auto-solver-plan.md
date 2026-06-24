@@ -11,11 +11,11 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 
 ## 문서 구조 (리뷰·구현 범위)
 이 문서는 **3층**이다. 적대적 리뷰와 구현은 *확정* 층만 대상으로 한다 — 로드맵은 방향 맥락이며 **feasibility 미검증을 결함으로 보지 않는다.**
-- **비전(방향, 미확정)**: 북극성 + 비전 결정 D8~D9 + Phase 4~6. "우리가 향하는 곳"이지 확정 범위 아님.
-- **확정(리뷰·구현 대상)**: 결정 D1~D7 + **Phase 1**. falsifiable acceptance를 가진다.
-- **근시일 계획(스케치)**: Phase 2~3. 방향은 정했으나 상세는 Phase 1 산출 후 확정.
-- **로드맵(증거 후 재계획)**: Phase 4. 앞 단계 증거가 나온 뒤 상세 계획·진입 여부 결정.
-- **트랙 밖(별도 브랜치)**: Phase 5(감사 오라클)·Phase 6(생성). 2026-06-20 사용자 결정 — 생성은 솔버의 역할이 아니라 **솔버 학습 결과를 참조하는 별개 소비자**다(아래 "트랙 범위·게이트 갱신" 참조). auto-solver 트랙은 **학습 결과 생산(~Phase 4)** 까지가 범위.
+- **비전(방향, 미확정)**: 북극성 + 비전 결정 D8~D9. "우리가 향하는 곳"이지 확정 범위 아님.
+- **확정·완료(리뷰·구현 통과)**: 결정 D1~D7 + **Phase 0·1·2·3a**. falsifiable acceptance 충족.
+- **강제 종료(2026-06-24, 사용자)**: **Phase 4(전술 라이브러리 — 속도 위한 전이)**. 4a 실측이 boost를 falsify + pruning-for-speed가 incompleteness 산물로 판명 → 속도 가설 기각. 본문 §Phase 4 = TERMINATED 배너(음성-입증 이력 보존). 살아남은 자산(볼트=해 설명 어휘)은 Phase 5로 이관.
+- **확정·진행 중(in-track 현재)**: **Phase 5 — 솔버 고도화 및 재설계**. 솔버 가치를 *속도*가 아닌 **다양-해 발견 + 풀이법 보고서(designer-in-the-loop)**로 재정의. Phase 0~2 자산 위에 얹는 재설계. Item 1(배치/전략 축) 완료·게이트 그린.
+- **트랙 밖(별도 브랜치 · 다운스트림)**: (구 Phase 5)감사 오라클·(구 Phase 6)생성. 2026-06-20 사용자 결정 — 생성은 솔버 역할이 아니라 **솔버 산출(다양-해·풀이법 보고서)을 참조하는 별개 소비자**. in-track Phase 5가 "5" 슬롯을 차지하므로, 이 둘은 번호 없는 다운스트림으로 격리.
 
 ## 비전 / 북극성 (방향 — 확정 범위 아님, 사용자 정렬 2026-06-18)
 **다양하고 비자명한(non-trivial) 레벨을 자동 생성**한다. 솔버는 그 자체가 목적이 아니라 **레벨 품질을 판정하는 적합도 오라클(fitness oracle)**이다.
@@ -28,8 +28,9 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 **① 트랙 범위 축소 — Phase 5~6은 별도 브랜치.** 솔버의 책임 = **학습 결과(오라클) 생산**(풀이가능성 +
 난이도 + 전술 라이브러리). 자동 레벨 생성은 솔버의 역할이 **아니며**, 구현 시 솔버의 학습 결과를 *참조하는
 별개 시스템*이다. 따라서 Phase 5(감사 오라클)·Phase 6(생성)은 auto-solver 트랙에서 분리해 **별도 브랜치**로
-진행한다. 본 트랙 범위 = Phase 0~4(학습 결과 생산까지). Phase 4(전술 라이브러리)가 생성기가 참조할 핵심
-산출. 고도화 방침: **실제 레벨(미검증 스테이지)을 솔버가 풀어보며 함께 개선**(현 검증 범위 = S11~S14).
+진행한다. 본 트랙 범위 = Phase 0~5(솔버 산출 생산까지). **Phase 4는 강제 종료**(속도 가설 기각, 2026-06-24)되어,
+생성기가 참조할 핵심 산출은 **Phase 5(다양-해 + 풀이법 보고서)**로 이관. 고도화 방침: **실제 레벨(미검증 스테이지)을
+솔버가 풀어보며 함께 개선**(현 검증 범위 = S1~S4·S11~S17, 잔여 = S18·Ch2 sand_mound 계열).
 
 **② 게이트 신뢰도 보강 — false-green 제거 + try_solve front-door.** 직전 게이트 약점: `PlanReplayHarnessTest`
 (멀티런, >18000f 필요)를 bare `run_test.py`로 돌리면 `--quit-after` 안전망이 exit 0(=PASS와 동일)으로 끝나
@@ -341,19 +342,213 @@ T_human 티어 보정(difficulty spread 코퍼스 필요) · 절대 난이도 �
   (golden5+solve4) + `SkillMetadataDriftTest` + 결정론 2종 그린, solve.json 바이트동일 재현 유지.
 - **게이트**: `analyze.py --verify`를 verify 프론트매터에 편입하고 그린(3a 완료 정의 = 게이트 갱신+그린).
 
-## Phase 4 — 전술 라이브러리 (누적 학습, CBR/EBL) · **[로드맵 · 미확정, Phase 3 증거 후 재계획]**
-> 검증 가능한 단일 가설로 좁힘: *"한 레벨에서 추출한 전술이 다른 레벨로 전이돼 동일 난이도 해를 더 적은 롤아웃으로 찾는다."* 리프팅·서브골 추론의 구체 메커니즘은 Phase 2~3 산출(해 트레이스·윈도우 데이터)을 본 뒤 설계 — 지금은 미확정.
+## Phase 4 — 전술 라이브러리 (누적 학습, CBR/EBL) · **⛔ [강제 종료 — TERMINATED (2026-06-24, 사용자)]**
+> ### ⛔ 강제 종료 배너 (2026-06-24, 사용자 결정)
+> **Phase 4의 핵심 가설("학습 전술 전이로 같은 해를 *더 적은 롤아웃*에"=속도)이 실측으로 기각됐다.** 두 메커니즘 모두 falsify:
+> 1. **boost(seed)** — `propose()` 휴리스틱이 이미 같은 순서를 내 롤아웃 0 감소(S12 OFF=ON=8롤, NO-TRANSFER).
+> 2. **vault-pruning** — 겉보기 이득(S12 8→4·S13 26→22)은 **완전성 희생의 산물**이었고, 완전성 강화 시 OFF보다 나빠짐
+>    (S12 9롤·S13 미클리어). 현 휴리스틱이 이미 후보를 올바르게 랭킹 → 재랭킹/prune의 **sound 속도 이득 0**.
+> **결론**: rigor가 환상을 제거함(de-risk 성공 = 잘못된 하위목표 'pruning-for-speed'를 죽임). 살아남은 자산:
+> 볼트(`knowledge/`)는 *해 설명 어휘*로 **Phase 5로 이관**, `tactics.py`·`vault_fn` pruning·`transfer-bench`는 **historical
+> 아카이브**(음성-입증 인프라, 게이트에 inert=None로 무해 — 삭제는 5a에서 결정). 아래 본문은 **종료된 설계의 이력 기록**이다.
+>
+> 2026-06-24: Phase 2~3a 증거(S1~4·S11~17 해 + solve.json 트레이스)가 확보돼 D8을 구체 계획으로 승격.
+> 검증 가능한 단일 가설로 좁힘: **"S11에서 추출한 전술이 S12/S13으로 전이돼, 동일 난이도 해를 *더 적은 롤아웃*으로 찾는다."** 전이 효과가 측정 안 되면 CBR 가설 자체가 기각 — 그래서 **de-risk(4a)를 가장 먼저·작게** 둔다.
+> **딥러닝 아님(D8 재확인)**: 전술 = 사람이 읽는 구조체(스킬·국소패턴·서브골), ML 가중치가 아니다. 해석가능성은 D9 생성 오라클의 전제.
+
+> ### ⚠ 재설계 (2026-06-24, 4a de-risk 실측 후 — 이 절이 현재 설계, 아래 "boost" 원안은 falsified 이력)
+> **4a 실측이 boost 메커니즘을 falsify**: "학습 전술로 일치 후보를 boost/reorder"는 `propose()` 휴리스틱이
+> 이미 같은 순서를 내므로 롤아웃을 못 줄였다(S12 OFF=ON=8롤, byte-identical, 결정적 액션=fallback = NO-TRANSFER).
+> 진짜 레버 = 휴리스틱이 낭비하는 **형제 후보 pruning**.
+>
+> **사용자 결정 — 지식 볼트 + 위기-인덱스**: 각 액션의 "사용 시 고려 요소"를 **Obsidian 볼트**(마크다운+위키링크)로
+> 관리하고, 솔버는 `diagnose → 위기 상황(crisis) 식별 → 그 위기에 링크된 도구·요소 조회 → 적용`으로 **스스로**
+> 답을 찾는다(레벨마다 백지 재탐색·손 시드 ✗, 조회·적용 ✓). plan의 "스킬·상황 이중 인덱싱"의 상황 측 구현.
+>
+> - **볼트** `tools/solver/knowledge/`: `crises/`(frontmatter `detect:`로 diagnose 신호 연결) + `skills/`/`factors/`/
+>   `subgoals/`/`stages/`. **파서** `knowledge.py`(순수): resolve(위기→도구·요소) / vault_prune(형제 pruning).
+> - **메커니즘**: 위기[water-drowning]→요소[[backpath-offset]] 조회 → 물-가장자리 reverse 후보의 형제(off>=1) prune.
+>   solve.py `vault_fn` 훅(기본 None=기존 byte-identical, 게이트 안전).
+> - **귀속 변경**(boost의 seed-provenance → pruning 모델): ON 클리어 AND 롤아웃<OFF AND **OFF와 동일 해(final_plan)**
+>   AND vault_pruned>0. "같은 답을 더 적은 롤아웃으로, 감소는 볼트가 prune한 형제로 설명"(same-solution이 fallback의 우연한 다른 해를 배제).
+> - **실측(transfer-bench --mode vault)**: S12 8→4롤, S13 26→22롤, 둘 다 same해·TRANSFER-OK. 게이트 selftest 16/16 PASS.
+>   같은 볼트 지식으로 두 스테이지 개선(레벨별 손 시드 0).
+>
+> 아래 "측정·귀속 계약"의 seed-provenance 서술은 boost 원안 기준(plan-review R1~R3 approve가 그 설계였음). 재설계로
+> **메커니즘·귀속이 바뀌었으므로 plan-stage 적대적 리뷰를 재실행**해 새 설계를 재검증해야 종결한다.
+
 ### 목표
 스테이지마다 같은 시행착오 반복 금지(D8) + 스킬-사용 프로파일 산출.
-### 작업
-- **추출**: 최소 필수 플랜을 *국소 특징*(가장 가까운 위험물/사다리/간격/웨이브 방향)에 상대적으로 **리프팅**(절대좌표·특정 개미 치환) + **서브골 추론**(반전/한 층 상승/간격 건넘). 전술 = `(스킬, 전제=국소패턴, 상대배치, 타이밍앵커, 서브골, 성공이력)`. 스킬·상황 이중 인덱싱.
-- **시드 탐색**: 새 레벨을 국소 특징 분해 → 전술 매칭·슬롯 바인딩 → 고우선 후보부터 → 롤아웃 급감. 폴백 탐색에서 성공 시 새 전술 추가. (엔진 검증이 잘못 전이를 잡으므로 거짓 양성 0, 비용은 낭비 롤아웃뿐.)
-- **스킬-사용 프로파일**: 스킬별 "정답이었던 맥락" 누적 = 도구의 올바른 사용(D9 생성 어휘).
-### Acceptance
-- S11에서 학습한 전술이 S12/S13에 전이돼 **동일 난이도 해를 더 적은 롤아웃**으로 발견(시행착오 감소 실측). 라이브러리 영속·성장.
 
-## Phase 5 — 난이도·설계 감사 오라클 · **[트랙 밖 · 별도 브랜치 (2026-06-20)]**
-> 2026-06-20 사용자 결정으로 auto-solver 트랙에서 분리(§"트랙 범위·게이트 갱신"). 아래는 방향 맥락으로 보존.
+### 핵심 설계 원칙 (기존 자산 보존)
+- **검증 루프 불변**: 엔진=진실(D4), `solve.py`의 닫힌 루프 그대로. CBR는 `model.propose()` **앞단에 시드를 꽂는 층**이지 대체가 아니다.
+- **거짓 양성 0(해의 *유효성* 한정)**: 틀린 전이는 엔진이 잡는다 — 비용은 낭비 롤아웃뿐. **단, 엔진 검증은 "해가 유효함"만 증명하지 "그 해가 전이된 전술에서 나왔음"은 증명하지 않는다**(R1 HIGH-2). 전이 *효과* 증명은 아래 측정 계약이 책임진다.
+- **자연 통합 ≠ 측정 혼입**: 전술 매칭은 `propose()`의 기존 `_w`에 **시드 보너스**를 더하는 방식이되, **모든 후보 액션이 생성 시 source-tag(`seeded:<tactic_id>` / `fallback`)를 보유**한다. 보너스로 랭킹에 섞이되 채택 해의 결정적 액션의 *출처*가 추적된다. ON 경로의 롤아웃 감소가 *전이(seeded-origin)* 때문인지 *랭킹 왜곡/fallback* 때문인지 provenance로 구분 가능해야 한다(R1 HIGH-1·R2 HIGH-1).
+
+### 측정·귀속 계약 — **vault, 현행** (re-review R1 HIGH-1·HIGH-2)
+전이 효과를 *증명*하려면 "더 적은 롤아웃으로 풀렸다"만으로 부족하다. vault-pruning 메커니즘의 귀속:
+- **A/B 하니스 (동일 경로)**: OFF=볼트 비활성, ON=`vault_fn` 주입. 두 경로는 pruning 외 후보 생성·랭킹·budget이
+  byte-identical. 결정론(`CANDYANTS_DETERMINISTIC=1`)이라 '동일 seed' 반복 성립. solve.json 미기록(save=False).
+- **분리 계측**: `{rollouts, vault_pruned, final_plan, tried_log, pruned_log}`를 OFF/ON 각각 기록.
+- **귀속 = same-solution + 반사실 정당성 (R1 HIGH-2)**: 전이 성공 = ON 클리어 AND 롤아웃<OFF AND **OFF와 동일
+  해(final_plan)** AND vault_pruned>0 AND **pruning_justified**. `pruning_justified` = ON이 prune한 각 후보가
+  **OFF에서 같은 base로 롤아웃돼 미클리어**였음(반사실). prune이 클리어 후보를 지웠거나 OFF가 평가 안 한 후보를
+  지웠으면 정당화 실패 → fail. "건너뛰고 같은 답"(최적화)을 "비-유효 형제만 버림"(지식)으로 격상.
+- **fail-open 완전성 (R1 HIGH-1)**: solve가 pruning으로 정체하면 `vault_fn` OFF로 재propose해 prune 형제를
+  복원·평가 → **ON 완전성 ≥ OFF**(pruning은 롤아웃 절약만, 해 손실 0). off=0이 진척하면 이 분기 미발동(cost-free).
+- **fail 조건**: 위 귀속 항목 중 하나라도 미충족 시 `transfer-bench` fail(마커 파싱, false-green 차단).
+
+### 측정·귀속 계약 — boost 원안 **[HISTORICAL · 4a에서 falsified]**
+> 아래는 plan-review R1~R3 approve를 받은 *boost(seed) 설계* 기준. 4a 실측이 falsify(S12 OFF=ON=8롤). 현행은 위 vault 계약.
+전이 효과를 *증명*하려면 "더 적은 롤아웃으로 풀렸다"만으로는 부족하다(휴리스틱 분산·라이브러리 순서·부분 fallback로도 그렇게 보일 수 있음). 그래서:
+- **A/B 하니스 (동일 경로)**: OFF = tactics **완전 비활성**, ON = tactics 격리·귀속. 두 경로는 **tactics 주입 외 모든 후보 생성·랭킹·budget이 byte-identical**. 동일 seed·동일 deadline·동일 max-rollouts로 결정론 반복.
+- **분리 계측**: 매 run마다 `{seeded_attempts, seeded_successes, fallback_successes, rollouts}` + 채택 해의 **origin 태그**(seeded-origin / fallback-origin)를 별도 기록. "롤아웃 합계"만 보지 않는다.
+- **귀속 기준 = provenance, NOT content (R2 HIGH-1)**: "전이 성공"의 정의는 *해가 seeded 바인딩을 포함*(content)이 아니라 **채택 해의 결정적 액션이 seeded source-tag에서 생성됨**(provenance)이다. 각 후보 액션은 생성 시 source-tag(`seeded:<tactic_id>` vs `fallback`)를 달고, 채택 plan의 전술-담당 액션이 그 source-tag를 보유해야만 전이로 카운트. **같은 모양의 바인딩이라도 fallback-origin이면 전이 실패로 회계**(시드가 랭킹만 흔들고 일반 탐색이 우연히 같은 형태를 낸 경우를 배제). 마커가 seeded-origin 채택 해와 fallback-origin 채택 해를 구별 출력.
+- **fail 조건**: ON이 OFF보다 롤아웃이 적어도, 그 감소가 **seeded-origin 채택**으로 설명되지 않으면(= fallback-origin이 푼 것) `transfer-bench` **fail**(false-green 차단). 즉 게이트는 "롤아웃 감소 + seeded-origin provenance"를 **둘 다** 요구한다.
+
+### 끼워넣는 지점 (코드 레벨, 현행 vault)
+```
+solve.py: diagnose(trace) → knowledge.resolve(위기→링크 도구·요소) → vault_prune(형제 후보 prune) →
+          propose 후보 → 엔진 검증 → (정체 시) fail-open 재propose → 반복
+```
+- `tools/solver/knowledge/`(Obsidian 볼트) + `knowledge.py`(파서: load_vault/detect_crises/resolve/vault_prune, 순수).
+- `solve.py` `vault_fn` 훅(기본 None=기존 byte-identical, 게이트 안전). `tactics.py`(boost seed)는 historical 보존.
+> **[HISTORICAL · boost 원안]**: `tactics.seed`로 propose `_w`에 시드 보너스 가산 → 4a falsified(휴리스틱이 이미 동순위).
+
+### 전술 데이터 모델 (D8 정의)
+`Tactic = (skill, precondition=국소패턴, relative_placement=상대배치, timing_anchor, subgoal, success_history)`.
+solve.json 액션이 이미 `{skill, target, trigger}` 구조라 **리프팅 = 절대좌표를 국소 특징 기준 상대값으로 치환**이 핵심. 스킬·상황 이중 인덱싱.
+
+### 리프팅 계약 (R1 MEDIUM — 모호성 차단, 구현 전 확정)
+두 구현이 같은 plan을 만족하면서 호환 불가 라이브러리·S11 좌표 은닉 오버피팅을 내는 것을 막기 위해, 리프팅을 결정론 함수로 못박는다:
+- **기준 프레임(앵커)**: 국소 특징은 *해당 액션이 작용하는 낙하 가장자리/반전 타깃 셀*을 원점으로 한다(diagnose가 이미 산출하는 `reverse_targets[].cell`·`backpath`). 허용 앵커 = {가장 가까운 hazard, 가장 가까운 ladder/sand_mound, 낙하 가장자리, candy, home}. 그 외 절대 셀 참조 금지.
+- **좌표 변환**: `target`의 `y_min/y_max`·`trigger`의 `x`는 앵커 셀 기준 **(Δcol, Δrow) 정수 오프셋 + cell_size 배수**로만 저장. 픽셀 절대값 금지(레이아웃 cell_size 달라도 재구성 가능).
+- **개미 식별 제거**: `select`(min_x/max_x/spawn_index)·`state`(carrying 등)는 **역할(role)** 로 보존하되 특정 spawn_index 절대값은 리프팅 시 *서수*(n번째 픽업 등 timing_anchor와 결합)로 일반화. 절대 spawn_index 직접 저장 금지.
+- **타이밍앵커 의미**: `picked_ge n`·`ant_reaches_x`는 **이벤트 상대**(스폰/픽업/도달)로 보존 — 프레임 절대값 저장 금지. 다단계 플랜은 각 액션의 앵커를 독립 보존(layout 변형에도 순서·조건 유지).
+- **리프팅 거부 조건**: 액션이 위 앵커 중 어느 것으로도 모호성 없이 표현 안 되면(예: 앵커 후보 2개 등거리, 절대 좌표 필수) **전술로 추출하지 않고 거부**(silent 오버피팅 대신 명시적 누락). 거부는 4a 로그에 카운트.
+
+### 작업 (de-risk 우선, 현행 vault)
+- **4a · de-risk (완료, 2026-06-24)**: ① boost(seed) 실증 → **NO-TRANSFER**(falsified). ② 재설계 = 지식 볼트 + 위기-인덱스
+  pruning → `transfer-bench --mode vault`로 S12 8→4롤·S13 26→22롤, same해·pruning_justified·**TRANSFER-OK**. 게이트 그린.
+- **4b · 자동 추출**: solve.json → 리프팅(절대좌표·특정 개미 치환) + 서브골 추론 → 볼트 노트(스킬/요소/위기) 자동 생성·갱신.
+  현재 4a는 볼트 노트를 *수동* 저작 → 4b가 자동화. 리프팅 계약(아래)이 그 결정론 함수.
+- **4c · 추가 pruning factor**: 물-가장자리 backpath 외 요소로 확장 — 예: [[carry-timing]] 기반 climber 탐색 pruning
+  (S13의 22롤 중 다수가 carry 탐색). 각 factor는 fail-open + 반사실 정당성 게이트를 통과해야 채택.
+- **4d · 성장·영속**: 새 레벨 해결 시 새 위기/요소 노트 추가(볼트는 커밋 산출물). 재실행 시 로드, held-out 스테이지 회귀.
+- **4e · 스킬-사용 프로파일**: 스킬별 "정답이었던 맥락"(=위기→도구 링크 누적) = 도구의 올바른 사용(D9 생성 어휘).
+
+### 게이트 (현행 vault)
+- `try_solve.py transfer-bench --mode vault` → **측정·귀속 계약(vault)** 구현: 동일 seed·budget OFF/ON 결정론 반복,
+  `{rollouts, vault_pruned, same_solution, pruning_justified}` 마커 출력, 판정 = **롤아웃 감소 AND same해 AND
+  pruned>0 AND pruning_justified(반사실)**. 마커 파싱(exit-code 아님)으로 false-green 차단. 기존 게이트(결정론·
+  하니스·selftest·analyze --verify) 전부 그린 유지(`vault_fn=None` 기본 경로 byte-identical). knowledge.py selftest 추가.
+
+### 리스크
+- **R1 (pruning이 해 삭제)**: off>=1 형제를 잘못 버려 미해결 → **fail-open**(정체 시 형제 복원)으로 완전성 보장. held-out 회귀.
+- **R2 (overfit pruning false-green)**: → **반사실 정당성**(prune 후보가 OFF서 미클리어) 게이트로 차단.
+- **R3 (off 선택 규칙 미학습)**: 현재 off=0-only는 stage11/12 근거의 잠정 규칙 → 4c에서 국소-패턴 predicate로 학습. fail-open이 그 전까지 안전망.
+
+### Acceptance
+- 같은 볼트 지식으로 S12/S13이 **동일 해를 더 적은 롤아웃**으로 — 그 감소가 **반사실 정당화된 pruning**으로 설명됨
+  (`transfer-bench --mode vault`: 롤아웃 감소 AND same해 AND pruning_justified). ✅ 달성(S12 8→4, S13 26→22).
+  볼트 영속·성장 + held-out 스테이지 회귀 무파손.
+
+## Phase 5 — 솔버 고도화 및 재설계 (다양-해 발견 + 풀이법 보고서) · **[확정 · 진행 중 (2026-06-24~)]**
+> Phase 4(속도 위한 전술 전이)가 강제 종료되며, 솔버의 가치를 사용자가 재정의(2026-06-24): *속도*가 아니라
+> **한 스테이지를 스스로 다양한 방법(플레이어가 찾을 법한 의도-외 해 포함)으로 풀어 디자이너에게 중립 보고**하는
+> 데 있다(designer-in-the-loop). 이 페이즈가 그 재설계의 in-track 홈이며 **Phase 0~2 자산(결정론·하니스·닫힌-루프
+> 솔버) 위에 얹는다** — 코어 솔버는 불변, 다양성은 opt-in 층(forbid/inv_override)이다.
+
+### 목표
+미검증 실제 스테이지를 솔버가 스스로 다양하게 풀어, 각 해의 {도구·수량·배치·전략·위기 맥락}을 **중립 풀이법
+보고서**로 산출한다. **의도 판단·조절 의견 제시 없음**(중립 발견·보고만) — 디자이너가 인정/레벨·도구 조절을 결정.
+= 트랙 밖 다운스트림(감사 오라클·생성)의 핵심 입력.
+
+### 핵심 설계 원칙 (기존 자산 보존)
+- **검증 루프 불변**: 엔진=진실(D4), `solve.py` 닫힌 루프 그대로. 다양성 메커니즘(`forbid`/`inv_override`)은 **opt-in 층**
+  이지 코어 대체가 아니다 — 기본값이면 베이스와 **byte-identical**(게이트 안전, selftest 16/16로 강제).
+- **속도 가설 폐기 명문화**: 재랭킹/prune의 sound 이득 0(휴리스틱이 이미 올바르게 랭킹, Phase 4 실측). 솔버의 가치는
+  *다양성 발견*과 *해 설명*이지 롤아웃 절약이 아니다.
+- **죽은 메커니즘 격리**: boost(`tactics.py`)·pruning(`vault_fn`)·`transfer-bench`는 historical(음성-입증 아카이브, inert).
+  볼트(`knowledge/`)는 *해 설명 어휘*(diagnose→위기 맥락)로 **존속**(`diverse_report`가 `knowledge.resolve`로 사용).
+
+### 하위 단계
+- **5a · 재설계 정립 (✅)**: Phase 4 강제 종료 + 방향 재정의 명문화. **dead 메커니즘 = 아카이브 보존**(사용자
+  결정 2026-06-24, 삭제 안 함): `tactics.py`/`solve.py vault_fn·seed_fn`/`transfer-bench`에 ⛔ARCHIVED 배너 +
+  매니페스트 `tools/solver/ARCHIVE.md`. in-place 보존(라이브 코드와 얽혀 이동 시 회귀 위험, 이미 None-safe inert).
+- **5b · 다양성 축 (재설계 중 — 가능성-공간)**: 메커니즘 토대 = ✅ Item 1(`solve.solve(forbid=)` hard-filter +
+  `diverse_report` forbid-재탐색·인벤토리 축). **단 distinctness/표현은 아래 §5b 계약으로 재설계** — 좌표 ±조합을
+  열거하지 않고 *연속 클리어 구역=범위*로 묶고, **비연속 배치 또는 스킬 횟수 변화만** 별개 해로 본다(사용자 2026-06-24).
+- **5c · 보고서 영속 + 게이트**: `data/solutions/stageNN.diverse.json` 영속(`--save`, 현재 구현=naive 플랜 스키마,
+  5b 재설계 후 range 스키마로 교체) + **각 보고 range 경계 셀 결정론 리플레이 회귀**(fail-closed, selftest 편입)
+  → `verify` 확장. 영속 보고가 엔진/스킬 변경에 깨지면 잡힘.
+- **5d · 고도화 (미검증 스테이지)**: Ch1~5 잔여(S18·Ch2 sand_mound 계열 S5/19/21~25 등)를 풀어보며 솔버 개선 +
+  다양-해 코퍼스 확보. sand_mound(cell-up) routing 등 미커버 메커니즘 추가는 여기서.
+
+### 5b 계약 — 가능성-공간 다양-해 (revised, 2026-06-24 사용자)
+> 솔버 산출물의 단위 질문 = "해가 몇 개"가 아니라 **"어디에 놓으면 클리어되나(가능성 공간)"**. 위치 변화는 클리어
+> 가능 범위를 알려주므로 무의미하지 않으나, 좌표 조합을 일일이 나열하면 노이즈(±1타일 시프트)가 다양성으로
+> 위장된다 — **S12 실측**: `@24/888/312` vs `@72/840/360` = 3 blocker가 **일제히 정확히 1타일 시프트**(트리거 간격
+> =1셀) = 같은 전략. 현 naive distinctness(액션 집합 정확 일치)는 이를 2해로 오보. 본 계약이 그 결함을 해소한다.
+
+- **표현 = 검증된 연속 구역 범위**: 스킬별로 각 배치 인스턴스를 **연속 클리어 구간**으로 묶어 range로 보고
+  (예 `blocker×3 → col[0–1]·[6–7]·[17–18]`). 단 "연속"은 **선언된 stride(`gap_check_stride`)로 검증된** 구간일 때만
+  병합 근거가 된다(아래 R2-HIGH).
+- **solution-class 동치(병합) = 4요소 모두 동일** (R2-MEDIUM — placement만으론 부족, D5 타이밍 1급):
+  (i) **스킬 multiset**(종류·횟수), (ii) 각 슬롯 배치가 같은 **검증된 연속 구역** 내, (iii) **target role/state**
+  (`select`=min_x/max_x/spawn_index·`state`=carrying 등), (iv) **trigger/timing 의미**(`trigger` type·cmp·`picked_ge`
+  서수·subgoal 앵커). 넷 다 같을 때만 한 해(구역 내부 시프트만 무시).
+- **분리(다른 solution-class)**: 위 4요소 중 **하나라도 다르면** 새 해 — 비연속 구역 배치 OR 스킬 횟수 변화 OR
+  **target role/state 차이** OR **trigger/timing 차이**. (같은 배치라도 타이밍·역할이 다르면 다른 전략이므로 분리.)
+- **범위 발견 = 독립 축 스윕 + 연속성 검증** (R2-HIGH — 병합은 *검증된* 연속에만): 각 인스턴스 위치를 *나머지를
+  한 클리어 기준배치로 고정*한 채 **선언된 `gap_check_stride` 해상도로 스윕**, 엔진 검증(D4) → `{sampled_points,
+  gap_check_stride, intervals, gaps, gap_verified}` 산출(**`analyze.py` `_reconstruct_runs` + Phase 3 R12 gap_verified/
+  gap_coverage 정직표기 재사용**). 슬롯 정체성 = 좌→우 정렬 순서.
+  - **연속 병합은 구간이 stride 해상도로 `gap_verified`일 때만.** 미검증(stride 사이 미샘플) 구간은 `provisional:true`로
+    표기하고 **확정 solution-class 병합에 쓰지 않는다**(불확실 구간은 따로 보고) — hidden fail-island를 병합으로 숨겨
+    "비연속=별개 해" 규칙을 위반하지 않도록.
+- **분리-해 탐색 (forbid = 4요소 시그니처, placement 구역만 아님 — R3 MEDIUM)**: 발견한 solution-class를 **그 4요소
+  시그니처**(skill multiset + 검증 구역 + role/state + trigger/timing)로 forbid한다. 2단계로 same-placement 변형을
+  놓치지 않음:
+  - (a) **구역-내 role/timing 변형 스윕 먼저**: 같은 검증 placement 구역에서 `select`/`state`·trigger/timing/subgoal을
+    바꾼 클리어를 탐색(같은 배치·다른 전략 = 별개 class). 이걸 구역 forbid보다 *앞에* 두어, placement만 같고 role/
+    timing이 다른 class가 분류 전에 필터되지 않게 한다.
+  - (b) 그 다음 **구역 밖 배치** 탐색(비연속 구역 = 별개 class). forbid가 4요소 시그니처 단위라 placement 동일·role/
+    timing 상이 class는 (a)에서 이미 포착돼 (b)의 구역 forbid에 묻히지 않는다.
+  반복(추가 탐색 캡 예산 내, `search_capped` 정직 표기).
+- **정직 경계 (over-claim 방지 — 3a sampled/pos·R12 교훈)**:
+  - **sampled@stride**: range는 `gap_check_stride` 해상도 스윕이지 전수 아님 → `range_sampled:true` + `gap_check_stride`
+    + `gap_verified`(그 해상도에서 내부 연속 확인됨) 명시. 미검증 구간 = `provisional`.
+  - **축별 독립(joint 미검증)**: 보고 range는 *나머지 고정 시* 각 축의 클리어 span(cross-section)이며 **모든 조합의
+    곱공간이 클리어함을 주장하지 않는다** → `axis_independent:true` + note. (전수 joint 검증은 조합 폭발.)
+  - **informational(authoritative 아님)**: placement 발화가 `ant_reaches_x`라 trace 의존(3a R7~R10 bouncing-ant
+    모호성 동류). 난이도 권위 측정 아님. 단 **경계 + 선언된 stride의 내부/gap 샘플 점이 엔진 리플레이로 재검증**
+    (interval 점=clear, gap 점=fail)돼 *그 해상도까지* authoritative(analyze.py --verify와 동형).
+
+### 게이트
+- **현 `verify` 그린 유지**: 다양성 메커니즘이 opt-in(`forbid=None`/`inv_override=None`)이라 기본 경로 불변
+  (Item 1 후 selftest 16/16·frame byte-identical 확인). inert 키 금지(R2-HIGH) — 5c 전까지 `verify` 무변경.
+- **5c 완료 시**: selftest가 `stageNN.diverse.json`의 각 보고 range를 결정론 리플레이로 **fail-closed 검증** —
+  **경계(min/max) + 선언된 `gap_check_stride`의 내부/gap 샘플 점**(interval 점=clear, gap 점=fail, **analyze.py
+  --verify와 동형**) → `verify` 편입. 이로써 "보고된 contiguous 병합 = stride 해상도로 gap_verified"가 강제돼
+  hidden fail-island 병합이 차단된다(R2-HIGH). `provisional`(미검증) 구간은 확정 병합 금지라 게이트 대상도 경계뿐.
+
+### Acceptance (falsifiable)
+- **병합 정확성(4요소 동치)**: 스킬 multiset·검증된 연속 구역·target role/state·trigger/timing이 **모두 같을 때만**
+  1 solution-class로 병합. 회귀 기준 = **S12의 `@24/888/312`·`@72/840/360`**(role/timing 동일·인접 구역)이 1 class
+  (`blocker×3 → col[0–1]·[6–7]·[17–18]` 형태)로 병합돼야 함(현 naive 2해 = 본 계약이 해소하는 결함). 4요소 중
+  하나라도 다르면(비연속·횟수·role·timing) 분리.
+- **연속성 falsifiable(R2-HIGH)**: 보고된 각 contiguous 병합이 **`gap_check_stride` 해상도로 gap_verified**이고,
+  5c 게이트가 **경계 + 내부/gap 샘플 점**을 리플레이(interval=clear, gap=fail, analyze.py --verify 동형)로 재검증해
+  hidden fail-island 병합을 차단. 미검증 구간은 `provisional`로 확정 병합 금지.
+- **정직 보고**: 미검증 스테이지에서 과대주장 0 — `range_sampled`/`gap_check_stride`/`gap_verified`/`axis_independent`/
+  `provisional`/`search_capped` 플래그 정직 표기.
+
+---
+
+## (트랙 밖 · 별도 브랜치 다운스트림 — 구 Phase 5) 난이도·설계 감사 오라클
+> 2026-06-20 사용자 결정으로 auto-solver 트랙에서 분리(§"트랙 범위·게이트 갱신"). in-track Phase 5(고도화·재설계)가
+> "5" 슬롯을 차지하므로 번호 없는 다운스트림으로 격리. 아래는 방향 맥락으로 보존.
 ### 목표
 Phase 2~4를 **레벨 품질 오라클**로 패키징(생성의 적합도 함수).
 ### 산출
@@ -361,8 +556,8 @@ Phase 2~4를 **레벨 품질 오라클**로 패키징(생성의 적합도 함수
 ### Acceptance
 - 기존 스테이지에 리포트가 직관과 일치(트리비얼 검출·필수 스킬 식별·정합성 경고). 캘리브레이션 루프.
 
-## Phase 6 — 생성 (북극성) · **[트랙 밖 · 별도 브랜치 (2026-06-20)]**
-> 생성은 솔버 역할이 아니라 솔버 학습 결과를 *참조하는 별개 소비자*(§"트랙 범위·게이트 갱신"). 방향 맥락 보존.
+## (트랙 밖 · 별도 브랜치 다운스트림 — 구 Phase 6) 생성 (북극성)
+> 생성은 솔버 역할이 아니라 솔버 산출(다양-해·풀이법 보고서)을 *참조하는 별개 소비자*(§"트랙 범위·게이트 갱신"). 방향 맥락 보존.
 ### 6a · 생성 가설 실증 (de-risk, 먼저)
 기존 레벨을 변형(타일 길이·인벤토리·구조)해 후보 생성 → Phase 5 오라클로 채점 → **트리비얼/비자명을 실제로 가려내고 난이도가 의도대로 움직이는지** 확인. (S12 spike가 솔버를 실증했듯 *생성 루프*를 실증.) 여기서 "오라클이 좋은 레벨을 골라낸다"가 보여야 본격 진입.
 ### 6b · 생성-후-검증 PCG (확신 높음)
@@ -380,7 +575,8 @@ Phase 2~4를 **레벨 품질 오라클**로 패키징(생성의 적합도 함수
 2. **하니스/자동동기화(`verify` 편입)**: `PlanReplayHarnessTest`(+배치 누수 0)는 **`python tools/solver/try_solve.py harness-test`**(exit-code 아닌 PASS 마커로 판정 → false-green 제거) / 손작성+자동발견 골든 검증은 **`python tools/solver/try_solve.py selftest`**(구 `run_plan.py --selftest`은 back-compat·비-게이트로 잔류) / `SkillMetadataDriftTest`(스킬 메타 완전성·솔버 열거==레지스트리, D7 강제)는 **`run_test.py`로 실행**.
 3. **기존 회귀 무파손**: `CampaignS11~S14`·`GameFlow`·`StageRunnerBeginGate` 등(SkillApplier 리팩터·시계 프레임화에도 플레이 불변).
 4. **솔버/난이도(현 게이트=3a)**: `analyze.py --verify`가 *발견된 해*(solve.json, 1-minimal)의 반응-윈도우를 결정론 리플레이로 재검증(interval 내=clear/밖·gap=fail). **max-margin 대안 해·권위 난이도는 Phase 3b로 아직 게이트 밖**(본문 §3a "측정 대상=발견된 해, max-margin 아님" R1-H4와 정합).
-5. **학습**: 전이로 롤아웃 감소 실측. **생성**: 6a 오라클 선별력 → 6b 비자명 레벨 산출.
+5. **다양-해(Phase 5)**: 5c 완료 시 `stageNN.diverse.json` 각 해를 결정론 리플레이로 fail-closed 재검증해 `verify` 편입.
+   (구 "학습=전이 롤아웃 감소"는 Phase 4 강제 종료로 폐기. **생성**=트랙 밖 다운스트림: 오라클 선별력 → 비자명 레벨 산출.)
 
 ## 회귀 주의 (사전 식별)
 - **시계 의미 불변(✅ Phase 0)**: 프레임화가 플레이 불변임을 회귀로 입증 완료.
@@ -392,6 +588,6 @@ Phase 2~4를 **레벨 품질 오라클**로 패키징(생성의 적합도 함수
 
 ## 산출물 위치
 - GDScript: `scripts/core/{SimConfig(✅),SkillApplier,PlanRunner}.gd`. 능력 config `data/solver/capabilities.tres`.
-- Python 오케스트레이터: `tools/solver/{solve,audit_level}.py` (+ spike `solve_spike.py`).
-- 하니스/회귀 씬: `tests/{SolverHarness(spike),PlanReplayHarness,SkillMetadataDriftTest}.{gd,tscn}`. 골든·해 플랜: `data/solutions/`.
-- 전술 라이브러리: `data/solver/tactics.*`(영속 산출물). 트랙 트레일: `codex-worklog/solver/STATUS.md`.
+- Python 오케스트레이터: `tools/solver/{solve,try_solve,model,analyze}.py` (+ spike `solve_spike.py`). diverse front-door = `try_solve.py diverse`.
+- 하니스/회귀 씬: `tests/{SolverHarness(spike),PlanReplayHarness,SkillMetadataDriftTest}.{gd,tscn}`. 골든·해 플랜: `data/solutions/`(solve.json + 영속 시 `stageNN.diverse.json`).
+- 볼트(해 설명 어휘): `tools/solver/knowledge/` + `knowledge.py`(파서). **historical(Phase 4 종료, inert)**: `tactics.py`·`solve.py` `vault_fn` pruning 경로·`try_solve.py transfer-bench`. 트랙 트레일: `codex-worklog/solver/STATUS.md`.

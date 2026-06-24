@@ -1,0 +1,148 @@
+{
+  "stage": 12,
+  "stage_scene": "res://scenes/stages/Stage12.tscn",
+  "deadline_frames": 7500,
+  "given_inventory": {
+    "blocker": 3
+  },
+  "candy_hp": 5,
+  "crises_present": [
+    "water-drowning"
+  ],
+  "n_solutions": 2,
+  "search_capped": false,
+  "extra_rollouts_after_first": 34,
+  "solutions": [
+    {
+      "solution": 1,
+      "tools": 3,
+      "skills_used": {
+        "blocker": 3
+      },
+      "inventory": {
+        "blocker": 3
+      },
+      "actions": [
+        "blocker[min_x@x24 ant_reaches_x]",
+        "blocker[max_x@x888 ant_reaches_x]",
+        "blocker[min_x@x312 ant_reaches_x]"
+      ],
+      "rollouts": 8,
+      "axis": "strategy",
+      "plan": [
+        {
+          "skill": "blocker",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "y_min": 568.0,
+            "y_max": 680.0
+          },
+          "trigger": {
+            "type": "ant_reaches_x",
+            "cmp": "le",
+            "x": 24.0
+          }
+        },
+        {
+          "skill": "blocker",
+          "target": {
+            "mode": "ant",
+            "select": "max_x",
+            "y_min": 424.0,
+            "y_max": 536.0
+          },
+          "trigger": {
+            "type": "ant_reaches_x",
+            "cmp": "ge",
+            "x": 888.0
+          }
+        },
+        {
+          "skill": "blocker",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "y_min": 280.0,
+            "y_max": 392.0
+          },
+          "trigger": {
+            "type": "ant_reaches_x",
+            "cmp": "le",
+            "x": 312.0
+          }
+        }
+      ],
+      "expect": {
+        "cleared": true,
+        "saved": 5
+      }
+    },
+    {
+      "solution": 2,
+      "tools": 3,
+      "skills_used": {
+        "blocker": 3
+      },
+      "inventory": {
+        "blocker": 3
+      },
+      "actions": [
+        "blocker[min_x@x72 ant_reaches_x]",
+        "blocker[max_x@x840 ant_reaches_x]",
+        "blocker[min_x@x360 ant_reaches_x]"
+      ],
+      "rollouts": 6,
+      "axis": "strategy",
+      "plan": [
+        {
+          "skill": "blocker",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "y_min": 568.0,
+            "y_max": 680.0
+          },
+          "trigger": {
+            "type": "ant_reaches_x",
+            "cmp": "le",
+            "x": 72.0
+          }
+        },
+        {
+          "skill": "blocker",
+          "target": {
+            "mode": "ant",
+            "select": "max_x",
+            "y_min": 424.0,
+            "y_max": 536.0
+          },
+          "trigger": {
+            "type": "ant_reaches_x",
+            "cmp": "ge",
+            "x": 840.0
+          }
+        },
+        {
+          "skill": "blocker",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "y_min": 280.0,
+            "y_max": 392.0
+          },
+          "trigger": {
+            "type": "ant_reaches_x",
+            "cmp": "le",
+            "x": 360.0
+          }
+        }
+      ],
+      "expect": {
+        "cleared": true,
+        "saved": 5
+      }
+    }
+  ],
+  "note": "다양-해 보고서(중립 발견, designer-in-the-loop). solution.plan = 결정론 리플레이-ready. ⚠ verify 게이트 미편입(5c) — replay 회귀는 향후 selftest 편입 예정."
+}

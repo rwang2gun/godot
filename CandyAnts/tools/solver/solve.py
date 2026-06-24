@@ -133,20 +133,57 @@ def stage_meta(stage_id: int) -> dict:
 
 # ---------- 닫힌 루프 ----------
 
-def solve(stage_id: int, max_rollouts: int) -> int:
+def _action_sig(action: dict) -> str:
+    """액션의 정규 시그니처(키 정렬 JSON). 다양-해 forbid 집합 매칭용 — try_solve.diverse_report의 plan
+    시그니처와 **동일 직렬화**(json.dumps sort_keys=True)를 써야 정확히 일치한다."""
+    return json.dumps(action, sort_keys=True)
+
+
+def _merge_seeded(seeded: list, cands: list) -> list:
+    """시드 후보를 propose 후보 풀에 머지 후 _w로 재정렬. action 동일 후보는 시드(보너스+source-tag)로
+    치환(byte-identical action 보장 → OFF/ON 차이는 _w·source뿐, plan R1 HIGH-1 측정 계약).
+    cands의 source 기본값은 'fallback'(seed_fn 미주입 시 전부 fallback으로 남음)."""
+    by_label = {c["label"]: dict(c) for c in cands}
+    for c in by_label.values():
+        c.setdefault("source", "fallback")
+    for s in seeded:
+        by_label[s["label"]] = s            # 동일 label은 시드로 치환(보너스+source)
+    out = list(by_label.values())
+    out.sort(key=lambda c: -c["_w"])
+    return out
+
+
+def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = None,
+          save: bool = True, vault_fn=None, inv_override: dict | None = None,
+          forbid=None) -> int:
+    """닫힌-루프 탐색.
+    ⛔ seed_fn·vault_fn = ARCHIVED (Phase 4 강제 종료 — ARCHIVE.md). 속도-전이(boost/pruning)는 falsify됐고
+    기본 None이라 게이트에 inert(byte-identical). 보존하나 신규 경로에서 재활성 금지. stats dict 주입 시
+    provenance/롤아웃 계측을 채운다(archived transfer-bench A/B·귀속 판정용, plan R1·R2)."""
     stage_scene = f"res://scenes/stages/Stage{stage_id:02d}.tscn"
     layout = model.parse_layout(ROOT / "data" / "stage_layouts" / f"stage{stage_id:02d}_layout.tres")
     meta = stage_meta(stage_id)
     inv, notes, hp = meta["inventory"], meta["notes"], int(meta["candy_hp"])
+    if inv_override is not None:
+        inv = {k: v for k, v in inv_override.items() if v > 0}   # 다양-해 탐색: 인벤토리 변형(수량/종류)
+    # 다양-해 탐색(Item 1): forbid된 액션 시그니처 집합. 액션 dict/시그니처 문자열 둘 다 허용.
+    forbidden = {(_action_sig(a) if isinstance(a, dict) else a) for a in forbid} if forbid else set()
     deadline = int(round(meta["time_limit_seconds"] * 60)) + 1500
     caps = dump_capabilities()
     metas = caps["skills"]
 
-    print(f"=== solve stage{stage_id:02d} (예측 closed-loop) ===")
+    print(f"=== solve stage{stage_id:02d} (예측 closed-loop{', SEEDED' if seed_fn else ''}) ===")
     print(f"  목표(candy hp)={hp}  도구(inventory)={inv}  notes={notes or '없음'}")
     print(f"  candy={layout['candy']} home={layout['home']} cap={max_rollouts} rollouts")
 
     rollouts = 0
+    # provenance 계측(plan R1 HIGH-1·R2 HIGH-1): 후보 출처별 시도/성공 + 결정적(클리어) 액션 출처.
+    prov = {"seeded_attempts": 0, "seeded_successes": 0, "fallback_attempts": 0,
+            "fallback_successes": 0, "decisive_origin": None, "plan_sources": [],
+            "vault_pruned": 0, "final_plan": None,
+            # 반사실 귀속(re-review R1 HIGH-2): OFF가 롤아웃한 (action,cleared) 기록 + ON이 prune한 (base,action).
+            # 벤치가 "prune된 후보가 OFF에서 미클리어였나"로 pruning 정당성을 반사실 검증.
+            "tried_log": [], "pruned_log": []}
 
     def rollout(p: list[dict]) -> dict:
         nonlocal rollouts
@@ -154,6 +191,7 @@ def solve(stage_id: int, max_rollouts: int) -> int:
         return run_plan(stage_scene, p, deadline, trace=True)
 
     plan: list[dict] = []
+    plan_sources: list[str] = []          # plan과 평행 — 채택 액션의 source-tag
     tried: set = set()
 
     # ① 베이스라인 관측.
@@ -163,13 +201,44 @@ def solve(stage_id: int, max_rollouts: int) -> int:
         return 1
     print(f"  baseline(무개입): {_fmt(best, hp)}")
     if is_full_clear(best, hp):
-        return _save(stage_id, stage_scene, deadline, inv, plan, best, rollouts, hp, layout, meta["total_ants"])
+        prov["final_plan"] = list(plan)      # 빈 플랜([])도 유효한 '무도구' 해 — diverse가 정직 보고하게 기록
+        if stats is not None:
+            stats.update(prov, rollouts=rollouts, cleared=True)
+        return _save(stage_id, stage_scene, deadline, inv, plan, best, rollouts, hp, layout, meta["total_ants"], save=save)
 
     class _Clear(Exception):
-        def __init__(self, p, r):
-            self.plan, self.res = p, r
+        def __init__(self, p, r, srcs, decisive):
+            self.plan, self.res, self.srcs, self.decisive = p, r, srcs, decisive
 
-    def eval_cands(base: list[dict], cands: list, tag: str) -> list:
+    def _propose(d, cap, base, src_res, use_vault=True):
+        """propose + (seed_fn 있으면) 시드 머지 + (vault_fn 있고 use_vault면) 볼트 pruning. source-tag 부여.
+        use_vault=False면 pruning 미적용(fail-open 재propose용). base = 현재 누적 plan(pruned_log 반사실 기준).
+        src_res = diagnosis d를 만든 결과(트레이스) — retired/trapped를 **그 트레이스에서** 계산(R2 MEDIUM:
+        LA2는 best가 아닌 res1 trace로 진단하므로 신호도 같은 trace에서 와야 위기가 올바르게 발화)."""
+        cands = model.propose(layout, d, inv, metas, notes, exclude=tried, max_n=cap)
+        if seed_fn:
+            cands = _merge_seeded(seed_fn(layout, d, inv, metas), cands)[:cap]
+        else:
+            for c in cands:
+                c.setdefault("source", "fallback")
+        if forbidden:
+            # 다양-해 탐색(Item 1): 이미 발견·보고된 해의 액션을 절대 배제(hard-filter) → 같은 인벤토리로
+            # *다른* 배치/전략을 강제. exclude(tried)와 달리 ceiling/carry **면제도 무시**하는 절대 필터라
+            # 모든 _propose 경로(main/sibling/LA2)에서 일관 적용된다. 후보가 0이 되면 솔버는 정직하게
+            # 정지(= 더 이상 구별되는 해 없음) — 완전성 주장 아님(의도적 배제, 다양-해 보고 맥락).
+            cands = [c for c in cands if _action_sig(c["action"]) not in forbidden]
+        if vault_fn and use_vault:
+            # 볼트가 위기→링크 도구/요소(retired/trapped 포함)로 형제 후보를 prune(de-risk 레버).
+            tr = src_res.get("trace", {})
+            retired = model.count_retired(tr, layout)
+            ct, tt = model.count_trapped(tr)
+            cands, pruned, pruned_acts = vault_fn(d, cands, retired, {"carry": ct, "total": tt})
+            prov["vault_pruned"] += pruned
+            for a in pruned_acts:
+                prov["pruned_log"].append({"base": list(base), "action": a})
+        return cands
+
+    def eval_cands(base: list[dict], base_srcs: list[str], cands: list, tag: str) -> list:
         """후보들을 base 플랜 위에 롤아웃. full clear면 _Clear로 즉시 탈출. 반환 (cand,res) 리스트.
         이미 base에 든 액션은 건너뛴다 — carry 후보는 exclude 면제(plan 누적 재평가)라, 채택돼 base에
         들어간 carry n이 다시 후보로 와도 중복 롤аут하지 않게 막는다(연쇄만 진행)."""
@@ -180,13 +249,24 @@ def solve(stage_id: int, max_rollouts: int) -> int:
             if cand["action"] in base:        # 이미 채택된 액션 — 중복 롤아웃 방지
                 continue
             tried.add(cand["label"])
+            src = cand.get("source", "fallback")
+            if src.startswith("seeded:"):
+                prov["seeded_attempts"] += 1
+            else:
+                prov["fallback_attempts"] += 1
             res = rollout(base + [cand["action"]])
             ct, tt = model.count_trapped(res.get("trace", {}))
-            print(f"  롤아웃 {rollouts}{tag}: +{cand['label']} → {_fmt(res, hp)} trapped(carry/all)={ct}/{tt}")
+            print(f"  롤아웃 {rollouts}{tag}: +{cand['label']} [{src}] → {_fmt(res, hp)} trapped(carry/all)={ct}/{tt}")
+            cleared_here = ("error" not in res) and is_full_clear(res, hp)
+            prov["tried_log"].append({"base": list(base), "action": cand["action"], "cleared": bool(cleared_here)})
             if "error" in res:
                 continue
             if is_full_clear(res, hp):
-                raise _Clear(base + [cand["action"]], res)
+                if src.startswith("seeded:"):
+                    prov["seeded_successes"] += 1
+                else:
+                    prov["fallback_successes"] += 1
+                raise _Clear(base + [cand["action"]], res, base_srcs + [src], src)
             out.append((cand, res))
         return out
 
@@ -196,17 +276,23 @@ def solve(stage_id: int, max_rollouts: int) -> int:
     try:
         while rollouts < max_rollouts:
             diag = model.diagnose(best.get("trace", {}), layout, hp)
-            cands = model.propose(layout, diag, inv, metas, notes, exclude=tried,
-                                  max_n=min(max_rollouts - rollouts, 6))
-            if not cands:
-                print("  [정지] 제안할 개입 후보 없음(진단으로 더 둘 곳 없음).")
-                break
-            evaluated = eval_cands(plan, cands, "")
+            cands = _propose(diag, min(max_rollouts - rollouts, 6), plan, best)
+            evaluated = eval_cands(plan, plan_sources, cands, "") if cands else []
+            # 완전성 보장(re-review R3 HIGH): vault-preferred 집합을 **먼저** 평가한다 — 그 안에서 full-clear가
+            # 나면 eval_cands가 즉시 _Clear로 단축(이게 유일한 절약: 클리어 라운드 early-exit). 하지만 개선 채택·
+            # 정체 판단 *전에* prune된 형제(off>=1)까지 **반드시** 평가해 ON이 OFF와 동일 후보 풀에서 결정하게
+            # 한다 → ON ⊇ OFF(완전성). pruning은 더 이상 후보를 영구 삭제하지 않고 "평가 순서 우선"으로만 작동.
+            if vault_fn:
+                cands_sib = _propose(diag, min(max_rollouts - rollouts, 6), plan, best, use_vault=False)
+                if cands_sib:
+                    evaluated = evaluated + eval_cands(plan, plan_sources, cands_sib, "(complete)")
             if not evaluated:
+                print("  [정지] 제안할 개입 후보 없음(진단으로 더 둘 곳 없음).")
                 break
             cand, res = min(evaluated, key=lambda cr: score(cr[1], layout))
             if score(res, layout) < score(best, layout):
                 plan = plan + [cand["action"]]
+                plan_sources = plan_sources + [cand.get("source", "fallback")]
                 best = res
                 print(f"    채택(최선): +{cand['label']} → plan={[a.get('skill') for a in plan]}")
                 continue
@@ -220,9 +306,15 @@ def solve(stage_id: int, max_rollouts: int) -> int:
                 if rollouts >= max_rollouts:
                     break
                 diag1 = model.diagnose(res1.get("trace", {}), layout, hp)
-                cands2 = model.propose(layout, diag1, inv, metas, notes, exclude=tried,
-                                      max_n=min(max_rollouts - rollouts, 4))
-                ev2 = eval_cands(plan + [c1["action"]], cands2, "(LA2)")
+                base2 = plan + [c1["action"]]
+                srcs2 = plan_sources + [c1.get("source", "fallback")]
+                cands2 = _propose(diag1, min(max_rollouts - rollouts, 4), base2, res1)
+                ev2 = eval_cands(base2, srcs2, cands2, "(LA2)") if cands2 else []
+                # 완전성(R3 HIGH): LA2 second-step도 prune된 형제 복원·평가 → second-step 풀도 ON ⊇ OFF.
+                if vault_fn:
+                    cands2_sib = _propose(diag1, min(max_rollouts - rollouts, 4), base2, res1, use_vault=False)
+                    if cands2_sib:
+                        ev2 = ev2 + eval_cands(base2, srcs2, cands2_sib, "(LA2-complete)")
                 for c2, res2 in ev2:
                     if score(res2, layout) < score(best, layout) and (
                             combo is None or score(res2, layout) < score(combo[2], layout)):
@@ -230,15 +322,25 @@ def solve(stage_id: int, max_rollouts: int) -> int:
             if combo is not None:
                 c1, c2, res2 = combo
                 plan = plan + [c1["action"], c2["action"]]
+                plan_sources = plan_sources + [c1.get("source", "fallback"), c2.get("source", "fallback")]
                 best = res2
                 print(f"    채택(LA2): +{c1['label']}+{c2['label']} → plan={[a.get('skill') for a in plan]}")
                 continue
             print("  [정지] 1-스텝·2-스텝 모두 진척을 못 냄.")
             break
     except _Clear as c:
-        return _save(stage_id, stage_scene, deadline, inv, c.plan, c.res, rollouts, hp, layout, meta["total_ants"])
+        prov["decisive_origin"] = c.decisive
+        prov["plan_sources"] = c.srcs
+        prov["final_plan"] = c.plan
+        if stats is not None:
+            stats.update(prov, rollouts=rollouts, cleared=True)
+        return _save(stage_id, stage_scene, deadline, inv, c.plan, c.res, rollouts, hp, layout, meta["total_ants"], save=save)
 
     # 상한 도달 또는 정체 — 100% 미달 → 체크포인트. 최고 기록 시도의 리타이어 개미·사용 도구 수도 보고.
+    prov["plan_sources"] = plan_sources
+    prov["final_plan"] = plan
+    if stats is not None:
+        stats.update(prov, rollouts=rollouts, cleared=False)
     saved = int(best.get("saved", 0))
     rt = model.count_retired(best.get("trace", {}), layout)
     tools = len(plan)
@@ -251,9 +353,14 @@ def solve(stage_id: int, max_rollouts: int) -> int:
     return 2
 
 
-def _save(stage_id, stage_scene, deadline, inv, plan, res, rollouts, hp, layout, total_ants) -> int:
+def _save(stage_id, stage_scene, deadline, inv, plan, res, rollouts, hp, layout, total_ants, save=True) -> int:
     rt = model.count_retired(res.get("trace", {}), layout)
     tools = len(plan)
+    if not save:
+        # 벤치(read-only A/B): 기존 게이트 산출물 stageNN.solve.json을 덮어쓰지 않는다.
+        print(f"\nSOLVED(100%, no-save) stage{stage_id:02d}: saved={res.get('saved')}/{hp} | "
+              f"사용 도구={tools} | rollouts={rollouts} | skills={[a.get('skill') for a in plan]}")
+        return 0
     sol = {"stage": stage_scene, "deadline_frames": deadline, "inventory": inv,
            "expect": {"cleared": True, "saved": int(res.get("saved", 0))},
            "search_meta": {"rollouts": rollouts, "tool": "solve.py", "phase": 2, "method": "predictive",
