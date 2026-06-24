@@ -567,10 +567,17 @@ plan §Phase 5 신설(구 Phase 5 감사·6 생성은 번호 없는 트랙-밖 �
 selftest 16/16 확인). 5c 전까지 inert 키 금지로 `verify` 무변경. **plan-review**: Phase 5의 확정 구현(5c 게이트) 진입
 전 plan-stage 적대적 리뷰 권장(사용자 트리거 — codex는 model-invocation 불가).
 
-**세션 경계 상태 (2026-06-24)**: 모든 변경 **미커밋**(Phase 4 진행 중 — CLAUDE.md 중간 커밋 금지). 브랜치 auto-solver.
-신규: `tools/solver/{tactics.py, knowledge.py, knowledge/**}`. 수정: `solve.py, try_solve.py`, plan, 리뷰 트레일.
-게이트 그린(selftest 16/16). GODOT_BIN = Downloads 중첩 폴더(메모리 godot-binary-location). 클래스 캐시 재생성
-필요했음(pull로 들어온 SlideL/R 신규 스킬).
+**세션 경계 상태 (2026-06-24, 세션 종료)**: solver-track 전체 작업 **커밋·푸시 완료** — 커밋 `39938af`
+(Phase 4 강제 종료·아카이브 + Phase 5 5a/5b Item1/5c + plan-review R1~R3 종결), `origin/auto-solver`로 푸시.
+게이트 그린(selftest 16/16). **사용자 병행 WIP 미포함**: `tests/{Basher,Cutter,Digger,SandMound}CarryBuildTest.gd.uid`
+4개는 작업 트리에 unstaged로 남김(carry-build 게임플레이 작업, 사용자 소관).
+GODOT_BIN = Downloads 중첩 폴더(메모리 [[godot-binary-location]]).
+
+**▶ 다음 세션 진입점**: **revised 5b 구현** — plan §"5b 계약"(검증된 연속 `gap_verified` + 4요소 solution-class +
+2단계 forbid + 5c 경계/내부/gap 게이트)을 구현. 착수점 = `analyze.py`의 `_reconstruct_runs`/pos-sweep 재사용해
+placement range-sweep 구축 → `diverse_report`를 4요소 class + range 스키마(`stageNN.diverse.json`)로 교체 →
+selftest에 range 경계/내부/gap fail-closed 리플레이 편입(`verify` 확장). impl-stage 적대 리뷰 정책(self-review →
+codex 재리뷰 → clean) 적용. 그 후 5d(미검증 스테이지 고도화).
 
 ## 블로커
 - 없음.
