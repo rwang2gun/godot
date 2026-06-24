@@ -573,11 +573,38 @@ selftest 16/16 확인). 5c 전까지 inert 키 금지로 `verify` 무변경. **p
 4개는 작업 트리에 unstaged로 남김(carry-build 게임플레이 작업, 사용자 소관).
 GODOT_BIN = Downloads 중첩 폴더(메모리 [[godot-binary-location]]).
 
-**▶ 다음 세션 진입점**: **revised 5b 구현** — plan §"5b 계약"(검증된 연속 `gap_verified` + 4요소 solution-class +
-2단계 forbid + 5c 경계/내부/gap 게이트)을 구현. 착수점 = `analyze.py`의 `_reconstruct_runs`/pos-sweep 재사용해
-placement range-sweep 구축 → `diverse_report`를 4요소 class + range 스키마(`stageNN.diverse.json`)로 교체 →
-selftest에 range 경계/내부/gap fail-closed 리플레이 편입(`verify` 확장). impl-stage 적대 리뷰 정책(self-review →
-codex 재리뷰 → clean) 적용. 그 후 5d(미검증 스테이지 고도화).
+## revised 5b 구현 완료 (2026-06-24, 세션) — range-sweep + 4요소 class + 5c 게이트 (자체 리뷰 clean, ⏳codex 대기)
+
+> plan §"5b 계약" 구현. 신규 `tools/solver/diverse.py`(순수 시그니처 + range-sweep + 4요소 class + forbid 술어
+> + 게이트). 트레일 [phase05-impl-review.md](../../phases/solver/reviews/phase05-impl-review.md).
+
+**산출물:**
+- **`tools/solver/diverse.py`**(신규): ① 4요소 시그니처(`_placement_cell`=ant_reaches_x→셀, `_role_sig`=select/
+  state/mode, `_timing_sig`=trigger type/cmp/picked_ge n/subgoal[**x 제외**=placement], `_skill_multiset`).
+  ② **placement range-sweep**(`_sweep_placement`): cell_x 슬롯을 *나머지 고정* 독립 축 스윕(엔진 D4), 도메인
+  ≤cap이면 전 셀(stride1=gap_verified), 넘으면 stride 샘플(provisional). `_runs`로 intervals/gaps 복원.
+  ③ **solution-class**(`_build_class` 슬롯 좌→우 정렬, `_class_sig` dedup) + **4요소 forbid 술어**(`_make_forbid`
+  — placement∈gap_verified 구역 AND skill/role/timing 일치 시 배제, same-region·다른 role/timing은 발견됨=R3 2단계
+  (a) 자동). ④ **게이트**(`verify_diverse`/`verify_one_diverse`/`_coverage_check_diverse`/`_selfcheck_diverse`):
+  reference clear + 각 cell_x 슬롯 interval 전 셀 clear + **도메인-내부** 경계 밖 fail + gap fail(analyze --verify 동형).
+- **`solve.solve(forbid=)`**: **callable 술어** 허용(4요소 class forbid). 기존 sig iterable·None 불변(byte-identical).
+- **`try_solve.py`**: 옛 naive `diverse_report`/helpers 제거 → diverse.py 위임. `diverse`(+`--workers`) + 신규
+  **`diverse-verify`**(no-arg=모든 diverse.json, fail-closed) 서브커맨드.
+- **frontmatter `verify`** 확장: `&& python tools/solver/try_solve.py diverse-verify` 편입(5c 게이트 활성).
+- **`data/solutions/stage12.diverse.json`**: naive 2해 스키마 → **range 스키마 재생성**(1 solution-class).
+
+**merge acceptance 충족(falsifiable)**: S12 naive 2해(`@24/888/312`·`@72/840/360`=3 blocker 일제 1셀 시프트)가
+**1 solution-class**로 병합 — 슬롯 검증 구역 col[0–3]·[6–18]·[0–18](각 gap_verified=stride1 full sweep)에 sol2 포함.
+naive distinctness 결함 해소 실증.
+
+**게이트(verify) 전체 그린·회귀 0**: Determinism×2(962f) + SkillMetadataDrift(11) + harness-test(PASS+exit0) +
+selftest **16/16**(frame byte-identical s12=2385·s13=2719·s14=4624) + analyze --verify(4스테이지 272체크) +
+**diverse-verify stage12(1 class, 40체크)**. forbid=None inert로 기존 경로 불변.
+
+**자체 적대 리뷰 clean(HIGH 0)**: 구현 중 [HIGH] 게이트 도메인-끝 경계 false-fail 1건 발견·수정(도메인-내부 경계만
+단언). fail-open(selfcheck 17케이스·빈대상 FAIL·coverage 파생/변조 거부)·종료성·byte-identical 검토 통과. 정직
+경계(axis_independent joint 미주장 / forbid 보수 under-report / grid 도메인 한정) 문서화.
+**⏳ 다음 = codex impl 재리뷰**(사용자 트리거 — model-invocation 불가). clean 후 커밋 + 5d.
 
 ## 블로커
-- 없음.
+- 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]].)

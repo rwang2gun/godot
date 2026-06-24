@@ -1,7 +1,7 @@
 ---
 name: auto-solver
 duration_estimate: 28800
-verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn && python scripts/run_test.py tests/SkillMetadataDriftTest.tscn && python tools/solver/try_solve.py harness-test && python tools/solver/try_solve.py selftest && python tools/solver/analyze.py --verify
+verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn && python scripts/run_test.py tests/SkillMetadataDriftTest.tscn && python tools/solver/try_solve.py harness-test && python tools/solver/try_solve.py selftest && python tools/solver/analyze.py --verify && python tools/solver/try_solve.py diverse-verify
 large_change_ok: false
 sot: phases/solver/auto-solver-plan.md
 sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/SceneFlow.gd, scripts/core/ScoreSystem.gd, scripts/ant/Ant.gd, scripts/world/Home.gd, scripts/core/AntSpawner.gd, scripts/ui/SkillToolbar.gd, scripts/core/SkillRegistry.gd, scripts/core/SkillApplier.gd, scripts/core/PlanRunner.gd, scripts/core/SolverCapabilities.gd, scripts/run_test.py, scripts/run_plan.py, tests/SolverHarness.gd, tests/PlanReplayHarness.gd, tests/PlanReplayHarnessTest.gd, tests/SkillMetadataDriftTest.gd, data/solver/capabilities.tres, tools/solver/solve_spike.py, tools/solver/analyze.py, tools/solver/try_solve.py]
@@ -476,12 +476,13 @@ solve.json 액션이 이미 `{skill, target, trigger}` 구조라 **리프팅 = �
 - **5a · 재설계 정립 (✅)**: Phase 4 강제 종료 + 방향 재정의 명문화. **dead 메커니즘 = 아카이브 보존**(사용자
   결정 2026-06-24, 삭제 안 함): `tactics.py`/`solve.py vault_fn·seed_fn`/`transfer-bench`에 ⛔ARCHIVED 배너 +
   매니페스트 `tools/solver/ARCHIVE.md`. in-place 보존(라이브 코드와 얽혀 이동 시 회귀 위험, 이미 None-safe inert).
-- **5b · 다양성 축 (재설계 중 — 가능성-공간)**: 메커니즘 토대 = ✅ Item 1(`solve.solve(forbid=)` hard-filter +
-  `diverse_report` forbid-재탐색·인벤토리 축). **단 distinctness/표현은 아래 §5b 계약으로 재설계** — 좌표 ±조합을
-  열거하지 않고 *연속 클리어 구역=범위*로 묶고, **비연속 배치 또는 스킬 횟수 변화만** 별개 해로 본다(사용자 2026-06-24).
-- **5c · 보고서 영속 + 게이트**: `data/solutions/stageNN.diverse.json` 영속(`--save`, 현재 구현=naive 플랜 스키마,
-  5b 재설계 후 range 스키마로 교체) + **각 보고 range 경계 셀 결정론 리플레이 회귀**(fail-closed, selftest 편입)
-  → `verify` 확장. 영속 보고가 엔진/스킬 변경에 깨지면 잡힘.
+- **5b · 다양성 축 (✅ revised 구현 — 가능성-공간)**: §5b 계약 구현 = `tools/solver/diverse.py`(4요소 시그니처 +
+  placement range-sweep + solution-class + 4요소 forbid 술어). `solve.solve(forbid=)`가 callable 술어 허용.
+  좌표 ±시프트는 검증 구역에 흡수돼 **1 solution-class로 병합**(S12 naive 2해→1, 실측). 자체 리뷰 clean·⏳codex.
+- **5c · 보고서 영속 + 게이트 (✅ range 스키마 + 게이트 편입)**: `data/solutions/stageNN.diverse.json` = **range
+  스키마**(class별 reference_plan + 슬롯 검증 구역 intervals/gap_verified). 게이트 `try_solve diverse-verify`
+  (reference clear + 각 cell_x 슬롯 interval 전 셀·도메인-내부 경계 밖 fail·gap fail, analyze --verify 동형,
+  fail-closed) → **`verify` frontmatter 편입 완료**. 영속 보고가 엔진/스킬 변경에 깨지면 잡힘.
 - **5d · 고도화 (미검증 스테이지)**: Ch1~5 잔여(S18·Ch2 sand_mound 계열 S5/19/21~25 등)를 풀어보며 솔버 개선 +
   다양-해 코퍼스 확보. sand_mound(cell-up) routing 등 미커버 메커니즘 추가는 여기서.
 

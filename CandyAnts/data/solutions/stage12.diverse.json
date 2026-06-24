@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "stage": 12,
   "stage_scene": "res://scenes/stages/Stage12.tscn",
   "deadline_frames": 7500,
@@ -6,30 +7,25 @@
     "blocker": 3
   },
   "candy_hp": 5,
+  "cell_size": 48,
+  "grid_cols": 19,
   "crises_present": [
     "water-drowning"
   ],
-  "n_solutions": 2,
+  "n_solution_classes": 1,
   "search_capped": false,
-  "extra_rollouts_after_first": 34,
-  "solutions": [
+  "extra_rollouts_after_first": 17,
+  "solution_classes": [
     {
-      "solution": 1,
-      "tools": 3,
-      "skills_used": {
+      "class": 1,
+      "axis": "strategy",
+      "skill_multiset": {
         "blocker": 3
       },
       "inventory": {
         "blocker": 3
       },
-      "actions": [
-        "blocker[min_x@x24 ant_reaches_x]",
-        "blocker[max_x@x888 ant_reaches_x]",
-        "blocker[min_x@x312 ant_reaches_x]"
-      ],
-      "rollouts": 8,
-      "axis": "strategy",
-      "plan": [
+      "reference_plan": [
         {
           "skill": "blocker",
           "target": {
@@ -76,73 +72,176 @@
       "expect": {
         "cleared": true,
         "saved": 5
-      }
-    },
-    {
-      "solution": 2,
-      "tools": 3,
-      "skills_used": {
-        "blocker": 3
       },
-      "inventory": {
-        "blocker": 3
-      },
-      "actions": [
-        "blocker[min_x@x72 ant_reaches_x]",
-        "blocker[max_x@x840 ant_reaches_x]",
-        "blocker[min_x@x360 ant_reaches_x]"
-      ],
-      "rollouts": 6,
-      "axis": "strategy",
-      "plan": [
+      "slots": [
         {
+          "slot": 0,
+          "ref_index": 0,
           "skill": "blocker",
-          "target": {
+          "role": {
             "mode": "ant",
             "select": "min_x",
-            "y_min": 568.0,
-            "y_max": 680.0
+            "state": "any"
           },
-          "trigger": {
-            "type": "ant_reaches_x",
-            "cmp": "le",
-            "x": 72.0
-          }
+          "timing": {
+            "trigger_type": "ant_reaches_x",
+            "cmp": "le"
+          },
+          "placement_axis": "cell_x",
+          "fixed_cell": 0,
+          "intervals": [
+            [
+              0,
+              3
+            ]
+          ],
+          "gaps": [],
+          "range_sampled": true,
+          "gap_check_stride": 1,
+          "gap_verified": true,
+          "gap_coverage": "full@1",
+          "axis_independent": true,
+          "provisional": false,
+          "domain": [
+            0,
+            18
+          ],
+          "sampled_points": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18
+          ],
+          "rollouts": 19
         },
         {
+          "slot": 1,
+          "ref_index": 2,
           "skill": "blocker",
-          "target": {
+          "role": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "any"
+          },
+          "timing": {
+            "trigger_type": "ant_reaches_x",
+            "cmp": "le"
+          },
+          "placement_axis": "cell_x",
+          "fixed_cell": 6,
+          "intervals": [
+            [
+              6,
+              18
+            ]
+          ],
+          "gaps": [],
+          "range_sampled": true,
+          "gap_check_stride": 1,
+          "gap_verified": true,
+          "gap_coverage": "full@1",
+          "axis_independent": true,
+          "provisional": false,
+          "domain": [
+            0,
+            18
+          ],
+          "sampled_points": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18
+          ],
+          "rollouts": 19
+        },
+        {
+          "slot": 2,
+          "ref_index": 1,
+          "skill": "blocker",
+          "role": {
             "mode": "ant",
             "select": "max_x",
-            "y_min": 424.0,
-            "y_max": 536.0
+            "state": "any"
           },
-          "trigger": {
-            "type": "ant_reaches_x",
-            "cmp": "ge",
-            "x": 840.0
-          }
-        },
-        {
-          "skill": "blocker",
-          "target": {
-            "mode": "ant",
-            "select": "min_x",
-            "y_min": 280.0,
-            "y_max": 392.0
+          "timing": {
+            "trigger_type": "ant_reaches_x",
+            "cmp": "ge"
           },
-          "trigger": {
-            "type": "ant_reaches_x",
-            "cmp": "le",
-            "x": 360.0
-          }
+          "placement_axis": "cell_x",
+          "fixed_cell": 18,
+          "intervals": [
+            [
+              0,
+              18
+            ]
+          ],
+          "gaps": [],
+          "range_sampled": true,
+          "gap_check_stride": 1,
+          "gap_verified": true,
+          "gap_coverage": "full@1",
+          "axis_independent": true,
+          "provisional": false,
+          "domain": [
+            0,
+            19
+          ],
+          "sampled_points": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19
+          ],
+          "rollouts": 20
         }
-      ],
-      "expect": {
-        "cleared": true,
-        "saved": 5
-      }
+      ]
     }
   ],
-  "note": "다양-해 보고서(중립 발견, designer-in-the-loop). solution.plan = 결정론 리플레이-ready. ⚠ verify 게이트 미편입(5c) — replay 회귀는 향후 selftest 편입 예정."
+  "note": "가능성-공간 다양-해 보고서(중립 발견, designer-in-the-loop). class별 reference_plan은 결정론 리플레이-ready, 슬롯 intervals는 검증된 연속 구역(gap_verified=true일 때 병합 권위). axis_independent: 각 축 cross-section이며 joint 곱공간 미주장."
 }
