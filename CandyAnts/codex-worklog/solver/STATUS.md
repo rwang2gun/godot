@@ -653,6 +653,32 @@ distinct class 미차단) + dead_exact(발견된 검증 joint duplicate 정확+s
   전 **그 WIP가 커밋·정착됐는지 확인**(현재 워킹트리=`*CarryBuildTest.gd.uid` 4개뿐이라 정착됐을 가능성). 정착 후 routing 설계.
 - Ch2 잔여: S20(bridge+climber, bridge 있으니 cap 재시도) · S21~25(bridge+sand_mound 복합).
 
+## 5d① 다양-해 코퍼스 확장 완료 (2026-06-25) — S11/S13/S14 diverse.json (코드 무변경, 데이터 생성)
+
+> 5d 착수 계획 ① 수행. revised 5b R10-approve forbid 메커니즘(plus-형+dead_exact+Kuhn)을 검증된 도구로
+> 그대로 사용 — `tools/solver/` 무변경, 신규 산출물은 `data/solutions/stageNN.diverse.json` 3개뿐이라 codex 리뷰 불요.
+> 하니스 `--fixed-fps`(GODOT_BIN=Downloads console.exe, [[godot-binary-location]]).
+
+- **S13** (blocker×1+climber×5, carry 연쇄): **n_classes=2, search_capped=false**(extra 197롤 자연소진). class1=
+  마지막 슬롯 climber carry(picked_ge5) / class2=마지막 슬롯 climber **spawn_index/immediate** — carry climber
+  슬롯에서 plus-형/dead_exact가 실전 동작해 *구별되는 전략 변형*을 발견(none-slot 매칭 첫 실증). blocker 슬롯
+  col[5–17] full sweep(gap_verified). diverse-verify **32체크 PASS**.
+- **S14** (blocker×3+climber×5 계단): **n_classes=1, search_capped=false**(extra 323롤). 3 blocker 슬롯 각
+  col 구역 full sweep(8–23 / 0–22 / 0–22, gap_verified) — 좌표 시프트 변형이 plus-형 forbid로 1 class 수렴
+  (stage12 선례 재현). diverse-verify **66체크 PASS**.
+- **S11** (blocker×1, 양성 대조): **n_classes=1, search_capped=false**(extra 4롤). col[18–21] full sweep.
+  diverse-verify **7체크 PASS**.
+- **S18 = DEFER(별도 코드-변경 트랙)**: `search 18 --max-rollouts 80` → **40롤에서 saturate**(1·2-스텝
+  lookahead 둘 다 진척 0). cap 문제 아님 — best plan=floater+blocker×2+climber×4, saved=4/5 고정(5번째 개미
+  물 익사, carry5 추가해도 불변). 100% 미달 = `model.py` 휴리스틱 손질 필요 = **코드 변경 → plan/impl-review
+  대상**이라 가벼운 데이터 트랙에서 분리. solve.json/selftest 미편입(부분 해는 게이트 비대상).
+- **게이트 전체 그린(코드 무변경 회귀 0)**: Determinism×2(962f) + SkillMetadataDrift(11) + harness-test(PASS+exit0)
+  + selftest **16/16**(frame byte-identical s12=2385·s13=2719·s14=4624·s17=3367) + analyze --verify(4스테이지
+  11/12/13/14) + **diverse-verify 4개(11/12/13/14, 7+40+32+66=145체크) PASS**. diverse.json은 `*.solve.json`
+  글롭 비대상이라 selftest 불간섭. `verify` 프론트매터 무변경(diverse-verify가 no-arg로 신규 3개 자동 발견).
+- 커밋: `data/solutions/stage{11,13,14}.diverse.json` + STATUS(이 절). 사용자 WIP `*CarryBuildTest.gd.uid` 4개 미포함.
+
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)
+- **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경, plan/impl-review)** — 5d①에서 cap-saturate 확인, 분리.
 - sand_mound routing(5d②)은 사용자 SandMound WIP 정착 확인 후 착수(racing 방지).
