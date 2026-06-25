@@ -736,7 +736,20 @@ carry 체인(픽업 *후* 운반 무장)의 **상행판**이 부재.
   rediscover save=False 무부작용·stats 갱신 경로 검토 통과. 정직 한계: 보존은 *최상위* 구조만 보장(임의 필요 구조는
   반복 라운드+LA2로 수렴, 완전성 아님), rediscover cap은 롤아웃 증가 시 갱신 필요.
 - **전체 게이트 그린·EXIT 0**(rediscover-verify 포함: S4 1/1·S13 6/6·S20 7/7 시그니처 일치). 회귀 0(early_active=False
-  byte-identical). **⏳ 다음 = codex R2 재리뷰**(2-fix diff). clean 후 종결.
+  byte-identical).
+
+**codex R2(needs-attention, base=a560995, 커밋 `8aab1f1`까지) → 2-fix:** R1 fix가 미흡.
+- **[HIGH] 보존 슬롯 독점**: R1 보존이 *최상위* struct만 되돌리는데, ceiling-exempt struct는 exclude 면제라
+  **이미 시도돼 실패한 천장 후보가 매 라운드 재보존돼 슬롯 독점** → 차하위 필요 구조 여전히 굶음. → **수정**:
+  보존 대상을 **untried(label∉exclude) 최상위 구조**로 한정 → 시도·실패한 구조는 tried라 보존서 빠지고 fresh
+  구조가 슬롯 획득(독점 차단). S20 거동 불변(31롤, solve.json byte-identical — S20 구조는 이미 라운드마다 fresh).
+- **[MEDIUM] rediscover가 잔여 실패모드 미커버**: 후보 *랭킹* 회귀(early-active+다중 구조 경쟁)는 엔진 재발견이
+  못 거름. → **수정**: `model._selfcheck_preserve()` 단위 검증(엔진 불요) — 구조 A(천장·고가중)/B(저가중) + early
+  활성에서 A untried→보존 A / A tried→보존 B(독점 차단) 단언. rediscover-verify ① 선두에 편입. **prove-it 확정**:
+  R1 동작으로 되돌리면 selfcheck FAIL(A 독점 반환), R2 fix면 PASS = vacuous 아님.
+- **자체 적대 리뷰(R2 2-fix) clean(HIGH 0)**: untried 필터 결정론·`is not` 식별자·selfcheck 합성입력 정합 검토 통과.
+- 전체 게이트 그린·EXIT 0(preserve-selfcheck PASS + rediscover S4/S13/S20 + selftest 17 + analyze 4 + diverse 4).
+  **⏳ 다음 = codex R3 재리뷰**(R2 2-fix diff). clean 후 종결.
 
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)

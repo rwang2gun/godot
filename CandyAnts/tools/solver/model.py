@@ -381,10 +381,15 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     # 레벨이 막힌다(boost가 max_n을 early로 채워 구조 진척을 못 봄). **최상위 구조 후보 1개를 절단에서 항상
     # 보존**해 매 라운드 구조 후보가 평가되게 보장 → 필요한 구조가 있으면 그 라운드(또는 LA2 frontier)에서
     # 발견·채택된다. early 체인은 나머지 슬롯으로 계속 진행(보존 1칸 비용만). early_active=False면 미적용.
+    # codex impl-review R2 HIGH: 보존 슬롯이 *이미 시도된(tried)* 구조 후보 — 특히 ceiling-exempt라 재제안되는
+    # 비개선 천장 후보 — 에 독점되면 차하위 *필요* 구조가 여전히 굶는다. 보존 대상 = **아직 안 써본(untried)
+    # 최상위 구조 후보**로 한정 → 시도돼 실패한 구조는 다음 라운드 보존에서 빠지고(tried=exclude), fresh 구조가
+    # 슬롯을 받는다. untried 구조가 없으면(전부 시도됨) 보존 안 함(새로 평가할 fresh 구조 없음 = 헛 롤아웃 방지).
     top_struct = next((c for c in cands
-                       if (c["action"].get("trigger") or {}).get("type") == "ant_reaches_x"), None)
+                       if (c["action"].get("trigger") or {}).get("type") == "ant_reaches_x"
+                       and c["label"] not in exclude), None)
     if top_struct is None or top_struct in cands[:max_n]:
-        return cands[:max_n]                       # 구조 후보 없음 or 이미 head에 포함 → 절단 그대로
+        return cands[:max_n]                       # untried 구조 없음 or 이미 head에 포함 → 절단 그대로
     return [top_struct] + [c for c in cands if c is not top_struct][:max_n - 1]
 
 
@@ -393,3 +398,31 @@ def _note_w(notes: dict, sid: str) -> int:
     if notes and sid in notes:
         return 1
     return 0
+
+
+def _selfcheck_preserve() -> tuple[bool, str]:
+    """codex impl-review R2 회귀 단위 검증(엔진 불요) — early_active 시 구조-후보 보존 슬롯이 *tried* 후보
+    (ceiling-exempt라 재제안되는 비개선 천장 후보)에 독점되지 않고 **untried 최상위 구조**를 보존하는지
+    propose 후보 랭킹을 직접 단언. 시나리오: 구조 후보 A=(10,5) 천장有·물·고가중 / B=(3,5) 천장無·저가중,
+    early 체인 활성(plan에 climber early arm) → 둘 다 early boost로 절단될 가중. (1) A untried → 보존=A.
+    (2) A tried(exclude) → 보존=B(A 독점 차단, R2 fix). R1 동작이면 (2)에서 A가 나와 FAIL → 회귀 박제."""
+    metas = {"blocker": {"routing": "reverse", "category": "ANT_ARMED"},
+             "climber": {"routing": "up", "category": "ANT_ARMED"}}
+    inventory = {"blocker": 2, "climber": 5}
+    layout = {"cell_size": 48, "occupied": {(10, 2)}, "candy": (10, 1), "home": (1, 9), "hazard": {}}
+    diag = {"candy_hp": 5, "picked_total": 1, "ant_count": 5,
+            "near_candy": {"dist": 1 << 30, "cell": None, "dir": 0},
+            "reverse_targets": [
+                {"cell": (10, 5), "dir": 1, "backpath": [(10, 5)], "to_water": True, "count": 2},   # A 고가중·천장
+                {"cell": (3, 5), "dir": 1, "backpath": [(3, 5)], "to_water": False, "count": 1},    # B 저가중·무천장
+            ]}
+    early_plan = [{"skill": "climber", "target": {"mode": "ant", "select": "spawn_index", "spawn_index": 3},
+                   "trigger": {"type": "immediate"}}]   # early_active=True
+    a_label, b_label = "blocker@10,5:max_xge", "blocker@3,5:max_xge"
+    r1 = propose(layout, diag, inventory, metas, notes={}, exclude=set(), max_n=6, plan=early_plan)
+    if not r1 or r1[0]["label"] != a_label:
+        return False, "A untried인데 보존 선두가 A 아님: %s" % (r1[0]["label"] if r1 else None)
+    r2 = propose(layout, diag, inventory, metas, notes={}, exclude={a_label}, max_n=6, plan=early_plan)
+    if not r2 or r2[0]["label"] != b_label:
+        return False, "A tried인데 보존 선두가 B(untried) 아님(독점 미차단): %s" % (r2[0]["label"] if r2 else None)
+    return True, "preserve OK (A untried→A, A tried→B)"

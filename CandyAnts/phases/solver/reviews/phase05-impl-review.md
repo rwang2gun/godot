@@ -359,3 +359,35 @@ first early arm, and the added gate does not actually exercise the changed searc
   경로(error path=cleared False=FAIL) 검토 통과.
 - 전체 게이트 그린·EXIT 0: selftest 17 + analyze 4 + diverse-verify 4 + **rediscover-verify(S4 1/1·S13 6/6·
   S20 7/7 시그니처 일치)**. 회귀 0.
+
+## Round 2 (codex, base=a560995, 커밋 8aab1f1까지) — needs-attention
+
+Verdict: needs-attention. No-ship: the HIGH starvation class is only narrowed, not closed; rediscover
+coverage does not exercise the remaining failure mode.
+
+- [high] Single preserved structure slot can be monopolized by the same failed ceiling candidate
+  (model.py:314-388). The preservation gate only forces the first `ant_reaches_x` candidate back. But
+  structural candidates with `ceil=True` are exempt from `exclude`, so a high-ranked ceiling candidate that
+  was already evaluated and not adopted can be returned as `top_struct` again on later rounds. With
+  early_active=True, remaining slots are dominated by boosted early-arm candidates, so lower-ranked
+  bridge/blocker/cross candidates can still be starved. Original HIGH not fully resolved — reduced to 'top
+  structural only'.
+  Recommendation: reserve multiple structural slots, suppress a preserved candidate after it fails for the
+  same closure plan, or preserve the best not-yet-evaluated structural candidates.
+
+- [medium] Rediscover gate does not cover the preservation failure it was added to guard
+  (try_solve.py:196-219). S4/S13/S20 are not negative/mixed cases where early-active plan has multiple
+  competing structural candidates and the first preserved structural candidate is non-improving. Gate can
+  pass while the starvation path persists.
+  Recommendation: add a rediscover regression that forces early_active plus multiple structural candidates
+  (higher-ranked non-improving preserved + lower-ranked required).
+
+### Fixes (R2 2-fix)
+- HIGH → `model.propose` 보존 대상을 **untried(label∉exclude) 최상위 구조**로 한정: 시도·실패한 구조(ceiling-
+  exempt 재제안 포함)는 tried라 보존서 제외 → fresh 구조가 슬롯 획득(독점 차단). S20 거동 불변(31롤, solve.json
+  byte-identical). 한계(정직): 1 슬롯이나 매 라운드 *fresh* 구조 보장 + LA2 frontier → 필요 구조 수렴(완전성 아님).
+- MEDIUM → `model._selfcheck_preserve()` 단위 검증(엔진 불요) + rediscover-verify ① 선두 편입: 구조 A(천장·
+  고가중)/B(저가중) + early 활성에서 A untried→보존 A, A tried→보존 B(독점 차단) 직접 단언. **prove-it**: R1
+  동작으로 되돌리면 FAIL(A 반환), R2면 PASS = 회귀 박제(vacuous 아님).
+- 자체 적대 리뷰(R2) clean(HIGH 0). 전체 게이트 그린·EXIT 0(preserve-selfcheck + rediscover S4/S13/S20 +
+  selftest 17 + analyze 4 + diverse 4).

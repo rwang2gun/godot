@@ -204,6 +204,13 @@ REDISCOVER_TARGETS = {4: 10, 13: 35, 20: 60}     # stage_id → max_rollouts(여
 
 def rediscover_verify(targets: dict) -> int:
     all_ok = True
+    # ① 단위 검증(엔진 불요, codex R2 MEDIUM): early_active 구조-후보 보존이 tried 천장후보에 독점되지 않고
+    #    untried 구조를 보존하는지 — 엔진 재발견(아래 ②)이 못 거는 *후보 랭킹* 잔여 실패모드를 직접 박제.
+    ok_pre, msg_pre = solve.model._selfcheck_preserve()
+    print(f"[rediscover-verify] {'PASS' if ok_pre else 'FAIL'} preserve-selfcheck — {msg_pre}")
+    if not ok_pre:
+        all_ok = False
+    # ② 엔진 재발견: up-루프 대표 스테이지를 solve.solve(save=False)로 재발견 → cleared + 액션 시그니처 일치.
     for sid in sorted(targets):
         cap = targets[sid]
         sol_path = solve.ROOT / "data" / "solutions" / f"stage{sid:02d}.solve.json"
