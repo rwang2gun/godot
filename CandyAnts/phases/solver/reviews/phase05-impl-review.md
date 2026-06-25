@@ -316,3 +316,46 @@ stage12 uncapped 1 class).
 핵심 진화(가능성-공간 다양-해 forbid 메커니즘): naive 4요소 completion → subset-forbid → **plus-형 forbid
 (검증된 단일슬롯 변형만, 미검증 joint는 발견 허용) + dead_exact(검증 joint duplicate 정확 차단)** + Kuhn
 이분매칭 + canonical class-sig + 단일연속 region(fixed_cell 불변식 coverage 강제) + capped 거부 게이트.
+
+---
+
+# S20 early-climber 체이닝 — impl-review (2026-06-25)
+
+> 별개 변경(5d Ch2 — model.py early-chain 휴리스틱). base=`a560995`(5d① 부모), 초기 커밋 `50e8ccb`.
+> bash 경로 codex(adversarial-review --base). 트레일: 이 절.
+
+## Round 1 (codex, base=a560995, 커밋 50e8ccb diff) — needs-attention
+
+Verdict: needs-attention. No-ship: the heuristic can now hide required structural candidates after the
+first early arm, and the added gate does not actually exercise the changed search path.
+
+- [HIGH] Early-arm boost can starve required non-early actions (model.py:351-375)
+  Once any same-skill early arm is present in the closure plan, every remaining spawn_index candidate gets
+  weight 210+ and the globally sorted list is truncated with `cands[:max_n]`. That can fill the candidate cap
+  with early climber actions before bridge/reverse/cross candidates are even returned. Failure mode: a stage
+  that needs structure -> early arm -> another bridge/blocker before more early arms can now stall or look
+  ahead only through early candidates, despite viable structural moves still existing in
+  `diag["reverse_targets"]`. The STATUS note documents this class, but the code ships the boost globally once
+  the gate flips.
+  Recommendation: Keep the exclude waiver separate from ranking, and scope the boost so non-early families
+  retain slots (reserve per family, boost early only after structural exhausted, or lower/interleave).
+
+- [medium] Stage20 gate replays the fixture but never tests solver rediscovery (run_plan.py:39)
+  Adding stage20 to EXPECTED_SOLVE_STAGES only proves the file exists. selftest calls run_plan_file (replays
+  stored actions); it never invokes solve.solve()/model.propose(). A regression that passes speculative base2,
+  removes the closure-plan gate, changes boost ordering, or breaks deterministic rediscovery would still pass.
+  Recommendation: Add a solver-level no-save regression for stage20 (and representative existing stages) that
+  runs discovery and asserts cleared + stable action signatures/order.
+
+### Fixes (2-fix, 자체 적대 리뷰 clean 후)
+- HIGH → `model.propose` 구조-후보 보존: `early_active`(early_armed 발화)면 정렬 후 `cands[:max_n]` 대신
+  **최상위 구조 후보(trigger=ant_reaches_x) 1개를 절단에서 항상 선반영**. early_active=False(기존 전 스테이지)면
+  미적용 → byte-identical. S20 30→31롤(보존 1칸), plan 불변. 한계(정직): 보존은 *최상위* 구조만 보장(임의
+  필요 구조는 반복 라운드+LA2 frontier로 수렴 — 완전성 주장 아님, 휴리스틱).
+- MEDIUM → `try_solve.py rediscover-verify` 신규 + frontmatter `verify` 편입: up-루프 대표 S4(early-single)/
+  S13(carry-chain)/S20(early-chain)을 `solve.solve(save=False)` 재발견 → cleared + 액션 시그니처(순서) ==
+  커밋된 solve.json. fail-closed(없음/미클리어/불일치=FAIL, save=False 무부작용).
+- 자체 적대 리뷰(2-fix) clean(HIGH 0): 보존 `is not` 식별자 제외·max_n=1 경계·결정론·rediscover stats 갱신
+  경로(error path=cleared False=FAIL) 검토 통과.
+- 전체 게이트 그린·EXIT 0: selftest 17 + analyze 4 + diverse-verify 4 + **rediscover-verify(S4 1/1·S13 6/6·
+  S20 7/7 시그니처 일치)**. 회귀 0.

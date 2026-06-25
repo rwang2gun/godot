@@ -331,6 +331,7 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     return_phase = diag["picked_total"] >= cnt > 0
     base = 100 if return_phase else 1
     ant_n = diag.get("ant_count", 0)
+    early_active = False               # early 체인 boost가 한 sid라도 켜졌는가(아래 구조-후보 보존 게이트)
     for sid in by_r.get("up", []):
         if str((metas.get(sid) or {}).get("category", "")) != "ANT_ARMED":
             continue   # 무장형만(설치형 up=sand_mound는 cell 대상, ① 경로)
@@ -342,6 +343,7 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
         # early의 중복 롤아웃은 solve.eval_cands action-dup 가드가 차단(carry와 동일 패턴). early_armed가 False
         # (기존 모든 스테이지)면 종전 후보 집합·순서와 byte-identical.
         early_armed = _has_early_arm(plan, sid)
+        early_active = early_active or early_armed
         for si in range(ant_n):                        # early: 개미별 즉시 무장
             label = "%s@early:si%d" % (sid, si)
             if label in exclude and not early_armed:
@@ -372,7 +374,18 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
             cands.append({"action": action, "label": label, "_w": base - 1 + _note_w(notes, sid)})
 
     cands.sort(key=lambda c: -c["_w"])
-    return cands[:max_n]
+    if not early_active:
+        return cands[:max_n]                       # 기존 모든 스테이지: early_active=False → byte-identical
+    # codex impl-review HIGH: early_armed 부스트(210+)가 `cands[:max_n]` 절단에서 **구조 후보**(reverse/
+    # safe_fall/cross = 다리·블로커 배치, trigger=ant_reaches_x)를 굶기면 structure→early→structure 다단
+    # 레벨이 막힌다(boost가 max_n을 early로 채워 구조 진척을 못 봄). **최상위 구조 후보 1개를 절단에서 항상
+    # 보존**해 매 라운드 구조 후보가 평가되게 보장 → 필요한 구조가 있으면 그 라운드(또는 LA2 frontier)에서
+    # 발견·채택된다. early 체인은 나머지 슬롯으로 계속 진행(보존 1칸 비용만). early_active=False면 미적용.
+    top_struct = next((c for c in cands
+                       if (c["action"].get("trigger") or {}).get("type") == "ant_reaches_x"), None)
+    if top_struct is None or top_struct in cands[:max_n]:
+        return cands[:max_n]                       # 구조 후보 없음 or 이미 head에 포함 → 절단 그대로
+    return [top_struct] + [c for c in cands if c is not top_struct][:max_n - 1]
 
 
 def _note_w(notes: dict, sid: str) -> int:

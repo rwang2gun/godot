@@ -192,6 +192,44 @@ def transfer_bench(test_ids: list[int], max_rollouts: int, mode: str = "vault") 
     return 0
 
 
+# ---------- rediscover-verify: 탐색 휴리스틱 재발견 회귀 게이트 (codex impl-review MEDIUM) ----------
+# selftest는 저장된 plan을 **replay**할 뿐 solve.solve()/model.propose()를 안 돈다 → 탐색 휴리스틱 회귀
+# (speculative-base 게이트 제거·boost 순서·결정론 파손)가 plan replay를 통과해버린다. 여기선 각 타깃을
+# **재발견**(solve.solve, save=False)해 cleared + 재발견 plan의 액션 시그니처(순서 포함)가 커밋된
+# solve.json과 일치하는지 단언한다. 대상 = `up` 루프(early/carry)를 실제로 도는 대표 스테이지:
+#   20 = early-chain(이 변경이 켜는 신규 경로) / 4 = early-arm 단발(early_armed=False 단축 = byte-identical
+#   경로) / 13 = carry-chain(early 미발화 유지). blocker-only는 up 루프 미진입이라 selftest replay로 충분.
+REDISCOVER_TARGETS = {4: 10, 13: 35, 20: 60}     # stage_id → max_rollouts(여유 cap; 시그니처 비교라 cap 무관)
+
+
+def rediscover_verify(targets: dict) -> int:
+    all_ok = True
+    for sid in sorted(targets):
+        cap = targets[sid]
+        sol_path = solve.ROOT / "data" / "solutions" / f"stage{sid:02d}.solve.json"
+        if not sol_path.exists():
+            print(f"[rediscover-verify] FAIL stage{sid:02d} — solve.json 없음(fail-closed)")
+            all_ok = False
+            continue
+        expected = json.loads(sol_path.read_text(encoding="utf-8")).get("actions", [])
+        exp_sigs = [solve._action_sig(a) for a in expected]
+        st = {"cleared": False, "final_plan": None, "rollouts": 0}
+        solve.solve(sid, cap, save=False, stats=st)
+        got_sigs = [solve._action_sig(a) for a in (st.get("final_plan") or [])]
+        ok = bool(st.get("cleared")) and got_sigs == exp_sigs
+        print(f"[rediscover-verify] {'PASS' if ok else 'FAIL'} stage{sid:02d} — cleared={st.get('cleared')} "
+              f"rollouts={st.get('rollouts')} actions={len(got_sigs)}/{len(exp_sigs)}")
+        if not ok:
+            print(f"  expected={exp_sigs}\n  got     ={got_sigs}")
+            all_ok = False
+    if not all_ok:
+        print("[rediscover-verify] FAIL — 재발견 회귀(cleared 또는 액션 시그니처 불일치).")
+        return 1
+    print(f"[rediscover-verify] PASS — {len(targets)} 스테이지 재발견 cleared + 액션 시그니처 일치 "
+          f"(stages {sorted(targets)}).")
+    return 0
+
+
 # ---------- diverse: 가능성-공간 다양-해(5b) — diverse.py 위임 ----------
 import diverse  # noqa: E402  (tools/solver/diverse.py — range-sweep·4요소 class·게이트, 순수+엔진)
 
@@ -223,6 +261,8 @@ def main() -> int:
     p_search.add_argument("--max-rollouts", type=int, default=10, help="롤아웃 상한(기본 10).")
 
     sub.add_parser("harness-test", help="PlanReplayHarnessTest를 마커-파싱으로 신뢰 실행")
+
+    sub.add_parser("rediscover-verify", help="탐색 휴리스틱 재발견 회귀 게이트(up-루프 대표 스테이지 solve 재실행)")
 
     # ⛔ ARCHIVED (Phase 4 강제 종료, ARCHIVE.md): help 텍스트에 ARCHIVED 명시 + 실행은 `--archived-ok` 명시적
     # opt-in 요구(plan-review R1 MEDIUM — 죽은 메커니즘을 지원 워크플로로 오인·실행 못 하게). 라이브 게이트 아님.
@@ -258,6 +298,8 @@ def main() -> int:
         return solve.solve(args.stage_id, args.max_rollouts)
     if args.cmd == "harness-test":
         return harness_test()
+    if args.cmd == "rediscover-verify":
+        return rediscover_verify(REDISCOVER_TARGETS)
     if args.cmd == "transfer-bench":
         if not args.archived_ok:
             print("⛔ transfer-bench는 ARCHIVED (Phase 4 강제 종료 — 속도-전이 falsified, tools/solver/ARCHIVE.md). "

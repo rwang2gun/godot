@@ -720,9 +720,23 @@ carry 체인(픽업 *후* 운반 무장)의 **상행판**이 부재.
   byte-identical s13=2719·s14=4624) + analyze --verify(4스테이지) + diverse-verify(4스테이지).
 
 **자체 적대 리뷰 clean(HIGH 0)**: 구현 중 [HIGH] LA2 speculative-base 조기발화로 조합 발견 깨짐 1건 발견·수정
-(확정 plan 게이팅). closure plan 참조 정합·early action 유일식별(immediate+spawn_index)·결정론·boost 한정성
-검토 통과. 정직 한계 문서화(boost는 구조 스킬 채택 *후*에만 ON → 구조-스킬-후-구조-스킬 다단 레벨은 미커버 가능,
-S20 외 미검증). **⏳ 다음 = codex impl 재리뷰**(사용자 트리거 — [[codex-adversarial-review-invocation]]). clean 후 선택 staging 커밋.
+(확정 plan 게이팅). closure plan 참조 정합·early action 유일식별(immediate+spawn_index)·결정론·boost 한정성 검토 통과.
+
+**codex impl-review R1(needs-attention, base=a560995, 커밋 `50e8ccb` diff) → 2-fix:** 트레일
+[phase05-impl-review.md](../../phases/solver/reviews/phase05-impl-review.md) `## S20 …`.
+- **[HIGH] early-armed boost가 구조 후보를 굶김**: 부스트(210+)가 `cands[:max_n]` 절단에서 reverse/cross(다리·
+  블로커) 후보를 밀어내 structure→early→structure 다단 레벨이 막힐 수 있음(S20는 동작하나 전역 적용 잠재위험).
+  → **수정**: `early_active`면 **최상위 구조 후보 1개를 절단에서 항상 보존**(`trigger=ant_reaches_x` 식별, 매
+  라운드 구조 평가 보장; early_active=False면 미적용=byte-identical). S20 30→31롤(보존 1칸), plan 불변.
+- **[MEDIUM] selftest는 plan replay만 — 탐색 휴리스틱 미검증**: EXPECTED에 20 넣어도 저장 plan replay라 게이트/
+  boost/결정론 회귀를 못 잡음. → **수정**: `try_solve.py rediscover-verify` 신규(up-루프 대표 S4 early-single/
+  S13 carry-chain/S20 early-chain을 `solve.solve(save=False)` 재발견 → cleared+액션 시그니처 일치 단언, fail-closed).
+  frontmatter `verify`에 편입.
+- **자체 적대 리뷰(2-fix) clean(HIGH 0)**: 보존-게이트 `is not` 식별자 제외 정확·max_n=1 경계(budget 끝)·결정론·
+  rediscover save=False 무부작용·stats 갱신 경로 검토 통과. 정직 한계: 보존은 *최상위* 구조만 보장(임의 필요 구조는
+  반복 라운드+LA2로 수렴, 완전성 아님), rediscover cap은 롤아웃 증가 시 갱신 필요.
+- **전체 게이트 그린·EXIT 0**(rediscover-verify 포함: S4 1/1·S13 6/6·S20 7/7 시그니처 일치). 회귀 0(early_active=False
+  byte-identical). **⏳ 다음 = codex R2 재리뷰**(2-fix diff). clean 후 종결.
 
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)

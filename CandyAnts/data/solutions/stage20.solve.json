@@ -10,7 +10,7 @@
     "saved": 5
   },
   "search_meta": {
-    "rollouts": 30,
+    "rollouts": 31,
     "tool": "solve.py",
     "phase": 2,
     "method": "predictive",

@@ -1,7 +1,7 @@
 ---
 name: auto-solver
 duration_estimate: 28800
-verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn && python scripts/run_test.py tests/SkillMetadataDriftTest.tscn && python tools/solver/try_solve.py harness-test && python tools/solver/try_solve.py selftest && python tools/solver/analyze.py --verify && python tools/solver/try_solve.py diverse-verify
+verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn && python scripts/run_test.py tests/SkillMetadataDriftTest.tscn && python tools/solver/try_solve.py harness-test && python tools/solver/try_solve.py selftest && python tools/solver/analyze.py --verify && python tools/solver/try_solve.py diverse-verify && python tools/solver/try_solve.py rediscover-verify
 large_change_ok: false
 sot: phases/solver/auto-solver-plan.md
 sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/SceneFlow.gd, scripts/core/ScoreSystem.gd, scripts/ant/Ant.gd, scripts/world/Home.gd, scripts/core/AntSpawner.gd, scripts/ui/SkillToolbar.gd, scripts/core/SkillRegistry.gd, scripts/core/SkillApplier.gd, scripts/core/PlanRunner.gd, scripts/core/SolverCapabilities.gd, scripts/run_test.py, scripts/run_plan.py, tests/SolverHarness.gd, tests/PlanReplayHarness.gd, tests/PlanReplayHarnessTest.gd, tests/SkillMetadataDriftTest.gd, data/solver/capabilities.tres, tools/solver/solve_spike.py, tools/solver/analyze.py, tools/solver/try_solve.py]
