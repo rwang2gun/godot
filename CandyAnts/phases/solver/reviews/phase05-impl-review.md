@@ -281,3 +281,22 @@ R8 1 finding 수정(plus-형 forbid — soundness+completeness 동시):
 - byte-identical: solve forbid=None inert. 게이트 fail-closed(fixed_cell·sampled_points·capped·schema v2) 유지.
 
 **자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(stage12 uncapped). → fix 커밋 후 codex Round 9.
+
+## Self-Review Round 10 (codex R9 수정 후 자체 적대 리뷰)
+
+R9 1 finding 수정(검증 joint duplicate → false-capped 제거):
+- **[R9-HIGH] 검증된 joint duplicate를 정직 처리**: plus-형 forbid은 미검증 joint 변형을 (정당하게) 허용하는데,
+  그게 클리어해 기존 class로 dedup되면 _discover가 is_new=False를 "예상밖→capped"로 오처리(false 미완)했다.
+  수정 = `dead_exact`(정확 plan)에 넣고 forbid하며 **계속**(false-capped 제거). `_make_forbid`에 dead_exact 인자
+  + `_plan_submultiset` 정확-superset 차단. uncapped 결과가 솔버 heuristic 운에 의존하던 불안정성 해소.
+- **soundness**: joint duplicate도 클리어→그 정확 plan+superset만 막아도 distinct class 미차단(최소화 시 cls로
+  collapse, R8 동일 증명). Cartesian 곱 전체가 아니라 발견된 정확 변형만 → soundness 불변.
+
+자체 적대 검토(HIGH 0):
+- 종료성: dead_exact(유한 정확 변형) + classes(유한) + extra_cap → 무한루프 불가. is_new=False→continue는
+  dead_exact가 그 정확 plan 재발화를 막아 진행 보장(seen_raw는 잔여 안전망).
+- 정직성: capped는 이제 extra_cap/seen_raw-반복만(검증 duplicate는 capped 아님). stage12 uncapped 안정(48롤).
+- selfcheck: dead_exact 정확+superset 금지 / distinct 허용 3종 추가. plus-형 joint-허용·단일shift-금지 유지.
+- byte-identical: solve forbid=None inert. 게이트 fail-closed 유지.
+
+**자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(stage12 uncapped). → fix 커밋 후 codex Round 10.

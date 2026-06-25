@@ -306,19 +306,33 @@ def _plan_multiset_sig(plan: list) -> tuple:
     return tuple(sorted(json.dumps(a, sort_keys=True) for a in plan))
 
 
-def _make_forbid(classes: list, cs: int):
-    """**plan-level subset** forbid 술어 `(action, base)->bool`. `base+[action]`이 이미 발견된 어떤 class를
-    **sub-multiset으로 포함**하면 금지(codex R2~R6 종합).
+def _plan_submultiset(small: list, big: list) -> bool:
+    """small의 액션 multiset이 big의 sub-multiset인가(big이 small을 정확히 포함, 중복도 고려)."""
+    pool = [json.dumps(a, sort_keys=True) for a in big]
+    for a in small:
+        sig = json.dumps(a, sort_keys=True)
+        if sig in pool:
+            pool.remove(sig)
+        else:
+            return False
+    return True
 
-    근거: 발견된 class의 minimal은 이미 클리어하므로, *다른* minimal 해는 그 class를 strict-subset으로 포함할
-    수 없다(포함하면 잉여→비최소). 따라서 "class 포함 plan 금지"는 ① 그 class 자신과 ② 그 class에 잉여 액션을
-    덧붙인 superset(예: 예산-소진 inert blocker)만 막고, **distinct class는 절대 억제하지 않는다**. 효과:
-      - 슬롯 하나만 공유(class 전체 미포함)하는 distinct class는 안 걸림(R2-HIGH 과대forbid 없음).
-      - solve가 inert-padding으로 superset을 만들어도 즉시 forbid돼 churn 소멸(R4 dead_raw/dry-limit 불요).
-      - 솔버는 class-미포함 plan(=genuine distinct minimal)만 찾거나 no-clear로 자연 소진(uncapped 종료 가능)."""
+
+def _make_forbid(classes: list, dead_exact: list, cs: int):
+    """forbid 술어 `(action, base)->bool`. `base+[action]`이 ① 발견 class의 **검증된 plus-형 변형**을 포함
+    (`_plan_contains_class`) 또는 ② `dead_exact`(검증된 same-class joint 변형)를 **정확히 sub-multiset 포함**
+    하면 금지.
+
+    ①은 reference+단일슬롯shift+superset만 막아 distinct class 미차단(R8 soundness 증명). ②는 plus-형이
+    의도적으로 허용하는 미검증 joint 변형이 *클리어해 기존 class로 dedup*된 경우(=검증된 same-class duplicate,
+    미발견 class 증거 아님, codex R9)를 그 정확 plan+superset만 sound하게 막아 재발견 churn/false-capped를
+    없앤다(joint도 클리어→superset redundant→최소화 시 cls로 collapse=distinct 아님, 동일 증명). Cartesian
+    곱 전체가 아니라 *발견된 정확 변형*만 막으므로 soundness 불변."""
     def forbidden(action: dict, base: list) -> bool:
         cand_plan = list(base) + [action]
-        return any(_plan_contains_class(cand_plan, cls, cs) for cls in classes)
+        if any(_plan_contains_class(cand_plan, cls, cs) for cls in classes):
+            return True
+        return any(_plan_submultiset(dp, cand_plan) for dp in dead_exact)
     return forbidden
 
 
@@ -405,10 +419,13 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
         distinct minimal)만 찾거나 no-clear로 **자연 소진**(uncapped 종료 가능). dead_raw/dry-limit 불요(codex
         R4~R6 churn 근절). 예산 = solve 롤아웃 + `_record` minimize/sweep(roll.count 델타) 모두 계상.
 
-        종료 = ⓐ no-clear(forbid 하 자연 소진, capped 미set = 완전) ∨ ⓑ extra_cap(capped) ∨ ⓒ seen_raw/예상밖
-        dedup(정체 안전망, capped)."""
+        종료 = ⓐ no-clear(forbid 하 자연 소진, capped 미set = 완전) ∨ ⓑ extra_cap(capped) ∨ ⓒ seen_raw 반복
+        (정체 안전망, capped). codex R9: plus-형 forbid이 허용하는 미검증 joint 변형이 클리어해 기존 class로
+        dedup되면(=검증된 same-class duplicate, 미발견 증거 아님) 정확 plan을 dead_exact에 넣어 forbid하고
+        **계속**(false-capped 방지) — 단일슬롯 shift와 달리 joint는 plus-형이 안 막으므로 별도 정확-forbid 필요."""
         nonlocal extra_rollouts, capped
-        seen_raw: set = set()        # 이미 처리한 raw 플랜 sig(솔버 반복 안전망 — subset-forbid 하 정상 불발)
+        seen_raw: set = set()        # 이미 처리한 raw 플랜 sig(솔버 반복 안전망)
+        dead_exact: list = []        # 검증된 same-class joint duplicate(정확 plan) — 재발견 차단(R9)
         while True:
             if classes and extra_rollouts >= extra_cap:
                 capped = True
@@ -417,7 +434,7 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
             charge = bool(classes)   # 첫 class 발견 이후의 탐색만 extra_rollouts로 계상
             roll0 = roll.count
             s = {}                   # solve.solve가 stats.update로 cleared/rollouts/final_plan을 채움
-            pred = _make_forbid(classes, cs) if classes else None
+            pred = _make_forbid(classes, dead_exact, cs) if (classes or dead_exact) else None
             solve.solve(stage_id, max_rollouts, stats=s, save=False, inv_override=inv, forbid=pred)
 
             def _charge():           # solve(자체 rollouter) + _record(roll: minimize+sweep) 롤아웃 합산
@@ -442,10 +459,11 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
             is_new = _record(plan, inv, axis)
             _charge()
             if not is_new:
-                # subset-forbid 하 정상상 발생 안 함(반환 plan은 어떤 seen class도 미포함). 발생 시 완전성
-                # 미보장 → 정직 capped 후 종료(무한루프 방지).
-                capped = True
-                return
+                # plus-형 forbid 하 is_new=False = 검증된 same-class joint duplicate(클리어·기존 class와 동일
+                # sig). 미발견 class 증거 아님(codex R9) → 정확 plan을 dead_exact에 forbid하고 **계속**(false-
+                # capped 방지). sound: joint도 클리어→superset redundant→최소화 시 cls로 collapse=distinct 아님.
+                dead_exact.append(plan)
+                continue
 
     # ── 축 1: 전략(전체 인벤토리). ── 축 2: 인벤토리 변형(다른 multiset = 다른 class). 둘 다 동일 발견 루프.
     _discover(base_inv, "strategy")
@@ -837,7 +855,7 @@ def _selfcheck_forbid() -> bool:
         {"slot": 1, "skill": "climber", "role": _role_sig(carry()), "timing": _timing_sig(carry()),
          "placement_axis": "none", "fixed_cell": None, "gap_verified": False, "intervals": []},
     ]}
-    forbid = _make_forbid([cls1], cs)
+    forbid = _make_forbid([cls1], [], cs)
     # 2 cell_x 슬롯 class(codex R8 plus-형 forbid): slot0 fixed5 interval[0,10], slot1 fixed0 interval[0,4].
     cls_ov = {"skill_multiset": {"blocker": 2}, "slots": [
         {"slot": 0, "skill": "blocker", "role": _role_sig(blk(5)), "timing": _timing_sig(blk(5)),
@@ -845,7 +863,10 @@ def _selfcheck_forbid() -> bool:
         {"slot": 1, "skill": "blocker", "role": _role_sig(blk(0)), "timing": _timing_sig(blk(0)),
          "placement_axis": "cell_x", "fixed_cell": 0, "gap_verified": True, "intervals": [[0, 4]]},
     ]}
-    forbid_ov = _make_forbid([cls_ov], cs)
+    forbid_ov = _make_forbid([cls_ov], [], cs)
+    # dead_exact(codex R9): 검증된 joint 변형을 정확+superset만 forbid하되 distinct는 허용.
+    dead = [blk(2), blk(8)]
+    forbid_de = _make_forbid([], [dead], cs)
     checks = [
         forbid(blk(2), [carry()]) is True,        # reference(slot0 exact2)+carry = 포함 → 금지
         forbid(blk(3), [carry()]) is True,        # slot0만 interval[0,4] shift(단일 cell_x=flex) = 검증 변형 → 금지
@@ -856,6 +877,9 @@ def _selfcheck_forbid() -> bool:
         forbid_ov(blk(5), [blk(0)]) is True,      # reference(slot0=5,slot1=0 둘 다 exact) 포함 → 금지(Kuhn)
         forbid_ov(blk(3), [blk(0)]) is True,      # slot0만 interval shift(slot1 exact0) = 검증 단일-shift → 금지
         forbid_ov(blk(2), [blk(3)]) is False,     # slot0·slot1 동시 shift = 미검증 joint → 허용(over-block 안 함)
+        forbid_de(blk(8), [blk(2)]) is True,      # dead 정확 재구성 → 금지(R9 검증 joint duplicate)
+        forbid_de(blk(8), [blk(2), blk(5)]) is True,  # dead ⊆ plan(superset) → 금지
+        forbid_de(blk(9), [blk(2)]) is False,     # dead 미포함(blk8 없음) → 허용(distinct)
     ]
     if not all(checks):
         print("[diverse-verify] FORBID SELFCHECK FAIL: %s" % checks)
