@@ -169,3 +169,26 @@ R3 2 finding 수정:
 - byte-identical: solve forbid=None inert(selftest frame 불변). diverse 게이트 fail-closed 강화 유지.
 
 **자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 4.
+
+## Self-Review Round 5 (codex R4 수정 후 자체 적대 리뷰)
+
+R4 2 finding 수정:
+- **[R4-HIGH] 중복-minimized가 탐색 조기종료**: `_discover`가 is_new=False(superset collapse)에 **종료하지 않고**
+  raw plan을 `dead_raw`에 넣어 forbid하며 계속(`_make_forbid`에 dead_raw 인자 — base+[action]이 dead_raw를 정확
+  재구성 시 차단). 연속 중복 churn은 `DIVERSE_DRY_LIMIT(3)`로 자연 종료(첫 중복엔 종료 안 함). `seen_minimal`
+  cheap pre-filter로 superset 재발화 시 비싼 sweep 생략. `_selfcheck_forbid`에 dead_raw 발견성 케이스 추가.
+- **[R4-MEDIUM] extra_cap이 minimize/sweep 롤아웃 미계상**: `_charge()`가 solve 롤아웃 + `roll.count` 델타
+  (minimize+`_sweep_placement`) 모두 합산(첫 class 발견 후). stage12가 search_capped=true로 정직 보고(이전엔
+  sweep 미계상으로 false 위장 — MEDIUM 수정이 작동).
+
+자체 적대 검토(HIGH 0):
+- 종료성: extra_cap(예산) ∨ DIVERSE_DRY_LIMIT(연속중복) ∨ no-clear ∨ raw-repeat(seen_raw) 4중 바운드 → 무한루프
+  불가. dead_raw/seen_raw/dry 모두 _discover-local(축마다 리셋).
+- 정직성: search_capped=true는 "탐색 미소진"의 정직 표기(다른 class 잔존 가능). minimize 1-minimal order-dependent
+  은 각 보고 class가 실 클리어 최소해라 거짓양성 아님. completion+dead_raw forbid은 distinct class 절대 미차단
+  (greedy churn은 효율 손실일 뿐 — 정직 disclosed). `_charge` 중첩 nonlocal은 diverse_report 스코프로 정상 바인딩(실행 확증).
+- byte-identical: solve forbid=None inert(selftest 불변). 게이트 fail-closed 강화 유지.
+- 정직 경계: greedy 솔버 + sound forbid → superset churn은 본질적 한계(완전성 미주장, dry+cap 바운드). 1D y-band·
+  axis_independent·grid 도메인 한정 등 기존 경계 유지.
+
+**자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 5.

@@ -49,6 +49,9 @@ SOLUTIONS_DIR = ROOT / "data" / "solutions"
 DIVERSE_SCHEMA_VERSION = 1
 # placement 스윕 셀 예산(슬롯당). 도메인(그리드 폭)이 이보다 넓으면 stride 샘플링 + provisional 표기.
 SWEEP_CELL_CAP = 40
+# 연속 중복(superset이 seen class로 collapse) 허용 횟수. 첫 중복엔 종료 안 하고(codex R4-HIGH) raw plan을
+# forbid하며 계속 탐색하되, 연속 N회 중복이면 다양성 고갈로 보고 종료(superset churn으로 예산 소진 방지).
+DIVERSE_DRY_LIMIT = 3
 
 
 # ============================================================ 4요소 시그니처 (순수)
@@ -263,14 +266,23 @@ def _plan_completes_class(plan: list, cls: dict, cs: int) -> bool:
     return all(used)
 
 
-def _make_forbid(classes: list, cs: int):
-    """**plan-level** forbid 술어 `(action, base)->bool`(codex R2-HIGH). action-level이 아니라 `base+[action]`이
-    이미 발견된 어떤 class를 *정확히 완성*할 때만 금지한다 → 슬롯 하나(공유 carry·공유 검증 cell_x 등)를
-    공유하되 다른 슬롯에서 갈라지는 distinct class는 **절대 억제 안 함**(action-level 과대forbid 제거). 이미
-    발견된 class의 정확한 재구성만 막아 솔버를 다른 class로 유도. base=현재 누적 plan(solve가 넘김)."""
+def _plan_multiset_sig(plan: list) -> tuple:
+    """플랜의 순서 무관 액션 multiset 시그니처(json 직렬화·정렬). raw 플랜 동치/재발화 판정용."""
+    return tuple(sorted(json.dumps(a, sort_keys=True) for a in plan))
+
+
+def _make_forbid(classes: list, dead_raw: list, cs: int):
+    """**plan-level** forbid 술어 `(action, base)->bool`(codex R2-HIGH). `base+[action]`이 ① 이미 발견된 어떤
+    class를 *정확히 완성*하거나 ② dead_raw(=minimize 시 seen class로 collapse한 raw superset)를 *정확히
+    재구성*할 때만 금지. ①은 슬롯 하나를 공유하되 다른 슬롯에서 갈라지는 distinct class를 억제하지 않는다
+    (action-level 과대forbid 제거). ②는 completion-only forbid이 못 막는 superset 재발화를 차단해 탐색이
+    조기종료/정체되지 않게 한다(codex R4-HIGH). base=현재 누적 plan(solve가 넘김)."""
+    dead_sigs = {_plan_multiset_sig(p) for p in dead_raw}
     def forbidden(action: dict, base: list) -> bool:
         cand_plan = list(base) + [action]
-        return any(_plan_completes_class(cand_plan, cls, cs) for cls in classes)
+        if any(_plan_completes_class(cand_plan, cls, cs) for cls in classes):
+            return True
+        return _plan_multiset_sig(cand_plan) in dead_sigs
     return forbidden
 
 
@@ -320,6 +332,7 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
 
     classes: list = []
     seen_sigs: set = set()
+    seen_minimal: set = set()    # 이미 기록한 *최소 플랜* multiset sig — superset 재발화 시 비싼 sweep 생략
     extra_rollouts = 0
     capped = False
 
@@ -332,6 +345,12 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
         class로 과대보고할 수 있다. analyze deletion-minimal로 정규화하면 superset이 원 class로 collapse→dedup
         (잉여 없는 최소 해만 class 정체성)."""
         minimal, _redundant = analyze.minimize(roll, plan) if plan else ([], [])
+        # 비싼 range-sweep 전에 cheap 최소-플랜 pre-filter: 정확히 같은 최소 플랜이 이미 기록됐으면(superset이
+        # collapse한 흔한 경우) sweep 생략(codex R4 예산 절약). ±shift 병합은 sweep 후 _class_sig가 잡는다.
+        msig = _plan_multiset_sig(minimal)
+        if msig in seen_minimal:
+            return False
+        seen_minimal.add(msig)
         cls = _build_class(roll, minimal, cs, grid_cols, inv, axis, SWEEP_CELL_CAP)
         sig = _class_sig(cls)
         if sig in seen_sigs:
@@ -344,26 +363,53 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
     def _discover(inv: dict, axis: str) -> None:
         """한 인벤토리(inv)로 클리어되는 구별 class를 completion-forbid 반복으로 **모두** 발견(extra_cap 예산
         내). 전략 축·인벤토리 축이 동일 루프를 써 인벤토리 변형도 다수 class를 놓치지 않는다(codex R3-MEDIUM).
-        forbid는 공유 classes 전체 대상 — 다른 multiset class는 슬롯수/스킬 불일치로 완성 불가라 무해."""
+        forbid는 공유 classes 전체 대상 — 다른 multiset class는 슬롯수/스킬 불일치로 완성 불가라 무해.
+
+        codex R4: ① 중복(minimize→seen class collapse)이어도 **종료하지 않고** raw plan을 dead_raw에 넣어
+        forbid하고 계속 탐색(조기종료 금지) — 뒤에 있을 distinct class를 놓치지 않게. ② 예산 = solve 롤아웃 +
+        `_record`의 minimize/range-sweep 롤아웃(roll.count 델타) 모두 계상(첫 class 발견 후)."""
         nonlocal extra_rollouts, capped
+        dead_raw: list = []          # minimize 시 seen class로 collapse한 raw 플랜(재발화 차단)
+        seen_raw: set = set()        # 이미 처리한 raw 플랜 sig(솔버 반복 안전망)
+        dry = 0                      # 연속 중복 카운터(DIVERSE_DRY_LIMIT 도달 시 다양성 고갈 종료)
         while True:
             if classes and extra_rollouts >= extra_cap:
                 capped = True
                 print(f"  [추가 탐색 캡 도달] {extra_rollouts}/{extra_cap}롤 — {axis} 탐색 중단.")
                 return
-            s = {}      # solve.solve가 stats.update로 cleared/rollouts/final_plan을 채움
-            pred = _make_forbid(classes, cs) if classes else None
+            charge = bool(classes)   # 첫 class 발견 이후의 탐색만 extra_rollouts로 계상
+            roll0 = roll.count
+            s = {}                   # solve.solve가 stats.update로 cleared/rollouts/final_plan을 채움
+            pred = _make_forbid(classes, dead_raw, cs) if (classes or dead_raw) else None
             solve.solve(stage_id, max_rollouts, stats=s, save=False, inv_override=inv, forbid=pred)
-            if classes:
-                extra_rollouts += int(s.get("rollouts", 0))
+
+            def _charge():           # solve(자체 rollouter) + _record(roll: minimize+sweep) 롤아웃 합산
+                nonlocal extra_rollouts
+                if charge:
+                    extra_rollouts += int(s.get("rollouts", 0)) + (roll.count - roll0)
+
             if not (s.get("cleared") and s.get("final_plan") is not None):
+                _charge()
                 return
             plan = s["final_plan"]
-            is_new = _record(plan, inv, axis)
             if not plan:
-                return             # 무도구 해(빈 플랜)는 1회만 — 베이스라인 항상 클리어(무한루프 방지)
+                _record(plan, inv, axis)   # 무도구 해(빈 플랜) — 베이스라인 클리어. 1회 기록 후 종료.
+                _charge()
+                return
+            rawsig = _plan_multiset_sig(plan)
+            if rawsig in seen_raw:
+                _charge()
+                return             # 솔버가 같은 raw 플랜 반복 = 더 못 나아감(안전망, 무한루프 방지)
+            seen_raw.add(rawsig)
+            is_new = _record(plan, inv, axis)
+            _charge()
             if not is_new:
-                return             # forbid가 못 막은 중복(안전망) — 무한루프 방지
+                dead_raw.append(plan)   # superset/중복 → forbid하고 **계속**(codex R4-HIGH, 조기종료 금지)
+                dry += 1
+                if dry >= DIVERSE_DRY_LIMIT:
+                    return              # 연속 N회 중복 = superset churn(다양성 고갈) — 자연 종료
+                continue
+            dry = 0                     # 새 class 발견 → dry 리셋
 
     # ── 축 1: 전략(전체 인벤토리). ── 축 2: 인벤토리 변형(다른 multiset = 다른 class). 둘 다 동일 발견 루프.
     _discover(base_inv, "strategy")
@@ -724,12 +770,17 @@ def _selfcheck_forbid() -> bool:
         {"slot": 1, "skill": "climber", "role": _role_sig(carry()), "timing": _timing_sig(carry()),
          "placement_axis": "none", "fixed_cell": None, "gap_verified": False, "intervals": []},
     ]}
-    forbid = _make_forbid([cls1], cs)
+    forbid = _make_forbid([cls1], [], cs)
+    # dead_raw(R4): raw superset를 forbid해 재발화 차단하되 다른 plan은 발견 허용.
+    raw = [blk(2), carry(), blk(10)]
+    forbid_dr = _make_forbid([], [raw], cs)
     checks = [
         forbid(blk(2), [carry()]) is True,        # base+action = class1 정확 완성 → 금지
         forbid(blk(10), [carry()]) is False,      # carry 슬롯 공유·blocker@10(구역 밖)=distinct → 발견 허용
         forbid(carry(), []) is False,             # 단일 슬롯(미완성, 2슬롯 필요) → 금지 안 함
         forbid(blk(2), []) is False,              # base 비어 미완성(climber 슬롯 누락) → 금지 안 함
+        forbid_dr(blk(10), [blk(2), carry()]) is True,   # base+action = dead_raw 정확 재구성 → 금지
+        forbid_dr(blk(5), [blk(2), carry()]) is False,   # 다른 plan(B) → 발견 허용(조기종료 방지)
     ]
     if not all(checks):
         print("[diverse-verify] FORBID SELFCHECK FAIL: %s" % checks)

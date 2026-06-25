@@ -13,8 +13,8 @@
     "water-drowning"
   ],
   "n_solution_classes": 1,
-  "search_capped": false,
-  "extra_rollouts_after_first": 33,
+  "search_capped": true,
+  "extra_rollouts_after_first": 88,
   "solution_classes": [
     {
       "class": 1,
