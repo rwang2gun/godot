@@ -90,3 +90,47 @@ Verdict: **needs-attention** (HIGH×2 + MEDIUM×1). 명령: `node codex-companio
 - 정직 경계: y는 1D 정체성만(2D 스윕 미구현, codex 권고 (a) 채택), provisional 대안 enumerate 안 함(선존).
 
 **자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex 재리뷰(Round 2).
+
+## Round 2 (codex adversarial-review, `--base 6bef989` = revised 5b + R1 fix `cf1fd38`)
+
+Verdict: **needs-attention** (HIGH×1 + MEDIUM×1). R1 정체성 수정은 맞으나 *발견 루프*가 여전히 과소보고 가능.
+
+- **[HIGH] action-local forbid이 슬롯 공유 distinct class 억제** (`diverse.py` `_make_forbid` + `solve.solve`
+  소비): `_class_sig`는 plan 전체(skill_multiset+모든 슬롯)로 class를 정의하나 `_make_forbid`는 후보가 이전
+  class의 슬롯 *하나*라도 일치하면 즉시 True. `solve.solve`가 이를 후보별 hard-filter로 적용 → 비공간 공유 슬롯
+  (예: 같은 `picked_ge n=1` carry)이나 공유 verified cell_x 슬롯을 공유하되 다른 슬롯에서 갈라지는 후속 class가
+  차단. 직접적 과소보고. `_selfcheck_class_sig`는 dedup만 테스트, forbid 발견성 미검증.
+  → **plan-level 배제로 교체**: `base+[action]`이 이미 발견된 class를 *정확히 완성*할 때만 forbid(distinct class
+  절대 억제 안 함). forbid 술어를 `(action, base)`로 plan-aware화.
+- **[MEDIUM] coverage가 중복 class를 count만 맞으면 통과** (`_coverage_check_diverse`): `n==len`만 보고
+  `_class_sig` 유일성 미검증 → class id만 다른 중복 class가 false-green(diversity 과대주장).
+  → coverage가 각 class sig 재구성·중복 거부 + selfcheck 케이스(중복 class·n=2→거부).
+
+조치(impl-stage, HIGH defer 불가): forbid를 completion-only plan-aware로 재설계(solve.py 술어 계약 (action,base))
++ coverage 중복 거부 + `_selfcheck_forbid`(공유 슬롯 distinct class 발견성) → 자체 리뷰 → codex Round 3.
+
+## Self-Review Round 3 (codex R2 수정 후 자체 적대 리뷰)
+
+R2 2 finding 수정:
+- **[R2-HIGH] plan-level completion forbid**: `_make_forbid`를 `(action, base)` 술어로 — `base+[action]`이 발견
+  class를 *정확히 완성*(슬롯수 동일 + 액션↔슬롯 bijection)할 때만 금지. `_matches_slot`/`_plan_completes_class`
+  신설. solve.py forbid_pred 호출을 `(action, base)`로(4개 _propose 사이트 전부 base=누적 plan 전달, grep 확인).
+  슬롯 1개 공유 distinct class 억제 제거.
+- **[R2-MEDIUM] coverage 중복 class 거부**: `_coverage_check_diverse`가 저장 payload에서 `_class_sig` 재구성·
+  중복 fail. `_class_sig`는 `.get("placement_axis")`로 방어화.
+- **superset 거짓양성 후속 수정(자체 발견)**: completion-only forbid이 도입한 새 결함 — 솔버가 같은 해에 잉여
+  액션(인벤토리 budget 소진 inert 4·5번째 blocker)을 덧붙인 superset을 별개 class로 과대보고(stage12 1→3 class
+  오보 실측). → `_record`가 `analyze.minimize`(deletion-minimal)로 **기록 전 정규화** → superset이 원 class로
+  collapse·dedup. stage12 재생성 = **1 class 복원**(search_capped=false 자연종료).
+- **회귀 가드**: `_selfcheck_forbid`(완성=금지/공유슬롯 distinct=발견/미완성=비금지) + 중복 class selfcheck 케이스.
+
+자체 적대 검토(HIGH 0):
+- `_plan_completes_class` greedy bijection은 false-negative 가능(유효 배정 존재해도 greedy 실패) → **under-forbid**
+  뿐 → solve가 같은 class 재발견해도 minimize+dedup이 `is_new=False`로 잡아 break(무한루프 없음, 출력 오류 없음).
+  over-forbid(distinct 억제)는 구조상 불가(bijection True면 실제 완전 재구성). 정직 경계로 문서화.
+- minimize는 1-minimal(order-dependent, analyze 기존·codex 승인 의미) — 각 보고 class는 잉여 없는 실 클리어 최소
+  해라 거짓양성 아님. minimize 롤아웃은 extra_cap 미계상(bounded ≤len(plan)/class, 경미).
+- byte-identical: solve.py forbid 경로는 forbid=None일 때 inert(selftest/golden frame 불변 확증). 신규 체크 전부
+  fail-closed 강화.
+
+**자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 3.

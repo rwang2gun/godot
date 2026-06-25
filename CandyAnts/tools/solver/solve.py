@@ -166,8 +166,9 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
     inv, notes, hp = meta["inventory"], meta["notes"], int(meta["candy_hp"])
     if inv_override is not None:
         inv = {k: v for k, v in inv_override.items() if v > 0}   # 다양-해 탐색: 인벤토리 변형(수량/종류)
-    # 다양-해 탐색: forbid된 액션 배제. **callable**(술어 action->bool)이면 4요소 solution-class forbid
-    # (Phase 5b diverse.py — placement 구역+role/timing 단위), 아니면 시그니처 iterable(Item 1, 액션 dict/
+    # 다양-해 탐색: forbid된 액션 배제. **callable**(술어 `(action, base_plan)->bool`)이면 plan-level
+    # solution-class forbid(Phase 5b diverse.py — base+[action]이 이미 발견된 class를 *정확히 완성*할 때만
+    # 배제 = distinct class는 절대 억제 안 함, codex R2-HIGH), 아니면 시그니처 iterable(Item 1, 액션 dict/
     # 문자열). None이면 무영향(게이트 byte-identical).
     forbid_pred = forbid if callable(forbid) else None
     forbidden = (set() if forbid_pred is not None else
@@ -232,9 +233,10 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
             # 정지(= 더 이상 구별되는 해 없음) — 완전성 주장 아님(의도적 배제, 다양-해 보고 맥락).
             cands = [c for c in cands if _action_sig(c["action"]) not in forbidden]
         if forbid_pred is not None:
-            # 4요소 class forbid(diverse.py): 술어가 True면 절대 배제. exclude(tried)와 달리 ceiling/carry
-            # 면제도 무시하는 hard-filter라 모든 경로(main/sibling/LA2)에 일관 적용. 후보 0 → 정직 정지.
-            cands = [c for c in cands if not forbid_pred(c["action"])]
+            # plan-level class forbid(diverse.py): `base+[action]`이 이미 발견된 solution-class를 *정확히
+            # 완성*할 때만 배제(codex R2-HIGH — 슬롯 1개 공유하는 distinct class는 억제 안 함). base=현재 누적
+            # plan을 넘겨 plan-aware. 모든 경로(main/sibling/LA2)에 일관 적용. 후보 0 → 정직 정지.
+            cands = [c for c in cands if not forbid_pred(c["action"], base)]
         if vault_fn and use_vault:
             # 볼트가 위기→링크 도구/요소(retired/trapped 포함)로 형제 후보를 prune(de-risk 레버).
             tr = src_res.get("trace", {})
