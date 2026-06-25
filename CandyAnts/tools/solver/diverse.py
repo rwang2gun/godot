@@ -252,18 +252,26 @@ def _matches_slot(action: dict, slot: dict, cs: int) -> bool:
 
 
 def _plan_contains_class(plan: list, cls: dict, cs: int) -> bool:
-    """plan이 cls를 **sub-multiset으로 포함**하는가 — cls의 각 슬롯에 매칭되는 *서로 다른* 액션이 plan에
-    있는가(plan은 더 길어도 됨). greedy bijection(슬롯당 미사용 매칭 1개)."""
+    """plan이 cls를 **sub-multiset으로 포함**하는가 — cls의 모든 슬롯을 *서로 다른* 액션에 동시에 매칭할 수
+    있는가(plan은 더 길어도 됨). **진짜 이분매칭(Kuhn augmenting-path)** — greedy는 슬롯들이 겹치는 액션
+    집합을 가질 때 유효 매칭을 놓친다(codex R7-HIGH: A=[0,10]·B=[0,0], 액션 0·5 → greedy 실패, 실제 A↔5·B↔0).
+    슬롯(left)을 액션(right)에 saturate하면 포함."""
     slots = cls.get("slots", [])
-    used = [False] * len(plan)
-    for s in slots:
-        hit = False
-        for i, a in enumerate(plan):
-            if not used[i] and _matches_slot(a, s, cs):
-                used[i] = hit = True
-                break
-        if not hit:
-            return False
+    if not slots:
+        return True
+    match_action = [-1] * len(plan)            # 각 액션이 매칭된 슬롯 index(-1=미매칭)
+    def _augment(si: int, visited: list) -> bool:
+        for ai, a in enumerate(plan):
+            if visited[ai] or not _matches_slot(a, slots[si], cs):
+                continue
+            visited[ai] = True
+            if match_action[ai] == -1 or _augment(match_action[ai], visited):
+                match_action[ai] = si
+                return True
+        return False
+    for si in range(len(slots)):
+        if not _augment(si, [False] * len(plan)):
+            return False                        # 슬롯 si를 saturate 못 함 → 미포함
     return True
 
 
@@ -583,7 +591,10 @@ def _coverage_check_diverse(report: dict) -> list[str]:
                             fails.append("class %r slot %r fixed_cell %r이 authoritative interval %r 밖"
                                          % (cl, si, fc, ivs[0]))
                     sp = slot.get("sampled_points")
-                    if isinstance(sp, list) and fc not in sp:
+                    if not isinstance(sp, list) or not all(
+                            isinstance(x, int) and not isinstance(x, bool) for x in sp):
+                        fails.append("class %r slot %r sampled_points 정수 리스트 아님 (%r)" % (cl, si, sp))
+                    elif fc not in sp:
                         fails.append("class %r slot %r fixed_cell %r이 sampled_points에 없음" % (cl, si, fc))
             elif ax != "none":
                 fails.append("class %r slot %r placement_axis 미상 (%r)" % (cl, si, ax))
@@ -736,6 +747,8 @@ def _selfcheck_diverse() -> bool:
     cases.append((a, True))
     a = good(); a["solution_classes"][0]["slots"][0]["fixed_cell"] = 5; cases.append((a, True))  # fixed_cell이 interval[[0,1]] 밖
     a = good(); a["search_capped"] = True; cases.append((a, True))                         # 불완전(capped) 커밋 거부
+    a = good(); del a["solution_classes"][0]["slots"][0]["sampled_points"]; cases.append((a, True))  # sampled_points 누락
+    a = good(); a["solution_classes"][0]["slots"][0]["sampled_points"] = "x"; cases.append((a, True))  # sampled_points 비-리스트
     a = good()
     a["solution_classes"][0]["slots"][0].update({"gap_check_stride": 3, "gap_verified": False,
                                                  "gap_coverage": "sampled@3", "intervals": [[0, 6]], "provisional": True})
@@ -799,6 +812,15 @@ def _selfcheck_forbid() -> bool:
          "placement_axis": "none", "fixed_cell": None, "gap_verified": False, "intervals": []},
     ]}
     forbid = _make_forbid([cls1], cs)
+    # overlapping 슬롯 이분매칭(codex R7-HIGH): 두 blocker 슬롯 A=[0,10]·B=[0,0](같은 role/timing). 액션 cell
+    # 0·5 → greedy(A←0)면 B 실패하나 Kuhn은 A←5·B←0 매칭 → 포함=금지.
+    cls_ov = {"skill_multiset": {"blocker": 2}, "slots": [
+        {"slot": 0, "skill": "blocker", "role": _role_sig(blk(5)), "timing": _timing_sig(blk(5)),
+         "placement_axis": "cell_x", "fixed_cell": 5, "gap_verified": True, "intervals": [[0, 10]]},
+        {"slot": 1, "skill": "blocker", "role": _role_sig(blk(0)), "timing": _timing_sig(blk(0)),
+         "placement_axis": "cell_x", "fixed_cell": 0, "gap_verified": True, "intervals": [[0, 0]]},
+    ]}
+    forbid_ov = _make_forbid([cls_ov], cs)
     checks = [
         forbid(blk(2), [carry()]) is True,        # base+action = class1 포함(정확) → 금지
         forbid(blk(3), [carry()]) is True,        # blocker@3(구역[0,4] 내)+carry = class1 포함 → 금지(±shift superset)
@@ -806,6 +828,7 @@ def _selfcheck_forbid() -> bool:
         forbid(blk(10), [carry()]) is False,      # carry 공유·blocker@10(구역[0,4] 밖)=class1 미포함 distinct → 허용
         forbid(carry(), []) is False,             # carry만(blocker 슬롯 누락) = class1 미포함 → 허용
         forbid(blk(2), []) is False,              # blocker만(climber 슬롯 누락) = class1 미포함 → 허용
+        forbid_ov(blk(5), [blk(0)]) is True,      # overlapping 슬롯 — Kuhn 매칭으로 포함 검출(greedy면 누락)
     ]
     if not all(checks):
         print("[diverse-verify] FORBID SELFCHECK FAIL: %s" % checks)

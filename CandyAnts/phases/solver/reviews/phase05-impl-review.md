@@ -241,3 +241,22 @@ R6 2 finding 수정 + forbid 메커니즘 통합 재설계:
   schema v2) 유지. stage12 uncapped라 capped-reject 게이트 통과.
 
 **자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0, stage12 uncapped). → fix 커밋 후 codex Round 7.
+
+## Self-Review Round 8 (codex R7 수정 후 자체 적대 리뷰)
+
+R7 2 finding 수정:
+- **[R7-HIGH] greedy → Kuhn 이분매칭**: `_plan_contains_class`를 진짜 이분매칭(augmenting-path)으로 교체.
+  슬롯들이 겹치는 액션 집합을 가질 때(A=[0,10]·B=[0,0]) greedy가 유효 매칭을 놓쳐 forbid를 누락하던 결함 제거.
+  overlapping selfcheck(A↔5·B↔0) 추가 — greedy면 FAIL하는 케이스.
+- **[R7-MEDIUM] sampled_points 존재 강제**: coverage가 cell_x 슬롯에 sampled_points=정수 리스트 + fixed_cell
+  포함을 강제(누락/비-리스트 거부). selfcheck 2종(누락·비-리스트) 추가.
+
+자체 적대 검토(HIGH 0):
+- Kuhn: per-슬롯 visited로 재방문 차단 → 종료. 매칭 존재 iff saturate(완전·정확). 슬롯/액션 소수라 비용 무시.
+  forbid 누락 제거 → churn 재발 방지(R6 subset-forbid 완전화).
+- coverage sampled_points strictness는 fail-closed 강화뿐. good()/sampled-pass 픽스처는 정수 리스트+fixed_cell
+  포함이라 통과(확증).
+- stage12 재생성 동일(uncapped 1 class, 48롤) — Kuhn 변경이 비중첩 슬롯 결과 불변.
+- byte-identical: solve forbid=None inert. 게이트 fail-closed 유지(fixed_cell·sampled_points·capped·schema v2).
+
+**자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 8.
