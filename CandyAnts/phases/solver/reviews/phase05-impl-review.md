@@ -50,3 +50,43 @@
 
 **자체 리뷰 verdict: clean (HIGH 0)** — codex 재리뷰 진입 가능(사용자 트리거: `/codex:adversarial-review` 또는
 bash `codex-companion.mjs adversarial-review`, [[codex-adversarial-review-invocation]]).
+
+## Round 1 (codex adversarial-review, bash companion `--base 6bef989`)
+
+Verdict: **needs-attention** (HIGH×2 + MEDIUM×1). 명령: `node codex-companion.mjs adversarial-review --wait --base 6bef989 <focus>`.
+
+- **[HIGH] provisional sampled 구역을 병합 키로 사용** (`diverse.py` `_class_sig`): SWEEP_CELL_CAP(40) 초과
+  스테이지에서 `_sweep_placement`가 stride>1 구역을 gap_verified=false/provisional로 표기하나 `_class_sig`는
+  intervals를 무조건 동치 키로 써 `_record`가 dedup → 같은 sampled interval 모양의 *다른* 해를 중복으로 버리고
+  전략 루프가 `if not is_new: break`로 정지. "미검증=병합 금지" 위반, 넓은 스테이지에서 과소보고.
+  → provisional 슬롯은 intervals 대신 fixed_cell로 키잉(다른 셀=비병합).
+- **[HIGH] 클래스 정체성이 target y-band 무시** (`diverse.py` `_role_sig`): `model.propose`가 backpath row 유래
+  y_min/y_max로 액션 생성(model.py:288·299) → 같은 skill/select/x·다른 y-band=다른 층/레인=실질 다른 해인데
+  `_role_sig`가 y 드롭 → 거짓 병합·forbid 차단. range-sweep은 x만 스윕 → y는 정체성·스윕 둘 다 누락(차원 상실).
+  → y-band를 role 정체성에 포함(미스윕=비병합, 보수적).
+- **[MEDIUM] diverse-verify가 보고서를 요청 stage에 미바인딩** (`diverse.py` `verify_one_diverse`):
+  `report['stage']`/`stage_scene`를 stage_id와 대조 안 함 → stage12 보고서를 stage13.diverse.json으로 저장 시
+  Stage12 리플레이로 false-green. → stage/scene 바인딩 fail-closed + n_solution_classes==len(classes) 검증.
+
+조치(impl-stage 정책, HIGH defer 불가): 셋 다 수정 → stage12.diverse.json 재생성 → 자체 적대 리뷰 → codex 재리뷰.
+
+## Self-Review Round 2 (codex R1 수정 후 자체 적대 리뷰)
+
+3 finding 수정(`diverse.py` 한정, 엔진/PlanRunner/solve.py 무변경):
+- **[R1-HIGH] provisional 비병합**: `_class_sig` cell_x 구역키 = gap_verified면 intervals(검증 구역 병합),
+  미검증이면 `('provisional', fixed_cell)`(다른 셀=비병합). "미검증=병합 금지" 충족.
+- **[R1-HIGH] y-band 정체성**: `_role_sig`에 `band:[y_min,y_max]` 추가(있을 때만). y는 미스윕 축이라
+  다른 band=다른 class(보수적·비병합). x-시프트(같은 row)는 band 동일→병합 유지(merge-acceptance 보존).
+- **[R1-MED] stage 바인딩**: `verify_one_diverse`가 report['stage']/['stage_scene']를 stage_id와 fail-closed
+  대조 + `_coverage_check_diverse`에 n_solution_classes==len(classes) 검증.
+- **회귀 가드**: `_selfcheck_class_sig`(병합/비병합 3규칙) 추가 + good() 픽스처 band·n 반영 + n-mismatch 거부 케이스.
+
+자체 적대 검토(HIGH 0):
+- provisional 슬롯은 `_make_forbid`가 어차피 forbid 안 함(gap_verified만) → 동일 plan 재발화 시 fixed_cell 동일
+  sig로 dedup→안전망 break. 과소-탐색은 정직 표기(provisional)된 *선존* 한계, soundness 버그 아님(거짓 병합 제거가 핵심).
+- band 부재 액션(climber carry/picked_ge)=role 불변(band 키 생략). float band는 `_band` 결정론 동일 산출→json
+  왕복·동치 정확(diverse-verify PASS 확증).
+- 신규 체크 전부 fail-closed 강화(거부 추가)뿐, fail-open 유입 0. solve.py 무변경→selftest byte-identical.
+- 정직 경계: y는 1D 정체성만(2D 스윕 미구현, codex 권고 (a) 채택), provisional 대안 enumerate 안 함(선존).
+
+**자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex 재리뷰(Round 2).

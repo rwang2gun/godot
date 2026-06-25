@@ -81,7 +81,11 @@
           "role": {
             "mode": "ant",
             "select": "min_x",
-            "state": "any"
+            "state": "any",
+            "band": [
+              568.0,
+              680.0
+            ]
           },
           "timing": {
             "trigger_type": "ant_reaches_x",
@@ -136,7 +140,11 @@
           "role": {
             "mode": "ant",
             "select": "min_x",
-            "state": "any"
+            "state": "any",
+            "band": [
+              280.0,
+              392.0
+            ]
           },
           "timing": {
             "trigger_type": "ant_reaches_x",
@@ -191,7 +199,11 @@
           "role": {
             "mode": "ant",
             "select": "max_x",
-            "state": "any"
+            "state": "any",
+            "band": [
+              424.0,
+              536.0
+            ]
           },
           "timing": {
             "trigger_type": "ant_reaches_x",

@@ -63,10 +63,17 @@ def _placement_cell(action: dict, cs: int):
 
 
 def _role_sig(action: dict) -> dict:
-    """target role/state 시그니처(4요소 iii) — select·state·mode. 위치 좌표(y_min/y_max)는 *공간 선택
-    수단*이라 시그니처에서 제외(placement는 별도 range 축). state 없으면 'any'."""
+    """target role/state 시그니처(4요소 iii) — select·state·mode + **y-band**. state 없으면 'any'.
+
+    y_min/y_max(model.propose가 backpath row에서 산출)는 *층/레인 선택 수단*이라 같은 x·다른 y-band는 다른
+    floor를 노리는 실질 다른 해다(codex R1-HIGH). range-sweep은 x(cell_x)만 스윕하므로 y는 정체성에 포함하지
+    않으면 스윕에도·정체성에도 없이 완전히 누락된다(placement 차원 상실 → 거짓 병합·forbid 차단). y는 미스윕
+    축이므로 **검증 안 된 구역으로 보고 비병합**(다른 band=다른 class, 보수적·정직). band 없으면 키 생략."""
     t = action.get("target", {})
-    return {"mode": t.get("mode"), "select": t.get("select"), "state": t.get("state") or "any"}
+    sig = {"mode": t.get("mode"), "select": t.get("select"), "state": t.get("state") or "any"}
+    if "y_min" in t or "y_max" in t:
+        sig["band"] = [t.get("y_min"), t.get("y_max")]
+    return sig
 
 
 def _timing_sig(action: dict) -> dict:
@@ -194,12 +201,21 @@ def _build_class(roll: "analyze.Rollouter", plan: list, cs: int, grid_cols: int,
 
 
 def _class_sig(cls: dict) -> tuple:
-    """클래스 동치 시그니처(dedup) — skill_multiset + 슬롯별 (skill, role, timing, 구역키). 구역키 = cell_x는
-    intervals 튜플, none은 ('none',). placement 좌표가 아니라 *검증 구역*으로 동치 판정 → 구역 내 시프트 무시."""
+    """클래스 동치 시그니처(dedup) — skill_multiset + 슬롯별 (skill, role, timing, 구역키).
+
+    구역키(cell_x):
+      - **gap_verified(stride==1)**: intervals 튜플 = *검증된 연속 구역*. 구역 내 ±시프트는 같은 해로 병합(계약).
+      - **provisional(stride>1·미검증)**: intervals가 sampled 추정이라 병합 근거가 못 됨("미검증=병합 금지",
+        codex R1-HIGH). → ('provisional', fixed_cell)로 키잉해 **다른 실제 셀은 비병합**(같은 sampled interval
+        모양이어도 다른 해를 중복으로 버리지 않음). 같은 셀만 동일(자명한 항등).
+    none 슬롯은 ('none',)."""
     parts = []
     for s in cls["slots"]:
         if s["placement_axis"] == "cell_x":
-            region = tuple(tuple(iv) for iv in s.get("intervals", []))
+            if s.get("gap_verified"):
+                region = tuple(tuple(iv) for iv in s.get("intervals", []))
+            else:
+                region = ("provisional", s.get("fixed_cell"))
         else:
             region = ("none",)
         parts.append((s["skill"], json.dumps(s["role"], sort_keys=True),
@@ -403,6 +419,10 @@ def _coverage_check_diverse(report: dict) -> list[str]:
     if not isinstance(classes, list) or not classes:
         fails.append("solution_classes 비어있음 (다양-해 0)")
         return fails
+    # n_solution_classes 주장 == 실제 class 수(파생 카운트 변조/누락 차단, codex R1-MEDIUM).
+    n_claimed = report.get("n_solution_classes")
+    if n_claimed != len(classes):
+        fails.append("n_solution_classes %r != len(solution_classes) %d" % (n_claimed, len(classes)))
     for cls in classes:
         cl = cls.get("class")
         ref = cls.get("reference_plan")
@@ -470,6 +490,13 @@ def verify_one_diverse(stage_id: int, workers: int) -> bool:
         print("[diverse-verify] stage%02d: diverse.json 없음 — FAIL" % stage_id)
         return False
     report = json.loads(dpath.read_text(encoding="utf-8"))
+    # 보고서를 요청 stage에 바인딩(fail-closed, codex R1-MEDIUM) — 파일명만으로 커버리지 인정 금지.
+    # stage12 보고서를 stage13.diverse.json으로 두면 Stage12 리플레이로 false-green 되는 것을 차단.
+    expect_scene = "res://scenes/stages/Stage%02d.tscn" % stage_id
+    if report.get("stage") != stage_id or report.get("stage_scene") != expect_scene:
+        print("[diverse-verify] stage%02d: 보고서 stage/scene 불일치 (stage=%r scene=%r) — FAIL"
+              % (stage_id, report.get("stage"), report.get("stage_scene")))
+        return False
     cov = _coverage_check_diverse(report)
     if cov:
         print("[diverse-verify] stage%02d: coverage FAIL" % stage_id)
@@ -545,14 +572,14 @@ def _selfcheck_diverse() -> bool:
              "trigger": {"type": "picked_ge", "n": 1}},
         ]
         return {
-            "schema_version": DIVERSE_SCHEMA_VERSION, "cell_size": 48,
+            "schema_version": DIVERSE_SCHEMA_VERSION, "cell_size": 48, "n_solution_classes": 1,
             "solution_classes": [{
                 "class": 1, "axis": "strategy", "skill_multiset": {"blocker": 1, "climber": 1},
                 "inventory": {"blocker": 1, "climber": 1}, "reference_plan": ref,
                 "expect": {"cleared": True, "saved": 5},
                 "slots": [
                     {"slot": 0, "ref_index": 0, "skill": "blocker",
-                     "role": {"mode": "ant", "select": "min_x", "state": "any"},
+                     "role": {"mode": "ant", "select": "min_x", "state": "any", "band": [1.0, 2.0]},
                      "timing": {"trigger_type": "ant_reaches_x", "cmp": "le"},
                      "placement_axis": "cell_x", "fixed_cell": 0, "intervals": [[0, 1]], "gaps": [],
                      "range_sampled": True, "gap_check_stride": 1, "gap_verified": True,
@@ -571,6 +598,7 @@ def _selfcheck_diverse() -> bool:
     a = good(); del a["schema_version"]; cases.append((a, True))                          # 스키마 누락
     a = good(); a["schema_version"] = 99; cases.append((a, True))                         # 스키마 버전 불일치
     a = good(); a["solution_classes"] = []; cases.append((a, True))                       # 빈 class
+    a = good(); a["n_solution_classes"] = 9; cases.append((a, True))                       # n 주장 != 실제
     a = good(); a["solution_classes"][0]["skill_multiset"] = {"blocker": 9}; cases.append((a, True))  # multiset 변조
     a = good(); a["solution_classes"][0]["expect"] = {"cleared": True, "saved": 0}; cases.append((a, True))  # 약한 expect
     a = good(); a["solution_classes"][0]["expect"] = {"cleared": False, "saved": 5}; cases.append((a, True))  # cleared 위장
@@ -595,9 +623,36 @@ def _selfcheck_diverse() -> bool:
     return True
 
 
+def _selfcheck_class_sig() -> bool:
+    """`_class_sig` 동치 규칙 자가검증(codex R1-HIGH ×2 회귀 가드): ① gap_verified 같은 intervals=병합 ②
+    provisional 다른 fixed_cell=비병합(미검증 병합 금지) ③ 다른 y-band=비병합. 규칙이 약해지면 verify가 먼저 FAIL."""
+    def slot(cell, gv, intervals, band):
+        return {"placement_axis": "cell_x", "fixed_cell": cell, "gap_verified": gv,
+                "intervals": intervals, "skill": "blocker",
+                "role": {"mode": "ant", "select": "min_x", "state": "any", "band": band},
+                "timing": {"trigger_type": "ant_reaches_x", "cmp": "le"}}
+    def cls(s):
+        return {"skill_multiset": {"blocker": 1}, "slots": [s]}
+    checks = [
+        # ① 검증 구역 동일·셀만 다름 → 병합(같은 sig)
+        (_class_sig(cls(slot(2, True, [[0, 4]], [1.0, 2.0]))) ==
+         _class_sig(cls(slot(3, True, [[0, 4]], [1.0, 2.0])))),
+        # ② provisional·다른 셀 → 비병합(다른 sig)
+        (_class_sig(cls(slot(2, False, [[0, 6]], [1.0, 2.0]))) !=
+         _class_sig(cls(slot(5, False, [[0, 6]], [1.0, 2.0])))),
+        # ③ 다른 y-band → 비병합(다른 sig)
+        (_class_sig(cls(slot(2, True, [[0, 4]], [1.0, 2.0]))) !=
+         _class_sig(cls(slot(2, True, [[0, 4]], [4.0, 5.0])))),
+    ]
+    if not all(checks):
+        print("[diverse-verify] CLASS_SIG SELFCHECK FAIL: %s" % checks)
+        return False
+    return True
+
+
 def verify_diverse(stage_ids: list[int], workers: int) -> int:
     print("[diverse-verify] diverse.json 게이트 재검증: %s" % ["stage%02d" % s for s in stage_ids])
-    if not _selfcheck_diverse():
+    if not _selfcheck_diverse() or not _selfcheck_class_sig():
         return 1
     if not stage_ids:        # fail-closed — 검증 대상 0개 = 통과 아닌 실패(빈 통과 위장 차단).
         print("[diverse-verify] FAIL - 검증할 diverse.json 없음")
