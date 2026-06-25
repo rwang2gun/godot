@@ -134,3 +134,38 @@ R2 2 finding 수정:
   fail-closed 강화.
 
 **자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 3.
+
+## Round 3 (codex adversarial-review, `--base 6bef989` = revised 5b + R1 `cf1fd38` + R2 `9f31ab2`)
+
+Verdict: **needs-attention** (HIGH×1 + MEDIUM×1). codex: "R2 수정이 원 forbid/minimize 버그를 좁혔으나 중복-class·인벤토리축 과소보고 경로 잔존."
+
+- **[HIGH] same-cell 슬롯 순서로 중복 solution-class가 dedup·verify 통과** (`diverse.py` `_build_class`/`_class_sig`):
+  `_build_class`가 cell_x 슬롯을 `(cell, ref_index)`로 정렬 → `_class_sig`가 결과 튜플을 *순서 의존*으로 처리.
+  같은 셀 두 액션의 tiebreak `ref_index`(솔버 plan 순서, 4요소 동치 아님)가 뒤집히면 슬롯 튜플 역전 → sig 달라짐
+  → `_record`가 새 class로 수용 + coverage도 같은 order-sensitive sig라 미거부. 잔존 false-positive.
+  → `_class_sig`를 순서 무관 canonical(parts json화·정렬, 타입안전)로 + 역순 same-cell selfcheck.
+- **[MEDIUM] 인벤토리 변형이 첫 class만 기록** (`diverse.py` 인벤토리 축): 전략 축은 forbid 반복 발견인데
+  인벤토리 축은 변형당 `solve` 1회·`final_plan` 1개만 → 한 변형이 다수 distinct class 지원해도 greedy 첫 해만,
+  search_capped 안 뜬 채 과소보고. → 인벤토리 축도 동일 completion-forbid 발견 루프(공유 classes·extra_cap 예산).
+
+조치(impl-stage, HIGH defer 불가): `_class_sig` canonical 정렬 + 두 축 공유 `_discover` forbid 루프 + 역순 selfcheck
+→ stage12 재생성 → 자체 리뷰 → codex Round 4.
+
+## Self-Review Round 4 (codex R3 수정 후 자체 적대 리뷰)
+
+R3 2 finding 수정:
+- **[R3-HIGH] `_class_sig` canonical 순서 무관**: parts를 json 문자열로 직렬화 후 `sorted()` — 슬롯 순서(좌→우
+  배치, same-cell tiebreak ref_index)는 4요소 동치 차원이 아니므로 multiset로 비교. 역순 same-cell이 같은 sig가
+  되어 중복-class false-positive 제거. selfcheck ④(역순 same-cell→동일 sig) 추가.
+- **[R3-MEDIUM] 두 축 공유 `_discover` forbid 루프**: 인벤토리 변형도 전략 축과 동일 completion-forbid 반복
+  발견(공유 classes·extra_cap 예산) → 변형당 다수 distinct class 포착. 첫-해-only 과소보고 해소.
+
+자체 적대 검토(HIGH 0):
+- canonical 정렬은 순서만 제거(다른 multiset/region/role/timing은 여전히 분리) → false-merge 불가. json sort_keys
+  결정론. region(list)·role band(list) 직렬화 안정.
+- `_discover`: nonlocal extra_rollouts/capped, 안전망(미클리어 return·중복 return·빈플랜 return) 유지 → 무한루프
+  없음·extra_cap bound. forbid는 전체 classes 대상이나 다른 multiset class는 슬롯수 불일치로 완성 불가=무해.
+- 인벤토리 변형(blocker2/1)은 stage12 미클리어 → 0 class(정상). stage12 = 1 class 유지(search_capped=false).
+- byte-identical: solve forbid=None inert(selftest frame 불변). diverse 게이트 fail-closed 강화 유지.
+
+**자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 4.

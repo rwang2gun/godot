@@ -14,7 +14,7 @@
   ],
   "n_solution_classes": 1,
   "search_capped": false,
-  "extra_rollouts_after_first": 27,
+  "extra_rollouts_after_first": 33,
   "solution_classes": [
     {
       "class": 1,

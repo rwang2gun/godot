@@ -201,26 +201,27 @@ def _build_class(roll: "analyze.Rollouter", plan: list, cs: int, grid_cols: int,
 
 
 def _class_sig(cls: dict) -> tuple:
-    """클래스 동치 시그니처(dedup) — skill_multiset + 슬롯별 (skill, role, timing, 구역키).
+    """클래스 동치 시그니처(dedup) — skill_multiset + 슬롯별 (skill, role, timing, 구역키)의 **순서 무관**
+    multiset. 슬롯 순서(좌→우 배치)는 4요소 동치 차원이 아니므로(같은 셀 tiebreak ref_index=솔버 plan 순서일
+    뿐, codex R3-HIGH) parts를 canonical 정렬해 순서 의존 false-positive를 제거한다. parts는 json 문자열로
+    직렬화 후 정렬(타입 혼합 비교 회피).
 
     구역키(cell_x):
-      - **gap_verified(stride==1)**: intervals 튜플 = *검증된 연속 구역*. 구역 내 ±시프트는 같은 해로 병합(계약).
-      - **provisional(stride>1·미검증)**: intervals가 sampled 추정이라 병합 근거가 못 됨("미검증=병합 금지",
-        codex R1-HIGH). → ('provisional', fixed_cell)로 키잉해 **다른 실제 셀은 비병합**(같은 sampled interval
-        모양이어도 다른 해를 중복으로 버리지 않음). 같은 셀만 동일(자명한 항등).
-    none 슬롯은 ('none',)."""
+      - **gap_verified(stride==1)**: intervals = *검증된 연속 구역*. 구역 내 ±시프트는 같은 해로 병합(계약).
+      - **provisional(stride>1·미검증)**: intervals가 sampled 추정이라 병합 근거 못 됨("미검증=병합 금지",
+        codex R1-HIGH). → ['provisional', fixed_cell]로 키잉해 다른 실제 셀은 비병합. 같은 셀만 동일.
+    none 슬롯은 ['none']."""
     parts = []
     for s in cls["slots"]:
         if s.get("placement_axis") == "cell_x":
             if s.get("gap_verified"):
-                region = tuple(tuple(iv) for iv in s.get("intervals", []))
+                region = [list(iv) for iv in s.get("intervals", [])]
             else:
-                region = ("provisional", s.get("fixed_cell"))
+                region = ["provisional", s.get("fixed_cell")]
         else:
-            region = ("none",)
-        parts.append((s["skill"], json.dumps(s["role"], sort_keys=True),
-                      json.dumps(s["timing"], sort_keys=True), region))
-    return (json.dumps(cls["skill_multiset"], sort_keys=True), tuple(parts))
+            region = ["none"]
+        parts.append(json.dumps([s.get("skill"), s["role"], s["timing"], region], sort_keys=True))
+    return (json.dumps(cls["skill_multiset"], sort_keys=True), tuple(sorted(parts)))
 
 
 def _matches_slot(action: dict, slot: dict, cs: int) -> bool:
@@ -340,38 +341,38 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
         classes.append(cls)
         return True
 
-    # ── 축 1: 전략(같은 전체 인벤토리, 4요소 forbid 재탐색).
-    while True:
-        if classes and extra_rollouts >= extra_cap:
-            capped = True
-            print(f"  [추가 탐색 캡 도달] {extra_rollouts}/{extra_cap}롤 — 전략 탐색 중단.")
-            break
-        s = {}      # solve.solve가 stats.update로 cleared/rollouts/final_plan을 채움
-        pred = _make_forbid(classes, cs) if classes else None
-        solve.solve(stage_id, max_rollouts, stats=s, save=False, inv_override=base_inv, forbid=pred)
-        if classes:
-            extra_rollouts += int(s.get("rollouts", 0))
-        if not (s.get("cleared") and s.get("final_plan") is not None):
-            break
-        plan = s["final_plan"]
-        is_new = _record(plan, base_inv, "strategy")
-        if not plan:
-            break                  # 무도구 해(빈 플랜)는 1회만 — 베이스라인은 항상 클리어(무한루프 방지)
-        if not is_new:
-            break                  # forbid가 못 막은 중복(안전망) — 무한루프 방지
+    def _discover(inv: dict, axis: str) -> None:
+        """한 인벤토리(inv)로 클리어되는 구별 class를 completion-forbid 반복으로 **모두** 발견(extra_cap 예산
+        내). 전략 축·인벤토리 축이 동일 루프를 써 인벤토리 변형도 다수 class를 놓치지 않는다(codex R3-MEDIUM).
+        forbid는 공유 classes 전체 대상 — 다른 multiset class는 슬롯수/스킬 불일치로 완성 불가라 무해."""
+        nonlocal extra_rollouts, capped
+        while True:
+            if classes and extra_rollouts >= extra_cap:
+                capped = True
+                print(f"  [추가 탐색 캡 도달] {extra_rollouts}/{extra_cap}롤 — {axis} 탐색 중단.")
+                return
+            s = {}      # solve.solve가 stats.update로 cleared/rollouts/final_plan을 채움
+            pred = _make_forbid(classes, cs) if classes else None
+            solve.solve(stage_id, max_rollouts, stats=s, save=False, inv_override=inv, forbid=pred)
+            if classes:
+                extra_rollouts += int(s.get("rollouts", 0))
+            if not (s.get("cleared") and s.get("final_plan") is not None):
+                return
+            plan = s["final_plan"]
+            is_new = _record(plan, inv, axis)
+            if not plan:
+                return             # 무도구 해(빈 플랜)는 1회만 — 베이스라인 항상 클리어(무한루프 방지)
+            if not is_new:
+                return             # forbid가 못 막은 중복(안전망) — 무한루프 방지
 
-    # ── 축 2: 인벤토리 변형(수량/종류 감소 → 다른 multiset = 다른 class).
+    # ── 축 1: 전략(전체 인벤토리). ── 축 2: 인벤토리 변형(다른 multiset = 다른 class). 둘 다 동일 발견 루프.
+    _discover(base_inv, "strategy")
     for variant in _inv_variants(base_inv)[1:]:
         if classes and extra_rollouts >= extra_cap:
             capped = True
             print(f"  [추가 탐색 캡 도달] {extra_rollouts}/{extra_cap}롤 — 인벤토리 변형 중단.")
             break
-        s = {}      # solve.solve가 stats.update로 cleared/rollouts/final_plan을 채움
-        solve.solve(stage_id, max_rollouts, stats=s, save=False, inv_override=variant)
-        if classes:
-            extra_rollouts += int(s.get("rollouts", 0))
-        if s.get("cleared") and s.get("final_plan"):
-            _record(s["final_plan"], variant, "inventory")
+        _discover(variant, "inventory")
 
     # ── 보고서.
     print(f"\n=== 풀이법 보고서: stage{stage_id:02d} — 구별되는 solution-class {len(classes)}개 ===")
@@ -683,6 +684,11 @@ def _selfcheck_class_sig() -> bool:
                 "timing": {"trigger_type": "ant_reaches_x", "cmp": "le"}}
     def cls(s):
         return {"skill_multiset": {"blocker": 1}, "slots": [s]}
+    def cls2(s_a, s_b):
+        return {"skill_multiset": {"blocker": 2}, "slots": [s_a, s_b]}
+    # ④ 같은 셀 두 슬롯의 순서 역전 → 같은 sig(순서 무관 canonical, codex R3-HIGH). role band로 구분.
+    sa = slot(4, True, [[0, 8]], [1.0, 2.0])
+    sb = slot(4, True, [[0, 8]], [4.0, 5.0])
     checks = [
         # ① 검증 구역 동일·셀만 다름 → 병합(같은 sig)
         (_class_sig(cls(slot(2, True, [[0, 4]], [1.0, 2.0]))) ==
@@ -693,6 +699,8 @@ def _selfcheck_class_sig() -> bool:
         # ③ 다른 y-band → 비병합(다른 sig)
         (_class_sig(cls(slot(2, True, [[0, 4]], [1.0, 2.0]))) !=
          _class_sig(cls(slot(2, True, [[0, 4]], [4.0, 5.0])))),
+        # ④ same-cell 슬롯 순서 역전 → 같은 sig(순서 의존 false-positive 제거)
+        (_class_sig(cls2(sa, sb)) == _class_sig(cls2(sb, sa))),
     ]
     if not all(checks):
         print("[diverse-verify] CLASS_SIG SELFCHECK FAIL: %s" % checks)
