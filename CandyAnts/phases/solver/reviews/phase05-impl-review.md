@@ -442,3 +442,34 @@ early-chain이 **검증된 carry-chain과 동형 가중 프로파일**, 구조 �
 클래스 없음 = 공유 선재 속성). rediscover-verify 엔진 재발견(S4/S13/S20)은 유지(R1 MEDIUM 가드).
 - 결과: S20 SOLVED 30롤(31→30 복귀), plan 불변. 회귀 0(S4/S13 byte-identical, early_armed=False면 byte-identical).
   전체 게이트 그린·EXIT 0(selftest 17·analyze 4·diverse 4·rediscover S4/S13/S20). 자체 리뷰 clean.
+
+## Round 5 (codex, base=a560995, carry-mirror 최종) — needs-attention → 사용자 사전수용 latent로 종결
+
+Verdict: needs-attention (예상된 결과). codex는 diff만 보므로 carry-mirror가 early-above-structural을
+유지하는 한 구조 starvation을 계속 flag한다.
+
+- [high] Early-chain boost can still starve required structural candidates behind the candidate cap
+  (model.py:340-393). After a same-skill early arm is in plan, remaining spawn_index early candidates are
+  exclude-exempt + `early_w_base+(ant_n-si)`, then globally sorted+truncated `cands[:max_n]`. structure→
+  early→structure stage can stall or spend budget on no-op early arms while a required bridge/blocker is
+  never evaluated. Carry-mirror rationale is an inference about shared latent properties; code makes no
+  slot/interleave guarantee.
+- [medium] Rediscovery gate does not exercise the removed preservation failure mode (try_solve.py:201-220).
+
+### 종결: 사용자 사전수용 latent 한계 (ACCEPTED, 정책 예외 — 사용자 결정 override)
+이 HIGH는 **carry-mirror 결정 시 사용자가 AskUserQuestion에서 명시적으로 사전 수용**한 속성이다(선택지 설명:
+"구조 starvation은 carry와 공유하는 선재 속성(새 회귀 아님)", "codex는 여전히 flag할 수 있으나 근거는 carry 동형").
+근거:
+1. **검증된 carry-chain이 이미 동일 속성**(carry _w 40 > 구조 _w ~12 → structure-after-carry도 동일 starvation).
+   codex는 carry 코드가 diff 밖이라 미flag일 뿐, 새로 도입한 회귀가 아니다.
+2. **latent**: structure→early→structure(또는 →carry→structure) 다단 레벨은 **현 캠페인에 존재하지 않음**.
+   S20는 discovery 단계서 구조(bridge×2) 완료 *후* early-chain이라 구조 경쟁이 발생하지 않는다(실측 30롤 클리어).
+3. **완전 해소는 카운터 범위 밖**(R1→R4 입증: global↔base-scoped 직접 충돌, "의미있는 맥락 변화" semantic 판단
+   필요). 사용자가 그 복잡도(R1~R3 보존 tar pit)를 폐기하고 carry-parity 단순성을 선택.
+- MEDIUM(rediscover 미커버): preservation 규칙 자체를 폐기했으므로 "보존 실패모드" 회귀는 무의미(테스트할
+  보존 규칙 없음). rediscover-verify는 carry-mirror 가중·early gate·결정론 회귀를 가드하는 본래 목적 유지.
+- **재진입 조건**: 실제 structure→early→structure 레벨이 캠페인에 등장하면(현재 없음) preservation/interleave를
+  semantic 맥락-인지로 재설계해 재개. 그 전엔 carry-chain과 동일 취급.
+
+**상태**: S20 SOLVED·게이트 그린·회귀 0. codex 5R(R1~R3 보존 진화 → R4 근본충돌 에스컬레이션 → R5 carry-mirror
+확인). 사용자 결정으로 review 루프 종결.

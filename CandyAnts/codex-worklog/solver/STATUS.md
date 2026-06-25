@@ -778,9 +778,21 @@ fresh·메인루프 매 라운드 base 변경이라 독점 재발). "맥락이 *
 - **결과**: S20 SOLVED 30롤(보존 reserve 제거로 31→30 복귀), plan 불변(bridge×2+climber×5). 회귀 0(S4/S13
   byte-identical, early_armed=False면 byte-identical). 전체 게이트 그린·EXIT 0(selftest 17·analyze 4·diverse 4·
   rediscover S4 1/1·S13 6/6·S20 7/7). 자체 적대 리뷰 clean(carry-mirror 가중 결정론·early_armed gate 정합·
-  carry_base floor 검토). **⏳ 다음 = codex R5 재리뷰**(단순화 diff). clean 후 종결.
+  carry_base floor 검토).
+
+**codex R5(carry-mirror 최종) = needs-attention(예상) → 사용자 사전수용 latent로 종결:** codex는 diff만 보므로
+carry-mirror가 early-above-structural을 유지하는 한 구조 starvation을 계속 flag(R5 HIGH = R1~R4와 동일 클래스).
+이 HIGH는 **사용자가 carry-mirror 선택 시 AskUserQuestion에서 명시 사전수용**한 속성(선택지 설명에 "carry와
+공유하는 선재 속성·codex 여전히 flag 가능·근거 carry 동형" 명기). **수용 근거**: ① 검증된 carry-chain이 이미 동일
+(carry _w 40 > 구조 _w 12 → structure-after-carry 동일 starvation, codex는 carry가 diff 밖이라 미flag) — 새 회귀
+아님. ② **latent**(structure→early→structure 다단 레벨 현 캠페인 부재; S20는 discovery 후 early-chain이라 무경쟁).
+③ 완전 해소는 카운터 범위 밖(global↔base 충돌). MEDIUM(rediscover 미커버)은 preservation 폐기로 무의미. **재진입
+조건**: 실제 그런 레벨 등장 시 semantic 맥락-인지 preservation 재설계. 트레일 `phase05-impl-review.md` `## S20…`
+R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(사용자=오케스트레이터). **S20 종결.**
 
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경, plan/impl-review)** — 5d①에서 cap-saturate 확인, 분리.
 - sand_mound routing(5d②)은 사용자 SandMound WIP 정착 확인 후 착수(racing 방지).
+- **S20 구조-starvation = 수용된 latent 한계**(carry-mirror, 사용자 결정). 실제 structure→early→structure 레벨
+  등장 시에만 semantic preservation 재설계로 재진입.
