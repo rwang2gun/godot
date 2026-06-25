@@ -624,9 +624,35 @@ distinct class 미차단) + dead_exact(발견된 검증 joint duplicate 정확+s
 ±시프트·inert-padding superset·검증 joint duplicate는 모두 1 class로 수렴, **미검증 Cartesian joint는 발견 허용**
 (완전성), uncapped 자연소진(stage12 1 class·48롤·search_capped=false). 게이트: `diverse-verify`가 fixed_cell
 불변식·단일 interval·sampled_points·capped 거부·중복 class를 fail-closed 검증 + 3 selfcheck(class-sig/forbid/coverage).
-커밋 cf1fd38·9f31ab2·770f558·4d02d10·2209c26·6100a75·cd98e7d·48e3109·c0f5ccd (로컬, 미푸시).
+커밋 cf1fd38·9f31ab2·770f558·4d02d10·2209c26·6100a75·cd98e7d·48e3109·c0f5ccd → **`4d5bef9`까지 origin/auto-solver 푸시 완료**.
 
-**다음 = 5d**: 미검증 스테이지 다양-해(S13/S14 diverse 적용·S18·Ch2 sand_mound) + sand_mound(cell-up) routing.
+## 5d 착수 계획 (다음 세션 진입점, 2026-06-25 핸드오프)
+
+> 사용자 결정: **가벼운 것(코퍼스 확장) 먼저**, sand_mound routing은 후순위. revised 5b forbid 메커니즘
+> (plus-형+dead_exact+Kuhn)은 R10 approve 종결 — **검증된 도구**이므로 아래 ①은 *데이터 생성*(코드 무변경)이라
+> codex 리뷰 불요. 환경: `GODOT_BIN=` Downloads 중첩 console.exe([[godot-binary-location]]), `--fixed-fps` 하니스 필수.
+
+### ① 다양-해 코퍼스 확장 — **먼저, 코드 변경 없음** (← 다음 세션 시작점)
+기존 routing(blocker/climber/floater/bridge)으로 풀리는 스테이지에 `diverse.json` 생성. 절차(스테이지별):
+1. `python tools/solver/try_solve.py diverse <id> --save --extra-cap <N>` (예 500). **uncapped 목표**:
+   `search_capped=false` 여야 게이트(diverse-verify의 capped 거부, R6) 통과·커밋 가능. capped면 `--extra-cap` 상향.
+   - **stage12 선례**: plus-형 forbid로 1 class·48롤·uncapped 자연소진 → S13/S14도 같은 패턴 기대(churn 없음).
+2. `python tools/solver/try_solve.py diverse-verify <id>` 그린 확인 → 전체 게이트(verify 프론트매터) 그린 확인.
+3. 대상: **S13**(blocker×1+climber×5 carry 연쇄 = 다중 cell_x 슬롯 → plus-형/dead_exact 실전 검증) · **S14**
+   (blocker×3+climber×5) · (선택) S11.  각 `stageNN.diverse.json` 커밋.
+   - ⚠ S13/S14는 carry climber(picked_ge n = none-slot, 비공간) 다수 → forbid의 none-slot 매칭·dead_exact 실전
+     첫 검증. stage12(blocker만)와 달리 **새 슬롯 조합**이라 결과 면밀 확인(특히 search_capped·n_solution_classes).
+4. **S18**: 현재 부분(saved 4/5, 40롤 미달) — diverse 전에 **solve부터** 필요. `try_solve.py search 18 --max-rollouts 50+`
+   로 완주 해 먼저 확보(`stage18.solve.json`) → selftest 편입 → 그 후 diverse. (cap 튜닝만으로 풀릴 가능성, S13/14 선례.)
+   - solve가 cap만으로 안 되면 model.py 휴리스틱 손질 = **코드 변경 → impl-review 대상**(가벼운 트랙에서 분리).
+
+### ② sand_mound (cell-up) routing — **후순위, 선결 확인 필요**
+- `model.propose`에 **cell-target 신규 분기**(수직 벽 검출 → `place_on_cell`) 추가 = bridge보다 큰 작업, **코드 변경
+  → plan-review + impl-review 대상**. Ch2 핵심(S5/S19/S21~25).
+- ⚠ **선결**: 이전 세션에 사용자가 `SandMoundSkill.gd`·stage17/21~25 능동 수정 중이었음(racing 방지로 보류). 착수
+  전 **그 WIP가 커밋·정착됐는지 확인**(현재 워킹트리=`*CarryBuildTest.gd.uid` 4개뿐이라 정착됐을 가능성). 정착 후 routing 설계.
+- Ch2 잔여: S20(bridge+climber, bridge 있으니 cap 재시도) · S21~25(bridge+sand_mound 복합).
 
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)
+- sand_mound routing(5d②)은 사용자 SandMound WIP 정착 확인 후 착수(racing 방지).
