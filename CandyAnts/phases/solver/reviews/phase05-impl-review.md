@@ -300,3 +300,19 @@ R9 1 finding 수정(검증 joint duplicate → false-capped 제거):
 - byte-identical: solve forbid=None inert. 게이트 fail-closed 유지.
 
 **자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(stage12 uncapped). → fix 커밋 후 codex Round 10.
+
+## Round 10 (codex adversarial-review) — ✅ APPROVE (종결)
+
+Verdict: **approve — "No material findings."** codex: "revised forbid는 검증된 plus-형 class 변형 + 정확
+학습 joint duplicate/superset로 soundly scoped; `_discover`는 유한-예산 종료 + 검증 duplicate를 capped로
+오표기 안 함; 커밋된 stage12 report는 uncapped 1 class; 게이트 selfcheck가 class-sig·forbid·capped·coverage
+불변식을 커버."
+
+**impl-stage 적대적 리뷰 종결**: codex R1(HIGH×2+M) → R2(HIGH+M) → R3(HIGH+M) → R4(HIGH+M) → R5(HIGH×2) →
+R6(HIGH+M) → R7(HIGH+M) → R8(HIGH) → R9(HIGH) → **R10 approve**. 매 라운드 사이 자체 적대 리뷰 clean(HIGH 0).
+커밋: cf1fd38·9f31ab2·770f558·4d02d10·2209c26·6100a75·cd98e7d·48e3109·c0f5ccd. 최종 게이트 7/7 그린(회귀 0,
+stage12 uncapped 1 class).
+
+핵심 진화(가능성-공간 다양-해 forbid 메커니즘): naive 4요소 completion → subset-forbid → **plus-형 forbid
+(검증된 단일슬롯 변형만, 미검증 joint는 발견 허용) + dead_exact(검증 joint duplicate 정확 차단)** + Kuhn
+이분매칭 + canonical class-sig + 단일연속 region(fixed_cell 불변식 coverage 강제) + capped 거부 게이트.

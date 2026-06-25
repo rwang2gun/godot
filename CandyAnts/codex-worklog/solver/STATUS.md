@@ -606,5 +606,27 @@ selftest **16/16**(frame byte-identical s12=2385·s13=2719·s14=4624) + analyze 
 경계(axis_independent joint 미주장 / forbid 보수 under-report / grid 도메인 한정) 문서화.
 **⏳ 다음 = codex impl 재리뷰**(사용자 트리거 — model-invocation 불가). clean 후 커밋 + 5d.
 
+## revised 5b — codex impl-review 종결 (2026-06-25) — ✅ R10 approve
+
+> 사용자 "bash로 실행해줘" → companion 직접 호출(정식 경로, [[codex-adversarial-review-invocation]]).
+> 트레일 [phase05-impl-review.md](../../phases/solver/reviews/phase05-impl-review.md). base=`6bef989`(revised 5b 부모).
+
+**codex 10라운드 + 자체리뷰 10라운드 → R10 approve(no material findings).** 매 codex 라운드 사이 자체 적대
+리뷰 clean(HIGH 0). 발견·수정 누적(전부 `tools/solver/diverse.py`±`solve.py`, 엔진/PlanRunner/게임 무변경):
+- R1: provisional 비병합 / y-band 정체성 / stage 바인딩.  R2: plan-level completion forbid / minimize 정규화.
+- R3: canonical class-sig(순서무관) / 인벤토리축 forbid 루프.  R4: continue-past-dup / 예산(minimize+sweep) 계상.
+- R5: 단일연속 region(비연속=별개 class) / dry-limit 제거.  R6: subset-forbid 통합 / fixed_cell 불변식 coverage / capped 거부.
+- R7: Kuhn 이분매칭 / sampled_points 강제.  R8: **plus-형 forbid**(검증 단일슬롯 변형만, 미검증 joint 발견 허용).
+- R9: dead_exact(검증 joint duplicate 정확 차단, false-capped 제거).  **R10 approve.**
+
+**핵심 산물 = forbid 메커니즘**: plus-형(reference + 한 cell_x 슬롯만 interval + superset, soundness 증명으로
+distinct class 미차단) + dead_exact(발견된 검증 joint duplicate 정확+superset 차단) + Kuhn 매칭. 결과: 좌표
+±시프트·inert-padding superset·검증 joint duplicate는 모두 1 class로 수렴, **미검증 Cartesian joint는 발견 허용**
+(완전성), uncapped 자연소진(stage12 1 class·48롤·search_capped=false). 게이트: `diverse-verify`가 fixed_cell
+불변식·단일 interval·sampled_points·capped 거부·중복 class를 fail-closed 검증 + 3 selfcheck(class-sig/forbid/coverage).
+커밋 cf1fd38·9f31ab2·770f558·4d02d10·2209c26·6100a75·cd98e7d·48e3109·c0f5ccd (로컬, 미푸시).
+
+**다음 = 5d**: 미검증 스테이지 다양-해(S13/S14 diverse 적용·S18·Ch2 sand_mound) + sand_mound(cell-up) routing.
+
 ## 블로커
-- 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]].)
+- 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)
