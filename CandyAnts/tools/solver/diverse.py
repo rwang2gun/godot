@@ -251,41 +251,40 @@ def _matches_slot(action: dict, slot: dict, cs: int) -> bool:
     return False
 
 
-def _plan_completes_class(plan: list, cls: dict, cs: int) -> bool:
-    """plan(액션 리스트)이 cls를 *정확히 완성*하는가 — 슬롯 수 동일 + 액션↔슬롯 완전 매칭(bijection).
-    부분/초과/다른 슬롯이면 False(= 이 class의 재구성이 아님)."""
+def _plan_contains_class(plan: list, cls: dict, cs: int) -> bool:
+    """plan이 cls를 **sub-multiset으로 포함**하는가 — cls의 각 슬롯에 매칭되는 *서로 다른* 액션이 plan에
+    있는가(plan은 더 길어도 됨). greedy bijection(슬롯당 미사용 매칭 1개)."""
     slots = cls.get("slots", [])
-    if len(plan) != len(slots):
-        return False
-    used = [False] * len(slots)
-    for a in plan:
+    used = [False] * len(plan)
+    for s in slots:
         hit = False
-        for i, s in enumerate(slots):
+        for i, a in enumerate(plan):
             if not used[i] and _matches_slot(a, s, cs):
                 used[i] = hit = True
                 break
         if not hit:
             return False
-    return all(used)
+    return True
 
 
 def _plan_multiset_sig(plan: list) -> tuple:
-    """플랜의 순서 무관 액션 multiset 시그니처(json 직렬화·정렬). raw 플랜 동치/재발화 판정용."""
+    """플랜의 순서 무관 액션 multiset 시그니처(json 직렬화·정렬). raw 플랜 반복 판정용."""
     return tuple(sorted(json.dumps(a, sort_keys=True) for a in plan))
 
 
-def _make_forbid(classes: list, dead_raw: list, cs: int):
-    """**plan-level** forbid 술어 `(action, base)->bool`(codex R2-HIGH). `base+[action]`이 ① 이미 발견된 어떤
-    class를 *정확히 완성*하거나 ② dead_raw(=minimize 시 seen class로 collapse한 raw superset)를 *정확히
-    재구성*할 때만 금지. ①은 슬롯 하나를 공유하되 다른 슬롯에서 갈라지는 distinct class를 억제하지 않는다
-    (action-level 과대forbid 제거). ②는 completion-only forbid이 못 막는 superset 재발화를 차단해 탐색이
-    조기종료/정체되지 않게 한다(codex R4-HIGH). base=현재 누적 plan(solve가 넘김)."""
-    dead_sigs = {_plan_multiset_sig(p) for p in dead_raw}
+def _make_forbid(classes: list, cs: int):
+    """**plan-level subset** forbid 술어 `(action, base)->bool`. `base+[action]`이 이미 발견된 어떤 class를
+    **sub-multiset으로 포함**하면 금지(codex R2~R6 종합).
+
+    근거: 발견된 class의 minimal은 이미 클리어하므로, *다른* minimal 해는 그 class를 strict-subset으로 포함할
+    수 없다(포함하면 잉여→비최소). 따라서 "class 포함 plan 금지"는 ① 그 class 자신과 ② 그 class에 잉여 액션을
+    덧붙인 superset(예: 예산-소진 inert blocker)만 막고, **distinct class는 절대 억제하지 않는다**. 효과:
+      - 슬롯 하나만 공유(class 전체 미포함)하는 distinct class는 안 걸림(R2-HIGH 과대forbid 없음).
+      - solve가 inert-padding으로 superset을 만들어도 즉시 forbid돼 churn 소멸(R4 dead_raw/dry-limit 불요).
+      - 솔버는 class-미포함 plan(=genuine distinct minimal)만 찾거나 no-clear로 자연 소진(uncapped 종료 가능)."""
     def forbidden(action: dict, base: list) -> bool:
         cand_plan = list(base) + [action]
-        if any(_plan_completes_class(cand_plan, cls, cs) for cls in classes):
-            return True
-        return _plan_multiset_sig(cand_plan) in dead_sigs
+        return any(_plan_contains_class(cand_plan, cls, cs) for cls in classes)
     return forbidden
 
 
@@ -364,20 +363,18 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
         return True
 
     def _discover(inv: dict, axis: str) -> None:
-        """한 인벤토리(inv)로 클리어되는 구별 class를 completion-forbid 반복으로 **모두** 발견(extra_cap 예산
-        내). 전략 축·인벤토리 축이 동일 루프를 써 인벤토리 변형도 다수 class를 놓치지 않는다(codex R3-MEDIUM).
-        forbid는 공유 classes 전체 대상 — 다른 multiset class는 슬롯수/스킬 불일치로 완성 불가라 무해.
+        """한 인벤토리(inv)로 클리어되는 구별 class를 **subset-forbid** 반복으로 발견. 전략 축·인벤토리 축이
+        동일 루프(인벤토리 변형도 다수 class 발견, codex R3). forbid는 공유 classes 전체 대상 — 다른 multiset
+        class는 스킬 multiset 불일치로 포함 불가라 무해.
 
-        codex R4/R5: ① 중복(minimize→seen class collapse)이어도 **종료하지 않고** raw plan을 dead_raw에 넣어
-        forbid하고 계속 탐색(조기종료 금지) — 뒤에 있을 distinct class를 놓치지 않게. ② 예산 = solve 롤아웃 +
-        `_record`의 minimize/range-sweep 롤아웃(roll.count 델타) 모두 계상(첫 class 발견 후).
+        subset-forbid이 발견 class와 그 superset(inert-padding)을 직접 차단 → 솔버는 class-미포함 plan(=genuine
+        distinct minimal)만 찾거나 no-clear로 **자연 소진**(uncapped 종료 가능). dead_raw/dry-limit 불요(codex
+        R4~R6 churn 근절). 예산 = solve 롤아웃 + `_record` minimize/sweep(roll.count 델타) 모두 계상.
 
-        종료 = ⓐ no-clear(forbid 하에 더 못 풂 = 자연 소진, capped 미set) ∨ ⓑ extra_cap 초과(capped) ∨
-        ⓒ seen_raw 반복(솔버 정체 안전망, capped). **휴리스틱 dry-limit 제거**(codex R5-HIGH2: 연속 N중복을
-        완전성으로 위장하던 조기종료) — extra_cap이 유일 예산 바운드, churn은 정직하게 capped로 표기."""
+        종료 = ⓐ no-clear(forbid 하 자연 소진, capped 미set = 완전) ∨ ⓑ extra_cap(capped) ∨ ⓒ seen_raw/예상밖
+        dedup(정체 안전망, capped)."""
         nonlocal extra_rollouts, capped
-        dead_raw: list = []          # minimize 시 seen class로 collapse한 raw 플랜(재발화 차단)
-        seen_raw: set = set()        # 이미 처리한 raw 플랜 sig(솔버 반복 안전망)
+        seen_raw: set = set()        # 이미 처리한 raw 플랜 sig(솔버 반복 안전망 — subset-forbid 하 정상 불발)
         while True:
             if classes and extra_rollouts >= extra_cap:
                 capped = True
@@ -386,7 +383,7 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
             charge = bool(classes)   # 첫 class 발견 이후의 탐색만 extra_rollouts로 계상
             roll0 = roll.count
             s = {}                   # solve.solve가 stats.update로 cleared/rollouts/final_plan을 채움
-            pred = _make_forbid(classes, dead_raw, cs) if (classes or dead_raw) else None
+            pred = _make_forbid(classes, cs) if classes else None
             solve.solve(stage_id, max_rollouts, stats=s, save=False, inv_override=inv, forbid=pred)
 
             def _charge():           # solve(자체 rollouter) + _record(roll: minimize+sweep) 롤아웃 합산
@@ -411,8 +408,10 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
             is_new = _record(plan, inv, axis)
             _charge()
             if not is_new:
-                dead_raw.append(plan)   # superset/중복 → forbid하고 **계속**(codex R4-HIGH, 조기종료 금지)
-                continue
+                # subset-forbid 하 정상상 발생 안 함(반환 plan은 어떤 seen class도 미포함). 발생 시 완전성
+                # 미보장 → 정직 capped 후 종료(무한루프 방지).
+                capped = True
+                return
 
     # ── 축 1: 전략(전체 인벤토리). ── 축 2: 인벤토리 변형(다른 multiset = 다른 class). 둘 다 동일 발견 루프.
     _discover(base_inv, "strategy")
@@ -498,6 +497,10 @@ def _coverage_check_diverse(report: dict) -> list[str]:
     cs = report.get("cell_size")
     if not isinstance(cs, int) or cs <= 0:
         fails.append("cell_size 양의 정수 아님 (%r)" % cs)
+    # 커밋·게이트 대상 report는 **완전(uncapped)** 이어야(codex R6-MEDIUM): search_capped=true는 budget/loop
+    # 캡으로 탐색이 중단된 것 = 미탐색 class 잔존 가능 → 권위 다양-해로 소비 금지. 완전(no-clear 자연 소진)만 통과.
+    if report.get("search_capped"):
+        fails.append("search_capped=true (불완전 — 게이트/커밋 대상은 uncapped 완전 report여야, --extra-cap 상향 재생성)")
     classes = report.get("solution_classes")
     if not isinstance(classes, list) or not classes:
         fails.append("solution_classes 비어있음 (다양-해 0)")
@@ -565,6 +568,23 @@ def _coverage_check_diverse(report: dict) -> list[str]:
                             fails.append("class %r slot %r interval 형식 오류 %r" % (cl, si, iv))
                         elif dom is not None and (iv[0] < dom[0] or iv[1] > dom[1]):
                             fails.append("class %r slot %r interval %r 도메인 %r 밖" % (cl, si, iv, dom))
+                # R5 불변식 강제(codex R6-HIGH): fixed_cell이 ① reference에서 파생 ② authoritative interval에
+                # 포함 ③ 샘플됨. 미검증 시 stale/buggy v2가 틀린 clear run을 authoritative로 주장→오병합/forbid.
+                fc = slot.get("fixed_cell")
+                if isinstance(fc, bool) or not isinstance(fc, int):
+                    fails.append("class %r slot %r fixed_cell 정수 아님 (%r)" % (cl, si, fc))
+                else:
+                    exp_fc = _placement_cell(a, cs) if isinstance(cs, int) and cs > 0 else None
+                    if fc != exp_fc:
+                        fails.append("class %r slot %r fixed_cell %r != reference 파생 %r" % (cl, si, fc, exp_fc))
+                    if isinstance(ivs, list) and len(ivs) == 1 and isinstance(ivs[0], list) and len(ivs[0]) == 2 \
+                            and isinstance(ivs[0][0], int) and isinstance(ivs[0][1], int):
+                        if not (ivs[0][0] <= fc <= ivs[0][1]):
+                            fails.append("class %r slot %r fixed_cell %r이 authoritative interval %r 밖"
+                                         % (cl, si, fc, ivs[0]))
+                    sp = slot.get("sampled_points")
+                    if isinstance(sp, list) and fc not in sp:
+                        fails.append("class %r slot %r fixed_cell %r이 sampled_points에 없음" % (cl, si, fc))
             elif ax != "none":
                 fails.append("class %r slot %r placement_axis 미상 (%r)" % (cl, si, ax))
     # 중복 class 거부(codex R2-MEDIUM) — n==len만으론 class id만 다른 중복이 통과해 diversity 과대주장.
@@ -714,6 +734,8 @@ def _selfcheck_diverse() -> bool:
     dup = json.loads(json.dumps(a["solution_classes"][0])); dup["class"] = 2
     a["solution_classes"].append(dup); a["n_solution_classes"] = 2
     cases.append((a, True))
+    a = good(); a["solution_classes"][0]["slots"][0]["fixed_cell"] = 5; cases.append((a, True))  # fixed_cell이 interval[[0,1]] 밖
+    a = good(); a["search_capped"] = True; cases.append((a, True))                         # 불완전(capped) 커밋 거부
     a = good()
     a["solution_classes"][0]["slots"][0].update({"gap_check_stride": 3, "gap_verified": False,
                                                  "gap_coverage": "sampled@3", "intervals": [[0, 6]], "provisional": True})
@@ -761,8 +783,8 @@ def _selfcheck_class_sig() -> bool:
 
 
 def _selfcheck_forbid() -> bool:
-    """`_make_forbid` 발견성 가드(codex R2-HIGH): plan-level completion forbid이 ① 발견 class의 *정확한
-    재구성*만 막고 ② 슬롯 하나(공유 carry)를 공유하되 다른 슬롯에서 갈라지는 distinct class는 억제 안 함."""
+    """`_make_forbid` subset-forbid 가드: base+[action]이 발견 class를 **sub-multiset 포함**하면 금지(자신+
+    superset 차단)하되, ① 슬롯 하나만 공유(class 전체 미포함)하는 distinct class ② class 미완성 partial은 허용."""
     cs = 48
     def blk(cell):
         return {"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "y_min": 1.0, "y_max": 2.0},
@@ -776,17 +798,14 @@ def _selfcheck_forbid() -> bool:
         {"slot": 1, "skill": "climber", "role": _role_sig(carry()), "timing": _timing_sig(carry()),
          "placement_axis": "none", "fixed_cell": None, "gap_verified": False, "intervals": []},
     ]}
-    forbid = _make_forbid([cls1], [], cs)
-    # dead_raw(R4): raw superset를 forbid해 재발화 차단하되 다른 plan은 발견 허용.
-    raw = [blk(2), carry(), blk(10)]
-    forbid_dr = _make_forbid([], [raw], cs)
+    forbid = _make_forbid([cls1], cs)
     checks = [
-        forbid(blk(2), [carry()]) is True,        # base+action = class1 정확 완성 → 금지
-        forbid(blk(10), [carry()]) is False,      # carry 슬롯 공유·blocker@10(구역 밖)=distinct → 발견 허용
-        forbid(carry(), []) is False,             # 단일 슬롯(미완성, 2슬롯 필요) → 금지 안 함
-        forbid(blk(2), []) is False,              # base 비어 미완성(climber 슬롯 누락) → 금지 안 함
-        forbid_dr(blk(10), [blk(2), carry()]) is True,   # base+action = dead_raw 정확 재구성 → 금지
-        forbid_dr(blk(5), [blk(2), carry()]) is False,   # 다른 plan(B) → 발견 허용(조기종료 방지)
+        forbid(blk(2), [carry()]) is True,        # base+action = class1 포함(정확) → 금지
+        forbid(blk(3), [carry()]) is True,        # blocker@3(구역[0,4] 내)+carry = class1 포함 → 금지(±shift superset)
+        forbid(blk(2), [carry(), blk(7)]) is True,  # class1 포함 + 잉여 blk@7 = superset → 금지(inert-padding 차단)
+        forbid(blk(10), [carry()]) is False,      # carry 공유·blocker@10(구역[0,4] 밖)=class1 미포함 distinct → 허용
+        forbid(carry(), []) is False,             # carry만(blocker 슬롯 누락) = class1 미포함 → 허용
+        forbid(blk(2), []) is False,              # blocker만(climber 슬롯 누락) = class1 미포함 → 허용
     ]
     if not all(checks):
         print("[diverse-verify] FORBID SELFCHECK FAIL: %s" % checks)

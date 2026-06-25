@@ -214,3 +214,30 @@ R5 2 finding 수정:
   grid 도메인 한정. 모두 disclosed.
 
 **자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 6.
+
+## Self-Review Round 7 (codex R6 수정 후 자체 적대 리뷰)
+
+R6 2 finding 수정 + forbid 메커니즘 통합 재설계:
+- **[R6-HIGH] coverage R5 불변식 강제**: `_coverage_check_diverse`가 cell_x 슬롯에 ① `fixed_cell==
+  _placement_cell(ref[ref_index])` ② authoritative interval이 fixed_cell 포함 ③ sampled_points에 fixed_cell
+  포함을 fail-closed 검증. 음성 selfcheck(fixed_cell 구역 밖) 추가.
+- **[R6-MEDIUM] capped 커밋 거부**: coverage가 `search_capped:true` report를 거부(커밋/게이트 대상은 완전
+  uncapped). + stage12를 **uncapped 재생성**(search_capped=false, extra_rollouts=48).
+- **통합 재설계 — subset-forbid**: completion+dead_raw+dry-limit churn(R4~R6 반복 원인) 근절. `_make_forbid`를
+  `base+[action]`이 발견 class를 **sub-multiset 포함**하면 금지로 단순화. **정리(soundness)**: 발견 class의
+  minimal은 이미 클리어 → 다른 minimal 해는 그것을 strict-subset 포함 불가(잉여→비최소). ∴ subset-forbid은
+  class 자신+superset(inert-padding)만 막고 distinct class는 절대 미차단. 효과: solve가 superset 못 만들고
+  (즉시 forbid) class-미포함 plan만 찾거나 no-clear 자연 소진 → **uncapped 종료** + churn 소멸. dead_raw/dry-limit/
+  `_plan_completes_class` 제거.
+
+자체 적대 검토(HIGH 0):
+- 소거 증명으로 subset-forbid은 distinct minimal class를 절대 미차단(over-forbid 0). greedy 포함판정 false-negative
+  →under-forbid→solve가 superset 반환→minimize→class collapse→dedup→capped 종료(sound·honest, 무한루프 없음).
+  false-positive 불가(매칭 성공=실제 포함).
+- empty-class(베이스라인 클리어): _discover가 빈 플랜 기록 후 즉시 return(forbid 미구성). 인벤토리 축에선
+  _plan_contains_class(빈 slots)=vacuous True로 전부 forbid=정확(유일 해=무도구). 엣지 정상.
+- 종료성: distinct class(유한) ∨ no-clear(완전) ∨ extra_cap(capped) ∨ seen_raw/예상밖dedup(capped). 무한루프 불가.
+- byte-identical: solve forbid=None inert(selftest 불변). 게이트 fail-closed 강화(fixed_cell 불변식·capped 거부·
+  schema v2) 유지. stage12 uncapped라 capped-reject 게이트 통과.
+
+**자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0, stage12 uncapped). → fix 커밋 후 codex Round 7.
