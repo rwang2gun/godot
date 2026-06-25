@@ -749,7 +749,20 @@ carry 체인(픽업 *후* 운반 무장)의 **상행판**이 부재.
   R1 동작으로 되돌리면 selfcheck FAIL(A 독점 반환), R2 fix면 PASS = vacuous 아님.
 - **자체 적대 리뷰(R2 2-fix) clean(HIGH 0)**: untried 필터 결정론·`is not` 식별자·selfcheck 합성입력 정합 검토 통과.
 - 전체 게이트 그린·EXIT 0(preserve-selfcheck PASS + rediscover S4/S13/S20 + selftest 17 + analyze 4 + diverse 4).
-  **⏳ 다음 = codex R3 재리뷰**(R2 2-fix diff). clean 후 종결.
+
+**codex R3(needs-attention, base=a560995, 커밋 `6ac97c1`까지) → 라운드-로빈 fix:** R2가 R1 모순을 노출.
+- **[HIGH] R2 untried 필터가 ceiling-exemption과 모순**: 천장 후보는 "단독 실패하나 다른 액션이 plan 맥락을
+  바꾸면 유용"해 의도적 재제안되는데, R2의 `label∉exclude`가 이들을 보존서 영구 배제 → 맥락 변화 후 필요해진
+  천장 구조가 여전히 굶음(R1 독점 ↔ R2 retry-eligible 배제 순환). → **수정**: 보존 대상을 **least-attempted
+  라운드-로빈**으로 — live 구조(재제안 천장 포함) 중 **롤아웃 시도 횟수 최소**(동률=가중 desc)를 보존. 보존·실패
+  하면 attempts↑ → 다음 라운드 다른 구조 보존 → **모든 live 구조가 유한 라운드 내 보존(영구 starvation 불가능,
+  천장 retry-eligible rotating past)**. `solve.attempts`(label→횟수) eval_cands서 누적·propose 전달. attempts=None
+  기본=R1(다른 호출자). S20 거동 불변(31롤 byte-identical). early_active=False면 미적용=byte-identical.
+- selfcheck 갱신(라운드-로빈): 동률→A(최대가중) / A 1회→B(독점차단) / B 2회→A(rotation, retry-eligible). **prove-it**:
+  R1(top-1) 동작이면 (2)에서 A 반환 FAIL, R3면 PASS = 박제. 자체 리뷰 clean(HIGH 0): min 결정론·attempts 누적·
+  early_active=False 불변 검토 통과.
+- 전체 게이트 그린·EXIT 0(preserve round-robin + rediscover S4/S13/S20 + selftest 17 + analyze 4 + diverse 4).
+  **⏳ 다음 = codex R4 재리뷰**(round-robin diff). clean 후 종결.
 
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)

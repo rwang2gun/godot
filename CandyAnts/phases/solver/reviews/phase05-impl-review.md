@@ -391,3 +391,30 @@ coverage does not exercise the remaining failure mode.
   동작으로 되돌리면 FAIL(A 반환), R2면 PASS = 회귀 박제(vacuous 아님).
 - 자체 적대 리뷰(R2) clean(HIGH 0). 전체 게이트 그린·EXIT 0(preserve-selfcheck + rediscover S4/S13/S20 +
   selftest 17 + analyze 4 + diverse 4).
+
+## Round 3 (codex, base=a560995, 커밋 6ac97c1까지) — needs-attention
+
+Verdict: needs-attention. No-ship: R2 prevents one tried ceiling candidate from monopolizing the
+preservation slot, but it also permanently excludes retry-eligible structure candidates by global label,
+leaving a real starvation path after the plan context changes.
+
+- [high] Preservation skips retry-eligible structure candidates after context changes (model.py:388-393)
+  `top_struct` only preserves structure candidates whose label is not in the global `exclude` set. That
+  conflicts with the reverse-candidate logic that intentionally re-proposes ceiling candidates after they
+  were tried, because a blocker can fail alone and become useful only after another action changes the plan
+  context. In an early-chain round, a ceiling structure tried under an earlier base is re-created by propose
+  but line 390 makes it ineligible for the preservation slot, so it can stay outside the truncated set
+  indefinitely. Closes tried-monopoly but can still starve a necessary structure in structure→early→structure.
+  Recommendation: Do not key preservation solely on global label freshness. Track tried status by plan/base
+  signature for retry-exempt structure candidates, or include re-proposed candidates while rotating past
+  exact same-base failures. Add a selfcheck where A is tried under one base, an early action is added, and A
+  must still receive a preservation slot under the new base.
+
+### Fix (R3 round-robin)
+- HIGH → `model.propose` 보존 대상을 **least-attempted 라운드-로빈**으로: live 구조 후보(재제안 천장 포함)
+  중 롤아웃 시도 횟수(`attempts` label→count)가 최소인 것을 보존(동률=가중 desc). 보존·실패하면 attempts↑ →
+  다음 라운드 다른 구조 → 모든 live 구조가 유한 라운드 내 보존(영구 starvation 불가능, 천장 retry-eligible은
+  rotating past로 exact 반복만 회피·배제 안 함 = R3 모순 해소). `solve.attempts`가 eval_cands서 누적 → propose
+  전달. attempts=None 기본=R1(타 호출자). S20 거동 불변(31롤, solve.json byte-identical). early_active=False면 미적용.
+- selfcheck 라운드-로빈 갱신 + prove-it(R1 top-1 동작이면 (2) A 반환 FAIL). 자체 리뷰 clean(HIGH 0).
+- 전체 게이트 그린·EXIT 0(preserve round-robin + rediscover S4/S13/S20 + selftest 17 + analyze 4 + diverse 4).

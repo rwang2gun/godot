@@ -272,12 +272,14 @@ def _has_ceiling(occ: set, col: int, row: int) -> bool:
 
 
 def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
-            notes: dict, exclude: set, max_n: int, plan: list | None = None) -> list[dict]:
+            notes: dict, exclude: set, max_n: int, plan: list | None = None,
+            attempts: dict | None = None) -> list[dict]:
     """다음 개입 후보를 랭킹 반환. 각 후보 = {"action": v1액션, "label": str}.
     우선순위: ① 물 진입을 막는 반전(blocker 등 routing=reverse) — 가장 흔한 치명적 실패.
               ② 픽업했으나 귀환 부족 → 무장 up(climber 등)으로 귀로 확보(타이밍: 회수 완료 후).
     notes(스테이지 비고)는 우선순위 가중만(비구속).
-    plan = 현재 누적 plan(없으면 None) — early 체인(상행 climber) 게이트 `_has_early_arm`에만 쓴다."""
+    plan = 현재 누적 plan(없으면 None) — early 체인(상행 climber) 게이트 `_has_early_arm`에만 쓴다.
+    attempts = label→롤아웃 시도 횟수(없으면 None) — early_active 시 구조-후보 보존 라운드-로빈에만 쓴다."""
     cs = layout["cell_size"]
     by_r = _skills_by_routing(inventory, metas)
     cands: list[dict] = []
@@ -376,20 +378,23 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     cands.sort(key=lambda c: -c["_w"])
     if not early_active:
         return cands[:max_n]                       # 기존 모든 스테이지: early_active=False → byte-identical
-    # codex impl-review HIGH: early_armed 부스트(210+)가 `cands[:max_n]` 절단에서 **구조 후보**(reverse/
-    # safe_fall/cross = 다리·블로커 배치, trigger=ant_reaches_x)를 굶기면 structure→early→structure 다단
-    # 레벨이 막힌다(boost가 max_n을 early로 채워 구조 진척을 못 봄). **최상위 구조 후보 1개를 절단에서 항상
-    # 보존**해 매 라운드 구조 후보가 평가되게 보장 → 필요한 구조가 있으면 그 라운드(또는 LA2 frontier)에서
-    # 발견·채택된다. early 체인은 나머지 슬롯으로 계속 진행(보존 1칸 비용만). early_active=False면 미적용.
-    # codex impl-review R2 HIGH: 보존 슬롯이 *이미 시도된(tried)* 구조 후보 — 특히 ceiling-exempt라 재제안되는
-    # 비개선 천장 후보 — 에 독점되면 차하위 *필요* 구조가 여전히 굶는다. 보존 대상 = **아직 안 써본(untried)
-    # 최상위 구조 후보**로 한정 → 시도돼 실패한 구조는 다음 라운드 보존에서 빠지고(tried=exclude), fresh 구조가
-    # 슬롯을 받는다. untried 구조가 없으면(전부 시도됨) 보존 안 함(새로 평가할 fresh 구조 없음 = 헛 롤아웃 방지).
-    top_struct = next((c for c in cands
-                       if (c["action"].get("trigger") or {}).get("type") == "ant_reaches_x"
-                       and c["label"] not in exclude), None)
-    if top_struct is None or top_struct in cands[:max_n]:
-        return cands[:max_n]                       # untried 구조 없음 or 이미 head에 포함 → 절단 그대로
+    # 구조-후보 보존(codex impl-review R1→R3, 라운드-로빈). 문제: early_armed 부스트(210+)가 `cands[:max_n]`
+    # 절단에서 **구조 후보**(reverse/safe_fall/cross = 다리·블로커, trigger=ant_reaches_x)를 굶기면
+    # structure→early→structure 다단 레벨이 막힌다. 한 구조 슬롯을 보존하되, 어떤 구조를 보존하느냐가 핵심:
+    #   R1(최상위 1개) → 비개선 천장 후보(ceiling-exempt라 재제안됨)가 매 라운드 재보존돼 슬롯 독점(R2 HIGH).
+    #   R2(untried만) → 천장 후보는 "단독 실패하나 다른 액션이 plan 맥락을 바꾸면 유용"해 의도적 재제안되는데
+    #     global exclude로 영구 배제 = ceiling-exemption 설계와 모순(R3 HIGH).
+    # 해결 = **least-attempted 라운드-로빈**: live 구조 후보(재제안 천장 포함) 중 **롤아웃 시도 횟수가 가장 적은**
+    # 것을 보존(동률은 가중 desc). 보존·실패하면 attempts↑ → 다음 라운드엔 덜 시도된 다른 구조가 보존된다 →
+    # **모든 live 구조가 유한 라운드 내 보존·평가됨**(영구 starvation 불가능). 천장 retry-eligible은 attempts로
+    # rotating past(exact 반복 회피)하되 배제 안 함(R3 해소). attempts=None(기본)이면 R1 동작(다른 호출자용).
+    structs = [c for c in cands if (c["action"].get("trigger") or {}).get("type") == "ant_reaches_x"]
+    if not structs:
+        return cands[:max_n]                       # 구조 후보 없음 → 절단 그대로
+    att = attempts or {}
+    top_struct = min(structs, key=lambda c: (att.get(c["label"], 0), -c["_w"]))   # 최소 시도(동률=최대 가중)
+    if top_struct in cands[:max_n]:
+        return cands[:max_n]                       # 이미 head에 포함 → 절단 그대로
     return [top_struct] + [c for c in cands if c is not top_struct][:max_n - 1]
 
 
@@ -401,11 +406,11 @@ def _note_w(notes: dict, sid: str) -> int:
 
 
 def _selfcheck_preserve() -> tuple[bool, str]:
-    """codex impl-review R2 회귀 단위 검증(엔진 불요) — early_active 시 구조-후보 보존 슬롯이 *tried* 후보
-    (ceiling-exempt라 재제안되는 비개선 천장 후보)에 독점되지 않고 **untried 최상위 구조**를 보존하는지
-    propose 후보 랭킹을 직접 단언. 시나리오: 구조 후보 A=(10,5) 천장有·물·고가중 / B=(3,5) 천장無·저가중,
-    early 체인 활성(plan에 climber early arm) → 둘 다 early boost로 절단될 가중. (1) A untried → 보존=A.
-    (2) A tried(exclude) → 보존=B(A 독점 차단, R2 fix). R1 동작이면 (2)에서 A가 나와 FAIL → 회귀 박제."""
+    """codex impl-review R1→R3 회귀 단위 검증(엔진 불요) — early_active 시 구조-후보 보존이 **least-attempted
+    라운드-로빈**으로 작동(어떤 구조도 영구 starvation 안 됨, 천장 retry-eligible 포함)하는지 propose 후보
+    랭킹을 직접 단언. 시나리오: 구조 A=(10,5) 천장有·물·고가중 / B=(3,5) 천장無·저가중, early 체인 활성(둘 다
+    early boost로 절단될 가중). (1) attempts 동률(0) → 보존=A(최대 가중). (2) A 1회 시도 → 보존=B(독점 차단,
+    R2). (3) A 1회·B 2회 → 보존=A(B 과다시도라 rotation, R3 retry-eligible). R1 동작(top-1)이면 (2)·(3) FAIL."""
     metas = {"blocker": {"routing": "reverse", "category": "ANT_ARMED"},
              "climber": {"routing": "up", "category": "ANT_ARMED"}}
     inventory = {"blocker": 2, "climber": 5}
@@ -419,10 +424,15 @@ def _selfcheck_preserve() -> tuple[bool, str]:
     early_plan = [{"skill": "climber", "target": {"mode": "ant", "select": "spawn_index", "spawn_index": 3},
                    "trigger": {"type": "immediate"}}]   # early_active=True
     a_label, b_label = "blocker@10,5:max_xge", "blocker@3,5:max_xge"
-    r1 = propose(layout, diag, inventory, metas, notes={}, exclude=set(), max_n=6, plan=early_plan)
-    if not r1 or r1[0]["label"] != a_label:
-        return False, "A untried인데 보존 선두가 A 아님: %s" % (r1[0]["label"] if r1 else None)
-    r2 = propose(layout, diag, inventory, metas, notes={}, exclude={a_label}, max_n=6, plan=early_plan)
-    if not r2 or r2[0]["label"] != b_label:
-        return False, "A tried인데 보존 선두가 B(untried) 아님(독점 미차단): %s" % (r2[0]["label"] if r2 else None)
-    return True, "preserve OK (A untried→A, A tried→B)"
+
+    def _preserved(att):
+        r = propose(layout, diag, inventory, metas, notes={}, exclude=set(), max_n=6, plan=early_plan, attempts=att)
+        return r[0]["label"] if r else None
+
+    if _preserved({}) != a_label:                                   # (1) 동률 → 최대 가중 A
+        return False, "동률 attempts인데 보존 선두가 A(최대 가중) 아님: %s" % _preserved({})
+    if _preserved({a_label: 1}) != b_label:                         # (2) A 1회 → 덜 시도된 B (독점 차단)
+        return False, "A 1회 시도인데 보존 선두가 B(least-attempted) 아님(독점 미차단): %s" % _preserved({a_label: 1})
+    if _preserved({a_label: 1, b_label: 2}) != a_label:             # (3) B 과다시도 → A로 rotation
+        return False, "B 과다시도인데 보존이 A로 rotation 안 됨(R3 retry-eligible): %s" % _preserved({a_label: 1, b_label: 2})
+    return True, "preserve round-robin OK (동률→A, A1회→B, B2회→A)"
