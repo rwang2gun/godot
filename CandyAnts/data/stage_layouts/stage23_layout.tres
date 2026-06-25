@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_vx07b")
 cell_size = 48
-platform_cells = Array[Vector2i]([Vector2i(0, 7), Vector2i(1, 7), Vector2i(2, 7), Vector2i(3, 7), Vector2i(6, 7), Vector2i(7, 7), Vector2i(8, 7), Vector2i(9, 7), Vector2i(10, 7), Vector2i(11, 7), Vector2i(15, 7), Vector2i(16, 7), Vector2i(17, 7), Vector2i(18, 7), Vector2i(19, 7), Vector2i(20, 7), Vector2i(21, 7), Vector2i(22, 7), Vector2i(23, 7), Vector2i(24, 7), Vector2i(0, 8), Vector2i(1, 8), Vector2i(2, 8), Vector2i(3, 8), Vector2i(6, 8), Vector2i(7, 8), Vector2i(8, 8), Vector2i(9, 8), Vector2i(10, 8), Vector2i(11, 8), Vector2i(20, 8), Vector2i(21, 8), Vector2i(22, 8), Vector2i(23, 8), Vector2i(24, 8), Vector2i(0, 9), Vector2i(1, 9), Vector2i(2, 9), Vector2i(3, 9), Vector2i(6, 9), Vector2i(7, 9), Vector2i(8, 9), Vector2i(9, 9), Vector2i(10, 9), Vector2i(11, 9), Vector2i(20, 9), Vector2i(21, 9), Vector2i(22, 9), Vector2i(23, 9), Vector2i(0, 10), Vector2i(1, 10), Vector2i(2, 10), Vector2i(3, 10), Vector2i(6, 10), Vector2i(7, 10), Vector2i(8, 10), Vector2i(9, 10), Vector2i(10, 10), Vector2i(11, 10), Vector2i(20, 10), Vector2i(21, 10), Vector2i(22, 10), Vector2i(1, 11), Vector2i(2, 11), Vector2i(8, 11), Vector2i(9, 11), Vector2i(14, 11), Vector2i(15, 11), Vector2i(16, 11), Vector2i(17, 11), Vector2i(18, 11), Vector2i(19, 11), Vector2i(20, 11), Vector2i(21, 11), Vector2i(1, 12), Vector2i(2, 12), Vector2i(8, 12), Vector2i(9, 12), Vector2i(18, 12), Vector2i(19, 12), Vector2i(20, 12), Vector2i(18, 13), Vector2i(19, 13), Vector2i(16, 14), Vector2i(17, 14), Vector2i(18, 14), Vector2i(0, 15), Vector2i(1, 15), Vector2i(2, 15), Vector2i(3, 15), Vector2i(4, 15), Vector2i(5, 15), Vector2i(6, 15), Vector2i(7, 15), Vector2i(8, 15), Vector2i(9, 15), Vector2i(10, 15), Vector2i(11, 15), Vector2i(12, 15), Vector2i(13, 15), Vector2i(14, 15), Vector2i(15, 15), Vector2i(16, 15), Vector2i(17, 15), Vector2i(0, 16), Vector2i(1, 16), Vector2i(2, 16), Vector2i(3, 16), Vector2i(4, 16), Vector2i(5, 16), Vector2i(6, 16), Vector2i(7, 16), Vector2i(8, 16), Vector2i(9, 16), Vector2i(10, 16), Vector2i(11, 16), Vector2i(12, 16), Vector2i(13, 16), Vector2i(14, 16), Vector2i(15, 16), Vector2i(16, 16), Vector2i(17, 16)])
+platform_cells = Array[Vector2i]([Vector2i(15, 6), Vector2i(16, 6), Vector2i(17, 6), Vector2i(18, 6), Vector2i(19, 6), Vector2i(20, 6), Vector2i(21, 6), Vector2i(22, 6), Vector2i(23, 6), Vector2i(24, 6), Vector2i(25, 6), Vector2i(0, 7), Vector2i(1, 7), Vector2i(2, 7), Vector2i(3, 7), Vector2i(6, 7), Vector2i(7, 7), Vector2i(8, 7), Vector2i(9, 7), Vector2i(10, 7), Vector2i(11, 7), Vector2i(20, 7), Vector2i(21, 7), Vector2i(22, 7), Vector2i(23, 7), Vector2i(24, 7), Vector2i(25, 7), Vector2i(0, 8), Vector2i(1, 8), Vector2i(2, 8), Vector2i(3, 8), Vector2i(6, 8), Vector2i(7, 8), Vector2i(8, 8), Vector2i(9, 8), Vector2i(10, 8), Vector2i(11, 8), Vector2i(20, 8), Vector2i(21, 8), Vector2i(22, 8), Vector2i(23, 8), Vector2i(24, 8), Vector2i(0, 9), Vector2i(1, 9), Vector2i(2, 9), Vector2i(3, 9), Vector2i(6, 9), Vector2i(7, 9), Vector2i(8, 9), Vector2i(9, 9), Vector2i(10, 9), Vector2i(11, 9), Vector2i(20, 9), Vector2i(21, 9), Vector2i(22, 9), Vector2i(23, 9), Vector2i(0, 10), Vector2i(1, 10), Vector2i(2, 10), Vector2i(3, 10), Vector2i(6, 10), Vector2i(7, 10), Vector2i(8, 10), Vector2i(9, 10), Vector2i(10, 10), Vector2i(11, 10), Vector2i(20, 10), Vector2i(21, 10), Vector2i(22, 10), Vector2i(1, 11), Vector2i(2, 11), Vector2i(8, 11), Vector2i(9, 11), Vector2i(14, 11), Vector2i(15, 11), Vector2i(16, 11), Vector2i(17, 11), Vector2i(18, 11), Vector2i(19, 11), Vector2i(20, 11), Vector2i(21, 11), Vector2i(1, 12), Vector2i(2, 12), Vector2i(8, 12), Vector2i(9, 12), Vector2i(18, 12), Vector2i(19, 12), Vector2i(20, 12), Vector2i(18, 13), Vector2i(19, 13), Vector2i(16, 14), Vector2i(17, 14), Vector2i(18, 14), Vector2i(0, 15), Vector2i(1, 15), Vector2i(2, 15), Vector2i(3, 15), Vector2i(4, 15), Vector2i(5, 15), Vector2i(6, 15), Vector2i(7, 15), Vector2i(8, 15), Vector2i(9, 15), Vector2i(10, 15), Vector2i(11, 15), Vector2i(12, 15), Vector2i(13, 15), Vector2i(14, 15), Vector2i(15, 15), Vector2i(16, 15), Vector2i(17, 15), Vector2i(0, 16), Vector2i(1, 16), Vector2i(2, 16), Vector2i(3, 16), Vector2i(4, 16), Vector2i(5, 16), Vector2i(6, 16), Vector2i(7, 16), Vector2i(8, 16), Vector2i(9, 16), Vector2i(10, 16), Vector2i(11, 16), Vector2i(12, 16), Vector2i(13, 16), Vector2i(14, 16), Vector2i(15, 16), Vector2i(16, 16), Vector2i(17, 16)])
 tile_map = {
 "0,10": "solid",
 "0,15": "solid",
@@ -43,26 +43,26 @@ tile_map = {
 "15,11": "solid",
 "15,15": "solid",
 "15,16": "solid",
-"15,7": "solid",
+"15,6": "solid",
 "16,11": "solid",
 "16,14": "solid",
 "16,15": "solid",
 "16,16": "solid",
-"16,7": "solid",
+"16,6": "solid",
 "17,11": "solid",
 "17,14": "solid",
 "17,15": "solid",
 "17,16": "solid",
-"17,7": "solid",
+"17,6": "solid",
 "18,11": "solid",
 "18,12": "solid",
 "18,13": "solid",
 "18,14": "solid",
-"18,7": "solid",
+"18,6": "solid",
 "19,11": "solid",
 "19,12": "solid",
 "19,13": "solid",
-"19,7": "solid",
+"19,6": "solid",
 "2,10": "solid",
 "2,11": "solid",
 "2,12": "solid",
@@ -74,23 +74,30 @@ tile_map = {
 "20,10": "solid",
 "20,11": "solid",
 "20,12": "solid",
+"20,6": "solid",
 "20,7": "solid",
 "20,8": "solid",
 "20,9": "solid",
 "21,10": "solid",
 "21,11": "solid",
+"21,6": "solid",
 "21,7": "solid",
 "21,8": "solid",
 "21,9": "solid",
 "22,10": "solid",
+"22,6": "solid",
 "22,7": "solid",
 "22,8": "solid",
 "22,9": "solid",
+"23,6": "solid",
 "23,7": "solid",
 "23,8": "solid",
 "23,9": "solid",
+"24,6": "solid",
 "24,7": "solid",
 "24,8": "solid",
+"25,6": "solid",
+"25,7": "solid",
 "3,10": "solid",
 "3,15": "solid",
 "3,16": "solid",
@@ -177,6 +184,6 @@ hazard_map = {
 "31,16": "water"
 }
 home_cell = Vector2i(10, 6)
-candy_cell = Vector2i(22, 6)
+candy_cell = Vector2i(22, 5)
 camera_cell = Vector2i(11, 7)
 spawn_direction = -1

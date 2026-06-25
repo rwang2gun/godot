@@ -16,7 +16,7 @@ skill_inventory = {
 "bridge": 2,
 "floater": 2,
 "sand_mound": 4,
-"slideL": 2,
-"slideR": 2
+"slideL": 1,
+"slideR": 1
 }
 release_rate_initial = 30
