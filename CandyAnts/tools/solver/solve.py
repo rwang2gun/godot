@@ -220,7 +220,12 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
         use_vault=False면 pruning 미적용(fail-open 재propose용). base = 현재 누적 plan(pruned_log 반사실 기준).
         src_res = diagnosis d를 만든 결과(트레이스) — retired/trapped를 **그 트레이스에서** 계산(R2 MEDIUM:
         LA2는 best가 아닌 res1 trace로 진단하므로 신호도 같은 trace에서 와야 위기가 올바르게 발화)."""
-        cands = model.propose(layout, d, inv, metas, notes, exclude=tried, max_n=cap)
+        # early 체인 게이트(model.propose `_has_early_arm`)는 **확정 plan**(closure)으로 판정 — speculative
+        # base(LA2의 base2=plan+[c1])가 아니라. base2로 판정하면 LA2가 climber@early를 c1로 깔 때 early_armed가
+        # 조기 발화해 boost가 2nd-step의 bridge(gap2 다리)를 max_n 밖으로 밀어내 **다중스킬 조합(climber+bridge)
+        # 발견을 깨뜨린다**(stage20 실측: saved 1→0). 확정 plan에 early 무장이 든 뒤(=조합 발견 후)에만 체인
+        # boost가 켜진다. forbid_pred(diverse)의 plan-aware base는 종전대로 base를 쓴다(아래 별도 인자).
+        cands = model.propose(layout, d, inv, metas, notes, exclude=tried, max_n=cap, plan=plan)
         if seed_fn:
             cands = _merge_seeded(seed_fn(layout, d, inv, metas), cands)[:cap]
         else:

@@ -244,6 +244,23 @@ def _band(cs: int, row: int) -> tuple[float, float]:
     return (row * cs - 8.0, (row + 2) * cs + 8.0)
 
 
+def _has_early_arm(plan, sid: str) -> bool:
+    """plan에 이 스킬(sid)의 **early 무장**(select=spawn_index + trigger immediate) 액션이 이미 채택돼
+    있는가. early 체인(상행 climber)의 게이트 — carry 체인의 상행판이다(아래 propose ② 참조). 채택된 적
+    없으면(기존 모든 스테이지: early 무장을 끝내 채택 안 하거나[carry로 풀림] 첫 early 후보서 즉시 클리어)
+    False → 종전 후보 집합·순서와 byte-identical. plan=None(기본)이면 False."""
+    if not plan:
+        return False
+    for a in plan:
+        if a.get("skill") != sid:
+            continue
+        if (a.get("trigger") or {}).get("type") != "immediate":
+            continue
+        if (a.get("target") or {}).get("select") == "spawn_index":
+            return True
+    return False
+
+
 def _has_ceiling(occ: set, col: int, row: int) -> bool:
     """blocker 셀 (col,row) **상공**(같은 열, 더 위 행)에 solid 타일(천장)이 있는가.
     있으면 = 위층 개미가 그 열로 직접 낙하할 수 없다 → 그 자리 반전 blocker는 위층 낙하 개미와 **재충돌하지
@@ -255,11 +272,12 @@ def _has_ceiling(occ: set, col: int, row: int) -> bool:
 
 
 def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
-            notes: dict, exclude: set, max_n: int) -> list[dict]:
+            notes: dict, exclude: set, max_n: int, plan: list | None = None) -> list[dict]:
     """다음 개입 후보를 랭킹 반환. 각 후보 = {"action": v1액션, "label": str}.
     우선순위: ① 물 진입을 막는 반전(blocker 등 routing=reverse) — 가장 흔한 치명적 실패.
               ② 픽업했으나 귀환 부족 → 무장 up(climber 등)으로 귀로 확보(타이밍: 회수 완료 후).
-    notes(스테이지 비고)는 우선순위 가중만(비구속)."""
+    notes(스테이지 비고)는 우선순위 가중만(비구속).
+    plan = 현재 누적 plan(없으면 None) — early 체인(상행 climber) 게이트 `_has_early_arm`에만 쓴다."""
     cs = layout["cell_size"]
     by_r = _skills_by_routing(inventory, metas)
     cands: list[dict] = []
@@ -312,16 +330,26 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     cnt = diag["candy_hp"]
     return_phase = diag["picked_total"] >= cnt > 0
     base = 100 if return_phase else 1
+    ant_n = diag.get("ant_count", 0)
     for sid in by_r.get("up", []):
         if str((metas.get(sid) or {}).get("category", "")) != "ANT_ARMED":
             continue   # 무장형만(설치형 up=sand_mound는 cell 대상, ① 경로)
-        for si in range(diag.get("ant_count", 0)):     # early: 개미별 즉시 무장
+        # early 체인(사용자 통찰, stage20 "이상한 계단" = 다단 상승 + 물 갭). 각 개미가 **픽업 전(상행)** 에
+        # 벽을 타야 candy에 닿는 레벨에선 climber를 spawn_index 전반으로 체이닝해야 한다 — carry 체인(②
+        # 아래, 운반=하행 귀환)의 **상행판**. 한 early 무장이 이미 plan에 채택돼 진척을 냈으면(early_armed),
+        # 나머지 spawn_index 무장은 ⓐ exclude(tried) **면제**(plan 맥락이 바뀌었으니 재평가) + ⓑ 가중 부스트
+        # (carry처럼 연쇄가 다른 후보보다 먼저 평가돼 cap 내 완결)로 si0→…→si(n-1) 연쇄 채택된다. 이미 채택된
+        # early의 중복 롤아웃은 solve.eval_cands action-dup 가드가 차단(carry와 동일 패턴). early_armed가 False
+        # (기존 모든 스테이지)면 종전 후보 집합·순서와 byte-identical.
+        early_armed = _has_early_arm(plan, sid)
+        for si in range(ant_n):                        # early: 개미별 즉시 무장
             label = "%s@early:si%d" % (sid, si)
-            if label in exclude:
+            if label in exclude and not early_armed:
                 continue
             action = {"skill": sid, "target": {"mode": "ant", "select": "spawn_index", "spawn_index": si},
                       "trigger": {"type": "immediate"}}
-            cands.append({"action": action, "label": label, "_w": base + _note_w(notes, sid)})
+            w = (210 + (ant_n - si)) if early_armed else (base + _note_w(notes, sid))
+            cands.append({"action": action, "label": label, "_w": w})
         # carry: 픽업이 하나라도 발생했으면(picked_total>0) 운반 개미 귀환 무장을 제안. 귀로 단계면 최우선.
         carry_base = (220 if return_phase else 40) if diag["picked_total"] > 0 else 0
         # carry(운반 개미 무장)는 exclude(tried) 면제 — plan 누적 시 재평가돼야 carry1→2→…→n 연쇄 채택이

@@ -678,6 +678,52 @@ distinct class 미차단) + dead_exact(발견된 검증 joint duplicate 정확+s
   글롭 비대상이라 selftest 불간섭. `verify` 프론트매터 무변경(diverse-verify가 no-arg로 신규 3개 자동 발견).
 - 커밋: `data/solutions/stage{11,13,14}.diverse.json` + STATUS(이 절). 사용자 WIP `*CarryBuildTest.gd.uid` 4개 미포함.
 
+## S20 "이상한 계단" SOLVED — early-climber 체이닝 (2026-06-25, 커밋 대기, ⏳codex 대기)
+
+> 5d 잔여 Ch2 타깃. S20(bridge×2+climber×5)을 cap 재시도로 시도했으나 **saved=1/5 포화**(S18과 동일한
+> 휴리스틱 한계, cap 부족 아님 — rollout 29/50서 "진척 못 냄" 조기 정지). 사용자 결정="S20 early-climber
+> 체이닝"으로 model.py 휴리스틱 손질. 엔진/PlanRunner/게임 무변경, `tools/solver/` + selftest EXPECTED만.
+
+**레벨 구조(파일 20 = Ch2 5번째)**: 3단 상승 계단 — 1단 home(cols0–4,표면row12) → 갭1 물(cols5–7) → 2단
+(cols8–12,row10) → 갭2 물(cols13–15) → 3단 candy(cols16–19,row7, candy(18,6)). 의도 해 = 갭마다 bridge
+1개(영구) + **5마리 전원 climber**(각자 픽업 *전*[상행]에 2개 단 벽을 타고 올라감 → candy → 하강 귀환).
+bridge×2 + climber×5가 정확히 맞음.
+
+**진단(왜 saved=1 포화)**: bridge 2개는 깔리나 climber가 **1마리(si3)에만** 적용 — 나머지 4마리는 단 벽에서
+못 올라가 flip→되돌아감(리타이어 0=사망 아님, candy 미도달). 솔버 `propose`가 `climber@early:si0..si4`를
+생성하지만 **carry 체인처럼 spawn_index 전반으로 체이닝하지 않음**(early는 exclude(tried) 면제 없음). S14
+carry 체인(픽업 *후* 운반 무장)의 **상행판**이 부재.
+
+**fix(`model.py` + `solve.py` 게이트 1줄 + `run_plan.py` EXPECTED 1줄, 엔진 무변경):**
+- **`model._has_early_arm(plan, sid)`** 신규: plan에 이 스킬의 early 무장(select=spawn_index + trigger
+  immediate)이 채택돼 있는가. **early 체인 게이트.**
+- **`propose(..., plan=None)`**: `early_armed=_has_early_arm(plan, sid)`이면 나머지 spawn_index 무장을 ⓐ
+  exclude **면제** + ⓑ 가중 부스트(210+, carry처럼 연쇄가 먼저 평가돼 cap 내 완결)로 si0→…→si(n-1) 연쇄 채택.
+  중복 롤아웃은 `eval_cands` action-dup 가드가 차단(carry와 동일 패턴). early_armed=False면 종전 byte-identical.
+- **게이트 = 확정 plan(closure)으로 판정**(speculative base 아님): ⚠ **핵심 함정** — `base2=plan+[c1]`(LA2)로
+  판정하면 LA2가 climber@early를 c1로 깔 때 early_armed 조기 발화 → boost가 2nd-step의 **bridge(gap2)를 max_n
+  밖으로 밀어내 다중스킬 조합 발견을 깨뜨림**(실측: saved 1→0). 확정 plan에 early 무장 든 뒤(=조합 발견 후)에만
+  체인 boost ON. `solve._propose`가 `model.propose(..., plan=plan)`로 closure 확정 plan 전달(forbid_pred의 base는 종전대로).
+
+**해**: `[bridge@4,11, climber@early:si3, bridge@12,9, climber@early:si0, si1, si2, si4]` (bridge×2+climber×5,
+7액션) → **saved=5/5, frame=1869, rollouts=30**. 발견(LA2 rollout14: climber si3+bridge gap2, saved=1) →
+체인(rollout18→30: si0→saved2…si4→saved5). `data/solutions/stage20.solve.json`. **결정론 재현 확인**(재탐색 byte-identical).
+
+**회귀 0(byte-identical, 증명):**
+- **기존 스테이지 재탐색 전부 byte-identical**: S4=2(slideR early, 첫 후보 즉시 클리어라 2라운드 無)·S11=2·
+  S1=13·S15=32·S13=26·S14=40 롤 — solve.json git 무변경. (S12 solve.json은 `rollouts:11→8` 1줄 diff가
+  보이나 **선재 드리프트**[stage17 천장 휴리스틱, 이미 HEAD]임을 **내 코드 stash 격리 테스트로 입증**[stash시도 8롤] —
+  내 변경 무관, plan/actions byte-identical. HEAD로 복원, 본 커밋 미포함.)
+- blocker-only(S16/S17/S2/S3 등)는 `up` 루프 미진입 → 구조상 무관.
+- **verify 게이트 전체 그린·EXIT 0**: Determinism×2(962f) + SkillMetadataDrift(11) + harness-test(PASS+exit0) +
+  selftest **17 plans**(golden5+solve12, stage20→cleared saved5 frame1869, EXPECTED에 20 등재, 기존 해 frame
+  byte-identical s13=2719·s14=4624) + analyze --verify(4스테이지) + diverse-verify(4스테이지).
+
+**자체 적대 리뷰 clean(HIGH 0)**: 구현 중 [HIGH] LA2 speculative-base 조기발화로 조합 발견 깨짐 1건 발견·수정
+(확정 plan 게이팅). closure plan 참조 정합·early action 유일식별(immediate+spawn_index)·결정론·boost 한정성
+검토 통과. 정직 한계 문서화(boost는 구조 스킬 채택 *후*에만 ON → 구조-스킬-후-구조-스킬 다단 레벨은 미커버 가능,
+S20 외 미검증). **⏳ 다음 = codex impl 재리뷰**(사용자 트리거 — [[codex-adversarial-review-invocation]]). clean 후 선택 staging 커밋.
+
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경, plan/impl-review)** — 5d①에서 cap-saturate 확인, 분리.
