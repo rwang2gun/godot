@@ -260,3 +260,24 @@ R7 2 finding 수정:
 - byte-identical: solve forbid=None inert. 게이트 fail-closed 유지(fixed_cell·sampled_points·capped·schema v2).
 
 **자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 8.
+
+## Self-Review Round 9 (codex R8 수정 후 자체 적대 리뷰)
+
+R8 1 finding 수정(plus-형 forbid — soundness+completeness 동시):
+- **[R8-HIGH] axis-independent joint over-block 제거**: `_matches_slot`의 interval-membership을 다중 cell_x
+  슬롯 forbid에 쓰면 미검증 Cartesian joint를 '포함'으로 오판→distinct class 억제. 수정 = `_plan_contains_class`를
+  **plus-형**으로: 검증된 same-class 변형 = reference(전 cell_x exact) ∪ {한 슬롯만 interval, 나머지 exact}.
+  유연 슬롯 최대 1개(flex∈{None}∪cell_x). `_matches_slot(exact)` 파라미터 + `_saturates(flex)` Kuhn 분리.
+- **soundness 증명**: 막히는 P는 검증 변형 V(클리어) 포함→P⊇V→잉여 redundant→P 최소화 시 V(=cls region)로
+  collapse=distinct 아님. ∴ 단일슬롯 shift+superset만 막고 distinct(미검증 joint 포함) class 절대 미차단.
+- **효과(실측)**: shift churn 제거 → stage12 **uncapped 자연소진**(search_capped=false, 48롤) 유지 + 미검증 joint는
+  발견 허용(완전성). codex R6 capped-게이트와 양립(uncapped 통과).
+
+자체 적대 검토(HIGH 0):
+- plus-형은 검증 증거(1슬롯 스윕)에만 forbid 근거 → over-block 0(soundness 증명). joint 2+슬롯 동시이동=미검증=
+  발견 허용 selfcheck(forbid_ov(blk2,[blk3])=False)로 확증.
+- 단일 cell_x 슬롯 class: flex=그 슬롯 → interval membership(1D 스윕=joint 검증이라 안전). cls1 selfcheck 통과.
+- Kuhn `_saturates`: per-슬롯 visited→종료, 매칭 존재 iff saturate. flex별 ≤(1+슬롯수) 시도(소수).
+- byte-identical: solve forbid=None inert. 게이트 fail-closed(fixed_cell·sampled_points·capped·schema v2) 유지.
+
+**자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(stage12 uncapped). → fix 커밋 후 codex Round 9.

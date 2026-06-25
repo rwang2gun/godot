@@ -230,10 +230,14 @@ def _class_sig(cls: dict) -> tuple:
     return (json.dumps(cls["skill_multiset"], sort_keys=True), tuple(sorted(parts)))
 
 
-def _matches_slot(action: dict, slot: dict, cs: int) -> bool:
-    """액션이 한 solution-class 슬롯의 4요소(skill·role·timing·검증구역)에 부합하는가. placement:
-    cell_x+gap_verified면 검증 구역(intervals) 안, provisional이면 fixed_cell 정확 일치(미검증=구역 병합
-    금지), none이면 액션도 비공간(placement_cell None)."""
+def _matches_slot(action: dict, slot: dict, cs: int, exact: bool = False) -> bool:
+    """액션이 한 solution-class 슬롯에 부합하는가(forbid 매칭용). skill·role·timing 일치 + placement:
+      - cell_x: `exact`(또는 provisional)면 **fixed_cell 정확 일치**, 아니면(gap_verified·단일슬롯) 검증 구역
+        membership. `exact`는 다중 cell_x 슬롯 class에서 set됨(codex R8): interval은 *나머지 고정* axis-
+        independent cross-section이라, 여러 슬롯의 interval을 동시 만족하는 joint 조합은 **미검증**이다 →
+        forbid에 interval-membership을 쓰면 미검증 Cartesian 곱을 '포함'으로 오판해 distinct class를 억제.
+        단일 cell_x 슬롯 class는 그 1D 스윕이 곧 joint 검증이라 membership 안전.
+      - none: 액션도 비공간(placement_cell None)."""
     if slot.get("skill") != action.get("skill"):
         return False
     if slot.get("role") != _role_sig(action) or slot.get("timing") != _timing_sig(action):
@@ -245,24 +249,24 @@ def _matches_slot(action: dict, slot: dict, cs: int) -> bool:
     if ax == "cell_x":
         if cell is None:
             return False
-        if slot.get("gap_verified"):
-            return any(lo <= cell <= hi for lo, hi in slot.get("intervals", []))
-        return cell == slot.get("fixed_cell")        # provisional: 정확 셀만(구역 병합 근거 아님)
+        if exact or not slot.get("gap_verified"):
+            return cell == slot.get("fixed_cell")    # 정확 셀만(다중슬롯 joint 미검증 / provisional)
+        return any(lo <= cell <= hi for lo, hi in slot.get("intervals", []))
     return False
 
 
-def _plan_contains_class(plan: list, cls: dict, cs: int) -> bool:
-    """plan이 cls를 **sub-multiset으로 포함**하는가 — cls의 모든 슬롯을 *서로 다른* 액션에 동시에 매칭할 수
-    있는가(plan은 더 길어도 됨). **진짜 이분매칭(Kuhn augmenting-path)** — greedy는 슬롯들이 겹치는 액션
-    집합을 가질 때 유효 매칭을 놓친다(codex R7-HIGH: A=[0,10]·B=[0,0], 액션 0·5 → greedy 실패, 실제 A↔5·B↔0).
-    슬롯(left)을 액션(right)에 saturate하면 포함."""
-    slots = cls.get("slots", [])
-    if not slots:
-        return True
-    match_action = [-1] * len(plan)            # 각 액션이 매칭된 슬롯 index(-1=미매칭)
+def _saturates(plan: list, slots: list, cs: int, flex: int) -> bool:
+    """plan이 slots 전체를 *서로 다른* 액션에 동시 매칭(saturate)하는가 — 슬롯 `flex`만 interval-membership,
+    나머지 cell_x 슬롯은 fixed_cell exact. **진짜 이분매칭(Kuhn augmenting-path)**(greedy는 겹치는 매칭집합서
+    유효 매칭을 놓침, codex R7)."""
+    def _m(a, si):
+        s = slots[si]
+        exact = (s.get("placement_axis") == "cell_x" and si != flex)
+        return _matches_slot(a, s, cs, exact)
+    match_action = [-1] * len(plan)
     def _augment(si: int, visited: list) -> bool:
         for ai, a in enumerate(plan):
-            if visited[ai] or not _matches_slot(a, slots[si], cs):
+            if visited[ai] or not _m(a, si):
                 continue
             visited[ai] = True
             if match_action[ai] == -1 or _augment(match_action[ai], visited):
@@ -271,8 +275,30 @@ def _plan_contains_class(plan: list, cls: dict, cs: int) -> bool:
         return False
     for si in range(len(slots)):
         if not _augment(si, [False] * len(plan)):
-            return False                        # 슬롯 si를 saturate 못 함 → 미포함
+            return False
     return True
+
+
+def _plan_contains_class(plan: list, cls: dict, cs: int) -> bool:
+    """plan이 cls의 **검증된 same-class 변형**을 sub-multiset 포함하는가(forbid 판정). 검증된 변형 =
+    reference(전 cell_x 슬롯 fixed_cell exact) ∪ {한 cell_x 슬롯만 interval, 나머지 exact}.
+
+    근거(codex R8): range-sweep은 *나머지 고정* 한 슬롯씩 스윕 → "한 슬롯 이동(나머지 reference)"만 joint
+    검증됨. 여러 슬롯 동시 이동(Cartesian joint)은 미검증이라 forbid 대상이 아니다(미검증 조합을 '포함'으로
+    오판하면 distinct class를 억제). 따라서 유연 슬롯을 **최대 1개**(flex∈{없음}∪cell_x슬롯)만 허용해 검증된
+    plus-형 영역만 막는다.
+
+    soundness: 막히는 plan P는 검증된 변형 V(클리어)를 포함 → P⊇V라 P의 잉여는 redundant → P는 최소화 시
+    V(=cls와 같은 region)로 collapse = distinct 아님. ∴ 단일슬롯 shift(+superset)만 막고 distinct class는 절대
+    미차단. 효과: shift churn 제거(uncapped 종료 가능) + 미검증 joint 조합은 발견 허용(완전성)."""
+    slots = cls.get("slots", [])
+    if not slots:
+        return True
+    cellx_idx = [i for i, s in enumerate(slots) if s.get("placement_axis") == "cell_x"]
+    for flex in [None] + cellx_idx:            # None=전부 exact(reference), i=슬롯 i만 interval
+        if _saturates(plan, slots, cs, flex):
+            return True
+    return False
 
 
 def _plan_multiset_sig(plan: list) -> tuple:
@@ -812,23 +838,24 @@ def _selfcheck_forbid() -> bool:
          "placement_axis": "none", "fixed_cell": None, "gap_verified": False, "intervals": []},
     ]}
     forbid = _make_forbid([cls1], cs)
-    # overlapping 슬롯 이분매칭(codex R7-HIGH): 두 blocker 슬롯 A=[0,10]·B=[0,0](같은 role/timing). 액션 cell
-    # 0·5 → greedy(A←0)면 B 실패하나 Kuhn은 A←5·B←0 매칭 → 포함=금지.
+    # 2 cell_x 슬롯 class(codex R8 plus-형 forbid): slot0 fixed5 interval[0,10], slot1 fixed0 interval[0,4].
     cls_ov = {"skill_multiset": {"blocker": 2}, "slots": [
         {"slot": 0, "skill": "blocker", "role": _role_sig(blk(5)), "timing": _timing_sig(blk(5)),
          "placement_axis": "cell_x", "fixed_cell": 5, "gap_verified": True, "intervals": [[0, 10]]},
         {"slot": 1, "skill": "blocker", "role": _role_sig(blk(0)), "timing": _timing_sig(blk(0)),
-         "placement_axis": "cell_x", "fixed_cell": 0, "gap_verified": True, "intervals": [[0, 0]]},
+         "placement_axis": "cell_x", "fixed_cell": 0, "gap_verified": True, "intervals": [[0, 4]]},
     ]}
     forbid_ov = _make_forbid([cls_ov], cs)
     checks = [
-        forbid(blk(2), [carry()]) is True,        # base+action = class1 포함(정확) → 금지
-        forbid(blk(3), [carry()]) is True,        # blocker@3(구역[0,4] 내)+carry = class1 포함 → 금지(±shift superset)
-        forbid(blk(2), [carry(), blk(7)]) is True,  # class1 포함 + 잉여 blk@7 = superset → 금지(inert-padding 차단)
-        forbid(blk(10), [carry()]) is False,      # carry 공유·blocker@10(구역[0,4] 밖)=class1 미포함 distinct → 허용
-        forbid(carry(), []) is False,             # carry만(blocker 슬롯 누락) = class1 미포함 → 허용
-        forbid(blk(2), []) is False,              # blocker만(climber 슬롯 누락) = class1 미포함 → 허용
-        forbid_ov(blk(5), [blk(0)]) is True,      # overlapping 슬롯 — Kuhn 매칭으로 포함 검출(greedy면 누락)
+        forbid(blk(2), [carry()]) is True,        # reference(slot0 exact2)+carry = 포함 → 금지
+        forbid(blk(3), [carry()]) is True,        # slot0만 interval[0,4] shift(단일 cell_x=flex) = 검증 변형 → 금지
+        forbid(blk(2), [carry(), blk(7)]) is True,  # reference 포함 + 잉여 blk@7 = superset → 금지(inert-padding 차단)
+        forbid(blk(10), [carry()]) is False,      # blocker@10(구역[0,4] 밖)=미포함 distinct → 허용
+        forbid(carry(), []) is False,             # carry만(blocker 슬롯 누락) = 미포함 → 허용
+        forbid(blk(2), []) is False,              # blocker만(none 슬롯 누락) = 미포함 → 허용
+        forbid_ov(blk(5), [blk(0)]) is True,      # reference(slot0=5,slot1=0 둘 다 exact) 포함 → 금지(Kuhn)
+        forbid_ov(blk(3), [blk(0)]) is True,      # slot0만 interval shift(slot1 exact0) = 검증 단일-shift → 금지
+        forbid_ov(blk(2), [blk(3)]) is False,     # slot0·slot1 동시 shift = 미검증 joint → 허용(over-block 안 함)
     ]
     if not all(checks):
         print("[diverse-verify] FORBID SELFCHECK FAIL: %s" % checks)
