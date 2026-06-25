@@ -198,7 +198,6 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
     plan: list[dict] = []
     plan_sources: list[str] = []          # plan과 평행 — 채택 액션의 source-tag
     tried: set = set()
-    attempts: dict = {}                   # label→롤아웃 시도 횟수(early_active 구조-후보 보존 라운드-로빈용, R3)
 
     # ① 베이스라인 관측.
     best = rollout(plan)
@@ -226,7 +225,7 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
         # 조기 발화해 boost가 2nd-step의 bridge(gap2 다리)를 max_n 밖으로 밀어내 **다중스킬 조합(climber+bridge)
         # 발견을 깨뜨린다**(stage20 실측: saved 1→0). 확정 plan에 early 무장이 든 뒤(=조합 발견 후)에만 체인
         # boost가 켜진다. forbid_pred(diverse)의 plan-aware base는 종전대로 base를 쓴다(아래 별도 인자).
-        cands = model.propose(layout, d, inv, metas, notes, exclude=tried, max_n=cap, plan=plan, attempts=attempts)
+        cands = model.propose(layout, d, inv, metas, notes, exclude=tried, max_n=cap, plan=plan)
         if seed_fn:
             cands = _merge_seeded(seed_fn(layout, d, inv, metas), cands)[:cap]
         else:
@@ -265,7 +264,6 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
             if cand["action"] in base:        # 이미 채택된 액션 — 중복 롤아웃 방지
                 continue
             tried.add(cand["label"])
-            attempts[cand["label"]] = attempts.get(cand["label"], 0) + 1   # 라운드-로빈 보존(R3)
             src = cand.get("source", "fallback")
             if src.startswith("seeded:"):
                 prov["seeded_attempts"] += 1

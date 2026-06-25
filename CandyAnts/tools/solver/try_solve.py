@@ -194,9 +194,9 @@ def transfer_bench(test_ids: list[int], max_rollouts: int, mode: str = "vault") 
 
 # ---------- rediscover-verify: 탐색 휴리스틱 재발견 회귀 게이트 (codex impl-review MEDIUM) ----------
 # selftest는 저장된 plan을 **replay**할 뿐 solve.solve()/model.propose()를 안 돈다 → 탐색 휴리스틱 회귀
-# (speculative-base 게이트 제거·boost 순서·결정론 파손)가 plan replay를 통과해버린다. 여기선 각 타깃을
-# **재발견**(solve.solve, save=False)해 cleared + 재발견 plan의 액션 시그니처(순서 포함)가 커밋된
-# solve.json과 일치하는지 단언한다. 대상 = `up` 루프(early/carry)를 실제로 도는 대표 스테이지:
+# (early 체인 게이트·carry-mirror 가중·결정론 파손)가 plan replay를 통과해버린다(codex impl-review MEDIUM).
+# 여기선 각 타깃을 **재발견**(solve.solve, save=False)해 cleared + 재발견 plan의 액션 시그니처(순서 포함)가
+# 커밋된 solve.json과 일치하는지 단언한다. 대상 = `up` 루프(early/carry)를 실제로 도는 대표 스테이지:
 #   20 = early-chain(이 변경이 켜는 신규 경로) / 4 = early-arm 단발(early_armed=False 단축 = byte-identical
 #   경로) / 13 = carry-chain(early 미발화 유지). blocker-only는 up 루프 미진입이라 selftest replay로 충분.
 REDISCOVER_TARGETS = {4: 10, 13: 35, 20: 60}     # stage_id → max_rollouts(여유 cap; 시그니처 비교라 cap 무관)
@@ -204,13 +204,7 @@ REDISCOVER_TARGETS = {4: 10, 13: 35, 20: 60}     # stage_id → max_rollouts(여
 
 def rediscover_verify(targets: dict) -> int:
     all_ok = True
-    # ① 단위 검증(엔진 불요, codex R2 MEDIUM): early_active 구조-후보 보존이 tried 천장후보에 독점되지 않고
-    #    untried 구조를 보존하는지 — 엔진 재발견(아래 ②)이 못 거는 *후보 랭킹* 잔여 실패모드를 직접 박제.
-    ok_pre, msg_pre = solve.model._selfcheck_preserve()
-    print(f"[rediscover-verify] {'PASS' if ok_pre else 'FAIL'} preserve-selfcheck — {msg_pre}")
-    if not ok_pre:
-        all_ok = False
-    # ② 엔진 재발견: up-루프 대표 스테이지를 solve.solve(save=False)로 재발견 → cleared + 액션 시그니처 일치.
+    # up-루프 대표 스테이지를 solve.solve(save=False)로 재발견 → cleared + 액션 시그니처 일치.
     for sid in sorted(targets):
         cap = targets[sid]
         sol_path = solve.ROOT / "data" / "solutions" / f"stage{sid:02d}.solve.json"

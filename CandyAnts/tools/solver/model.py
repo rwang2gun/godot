@@ -272,14 +272,12 @@ def _has_ceiling(occ: set, col: int, row: int) -> bool:
 
 
 def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
-            notes: dict, exclude: set, max_n: int, plan: list | None = None,
-            attempts: dict | None = None) -> list[dict]:
+            notes: dict, exclude: set, max_n: int, plan: list | None = None) -> list[dict]:
     """다음 개입 후보를 랭킹 반환. 각 후보 = {"action": v1액션, "label": str}.
     우선순위: ① 물 진입을 막는 반전(blocker 등 routing=reverse) — 가장 흔한 치명적 실패.
               ② 픽업했으나 귀환 부족 → 무장 up(climber 등)으로 귀로 확보(타이밍: 회수 완료 후).
     notes(스테이지 비고)는 우선순위 가중만(비구속).
-    plan = 현재 누적 plan(없으면 None) — early 체인(상행 climber) 게이트 `_has_early_arm`에만 쓴다.
-    attempts = label→롤아웃 시도 횟수(없으면 None) — early_active 시 구조-후보 보존 라운드-로빈에만 쓴다."""
+    plan = 현재 누적 plan(없으면 None) — early 체인(상행 climber) 게이트 `_has_early_arm`에만 쓴다."""
     cs = layout["cell_size"]
     by_r = _skills_by_routing(inventory, metas)
     cands: list[dict] = []
@@ -332,30 +330,34 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     cnt = diag["candy_hp"]
     return_phase = diag["picked_total"] >= cnt > 0
     base = 100 if return_phase else 1
+    # carry 가중 기준(픽업 발생 시만 운반 무장 제안). early-armed 가중도 이 위에 얹는다(carry-mirror).
+    carry_base = (220 if return_phase else 40) if diag["picked_total"] > 0 else 0
     ant_n = diag.get("ant_count", 0)
-    early_active = False               # early 체인 boost가 한 sid라도 켜졌는가(아래 구조-후보 보존 게이트)
+    # early 체인 가중 = **carry 프로파일 바로 위**(carry-mirror, 사용자 결정 2026-06-25). carry no-op보다 먼저
+    # 평가돼 체인이 cap 내 완결되되, carry-chain과 **동형 가중 프로파일**이라 구조 후보와의 관계가 검증된
+    # carry-chain과 동일(새 starvation 클래스 없음 = R1~R4 보존 메커니즘 폐기). carry_base=0(픽업 전, 드묾)이면
+    # 40 floor로 구조 위 유지.
+    early_w_base = (carry_base if carry_base > 0 else 40) + cnt
     for sid in by_r.get("up", []):
         if str((metas.get(sid) or {}).get("category", "")) != "ANT_ARMED":
             continue   # 무장형만(설치형 up=sand_mound는 cell 대상, ① 경로)
         # early 체인(사용자 통찰, stage20 "이상한 계단" = 다단 상승 + 물 갭). 각 개미가 **픽업 전(상행)** 에
         # 벽을 타야 candy에 닿는 레벨에선 climber를 spawn_index 전반으로 체이닝해야 한다 — carry 체인(②
         # 아래, 운반=하행 귀환)의 **상행판**. 한 early 무장이 이미 plan에 채택돼 진척을 냈으면(early_armed),
-        # 나머지 spawn_index 무장은 ⓐ exclude(tried) **면제**(plan 맥락이 바뀌었으니 재평가) + ⓑ 가중 부스트
-        # (carry처럼 연쇄가 다른 후보보다 먼저 평가돼 cap 내 완결)로 si0→…→si(n-1) 연쇄 채택된다. 이미 채택된
+        # 나머지 spawn_index 무장은 ⓐ exclude(tried) **면제**(plan 맥락이 바뀌었으니 재평가) + ⓑ carry-mirror
+        # 가중(early_w_base, carry no-op 바로 위)으로 si0→…→si(n-1) 연쇄 채택된다. 이미 채택된
         # early의 중복 롤아웃은 solve.eval_cands action-dup 가드가 차단(carry와 동일 패턴). early_armed가 False
         # (기존 모든 스테이지)면 종전 후보 집합·순서와 byte-identical.
         early_armed = _has_early_arm(plan, sid)
-        early_active = early_active or early_armed
         for si in range(ant_n):                        # early: 개미별 즉시 무장
             label = "%s@early:si%d" % (sid, si)
             if label in exclude and not early_armed:
                 continue
             action = {"skill": sid, "target": {"mode": "ant", "select": "spawn_index", "spawn_index": si},
                       "trigger": {"type": "immediate"}}
-            w = (210 + (ant_n - si)) if early_armed else (base + _note_w(notes, sid))
+            w = (early_w_base + (ant_n - si)) if early_armed else (base + _note_w(notes, sid))
             cands.append({"action": action, "label": label, "_w": w})
         # carry: 픽업이 하나라도 발생했으면(picked_total>0) 운반 개미 귀환 무장을 제안. 귀로 단계면 최우선.
-        carry_base = (220 if return_phase else 40) if diag["picked_total"] > 0 else 0
         # carry(운반 개미 무장)는 exclude(tried) 면제 — plan 누적 시 재평가돼야 carry1→2→…→n 연쇄 채택이
         # 된다(사용자 통찰: carry가 tried로 막히면 early/afterpick으로 흩어져 *비운반* 개미에 climber가 가고,
         # 그 개미는 candy 미도달·등반 무한루프가 된다). 이미 채택된 carry의 중복 롤아웃은 solve.eval_cands의
@@ -376,26 +378,7 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
             cands.append({"action": action, "label": label, "_w": base - 1 + _note_w(notes, sid)})
 
     cands.sort(key=lambda c: -c["_w"])
-    if not early_active:
-        return cands[:max_n]                       # 기존 모든 스테이지: early_active=False → byte-identical
-    # 구조-후보 보존(codex impl-review R1→R3, 라운드-로빈). 문제: early_armed 부스트(210+)가 `cands[:max_n]`
-    # 절단에서 **구조 후보**(reverse/safe_fall/cross = 다리·블로커, trigger=ant_reaches_x)를 굶기면
-    # structure→early→structure 다단 레벨이 막힌다. 한 구조 슬롯을 보존하되, 어떤 구조를 보존하느냐가 핵심:
-    #   R1(최상위 1개) → 비개선 천장 후보(ceiling-exempt라 재제안됨)가 매 라운드 재보존돼 슬롯 독점(R2 HIGH).
-    #   R2(untried만) → 천장 후보는 "단독 실패하나 다른 액션이 plan 맥락을 바꾸면 유용"해 의도적 재제안되는데
-    #     global exclude로 영구 배제 = ceiling-exemption 설계와 모순(R3 HIGH).
-    # 해결 = **least-attempted 라운드-로빈**: live 구조 후보(재제안 천장 포함) 중 **롤아웃 시도 횟수가 가장 적은**
-    # 것을 보존(동률은 가중 desc). 보존·실패하면 attempts↑ → 다음 라운드엔 덜 시도된 다른 구조가 보존된다 →
-    # **모든 live 구조가 유한 라운드 내 보존·평가됨**(영구 starvation 불가능). 천장 retry-eligible은 attempts로
-    # rotating past(exact 반복 회피)하되 배제 안 함(R3 해소). attempts=None(기본)이면 R1 동작(다른 호출자용).
-    structs = [c for c in cands if (c["action"].get("trigger") or {}).get("type") == "ant_reaches_x"]
-    if not structs:
-        return cands[:max_n]                       # 구조 후보 없음 → 절단 그대로
-    att = attempts or {}
-    top_struct = min(structs, key=lambda c: (att.get(c["label"], 0), -c["_w"]))   # 최소 시도(동률=최대 가중)
-    if top_struct in cands[:max_n]:
-        return cands[:max_n]                       # 이미 head에 포함 → 절단 그대로
-    return [top_struct] + [c for c in cands if c is not top_struct][:max_n - 1]
+    return cands[:max_n]
 
 
 def _note_w(notes: dict, sid: str) -> int:
@@ -403,36 +386,3 @@ def _note_w(notes: dict, sid: str) -> int:
     if notes and sid in notes:
         return 1
     return 0
-
-
-def _selfcheck_preserve() -> tuple[bool, str]:
-    """codex impl-review R1→R3 회귀 단위 검증(엔진 불요) — early_active 시 구조-후보 보존이 **least-attempted
-    라운드-로빈**으로 작동(어떤 구조도 영구 starvation 안 됨, 천장 retry-eligible 포함)하는지 propose 후보
-    랭킹을 직접 단언. 시나리오: 구조 A=(10,5) 천장有·물·고가중 / B=(3,5) 천장無·저가중, early 체인 활성(둘 다
-    early boost로 절단될 가중). (1) attempts 동률(0) → 보존=A(최대 가중). (2) A 1회 시도 → 보존=B(독점 차단,
-    R2). (3) A 1회·B 2회 → 보존=A(B 과다시도라 rotation, R3 retry-eligible). R1 동작(top-1)이면 (2)·(3) FAIL."""
-    metas = {"blocker": {"routing": "reverse", "category": "ANT_ARMED"},
-             "climber": {"routing": "up", "category": "ANT_ARMED"}}
-    inventory = {"blocker": 2, "climber": 5}
-    layout = {"cell_size": 48, "occupied": {(10, 2)}, "candy": (10, 1), "home": (1, 9), "hazard": {}}
-    diag = {"candy_hp": 5, "picked_total": 1, "ant_count": 5,
-            "near_candy": {"dist": 1 << 30, "cell": None, "dir": 0},
-            "reverse_targets": [
-                {"cell": (10, 5), "dir": 1, "backpath": [(10, 5)], "to_water": True, "count": 2},   # A 고가중·천장
-                {"cell": (3, 5), "dir": 1, "backpath": [(3, 5)], "to_water": False, "count": 1},    # B 저가중·무천장
-            ]}
-    early_plan = [{"skill": "climber", "target": {"mode": "ant", "select": "spawn_index", "spawn_index": 3},
-                   "trigger": {"type": "immediate"}}]   # early_active=True
-    a_label, b_label = "blocker@10,5:max_xge", "blocker@3,5:max_xge"
-
-    def _preserved(att):
-        r = propose(layout, diag, inventory, metas, notes={}, exclude=set(), max_n=6, plan=early_plan, attempts=att)
-        return r[0]["label"] if r else None
-
-    if _preserved({}) != a_label:                                   # (1) 동률 → 최대 가중 A
-        return False, "동률 attempts인데 보존 선두가 A(최대 가중) 아님: %s" % _preserved({})
-    if _preserved({a_label: 1}) != b_label:                         # (2) A 1회 → 덜 시도된 B (독점 차단)
-        return False, "A 1회 시도인데 보존 선두가 B(least-attempted) 아님(독점 미차단): %s" % _preserved({a_label: 1})
-    if _preserved({a_label: 1, b_label: 2}) != a_label:             # (3) B 과다시도 → A로 rotation
-        return False, "B 과다시도인데 보존이 A로 rotation 안 됨(R3 retry-eligible): %s" % _preserved({a_label: 1, b_label: 2})
-    return True, "preserve round-robin OK (동률→A, A1회→B, B2회→A)"

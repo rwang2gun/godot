@@ -418,3 +418,27 @@ leaving a real starvation path after the plan context changes.
   전달. attempts=None 기본=R1(타 호출자). S20 거동 불변(31롤, solve.json byte-identical). early_active=False면 미적용.
 - selfcheck 라운드-로빈 갱신 + prove-it(R1 top-1 동작이면 (2) A 반환 FAIL). 자체 리뷰 clean(HIGH 0).
 - 전체 게이트 그린·EXIT 0(preserve round-robin + rediscover S4/S13/S20 + selftest 17 + analyze 4 + diverse 4).
+
+## Round 4 (codex, base=a560995, 커밋 0b7d04e까지) — needs-attention → 사용자 결정 carry-mirror 단순화
+
+Verdict: needs-attention. No-ship: R3 reduces pure top-structure starvation, but retry accounting is still
+global by label, so context-dependent structure retries can be delayed past the finite rollout budget.
+
+- [high] Retry-eligible structure rotation is not scoped to the plan context (model.py:394-395). The
+  preservation selector uses `attempts[label]` accumulated globally, so a structure that failed under an
+  earlier base keeps its penalty after the plan context changes. Recommendation: track attempts by base/closure
+  plan signature, or suppress only exact same-base failures while treating changed-plan retries as fresh.
+
+### 분석 → 근본 충돌 (사용자 에스컬레이션)
+R1(top-1 보존)→독점 / R2(untried만)→retry-eligible 배제 / R3(global 라운드-로빈)→cross-base 페널티.
+R4 권장 base-scoped는 **메인루프가 매 라운드 base 변경**이라 같은 구조가 매번 fresh = R2 독점 재발 →
+**global↔base 직접 충돌**, 단순 카운터로 동시 만족 불가("의미있는 맥락 변화" semantic 판단 필요). 이 starvation은
+**latent**(현 캠페인 structure→early→structure 없음; 선재 carry-chain도 carry>구조 동일 속성, 미flag).
+
+### 결정 = carry-mirror 단순화 (사용자 AskUserQuestion 2026-06-25)
+보존 메커니즘 전부 폐기(R1 reserve / R2 untried / R3 round-robin / attempts / `_selfcheck_preserve` /
+`early_active`). early-armed 가중 = `max(carry_base,40)+cnt+(ant_n-si)` = **carry 프로파일 바로 위** →
+early-chain이 **검증된 carry-chain과 동형 가중 프로파일**, 구조 후보 관계도 carry-chain과 동일(새 starvation
+클래스 없음 = 공유 선재 속성). rediscover-verify 엔진 재발견(S4/S13/S20)은 유지(R1 MEDIUM 가드).
+- 결과: S20 SOLVED 30롤(31→30 복귀), plan 불변. 회귀 0(S4/S13 byte-identical, early_armed=False면 byte-identical).
+  전체 게이트 그린·EXIT 0(selftest 17·analyze 4·diverse 4·rediscover S4/S13/S20). 자체 리뷰 clean.

@@ -762,7 +762,23 @@ carry 체인(픽업 *후* 운반 무장)의 **상행판**이 부재.
   R1(top-1) 동작이면 (2)에서 A 반환 FAIL, R3면 PASS = 박제. 자체 리뷰 clean(HIGH 0): min 결정론·attempts 누적·
   early_active=False 불변 검토 통과.
 - 전체 게이트 그린·EXIT 0(preserve round-robin + rediscover S4/S13/S20 + selftest 17 + analyze 4 + diverse 4).
-  **⏳ 다음 = codex R4 재리뷰**(round-robin diff). clean 후 종결.
+
+**codex R4(needs-attention) → 사용자 결정 = carry-mirror 단순화(보존 폐기):** R1→R4가 **단순 카운터로 못
+닫는 휴리스틱 근본 한계**를 좁혀옴 — R4 HIGH는 "global attempts가 base 맥락 무시 → cross-base 재시도 지연".
+분석 결과 **global↔base-scoped 직접 충돌**(global=라운드-로빈 OK·cross-base 페널티 / base-scoped=cross-base
+fresh·메인루프 매 라운드 base 변경이라 독점 재발). "맥락이 *의미있게* 바뀌었나"의 semantic 판단 필요 = 카운터
+범위 밖. **이 starvation은 latent**(현 캠페인에 structure→early→structure 없음; S20는 discovery서 구조 완료
+후 early-chain. **선재 carry-chain도 동일 속성**[carry 40 > 구조 12]이나 미flag).
+- **사용자 결정(2026-06-25, AskUserQuestion) = "단순화: carry-mirror"**: 보존 메커니즘(R1 reserve + R2 untried +
+  R3 라운드-로빈 + attempts + `_selfcheck_preserve`) **전부 폐기**. early-armed 가중을 **carry 프로파일 바로 위**
+  (`early_w_base = max(carry_base,40) + cnt`)로 두어 carry no-op 위에서 평가되되 **carry-chain과 동형 가중 프로파일**.
+  → 구조 후보와의 관계가 **검증된 carry-chain과 동일**(새 starvation 클래스 없음, 공유 선재 속성). `early_active`
+  플래그·구조 보존 절단 분기·`attempts` 스레딩·preserve selfcheck 제거. rediscover-verify의 **엔진 재발견(S4/S13/
+  S20)은 유지**(원래 R1 MEDIUM 해소 — 탐색 휴리스틱 회귀 가드).
+- **결과**: S20 SOLVED 30롤(보존 reserve 제거로 31→30 복귀), plan 불변(bridge×2+climber×5). 회귀 0(S4/S13
+  byte-identical, early_armed=False면 byte-identical). 전체 게이트 그린·EXIT 0(selftest 17·analyze 4·diverse 4·
+  rediscover S4 1/1·S13 6/6·S20 7/7). 자체 적대 리뷰 clean(carry-mirror 가중 결정론·early_armed gate 정합·
+  carry_base floor 검토). **⏳ 다음 = codex R5 재리뷰**(단순화 diff). clean 후 종결.
 
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)
