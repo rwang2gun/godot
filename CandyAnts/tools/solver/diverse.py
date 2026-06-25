@@ -46,12 +46,10 @@ import solve  # noqa: E402
 
 SOLUTIONS_DIR = ROOT / "data" / "solutions"
 # diverse.json 스키마 버전 — 의미 변경 시 bump. verify가 정확 일치를 강제해 stale schema 거부(analyze R11 선례).
-DIVERSE_SCHEMA_VERSION = 1
+# v2(codex R5): 슬롯 intervals = c_star 포함 **단일 연속 구역**(비연속=별개 class). swept_intervals=정보용 전체.
+DIVERSE_SCHEMA_VERSION = 2
 # placement 스윕 셀 예산(슬롯당). 도메인(그리드 폭)이 이보다 넓으면 stride 샘플링 + provisional 표기.
 SWEEP_CELL_CAP = 40
-# 연속 중복(superset이 seen class로 collapse) 허용 횟수. 첫 중복엔 종료 안 하고(codex R4-HIGH) raw plan을
-# forbid하며 계속 탐색하되, 연속 N회 중복이면 다양성 고갈로 보고 종료(superset churn으로 예산 소진 방지).
-DIVERSE_DRY_LIMIT = 3
 
 
 # ============================================================ 4요소 시그니처 (순수)
@@ -157,11 +155,16 @@ def _sweep_placement(roll: "analyze.Rollouter", reference: list, ref_index: int,
     plans = [_make_sweep_plan(reference, ref_index, c, cs) for c in sampled]
     results = roll.batch_results(plans)
     clears = {c: analyze.is_full_clear(r, roll.required) for c, r in zip(sampled, results)}
-    intervals, gaps = _runs(sampled, clears)
+    swept_intervals, swept_gaps = _runs(sampled, clears)
     gap_verified = (stride == 1)
-    in_region = any(lo <= c_star <= hi for lo, hi in intervals)
+    # 이 class의 region = c_star를 포함하는 **단일 연속 구역**(codex R5-HIGH1: 비연속 구역은 별개 class다 —
+    # "연속 클리어 구역=range" 계약). 스윕이 찾은 다른 disjoint 구역은 다른 anchor의 class(솔버가 별도 발견).
+    containing = next(([lo, hi] for lo, hi in swept_intervals if lo <= c_star <= hi), None)
+    in_region = containing is not None
     return {
-        "intervals": intervals, "gaps": gaps, "range_sampled": True,
+        "intervals": ([containing] if in_region else []), "gaps": [], "range_sampled": True,
+        # 정보용(전체 스윕 — 다른 disjoint 클리어 구역 포함, class region 아님). authoritative=intervals만.
+        "swept_intervals": swept_intervals, "swept_gaps": swept_gaps,
         "gap_check_stride": stride, "gap_verified": gap_verified,
         "gap_coverage": ("full@1" if stride == 1 else "sampled@%d" % stride),
         # joint 미검증(R2-HIGH 정직 경계): 보고 range는 *나머지 고정 시* 각 축 cross-section이며 모든 조합의
@@ -365,13 +368,16 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
         내). 전략 축·인벤토리 축이 동일 루프를 써 인벤토리 변형도 다수 class를 놓치지 않는다(codex R3-MEDIUM).
         forbid는 공유 classes 전체 대상 — 다른 multiset class는 슬롯수/스킬 불일치로 완성 불가라 무해.
 
-        codex R4: ① 중복(minimize→seen class collapse)이어도 **종료하지 않고** raw plan을 dead_raw에 넣어
+        codex R4/R5: ① 중복(minimize→seen class collapse)이어도 **종료하지 않고** raw plan을 dead_raw에 넣어
         forbid하고 계속 탐색(조기종료 금지) — 뒤에 있을 distinct class를 놓치지 않게. ② 예산 = solve 롤아웃 +
-        `_record`의 minimize/range-sweep 롤아웃(roll.count 델타) 모두 계상(첫 class 발견 후)."""
+        `_record`의 minimize/range-sweep 롤아웃(roll.count 델타) 모두 계상(첫 class 발견 후).
+
+        종료 = ⓐ no-clear(forbid 하에 더 못 풂 = 자연 소진, capped 미set) ∨ ⓑ extra_cap 초과(capped) ∨
+        ⓒ seen_raw 반복(솔버 정체 안전망, capped). **휴리스틱 dry-limit 제거**(codex R5-HIGH2: 연속 N중복을
+        완전성으로 위장하던 조기종료) — extra_cap이 유일 예산 바운드, churn은 정직하게 capped로 표기."""
         nonlocal extra_rollouts, capped
         dead_raw: list = []          # minimize 시 seen class로 collapse한 raw 플랜(재발화 차단)
         seen_raw: set = set()        # 이미 처리한 raw 플랜 sig(솔버 반복 안전망)
-        dry = 0                      # 연속 중복 카운터(DIVERSE_DRY_LIMIT 도달 시 다양성 고갈 종료)
         while True:
             if classes and extra_rollouts >= extra_cap:
                 capped = True
@@ -398,18 +404,15 @@ def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool 
                 return
             rawsig = _plan_multiset_sig(plan)
             if rawsig in seen_raw:
+                capped = True          # 솔버가 같은 raw 플랜 반복 = 정체(미소진 — 정직하게 capped 표기)
                 _charge()
-                return             # 솔버가 같은 raw 플랜 반복 = 더 못 나아감(안전망, 무한루프 방지)
+                return
             seen_raw.add(rawsig)
             is_new = _record(plan, inv, axis)
             _charge()
             if not is_new:
                 dead_raw.append(plan)   # superset/중복 → forbid하고 **계속**(codex R4-HIGH, 조기종료 금지)
-                dry += 1
-                if dry >= DIVERSE_DRY_LIMIT:
-                    return              # 연속 N회 중복 = superset churn(다양성 고갈) — 자연 종료
                 continue
-            dry = 0                     # 새 class 발견 → dry 리셋
 
     # ── 축 1: 전략(전체 인벤토리). ── 축 2: 인벤토리 변형(다른 multiset = 다른 class). 둘 다 동일 발견 루프.
     _discover(base_inv, "strategy")
@@ -552,6 +555,9 @@ def _coverage_check_diverse(report: dict) -> list[str]:
                     dom = None
                 if not isinstance(ivs, list) or not ivs:
                     fails.append("class %r slot %r cell_x인데 intervals 비어있음" % (cl, si))
+                elif len(ivs) != 1:
+                    # class region = 단일 연속 구역(codex R5-HIGH1). 비연속 다구역은 별개 class라 1개여야.
+                    fails.append("class %r slot %r cell_x intervals 1개 아님(비연속=별개 class) %r" % (cl, si, ivs))
                 else:
                     for iv in ivs:
                         if not (isinstance(iv, list) and len(iv) == 2 and isinstance(iv[0], int)

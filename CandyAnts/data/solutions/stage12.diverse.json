@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "stage": 12,
   "stage_scene": "res://scenes/stages/Stage12.tscn",
   "deadline_frames": 7500,
@@ -101,6 +101,13 @@
           ],
           "gaps": [],
           "range_sampled": true,
+          "swept_intervals": [
+            [
+              0,
+              3
+            ]
+          ],
+          "swept_gaps": [],
           "gap_check_stride": 1,
           "gap_verified": true,
           "gap_coverage": "full@1",
@@ -160,6 +167,13 @@
           ],
           "gaps": [],
           "range_sampled": true,
+          "swept_intervals": [
+            [
+              6,
+              18
+            ]
+          ],
+          "swept_gaps": [],
           "gap_check_stride": 1,
           "gap_verified": true,
           "gap_coverage": "full@1",
@@ -219,6 +233,13 @@
           ],
           "gaps": [],
           "range_sampled": true,
+          "swept_intervals": [
+            [
+              0,
+              18
+            ]
+          ],
+          "swept_gaps": [],
           "gap_check_stride": 1,
           "gap_verified": true,
           "gap_coverage": "full@1",

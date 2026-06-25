@@ -192,3 +192,25 @@ R4 2 finding 수정:
   axis_independent·grid 도메인 한정 등 기존 경계 유지.
 
 **자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 5.
+
+## Self-Review Round 6 (codex R5 수정 후 자체 적대 리뷰)
+
+R5 2 finding 수정:
+- **[R5-HIGH1] 비연속 구역 거짓 병합**: `_sweep_placement`가 class region을 **c_star 포함 단일 연속 구역**으로
+  설정(intervals=[containing], gaps=[]). 전체 스윕은 `swept_intervals`(정보용, non-authoritative)로 보존. 다른
+  disjoint 구역은 별개 anchor의 class(솔버 별도 발견). `_class_sig`/`_matches_slot`는 intervals(=단일) 그대로
+  사용해 자동 적용. coverage가 cell_x intervals 정확히 1개 강제. schema v1→v2 bump(intervals 의미 변경, stale 거부).
+- **[R5-HIGH2] dry-limit 완전성 위장 제거**: 휴리스틱 DIVERSE_DRY_LIMIT 삭제. 종료 = no-clear(자연 소진,
+  capped 미set) ∨ extra_cap(capped) ∨ seen_raw 반복(이제 capped=true로 정직 표기). churn은 extra_cap이 바운드.
+
+자체 적대 검토(HIGH 0):
+- 종료성: dead_raw+seen_raw(유한 distinct 플랜) + extra_cap 하드 바운드 → 무한루프 불가. dry 휴리스틱 제거로
+  "완전성 위장" 경로 소멸 — 비-capped 종료는 forbid 하 no-clear(=자연 소진)뿐.
+- 정직성: containing interval은 c_star가 항상 포함(reference anchor가 클리어)→in_region; None이면 provisional
+  +coverage fail(fail-closed). disjoint 시 hi+1은 gap이라 boundary fail 단언 성립. swept_intervals는 informational
+  (verify/identity 미사용)이라 거짓이어도 false-green 불가(authoritative=intervals만 리플레이 검증).
+- byte-identical: solve 무변경(selftest frame 불변). 게이트 fail-closed 강화(len==1·schema v2) 유지.
+- 정직 경계(잔존): greedy churn(extra_cap 바운드·capped 표기), axis_independent joint 미주장, 1D y-band,
+  grid 도메인 한정. 모두 disclosed.
+
+**자체 리뷰 verdict: clean (HIGH 0).** 게이트 7/7 그린(회귀 0). → fix 커밋 후 codex Round 6.
