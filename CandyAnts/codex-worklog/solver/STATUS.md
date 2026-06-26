@@ -847,7 +847,8 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - **자체 적대 리뷰 clean(HIGH 0)** + **codex impl-review 3R → R3 approve**(bash 경로): R1 per-sample 목표
   (any()-picked → 반전 샘플별 home/candy, ⓕ) / R2 phase-키 aggregation(픽업 전·후 stale 병합 차단, ⓖ)+연속
   backpath(루프/계단 stale 셀 배제, ⓗ) / **R3 approve(no material findings)**. selfcheck ⓐ-ⓗ. impl-stage 종결.
-- **⏳ 다음 = 커밋**(사용자 승인 대기). `feat(solver): 5d② sand_mound cell-up routing — S19 SOLVED`.
+- **커밋·푸시 완료**: `6196a4d`(feat: 5d② sand_mound cell-up routing — S19 SOLVED) + `9f32372`(chore: carry-build
+  .uid 고아 메타 정착) → `origin/auto-solver` 푸시. 5d② 종결.
 
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)
