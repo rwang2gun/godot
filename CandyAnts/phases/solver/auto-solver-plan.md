@@ -484,7 +484,11 @@ solve.json 액션이 이미 `{skill, target, trigger}` 구조라 **리프팅 = �
   (reference clear + 각 cell_x 슬롯 interval 전 셀·도메인-내부 경계 밖 fail·gap fail, analyze --verify 동형,
   fail-closed) → **`verify` frontmatter 편입 완료**. 영속 보고가 엔진/스킬 변경에 깨지면 잡힘.
 - **5d · 고도화 (미검증 스테이지)**: Ch1~5 잔여(S18·Ch2 sand_mound 계열 S5/19/21~25 등)를 풀어보며 솔버 개선 +
-  다양-해 코퍼스 확보. sand_mound(cell-up) routing 등 미커버 메커니즘 추가는 여기서.
+  다양-해 코퍼스 확보. sand_mound(cell-up) routing 등 미커버 메커니즘 추가는 여기서. **5d② = sand_mound 벽-반전
+  cell-up(S19 100%, 종결)**.
+- **5e · 리스크-구동 다중-도구 분기 (S21~25, ⏳plan-review)**: sand_mound를 목표-위 *절벽*에도 연결(선결 D1) +
+  한 리스크에 경쟁하는 routing 후보의 _w burial 해소(검색 breadth D2) → dead-end 탈출·다양-해를 한 메커니즘으로.
+  하드 게이트 = S22 단순해(bridge+sand_mound) 100%(de-risk로 witness 입증). §"5e 계약" 참조.
 
 ### 5b 계약 — 가능성-공간 다양-해 (revised, 2026-06-24 사용자)
 > 솔버 산출물의 단위 질문 = "해가 몇 개"가 아니라 **"어디에 놓으면 클리어되나(가능성 공간)"**. 위치 변화는 클리어
@@ -671,6 +675,105 @@ plan-stage 3-round cap에서 R3 HIGH×1+MED×1이 나와 STOP→사용자가 "�
   ∴ **wall-target backpath collector는 reverse의 depth-4 cap을 재사용하지 말 것**(≥6 수집), cell-up 제안은
   off=0..K(K≥5) emit. **fixture(fail-closed)**: S19형 우측벽 wall_target이 **backpath ≥6 보유** + `propose`가
   롤아웃 전에 **off=5 후보 (10,14)를 실제 emit**함을 단언(`_selfcheck_wall_targets` 또는 별도 S19 fixture).
+
+### 5e 계약 — 리스크-구동 다중-도구 분기 (S21~25) **[설계 · plan-review 대상, 2026-06-26]**
+> 5d 우산의 후속. 5d②가 *벽-반전*에 sand_mound를 연결했다면, 5e는 **(i) sand_mound를 목표-위 *절벽*에도 연결**
+> (선결)하고 **(ii) 한 리스크에 경쟁하는 여러 routing 후보가 _w 랭킹에 묻혀 롤아웃조차 안 되던 결함**을 푼다.
+> 사용자 합의 방향("리스크 발견 시 다양한 도구를 넣고 해를 찾기") = **dead-end 탈출 + 다양-해 발견을 한 메커니즘**
+> 으로. `model.py`(diagnose/propose) + `solve.py`(검색 breadth) + selftest/게이트만 — 엔진/게임 무변경.
+
+**de-risk 실측 (2026-06-26, S22 정준 — 본 plan은 가설이 아니라 *재현된* 결함 위에 선다)**:
+- **베이스라인**: S22는 리스크 시퀀스 = ① 접근 절벽 (4,2)→우(candy 아래-우, 추락) → (bridge로 전원 픽업
+  reached=7) → ② **귀환 절벽 (8,6)→좌**(운반 7마리가 row7 플랫폼 좌단서 추락, lost=7). candy=(20,6) home=(0,2).
+- **선결 프로토타입(reverse_targets→cell-up, 목표-위 필터) = witness 후보를 실제 emit**: bridge 채택 후 진단이
+  귀환 절벽 (8,6) dir=−1 backpath `[(8,6),(9,6),(10,6),(11,6)]`를 내고, return-phase goal=home(0,2)이 위 →
+  cell-up 후보 sand_mound@(8/9/**10**/11,6) emit. **손배치 검증**: `bridge + sand_mound@(10,6)` → **saved=7/7
+  lost=0**(유일 — off=2만 유효; (8,6)/(9,6)/(11,6)=0/7). 즉 **후보 풀에 정답이 들어 있다.**
+- **그러나 선결 단독 불충분 — _w 랭킹 burial이 진짜 병목**(핸드오프 "slideR 락온"의 정확한 메커니즘): 같은
+  리스크(귀환)에 **carry-arm 무장(slideL/slideR, routing=up·ANT_ARMED) _w≈220**(return_phase carry_base)와
+  **cell-up(sand_mound) _w≈10**이 경쟁한다. `propose`가 top-`max_n`(=6)만 반환 → carry-arm이 6칸을 독점,
+  sand_mound는 **롤아웃조차 안 됨**(cap 30·LA2로도 정체, 22롤서 STOP). carry-arm은 _w 1위인데 **클리어 못 함**
+  (reached=7/saved=0), cell-up은 _w 꼴찌인데 **클리어함**(7/7) = 전형적 cross-routing 랭킹 burial.
+- **결론**: 선결(D1)은 *필요·witness 생성*이나 *불충분*. 단순해 발견조차 **리스크별 routing-breadth 보장(D2)**
+  이 있어야 — 어떤 routing이 그 리스크를 푸는지 **_w가 아니라 엔진 verdict가 결정**하게.
+
+**검증된 메커니즘(5d② 실독 + 본 de-risk)**: sand_mound cell 액션 스키마·one-shot 영구 사다리·추종자 cap·배치
+위상(T1~T3)은 5d② §"검증된 메커니즘" 그대로. 신규 확인 = **목표-위 fall-edge에서도 cell-up이 유효**(witness
+(10,6)=귀환 절벽 backpath off=2, 운반 개미를 row7 위로 들어올려 home 경로 확보). off≥1 backpath가 정답이라
+**reverse_targets backpath depth-4 cap이 (10,6)=off2까지는 닿음**(S19 valley off=5와 달리 S22는 얕음).
+
+**설계**:
+- **D1 · 선결: `propose` ③ cell-up이 *목표-위 fall-edge*도 후보로** (reverse_targets→cell-up 연결): 현 ③는
+  `wall_targets`만 순회 → fall-edge(추락 가장자리)엔 blocker/floater/bridge(①)만 나고 sand_mound는 빠진다.
+  **추가**: cell-up 루프가 `wall_targets` + **목표-위 reverse_targets**(해당 phase 목표가 그 셀보다 위 —
+  미픽업이면 candy, 운반이면 home; 5d② per-sample 목표 규약과 정합)를 함께 순회해 backpath off=0..K cell-up
+  후보를 emit. **soundness**: fall-edge는 전방이 비-solid(추락)라 wall_targets의 "전방 solid" 게이트와 배타 →
+  중복 emit 없음(dedup은 5d② `seen_cells`로). **selfcheck 확장**: `_selfcheck_wall_targets`에 *목표-위
+  fall-edge → cell-up 후보 emit / 목표-아래 fall-edge → 미emit* 케이스 추가(fail-closed 박제).
+- **D2 · 검색 breadth: 리스크별 intervention-class *evaluated-prefix* 보장** (burial 해소 — 본 plan의 핵심,
+  plan-review R1-HIGH 반영): 한 라운드에 진단된 리스크가 **여러 intervention class**(= 구별되는 (routing,
+  target-class) — 예 reverse / safe_fall / cross / up-armed / **up-cell**)를 가질 때, `min(evaluated)` commit/정체
+  판정 *전에* **각 class의 평가 프리픽스(evaluated-prefix)를 결정론 순서로 소진**한다. **단순 "class top 1롤"은
+  불충분**(R1-HIGH): cross-routing burial은 막아도 **intra-class burial**은 안 막는다 — S22 up-cell은 backpath
+  off로 갈리는데 현 _w가 `+off`(큰 off 선호)라 top=off3=(11,6)=**0/7**, 유일 witness off2=(10,6)은 2순위 →
+  "top 1롤"이면 (11,6)만 굴리고 (10,6)을 stall/cap 전에 영영 안 굴릴 수 있다. 따라서 **프리픽스 = class의 *구별
+  차원* 전체**:
+  - **up-cell**: 활성 fall-edge/wall의 **backpath offset 전부**를 *결정론 오름차순(off↑)*으로 commit/stall 판정
+    전 평가(현 `+off` _w 선호와 무관하게 offset 차원을 빠짐없이 커버). 프리픽스 인덱스 = **`off ∈
+    range(min(N, len(bp)))`**(= off 0…min(N,len(bp))−1, 기존 ③ `range(min(6,len(bp)))`·① `range(min(3,len(bp)))`
+    컨벤션과 동일). N = backpath 수집 *개수* 상한(reverse=4·wall=6, 5d② R3-M1; off-by-one 없음). S22 귀환
+    절벽 len(bp)=4 → off 0..3 = 4롤로 유일 witness (10,6)=off2 보장 포함.
+  - **ant-routing(reverse/safe_fall/cross)**: 기존 ① off=0..2 backpath 프리픽스 그대로(이미 결정론).
+  - _w는 **프리픽스 *내부* 평가 순서**와 프리픽스 소진 후 잔여 예산 순서만 결정 — class *간* 독점도, class
+    *내* offset 누락도 금지.
+  - **구현 방향(권고, plan-review 정련)**: `solve._propose`/`eval_cands`가 후보를 (risk, class) 키로 묶어 각
+    그룹의 offset-프리픽스를 인터리브 평가. **결정론**: (risk 좌표, class 키, off↑) 완전 사전식. **inert**:
+    단일-class·단일-offset 리스크(기존 전 스테이지 대부분)면 프리픽스=항등 → 후보 집합·순서 byte-identical.
+  - **이게 dead-end 탈출과 다양-해를 통합**: 한 class(carry-arm)가 정체해도 다른 class(cell-up)의 프리픽스가
+    같은 라운드에 평가돼 greedy lock-on이 풀린다. 동시에 **여러 class/offset이 각자 클리어하면 = 다양-해**(D3 수집).
+- **D3 · 다양-해 수집 (기존 forbid 재사용, 신규 메커니즘 0)**: D1+D2로 *첫* 해를 안정 발견하면, 다양-해는 기존
+  `diverse.py`(5b/5c) forbid 루프가 그대로 처리 — class 발견→4요소 forbid→재탐색. **D2의 breadth가 forbid 하
+  재탐색에서도 작동**해 같은 리스크의 *다른* routing 해(예 bridge+sand_mound vs floater→slide 경로)를 별 class로
+  발견. 즉 다양-해는 D2의 자연 산물이지 별도 코드가 아니다. S22 의도-해(5종)는 이 경로로 *발견 시도*(stretch).
+- **리스크 분류·도구 매핑 = 메타 routing 기반(하드코딩 0)**: intervention class = `_skills_by_routing` + target
+  (ant/cell) 조합. 신규 도구는 메타만으로 자동 편입(D11 불변). 리스크 종류(fall/wall)는 diagnose 산출
+  (reverse_targets/wall_targets) 그대로 — 새 리스크 분류기 신설 없음.
+
+**정직 경계 / inert(byte-identical) 불변식**:
+- **D1**: 인벤토리에 up-cell 스킬 없으면 미발화(byte-identical). 목표-위 fall-edge cell-up은 wall_targets와 배타
+  (전방 solid 여부) → ① reverse 후보에 누출 금지.
+- **D2**: 단일 intervention-class 리스크(기존 거의 전부)면 라운드-로빈=항등 → 후보 집합·순서 불변. **회귀 기준
+  = selftest byte-identical**(기존 plan/solve.json git 무변경) + 기존 S19(5d②) 재발견 불변.
+- break/down/jump cell 디바이스(Basher/Cutter/Digger/LeafJump) = 미커버 유지(스코프 밖, 정직 표기).
+
+**스코프 / Acceptance (falsifiable) — S22 단순해 100% = 하드 게이트** (5d② S19 선례):
+- **하드 acceptance = `solve.solve(22)`가 bridge+sand_mound로 S22를 100%(saved=7/7) 클리어.** 달성 가능성 =
+  **본 de-risk로 입증**(witness `[bridge, sand_mound@(10,6)]` → 7/7 frame 2158, 후보 풀에 (10,6) 존재 확인).
+  즉 하드 게이트는 *존재가 확인된 해*를 솔버가 burial 없이 자동 발견하는 것.
+- **`rediscover-verify`에 stage22 추가**(산문 acceptance만으론 회귀 못 잡음, 5d② R2-MED 선례): `solve.solve(22,
+  save=False)` 재발견 → cleared saved=7/7 + 액션에 cell-up(sand_mound) 포함 단언. solve 시 `stage22.solve.json`
+  영속 + selftest EXPECTED 편입(frame byte-identical).
+- **witness-rolled fixture(fail-closed, R1-HIGH 박제)**: D2 프리픽스가 *미명시 intra-class 랭킹 가정*에 기대지
+  않음을 증명 — bridge 채택 상태에서 up-cell 프리픽스가 **stop/commit 판정 전에 `sand_mound@(10,6)`(off=2,
+  유일 클리어)을 실제 롤아웃**함을 단언(현 `+off` _w라면 top=off3=(11,6)만 보장돼 누락 = FAIL). cap 예산
+  내(off0..3 = 4롤)에 witness가 평가 프리픽스에 듦을 박제. 단순 "후보 풀에 (10,6) 존재"가 아니라 "평가됨"을 검사.
+- **만약 cap·합리적 휴리스틱으로 100% 불가로 판명되면**: silent defer **금지** — S18식 실측 입증(어느 burial/cap
+  한계인지) 후 **사용자 STOP·에스컬레이트**(재설계/재스코프/취소 결정).
+- **stretch(본 게이트 아님)**: S21·S23·S24·S25 클리어 + S22 다양-해(의도-해 5종 등 ≥2 distinct class). D3로 시도
+  하되 추가 routing 상호작용(slideL/slideR 경로·floater 안전낙하 체인)이 필요할 수 있어 acceptance에서 제외(정직).
+- **회귀 게이트**: selftest byte-identical + `verify` frontmatter 그린 + `_selfcheck_wall_targets`(D1 확장) PASS +
+  S19 재발견 불변. D2 class 인터리브 결정론(키·_w·사전식).
+
+**리스크(plan-review 타깃)**:
+- **D2 breadth ↔ 10-롤아웃 cap 긴장**: S22는 2-리스크 시퀀스(접근+귀환)라 breadth가 롤아웃을 더 쓴다. 본 de-risk가
+  cap 30서도 *burial*로 실패(예산 아님)했으나, breadth 적용 시 필요 롤아웃이 cap을 넘으면 acceptance에서 드러남
+  → 사용자 에스컬레이트(escape 아님). cap은 리스크 시퀀스 깊이에 맞춰야(정직 표기).
+- **D2 과발화(class 폭증)**: 리스크마다 모든 routing class를 롤아웃하면 폭증. **완화 = 진단된 리스크에 *적용
+  가능한* class만**(fall-edge → reverse/safe_fall/cross/up; wall → up). cap/forbid로 폭 제어가 설계 핵심.
+- **D1 과발화**: 목표-위 아닌 fall-edge까지 cell-up → 예산 낭비. **완화 = per-phase 목표-위 게이트**(5d② 규약).
+- **결정론**: D1 cell-up 후보 순서 + D2 class 인터리브 키 완전 결정론(좌표·진척·사전식 tie-break).
+- **미결(plan-review 또는 impl 중 입증)**: 의도-해(floater→slideR→bridge→sand_mound→slideL, 5종)가 현 routing
+  으로 *표현 가능*한지 손배치 미검증(slideL/slideR routing=up·ANT_ARMED). stretch라 하드 게이트엔 무영향.
 
 ---
 

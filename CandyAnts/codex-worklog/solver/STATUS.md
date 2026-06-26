@@ -889,10 +889,37 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - 미결: 의도-해(floater→slideR→bridge→sand_mound→slideL)가 현 routing으로 *표현 가능*한지 손배치 미검증
   (slideL/slideR routing=up·ANT_ARMED). plan 전 또는 plan 중 입증 권장.
 
+## 5e 계약 작성 완료 (2026-06-26) — 선결 de-risk 실측 → plan 영속, ⏳codex plan-review 대기
+
+> 사용자 결정(AskUserQuestion) = "선결 먼저 실측". S22로 선결 프로토타입 검증 후 plan §"5e 계약" 작성.
+
+- **de-risk 실측(S22 정준, 프로토타입은 revert)**:
+  - 리스크 시퀀스 = ① 접근 절벽 (4,2)→우(추락) → bridge로 전원 픽업(reached=7) → ② **귀환 절벽 (8,6)→좌**
+    (운반 7마리 row7 플랫폼 좌단 추락, lost=7). candy=(20,6) home=(0,2).
+  - **선결(reverse_targets→cell-up 목표-위) = witness 후보 emit 확인**: bridge 후 진단이 (8,6) backpath
+    `[(8,6),(9,6),(10,6),(11,6)]` + home 위 → cell-up sand_mound@(10,6) emit. **손배치 `bridge+sand_mound@(10,6)`
+    = saved 7/7 lost 0**(유일, off=2; (8/9/11,6)=0/7). 후보 풀에 정답 존재.
+  - **선결 단독 불충분 = _w burial이 진짜 병목**: carry-arm(slideL/R, up·ANT_ARMED) _w≈220 vs cell-up _w≈10 →
+    propose top-6를 carry-arm이 독점, sand_mound **롤아웃조차 안 됨**(cap 30·LA2로도 22롤 STOP). _w 1위
+    carry-arm은 클리어 못 함(7 reached/0 saved), 꼴찌 cell-up이 클리어 = cross-routing 랭킹 burial("slideR 락온"의 정체).
+- **plan §"5e 계약" 골자**: D1 선결(목표-위 fall-edge→cell-up, selfcheck 확장) + **D2 리스크별 intervention-class
+  *evaluated-prefix*** (plan-review R1-HIGH 반영 — "class top 1롤"은 intra-class burial 미해소라 기각): 각
+  class의 *구별 차원* 프리픽스를 commit/stall 전 결정론 소진 — **up-cell = backpath `off ∈ range(min(N,len(bp)))`
+  오름차순 전부**(N=수집 개수 상한 reverse=4·wall=6), ant-routing = 기존 off0..2. _w는 프리픽스 내부·잔여 순서만.
+  + D3 다양-해(기존 forbid 재사용, 신규 0). 하드 게이트 = `solve.solve(22)` 7/7(witness 입증) + **witness-rolled
+  fixture**(stop/commit 전 sand_mound@(10,6)=off2 실제 롤 단언, 단순 풀-존재 아님). rediscover[22] 편입.
+  stretch = S21/23/24/25 + 다양-해(의도-해 5종). inert = 단일-class·단일-offset 리스크 byte-identical.
+
+- **5e plan-review 완료 = R3 approve**(R1 HIGH intra-class burial → D2 evaluated-prefix 강화 / R2 HIGH STATUS
+  stale + MED off-by-one → 동기화·`range(min(N,len(bp)))` 명시 / **R3 approve, no material findings**). 3-round cap
+  내 approve(STOP 불요). 트레일 [phase05-plan-review.md](../../phases/solver/reviews/phase05-plan-review.md)
+  `## 5e Round 1·2·3`. **plan-stage 종결 → 구현 진입 가능.**
+
 ## 블로커
-- **다음 작업 = S21~25 리스크-구동 다중-도구 분기 plan 작성**(위 핸드오프). 코드 변경 → plan-review.
-  codex 리뷰는 사용자 슬래시/bash 트리거 필요([[codex-adversarial-review-invocation]], 이번 세션 bash 경로로 plan
-  3R+impl 3R 완수).
+- **다음 작업 = 5e 구현** — model.py(D1 cell-up 목표-위 fall-edge + `_selfcheck_wall_targets` 확장) + solve.py
+  (D2 per-risk·per-class evaluated-prefix breadth) + rediscover[22]·**witness-rolled fixture**(stop/commit 전
+  (10,6)=off2 실제 평가 단언) + selftest EXPECTED. 하드 게이트 = `solve.solve(22)` 7/7. impl-stage = 자체 적대
+  리뷰 clean 후 codex 재리뷰(사용자 트리거). 엔진/게임 무변경.
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
 - **S20 구조-starvation = 수용된 latent 한계**(carry-mirror, 사용자 결정). 실제 structure→early→structure 레벨

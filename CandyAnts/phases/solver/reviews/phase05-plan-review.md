@@ -184,3 +184,51 @@ No-ship(codex): "수정 plan도 S19 수렴 계약이 plan이 실제로 바인딩
 증명)은 **접근 무효가 아닌 테스트가능성 요구**로 판단 → **plan에 구현 바인딩 요구로 명문화**(§"구현 바인딩
 요구") 후 **구현 진입**. 4th plan-review 라운드 없이, 두 요구의 충족은 **impl-stage 적대 리뷰 + fail-closed
 fixture/regression**으로 검증한다. (정책 예외=사용자 오케스트레이터 override, S18/S20 선례 동류.) → **plan-stage 종결.**
+
+## 5e Round 1 — needs-attention (HIGH×1)
+
+**Target**: working tree diff (auto-solver-plan.md §"5e 계약" + STATUS.md). **Verdict**: needs-attention.
+
+No-ship: D2 계약이 하드 게이트가 의존하는 S22 witness가 실제 평가됨을 보장하지 못함.
+
+- **[HIGH]** Class breadth가 유일 클리어 cell-up 후보를 *class 내부에서* 묻을 수 있음
+  (auto-solver-plan.md §5e). de-risk 증거상 S22는 `sand_mound@(10,6)`만 7/7이고 이웃 (8,6)/(9,6)/(11,6)=0/7인데,
+  D2는 "각 intervention class의 top 후보 최소 1롤"만 보장하고 class *내부* 순서는 여전히 _w가 결정. cross-routing
+  burial은 없애도 **intra-class burial**은 안 막음 — up-cell top이 off=0/1이면 유일 off=2 witness를
+  commit/stall/cap 전에 영영 안 굴려도 D2 계약은 충족됨. "후보 풀에 witness 존재"≠"평가 프리픽스에 듦".
+  **권고**: D2를 'class top 1롤'→'per-risk·per-class evaluated-prefix(필요 backpath offset 커버)'로 강화 +
+  결정론 offset 순서 정의 + bounded budget 내 유일 witness가 프리픽스에 듦을 증명. 또는 S22 acceptance에
+  sand_mound@(10,6)이 stop/commit 전 롤됨을 명시 단언.
+
+**대응(이 세션)**: D2를 evaluated-prefix 계약으로 강화(up-cell=backpath off0..K 결정론 오름차순 전부 평가,
+ant-routing=기존 off0..2) + acceptance에 **witness-rolled fixture**(stop/commit 전 (10,6) 실제 롤 단언, 단순
+풀-존재 아님) 추가. → Round 2 재리뷰 대상.
+
+## 5e Round 2 — needs-attention (HIGH×1 + MEDIUM×1)
+
+**Verdict**: needs-attention. 본문 §5e는 R1 HIGH를 거의 닫았으나 STATUS handoff가 stale + 프리픽스 범위 off-by-one.
+
+- **[HIGH]** STATUS handoff가 기각된 class-top-1 D2 계약을 그대로 보존(STATUS.md:906-907) — 구현 다음-단계라
+  STATUS를 따르는 엔지니어가 차단된 설계를 재도입할 수 있음. **권고**: STATUS를 강화된 D2(per-risk/per-class
+  evaluated-prefix, up-cell off 오름차순 전체 backpath offset, ant off0..2, witness-rolled fixture)로 동기화.
+- **[MEDIUM]** up-cell 프리픽스 범위 off-by-one(auto-solver-plan.md §5e): `off=0..min(K,len(bp)) 전부`인데 예시는
+  len=4 → `off0..3`. inclusive면 min=4 → off=4(4-원소 backpath 밖). **권고**: `off=0..min(K,len(bp)-1)` 또는
+  `range(min(K+1,len(bp)))`로 명시 + K가 max-offset인지 count인지 명기.
+
+**대응(이 세션)**: HIGH→STATUS를 evaluated-prefix로 동기화. MED→플랜을 `off ∈ range(min(N,len(bp)))`(N=count
+상한, 기존 ①·③ 컨벤션 동일)로 명시 — off-by-one 제거. → Round 3 재리뷰 대상.
+
+## 5e Round 3 (최종, 3-round cap) — approve
+
+**Verdict**: approve. R2 blocker 2건 모두 닫힘 — STATUS가 강화된 D2 evaluated-prefix 계약을 미러, up-cell
+프리픽스가 `off ∈ range(min(N,len(bp)))`로 정의돼 inclusive off-by-one 해소. docs-only plan diff에 방어 가능한
+잔여 HIGH 없음. **No material findings.**
+
+**Next**: impl-stage 리뷰 게이트 진행. **witness-rolled fixture 강제** — `sand_mound@(10,6)`이 stop/commit 전
+실제 *평가*됨(단순 풀-존재 아님)을 단언.
+
+### 5e plan-stage 종결
+codex plan-review 3R(R1 HIGH×1 → R2 HIGH×1+MED×1 → **R3 approve**). 3-round cap 내 approve 도달(STOP 불요).
+plan §"5e 계약" 확정 → **구현 진입 가능**. 구현 = model.py(D1 cell-up 목표-위 fall-edge + selfcheck 확장) +
+solve.py(D2 per-risk·per-class evaluated-prefix breadth) + rediscover[22]·witness-rolled fixture + selftest EXPECTED.
+**plan-stage 종결.**
