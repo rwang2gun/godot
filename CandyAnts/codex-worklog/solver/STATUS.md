@@ -790,6 +790,65 @@ carry-mirror가 early-above-structural을 유지하는 한 구조 starvation을 
 조건**: 실제 그런 레벨 등장 시 semantic 맥락-인지 preservation 재설계. 트레일 `phase05-impl-review.md` `## S20…`
 R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(사용자=오케스트레이터). **S20 종결.**
 
+## 5d② sand_mound (cell-up) routing — 설계 완료, ⏳plan-review 대기 (2026-06-26)
+
+> 사용자 결정(AskUserQuestion) = "5d② sand_mound routing"으로 5d 잔여 진입. SandMound WIP 정착 선결조건은
+> pull한 `b88533b`(챕터2 stage21~25 밸런싱)로 충족. 코드-변경 트랙이라 plan-review → impl-review 절차.
+> 설계 SoT = [auto-solver-plan.md](../../phases/solver/auto-solver-plan.md) §"5d② 계약". 하니스 `--fixed-fps`
+> (GODOT_BIN=Downloads 중첩 console.exe, [[godot-binary-location]]).
+
+- **결함 재현**(`search 19` baseline): cell-target SIGN(sand_mound)은 `model.propose`에 분기 부재 → **후보 0개**.
+  S19 trace = 5마리 home(1,10)→추락(col5,row10→14)→계곡 row14에서 좌우 벽(col4/col16) **반전 무한왕복**,
+  **retired=0(낙하·물 0)·time_out**. 낙하/물 신호 없어 기존 reverse_targets blind. candy(16,6)=계곡서 +7~8 상승.
+- **검증 메커니즘**(엔진 실독): 개미 스킬 없이 단차 0(벽=반전·절벽=추락) / sand_mound=수직 사다리 **최대 5칸**·
+  ceiling cap·영구 지형(이후 개미 climb) / 사인 **one-shot**(1개=모두 위한 사다리 1개) / cell=[col,row]=표면 위
+  **빈 보행 셀**(점유면 무효).
+- **설계 3축**: D1 diagnose 신규 `wall_targets`(벽-반전 검출, **d=진입 세그먼트 방향**+전방-solid soundness 게이트+
+  목표-위 게이트 → 벽-기저 셀, two-wall valley 둘 다 emit·목표근접 정렬, `_selfcheck_wall_targets` 박제) / D2 propose
+  신규 ③ SIGN cell-up 분기(meta.target==cell && routing==up, at_frame 0 emit, ①②와 격리) / D3 닫힌-루프 자연
+  stacking(매 라운드 최상단 벽 검출, S19=2·S25=4). **inert 불변식**: up-cell 스킬 없으면 byte-identical.
+- **스코프(R1 후)**: **S19 100%(sand_mound×2 saved=5/5) = 하드 acceptance 게이트**(escape hatch 제거). 불가 판명 시
+  silent defer 금지·S18식 실측 입증 후 사용자 STOP·에스컬레이트. S21~25/S5=stretch(게이트 아님). 볼트 crisis 노트는
+  본 plan 제외(knowledge.py 무변경, R1-MEDIUM). break/down/jump cell 디바이스=미커버 유지.
+- **codex plan-review R1 = needs-attention**(HIGH×2+MED×1) → 3개 수정: d 방향 규약+soundness+selfcheck / S19 하드
+  게이트화 / D4 볼트 노트 제거.
+- **codex plan-review R2 = needs-attention**(HIGH×1 stacking-placement + MED×1 verify-wiring) → **경험적 조사로 설계
+  심화**(사용자 질문 "추종자 천장 못 넘나?"가 내 오판 교정):
+  - **추종 개미도 천장 cap 넘음**(`LadderClimbState` 실독) — "cap=건설자 전용"은 **오판**. R2 HIGH의 snap 주장도
+    경험 반증(기존 플랫폼 cap은 frame-0 유효).
+  - **S19 ×2 = 5/5 입증**(손배치 witness `(10,14)+(12,10)` saved=5/5 frame1586) — 하드 게이트는 *존재 확인된 해*.
+  - **진짜 제약 = 배치 위상**(6×4 스윕): (T1) 두 사다리 **다른 col**(같은 col은 cap "위-위=빔" 깨짐, 대각 전부 1/5)
+    (T2) ladder2는 ladder1보다 **진행방향 쪽** (T3) ladder1은 벽에서 **off≥1** 떨어뜨려 ladder2 공간 확보.
+  - **해소 = D2 후보 column-sweep(A안)**: 반전-셀 단일이 아니라 backpath off=0..5 펼침 + 같은-col exclude(T1) +
+    엔진 verdict 선별. verify 실편입 = rediscover-verify에 stage19 추가(R2-MED).
+- **codex plan-review R3(최종) = needs-attention**(HIGH×1 + MED×1) → **3-round cap 도달·정책상 STOP·사용자 결정 대기**:
+  - **[HIGH]** 같은-col exclude(T1)를 `base plan` 기준 명세했으나, 기존 `model.propose(plan=plan)`는 closed-over
+    확정 plan만 봐서 **LA2 2nd-step(speculative 첫 사다리 후)엔 필터 미적용** → 유일 조합검색 경로가 같은-col
+    재스택 제안 가능. 권고=solve.py plumbing(cell-up exclude에 speculative base 전달) + LA2 regression.
+  - **[MED]** off=5 witness((10,14)) emit이 미증명 — 현 reverse backpath 4 cap·min(3,len(bp))을 미러하면 D1
+    selfcheck 통과해도 witness col 영영 미emit. 권고=우측벽 backpath≥6 + propose off=5 emit fail-closed fixture.
+  - 트레일 [phase05-plan-review.md](../../phases/solver/reviews/phase05-plan-review.md) `## 5d② Round 1·2·3`.
+- **사용자 결정(2026-06-26) = "반영 후 구현 진입"**: 두 R3 finding을 plan §"구현 바인딩 요구"로 명문화(R3-H1 LA2
+  cell-up base plumbing / R3-M1 off=5 emit 증명·reverse depth cap 비재사용) → **4th plan-review 없이 구현 진입**,
+  충족은 impl-stage 적대 리뷰 + fail-closed fixture/regression으로 검증. **plan-stage 종결.**
+## 5d② 구현 완료 (2026-06-26) — S19 SOLVED·게이트 그린·자체리뷰 clean, ⏳codex impl-review 대기
+
+> 트레일 [phase05-impl-review.md](../../phases/solver/reviews/phase05-impl-review.md) `## 5d② …`. 엔진/게임 무변경.
+
+- **산물**: model.diagnose `wall_targets`(d=진입방향+soundness 전방-solid+목표-위, backpath≥6) / model.propose ③
+  SIGN cell-up(column-sweep off=0..5, **off 큰 쪽 선호**=벽서 멀리 둬 ladder2 공간, T1 같은-col exclude, dedup) /
+  solve._propose `cellup_base=base` plumbing(LA2 base2, R3-H1) / `_selfcheck_wall_targets`(ⓐ-ⓔ+R3-M1 off=5 emit+
+  R3-H1 same-col) / stage19.solve.json + EXPECTED + rediscover[19].
+- **S19 하드 게이트 통과**: `solve.solve(19)` saved=5/5 rollouts=8 자동발견(`[(10,14),(11,10)]`, off=5 greedy→
+  다음 라운드 다른-col 우향). **핵심 수정**: off-preference 뒤집기(`+off`) — greedy가 벽-붙은 off=0 dead-end 대신
+  벽서 먼 ladder1 채택해야 닫힌-루프가 수렴(off=0만이면 1/5 trap).
+- **게이트 그린·EXIT 0**: Determinism×2+Drift+harness+selftest **18**(stage19, 기존 byte-identical)+analyze4+
+  diverse4+`_selfcheck_wall_targets`+rediscover(4/13/19/20). **inert 확인**: 기존 solve.json git 무변경.
+- **자체 적대 리뷰 clean(HIGH 0)** + **codex impl-review 3R → R3 approve**(bash 경로): R1 per-sample 목표
+  (any()-picked → 반전 샘플별 home/candy, ⓕ) / R2 phase-키 aggregation(픽업 전·후 stale 병합 차단, ⓖ)+연속
+  backpath(루프/계단 stale 셀 배제, ⓗ) / **R3 approve(no material findings)**. selfcheck ⓐ-ⓗ. impl-stage 종결.
+- **⏳ 다음 = 커밋**(사용자 승인 대기). `feat(solver): 5d② sand_mound cell-up routing — S19 SOLVED`.
+
 ## 블로커
 - 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경, plan/impl-review)** — 5d①에서 cap-saturate 확인, 분리.

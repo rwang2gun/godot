@@ -16,7 +16,14 @@ D10: 엔진은 진실(verdict 오라클)이고, 이 모듈은 *계획 가속 휴
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
+
+for _s in (sys.stdout, sys.stderr):              # cp949 무관 UTF-8(knowledge.py 등 다른 솔버 모듈과 동일) —
+    try:                                         # _selfcheck_* 등 한글/em-dash 출력이 standalone에서도 안전.
+        _s.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
 
 
 # ---------- 레이아웃 ----------
@@ -147,11 +154,83 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
     return {
         "picked_total": picked_ants,
         "reverse_targets": reverse_targets,
+        "wall_targets": _wall_targets(trace, layout),   # 상승판(sand_mound cell-up routing)
         "fall_edges": keys,                  # legacy(좌표 키 리스트)
         "near_candy": near_candy,
         "candy_hp": candy_hp,
         "ant_count": len(ant_ids),
     }
+
+
+def _goal_cell(picked: bool, layout: dict):
+    """이 개미의 현재 목표 셀 — 픽업했으면 home(귀환), 아니면 candy(접근)."""
+    return layout.get("home") if picked else layout.get("candy")
+
+
+def _wall_targets(trace: dict, layout: dict) -> list[dict]:
+    """**벽-반전** 검출(reverse_targets의 *상승판*, sand_mound cell-up routing용). 개미가 grounded로 진행하다
+    **같은 row 전방 셀이 solid**(벽)라 반전(flip)하고 **목표가 더 위**(climbing이 진척)일 때의 벽-기저 셀을 수집.
+    방향 d = **진입(incoming) 세그먼트 방향**(반전 직전 마지막 수평 이동 부호) — 트레이스에 ant.direction이 없으므로
+    명시 정의(plan-review R1). soundness = 전방 `(cx+d_in, cy)` occupied(허공 반전·절벽 배제). backpath = 진입측
+    grounded 타일을 거슬러 ≥6 수집(reverse의 depth-4 cap **비재사용**, plan-review R3-M1 — col-sweep witness 보호)."""
+    occ = layout["occupied"]
+    def supported(cx, cy):
+        return (cx, cy + 1) in occ
+    agg: dict = {}                                  # (col,row,d_in) -> {backpath, count}
+    for si in sorted({int(k) for k in trace.keys()}) if trace else []:
+        ss = _samples(trace, si)
+        if len(ss) < 2:
+            continue
+        for i in range(1, len(ss) - 1):
+            cx, cy = ss[i][1], ss[i][2]
+            if not supported(cx, cy):
+                continue
+            dx_in = ss[i][1] - ss[i - 1][1]
+            dx_out = ss[i + 1][1] - ss[i][1]
+            if dx_in == 0:
+                continue
+            d_in = 1 if dx_in > 0 else -1
+            reversed_here = (dx_out == 0) or ((1 if dx_out > 0 else -1) != d_in)
+            if not reversed_here:
+                continue
+            if (cx + d_in, cy) not in occ:           # 전방 same-row solid 아님 → 벽 아님(허공 반전·절벽)
+                continue
+            # **per-sample 목표**(codex impl-review R1-HIGH): 이 반전 *시점*의 상태로 목표 결정 — carrying(s[3]==1)
+            # 이면 home(귀환), 아니면 candy(접근). 트레이스 전체 any()-picked로 단일화하면 픽업 *전* 접근 벽을 home
+            # 기준 오판정해 유효 상승 벽을 누락한다. 게이트·정렬 모두 이 phase-별 목표를 쓴다.
+            picked = 1 if ss[i][3] == 1 else 0
+            goal = _goal_cell(picked == 1, layout)
+            if goal is None or goal[1] >= cy:        # 목표가 위가 아니면 상승 무익 → 배제
+                continue
+            # **phase(picked)를 키에 포함**(codex impl-review R2-HIGH): 같은 벽이 픽업 전/후 둘 다 나올 때, 나중
+            # phase가 자기 gx·backpath를 잃고 stale 접근-phase 데이터로 병합·정렬되지 않게 한다(phase별 별도 레코드).
+            key = (cx, cy, d_in, picked)
+            if key in agg:
+                agg[key]["count"] += 1
+                continue
+            # **연속 접근 세그먼트**(codex impl-review R2-MED): 진입측 grounded 타일을 거슬러 수집하되, 직전 수용
+            # 셀과 **비인접**(Chebyshev>1: 루프·점프·무관 행)이면 중단 — 접근로 밖 stale 셀이 off-preference로
+            # 실제 벽 접근 셀을 밀어내 cap을 소진하는 걸 막는다. (S19 평지는 전부 인접 → 6칸 수집.)
+            bp: list = []
+            last = None
+            for j in range(i, -1, -1):
+                s = ss[j]
+                if not supported(s[1], s[2]):
+                    continue
+                cell = (s[1], s[2])
+                if last is not None and cell == last:
+                    continue
+                if last is not None and (abs(cell[0] - last[0]) > 1 or abs(cell[1] - last[1]) > 1):
+                    break                            # 비인접 → 접근 세그먼트 종단(stale 셀 배제)
+                bp.append(cell)
+                last = cell
+                if len(bp) >= 6:
+                    break
+            agg[key] = {"backpath": bp, "count": 1, "gx": goal[0]}   # gx = 이 target의 phase-별 목표 col(정렬용)
+    # 정렬: **각 target의 목표 col** 근접 desc(가까운 벽 우선), 빈도 desc, 결정론 tie-break(좌표·방향·phase).
+    keys = sorted(agg.keys(), key=lambda k: (abs(k[0] - agg[k]["gx"]), -agg[k]["count"], k[0], k[1], k[2], k[3]))
+    return [{"cell": (k[0], k[1]), "dir": k[2], "backpath": agg[k]["backpath"], "count": agg[k]["count"]}
+            for k in keys]
 
 
 # ---------- 개입 제안 (메타 routing 디스패치, D11) ----------
@@ -271,13 +350,31 @@ def _has_ceiling(occ: set, col: int, row: int) -> bool:
     return any((col, r) in occ for r in range(row - 1, -1, -1))
 
 
+def _cellup_cols(cellup_base, metas: dict) -> set:
+    """base plan(또는 accepted actions)에서 이미 배치된 **cell-up 사다리의 col 집합**(T1 같은-col 회피용,
+    plan-review R2). cell-up = meta.target==cell && routing==up(현 sand_mound). down/break cell 디바이스는 제외."""
+    cols: set = set()
+    for a in (cellup_base or []):
+        m = metas.get(a.get("skill")) or {}
+        t = a.get("target") or {}
+        if str(m.get("target")) == "cell" and str(m.get("routing")) == "up" and t.get("mode") == "cell":
+            c = t.get("cell")
+            if isinstance(c, (list, tuple)) and len(c) == 2:
+                cols.add(int(c[0]))
+    return cols
+
+
 def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
-            notes: dict, exclude: set, max_n: int, plan: list | None = None) -> list[dict]:
+            notes: dict, exclude: set, max_n: int, plan: list | None = None,
+            cellup_base: list | None = None) -> list[dict]:
     """다음 개입 후보를 랭킹 반환. 각 후보 = {"action": v1액션, "label": str}.
     우선순위: ① 물 진입을 막는 반전(blocker 등 routing=reverse) — 가장 흔한 치명적 실패.
               ② 픽업했으나 귀환 부족 → 무장 up(climber 등)으로 귀로 확보(타이밍: 회수 완료 후).
+              ③ 상승 벽-반전 → cell-up 사다리(sand_mound, routing=up·target=cell) 설치.
     notes(스테이지 비고)는 우선순위 가중만(비구속).
-    plan = 현재 누적 plan(없으면 None) — early 체인(상행 climber) 게이트 `_has_early_arm`에만 쓴다."""
+    plan = 현재 누적 plan(없으면 None) — early 체인(상행 climber) 게이트 `_has_early_arm`에만 쓴다.
+    cellup_base = ③ cell-up 같은-col 회피(T1)의 *speculative* 기준 plan(LA2의 base2 포함, plan-review R3-H1).
+                  None이면 같은-col 필터 미적용(첫 라운드/단독 호출). early-chain closure(plan)와 직교."""
     cs = layout["cell_size"]
     by_r = _skills_by_routing(inventory, metas)
     cands: list[dict] = []
@@ -377,6 +474,39 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
                       "trigger": {"type": "picked_ge", "n": n}}
             cands.append({"action": action, "label": label, "_w": base - 1 + _note_w(notes, sid)})
 
+    # ③ SIGN cell-up (sand_mound 등 meta.target==cell && routing==up) — 상승 벽-반전(wall_targets)에 사다리 설치.
+    # **후보 column-sweep(A안)**: 단일 반전-셀이 아니라 진입측 backpath off=0..K를 펼쳐, 엔진 verdict가 배치 위상
+    # (T1 다른-col / T2 우향 / T3 off≥1)을 만족하는 조합을 선별한다(plan-review R2). off=0(벽 붙음)은 (T3) 위반이라
+    # 단독 실패하나, 실패 후 검색이 off≥1을 이어 평가해 witness(S19: col10=off5)에 닿는다. inert: target==cell &&
+    # routing==up 스킬이 인벤토리에 없으면 루프 미진입 → 후보 byte-identical.
+    cellup_cols = _cellup_cols(cellup_base, metas)       # 이미 깐 사다리 col(LA2 base 포함, T1 같은-col 회피, R3-H1)
+    wts = diag.get("wall_targets", [])
+    for sid in sorted(inventory):
+        meta = metas.get(sid) or {}
+        if str(meta.get("target")) != "cell" or str(meta.get("routing")) != "up":
+            continue
+        seen_cells: set = set()                           # 좌·우 벽이 같은 backpath 셀(예 valley off=5=col10)을
+        for ti, tgt in enumerate(wts):                    # 양쪽서 내는 중복 후보 차단(중복 롤아웃 방지). 첫(=목표
+            bp = tgt.get("backpath") or [tgt["cell"]]      # 근접 정렬 우선) 발견 가중 유지.
+            tgt_w = len(wts) - ti                         # wall_targets 정렬 순위(목표 근접) 가중
+            for off in range(min(6, len(bp))):            # off=0..5 (reverse depth-4 cap 비재사용, R3-M1)
+                col, row = bp[off]
+                if col in cellup_cols:                    # T1: 같은-col 재스택 배제(speculative base 기준, R3-H1)
+                    continue
+                if (col, row) in seen_cells:              # 이 스킬에서 동일 셀 중복 emit 방지(좌·우 벽 교집합)
+                    continue
+                seen_cells.add((col, row))
+                label = "%s@cell:%d,%d" % (sid, col, row)
+                if label in exclude:
+                    continue
+                action = {"skill": sid, "target": {"mode": "cell", "cell": [col, row]},
+                          "trigger": {"type": "at_frame", "frame": 0}}
+                # off **큰 쪽 선호**(+off): 벽은 개미↔목표 사이에 있으므로, ladder1을 벽에서 멀리(접근로 안쪽)
+                # 놓아야 climb 후 목표 방향으로 다음 사다리(T2) 공간이 남는다. off=0(벽 붙음)은 T3 dead-end라
+                # 후순위. tgt_w(목표 근접 벽)가 1급, off는 그 안의 2급 선호.
+                cands.append({"action": action, "label": label,
+                              "_w": _note_w(notes, sid) * 8 + tgt_w * 8 + off})
+
     cands.sort(key=lambda c: -c["_w"])
     return cands[:max_n]
 
@@ -386,3 +516,99 @@ def _note_w(notes: dict, sid: str) -> int:
     if notes and sid in notes:
         return 1
     return 0
+
+
+def _selfcheck_wall_targets() -> bool:
+    """`wall_targets` 검출 + cell-up 후보 emit의 **fail-closed 단위 검증**(plan-review R1·R3 박제, 엔진 불요).
+    ⓐ right-wall ⓑ left-wall ⓒ two-wall valley(둘 다 검출·목표근접 정렬) ⓓ 허공 반전(전방 비-solid → 미검출)
+    ⓔ 목표-아래(미검출) + **R3-M1**: S19형 우측벽 wall_target이 backpath ≥6 보유 + `propose`가 off=5 후보
+    (10,14)를 실제 emit(reverse depth-4 cap 비재사용 prove-it). 반환 True=PASS / False=FAIL(상세 출력)."""
+    def _L(occupied, candy=None, home=None):
+        return {"cell_size": 48, "occupied": set(occupied), "ladder": set(), "kinds": {},
+                "hazard": {}, "candy": candy, "home": home}
+    def _tr(*paths):                               # 각 path=[(col,row),...] → 한 개미 trace(has_candy=0)
+        return {str(si): [[i, c, r, 0] for i, (c, r) in enumerate(p)] for si, p in enumerate(paths)}
+
+    # ⓐ right-wall: 바닥 row11 cols0..4, 벽 col5, candy 위(3,5). 개미 우향→(4,10)서 반전(전방 (5,10) solid).
+    occ_a = {(c, 11) for c in range(0, 5)} | {(5, 10), (5, 11)}
+    wt_a = diagnose(_tr([(0, 10), (1, 10), (2, 10), (3, 10), (4, 10), (3, 10), (2, 10)]),
+                    _L(occ_a, candy=(3, 5)), 1)["wall_targets"]
+    if not any(t["cell"] == (4, 10) and t["dir"] == 1 for t in wt_a):
+        print("[wall_targets selfcheck] FAIL ⓐ right-wall 미검출:", wt_a); return False
+    # ⓓ 허공 반전: 같은 바닥인데 전방 (5,10) **비-solid**(벽 없음) → 미검출. (절벽이라 실제론 추락이나 검출만 검사.)
+    occ_d = {(c, 11) for c in range(0, 6)}         # row11 floor cols0..5, row10 전부 빔
+    wt_d = diagnose(_tr([(2, 10), (3, 10), (4, 10), (3, 10), (2, 10)]),
+                    _L(occ_d, candy=(3, 5)), 1)["wall_targets"]
+    if any(t["cell"] == (4, 10) for t in wt_d):
+        print("[wall_targets selfcheck] FAIL ⓓ 허공 반전 오검출:", wt_d); return False
+    # ⓔ 목표-아래: ⓐ와 동일 지형인데 candy가 아래(3,15) → 상승 무익 → 미검출.
+    wt_e = diagnose(_tr([(0, 10), (1, 10), (2, 10), (3, 10), (4, 10), (3, 10), (2, 10)]),
+                    _L(occ_a, candy=(3, 15)), 1)["wall_targets"]
+    if wt_e:
+        print("[wall_targets selfcheck] FAIL ⓔ 목표-아래 오검출:", wt_e); return False
+    # ⓕ **per-sample 목표(codex impl-review HIGH) — has_candy 0→1 플립 트레이스**: 개미가 **픽업 전(hc=0)** 우측
+    # 벽서 반전(candy 위), 그 *후* 픽업(hc=1). home은 아래(0,15). per-sample 목표면 이 반전 시점 hc=0 → goal=candy
+    # (위) → 검출. any()-picked 단일화 버그면 트레이스에 hc=1 샘플이 있어 goal=home(아래) → 게이트 reject로 **누락**
+    # = FAIL. 즉 이 케이스가 버그를 falsify한다(vacuous 아님). 샘플=[t,col,row,has_candy].
+    occ_f = {(c, 11) for c in range(0, 9)} | {(9, 10), (9, 11)}
+    tr_f = {"0": [[0, 0, 10, 0], [1, 1, 10, 0], [2, 2, 10, 0], [3, 3, 10, 0], [4, 4, 10, 0],
+                  [5, 5, 10, 0], [6, 6, 10, 0], [7, 7, 10, 0], [8, 8, 10, 0],     # 픽업 전 우향 접근 → (8,10) 반전
+                  [9, 7, 10, 0], [10, 6, 10, 1], [11, 5, 10, 1]]}                 # 반전 후 픽업(hc 0→1 플립)
+    wt_f = diagnose(tr_f, _L(occ_f, candy=(10, 5), home=(0, 15)), 1)["wall_targets"]
+    if not any(t["cell"] == (8, 10) and t["dir"] == 1 for t in wt_f):
+        print("[wall_targets selfcheck] FAIL ⓕ 픽업-전 접근 벽 누락(per-sample 목표 회귀, any()-bug):", wt_f); return False
+    # ⓑ left-wall + ⓒ two-wall valley: 바닥 row11 cols2..6, 벽 col1·col7. candy 우상(8,5). 개미 좌우 왕복.
+    occ_c = {(c, 11) for c in range(2, 7)} | {(1, 10), (1, 11), (7, 10), (7, 11)}
+    wt_c = diagnose(_tr([(6, 10), (5, 10), (4, 10), (3, 10), (2, 10), (3, 10), (4, 10), (5, 10), (6, 10), (5, 10)]),
+                    _L(occ_c, candy=(8, 5)), 1)["wall_targets"]
+    has_left = any(t["cell"] == (2, 10) and t["dir"] == -1 for t in wt_c)
+    has_right = any(t["cell"] == (6, 10) and t["dir"] == 1 for t in wt_c)
+    if not (has_left and has_right):
+        print("[wall_targets selfcheck] FAIL ⓑ/ⓒ two-wall 미검출(left=%s right=%s):" % (has_left, has_right), wt_c); return False
+    if wt_c[0]["cell"] != (6, 10):                 # 목표(col8) 근접 = 우측벽(col6) 먼저
+        print("[wall_targets selfcheck] FAIL ⓒ 목표근접 정렬(우측 우선) 위반:", [t["cell"] for t in wt_c]); return False
+    # ⓖ **중복 pre/post-pick 벽 키(codex impl-review R2-HIGH)**: 같은 벽 (5,10,+1)을 픽업 전(hc=0, goal=candy(10,5))
+    # 과 후(hc=1, goal=home(8,5))에 둘 다 반전. phase가 키에 없으면 나중 것이 count만 증가·stale gx로 병합 → 정렬
+    # 오염. phase별 별도 레코드면 **두 target**이 각자 gx로: home(|5-8|=3) target이 candy(|5-10|=5)보다 앞.
+    occ_g = {(c, 11) for c in range(2, 6)} | {(6, 10), (6, 11)}
+    tr_g = {"0": [[0, 2, 10, 0], [1, 3, 10, 0], [2, 4, 10, 0], [3, 5, 10, 0], [4, 4, 10, 0],   # pre-pick 반전 (5,10)
+                  [5, 4, 10, 1], [6, 5, 10, 1], [7, 4, 10, 1]]}                                 # post-pick 반전 (5,10)
+    wt_g = diagnose(tr_g, _L(occ_g, candy=(10, 5), home=(8, 5)), 1)["wall_targets"]
+    g_at = [t for t in wt_g if t["cell"] == (5, 10) and t["dir"] == 1]
+    if len(g_at) != 2:                             # phase별 2 target(구 (col,row,d_in) 병합이면 1·count=2 = FAIL)
+        print("[wall_targets selfcheck] FAIL ⓖ pre/post-pick 벽이 phase별 2 target 아님(stale 병합):", wt_g); return False
+    # ⓗ **비연속 backpath(codex impl-review R2-MED)**: 직전 grounded 샘플이 far-jump(루프)면 접근 세그먼트 종단.
+    # 개미가 (3,10)→(4,10)→(5,10) 직전에 far cell (0,10)을 거쳐옴 → backpath는 (5,10)(4,10)(3,10)만, (0,10) 배제.
+    occ_h = {(c, 11) for c in range(0, 6)} | {(6, 10), (6, 11)}
+    tr_h = {"0": [[0, 0, 10, 0], [1, 3, 10, 0], [2, 4, 10, 0], [3, 5, 10, 0], [4, 4, 10, 0]]}
+    diag_h = diagnose(tr_h, _L(occ_h, candy=(10, 5)), 1)
+    bp_h = next((t["backpath"] for t in diag_h["wall_targets"] if t["cell"] == (5, 10)), [])
+    if (0, 10) in bp_h or len(bp_h) != 3:
+        print("[wall_targets selfcheck] FAIL ⓗ 비연속 backpath stale 셀 미배제:", bp_h); return False
+    cands_h = propose(_L(occ_h, candy=(10, 5)), diag_h, {"sand_mound": 2},
+                      {"sand_mound": {"target": "cell", "routing": "up"}}, {}, set(), max_n=40)
+    if any(c["action"]["target"].get("cell") == [0, 10] for c in cands_h):
+        print("[wall_targets selfcheck] FAIL ⓗ off-preference가 접근로 밖 (0,10) 선택:", [c["label"] for c in cands_h if "cell" in c["label"]]); return False
+    # R3-M1: S19형 valley(바닥 row14 cols5..15, 벽 col16). 우측벽 (15,14) backpath≥6 + propose off=5 (10,14) emit.
+    occ_s = {(c, 15) for c in range(5, 16)} | {(16, 14), (16, 15)}
+    diag_s = diagnose(_tr([(c, 14) for c in range(5, 16)] + [(c, 14) for c in range(14, 4, -1)]),
+                      _L(occ_s, candy=(16, 6)), 5)
+    rw = next((t for t in diag_s["wall_targets"] if t["cell"] == (15, 14) and t["dir"] == 1), None)
+    if rw is None or len(rw["backpath"]) < 6:
+        print("[wall_targets selfcheck] FAIL R3-M1 우측벽 backpath<6:", rw); return False
+    metas_s = {"sand_mound": {"target": "cell", "routing": "up", "category": "SIGN"}}
+    L_s = _L(occ_s, candy=(16, 6))
+    cands_s = propose(L_s, diag_s, {"sand_mound": 2}, metas_s, {}, set(), max_n=40)
+    if not any(c["action"]["target"].get("cell") == [10, 14] for c in cands_s):
+        print("[wall_targets selfcheck] FAIL R3-M1 off=5 witness (10,14) 미emit:",
+              [c["label"] for c in cands_s if "cell" in c["label"]]); return False
+    # R3-H1: T1 같은-col 회피가 **speculative base**(LA2 base2 = plan+[첫 sand_mound])에 적용되는지 prove-it.
+    # solve._propose가 `cellup_base=base`(LA2는 base2)로 전달하므로 이 propose-레벨 필터가 곧 LA2 메커니즘이다.
+    base_first = [{"skill": "sand_mound", "target": {"mode": "cell", "cell": [10, 14]},
+                   "trigger": {"type": "at_frame", "frame": 0}}]
+    cands_h1 = propose(L_s, diag_s, {"sand_mound": 2}, metas_s, {}, set(), max_n=40, cellup_base=base_first)
+    h1_cols = {c["action"]["target"]["cell"][0] for c in cands_h1 if c["action"]["target"].get("mode") == "cell"}
+    if 10 in h1_cols:
+        print("[wall_targets selfcheck] FAIL R3-H1 speculative base col10 미배제(같은-col 재스택 가능):", sorted(h1_cols)); return False
+    print("[wall_targets selfcheck] PASS — ⓐ-ⓗ 검출/방향/정렬/per-sample목표/phase별키/연속backpath + R3-M1 off=5 + R3-H1 same-col 박제.")
+    return True

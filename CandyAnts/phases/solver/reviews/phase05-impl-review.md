@@ -473,3 +473,78 @@ Verdict: needs-attention (예상된 결과). codex는 diff만 보므로 carry-mi
 
 **상태**: S20 SOLVED·게이트 그린·회귀 0. codex 5R(R1~R3 보존 진화 → R4 근본충돌 에스컬레이션 → R5 carry-mirror
 확인). 사용자 결정으로 review 루프 종결.
+
+## 5d② sand_mound (cell-up) routing — impl-review (2026-06-26)
+
+> plan-stage(3-round, R3 HIGH→사용자 "반영 후 구현 진입") 후 구현. base=plan-stage 종결 시점 워킹트리.
+> 엔진/PlanRunner/게임 무변경 — `tools/solver/`(model.py·solve.py·try_solve.py) + `scripts/run_plan.py`
+> EXPECTED 1줄 + 신규 `data/solutions/stage19.solve.json`. 하니스 `--fixed-fps`([[godot-binary-location]]).
+
+**구현 산물:**
+- **`model.diagnose` 신규 `wall_targets`**(`_wall_targets`): 벽-반전 검출 — d=진입 세그먼트 방향(트레이스에
+  ant.direction 없어 명시 정의), soundness=전방 same-row solid, 목표-위 게이트, backpath≥6(reverse depth-4 cap
+  비재사용, R3-M1). 목표(candy) 근접 desc 결정론 정렬.
+- **`model.propose` 신규 ③ SIGN cell-up 분기**(meta.target==cell && routing==up): 후보 column-sweep off=0..5,
+  **off 큰 쪽 선호**(`+off`·tgt_w*8) — 벽은 개미↔목표 사이라 ladder1을 벽서 멀리 둬야 ladder2 공간(T2/T3) 확보.
+  T1 같은-col exclude(`_cellup_cols`, speculative base 기준). 좌·우 벽 중복 셀 dedup. ①②와 routing 키로 격리.
+- **`solve._propose` plumbing**(R3-H1): `model.propose(..., cellup_base=base)` — cell-up 같은-col 회피가 LA2의
+  speculative base(base2)를 보도록(early-chain closure `plan`과 직교). filter는 propose-레벨, 배선은 1줄 passthrough.
+- **`model._selfcheck_wall_targets()`**(fail-closed, 엔진 불요): ⓐ right ⓑ left ⓒ two-wall valley(목표근접 정렬)
+  ⓓ 허공 반전 미검출 ⓔ 목표-아래 미검출 + **R3-M1**(우측벽 backpath≥6·propose off=5 (10,14) emit) + **R3-H1**
+  (speculative base col10 → 같은-col 배제). rediscover-verify 선두 편입.
+- **stage19 게이트 편입**: `stage19.solve.json`(witness `[(10,14),(11,10)]` saved=5/5 frame1586 rollouts8) +
+  selftest EXPECTED + rediscover-verify(REDISCOVER_TARGETS[19]).
+
+**S19 하드 acceptance = 통과**: `solve.solve(19)` → **saved=5/5, rollouts=8**, 자동 발견(off-preference로 greedy가
+ladder1=(10,14)[off=5] 채택 → 다음 라운드 ladder2=(11,10), 다른-col·우향). 결정론 재현(재탐색 byte-identical).
+
+**전체 게이트 그린·EXIT 0**: Determinism×2 + SkillMetadataDrift + harness-test + selftest **18 plans**(stage19
+편입, 기존 byte-identical) + analyze --verify(4) + diverse-verify(4) + **`_selfcheck_wall_targets` PASS** +
+rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 없는 기존 스테이지 solve.json **git 무변경**
+(stage19만 신규), rediscover 4/13/20 시그니처 byte-identical.
+
+**자체 적대 리뷰 — clean(HIGH 0, 2-fix):**
+- [HIGH] R3-H1 LA2 same-col regression이 selfcheck에 부재(propose 필터=LA2 메커니즘인데 fixture 누락) → **수정**:
+  selfcheck에 speculative-base(=LA2 base2) col 배제 케이스 추가.
+- [MEDIUM] 좌·우 벽이 같은 backpath 셀(valley off=5=col10)을 양쪽서 중복 emit(중복 롤아웃) → **수정**: 스킬별
+  `seen_cells` dedup(목표근접 우선 가중 유지).
+- **정직 경계(HIGH 아님, 문서화)**: ① R3-H1 배선(solve.py cellup_base=base)은 inspection 검증·propose-필터
+  fixture — solve._propose closure 비export라 full LA2-driven 통합 테스트는 미추가(1줄 passthrough, 저위험).
+  ② off-preference는 ladder 높이가 col-불변이고 backpath가 동일 접근면이라 sound — 비연속 플랫폼 backpath에선
+  불완전 가능하나 엔진 verdict가 거름(S5 등 single-gap stretch 스코프 밖). ③ wall_targets 목표는 any()-picked
+  근사(per-frame 목표전환 미모델, reverse_targets 동급). ④ break/down/jump cell 디바이스 미커버(스코프 밖).
+
+**⏳ 다음 = codex impl-review**(사용자 슬래시/bash 트리거 — model-invocation 불가). clean 후 커밋.
+
+### codex impl-review R1 (needs-attention, HIGH×1) → 1-fix
+> base=구현 워킹트리 diff. codex session(bash 경로, [[codex-adversarial-review-invocation]]).
+
+- **[HIGH] wall_targets가 sample별 목표가 아닌 트레이스 전체 단일 목표 사용** (model.py `_wall_targets`):
+  `picked_any = any(s[3]==1 for s in ss)`를 개미당 1회 계산해 모든 반전에 적용. 트레이스가 픽업 전(접근)+픽업
+  후(운반) 샘플을 같이 담을 때, 개미가 *나중에* 픽업하면 *이른* 접근 벽이 candy 아닌 home 기준 판정 → home이
+  그 벽 위가 아니면 `goal[1]>=cy`로 **유효 상승 벽을 조용히 누락**. 정렬도 candy 고정. selfcheck가 `_tr`에서
+  has_candy=0 하드코딩이라 미포착. 권고: 반전 *샘플별* 목표(`home if ss[i][3]==1 else candy`)로 게이트·정렬.
+- **수정**: `_wall_targets` 목표 계산을 루프 *안*으로 — `goal = _goal_cell(ss[i][3]==1, layout)`(phase별). 정렬 gx도
+  target별 `agg[k]["gx"]`(목표 col)로. **selfcheck ⓕ 추가**: has_candy **0→1 플립** 트레이스(픽업 전 우측 벽 반전,
+  그 후 픽업, home 아래) → per-sample이면 (8,10) 검출 / any()-bug면 home(아래) 기준 reject로 누락 = FAIL.
+  **falsifiable 확인**(vacuous 아님). S19 회귀 0(픽업 없어 candy 일관, byte-identical SOLVED 5/5 rollouts8).
+- **자체 적대 리뷰 clean(HIGH 0)**: per-sample 목표 결정론(gx target별 저장)·gate/sort 일관·S19 불변 검토. 전체
+  게이트 그린·EXIT 0(selftest18+analyze4+diverse4+selfcheck ⓐ-ⓕ+rediscover4/13/19/20). **⏳ codex 재리뷰.**
+
+### codex impl-review R2 (needs-attention, HIGH×1 + MEDIUM×1) → 2-fix
+- **[HIGH] phase별 target이 구 wall 키로 병합** (model.py `_wall_targets`): per-sample 목표는 골랐으나 `(col,row,
+  d_in)`로 병합 → 같은 벽이 픽업 전/후 둘 다면 나중 것이 count만 증가·자기 gx/backpath 상실 → return-phase 벽이
+  stale approach 데이터로 정렬/스윕. ⓕ는 검출만 단언. → **수정**: 키에 **phase(picked) 포함** `(cx,cy,d_in,picked)`
+  → phase별 별도 레코드(각자 gx/backpath). selfcheck **ⓖ**(같은 벽 pre/post-pick → phase별 2 target, 구코드면 1).
+- **[MEDIUM] backpath가 비연속 stale 셀 우선** (model.py `_wall_targets`): 인접성 체크 없이 grounded 6셀 수집 →
+  루프/계단의 옛 셀이 off-preference로 실제 접근 셀을 밀어내 cap 소진. → **수정**: **연속 접근 세그먼트** — 직전
+  수용 셀과 Chebyshev>1(비인접)이면 중단. selfcheck **ⓗ**(far-jump (0,10) 거쳐온 trace → backpath=(5,10)(4,10)
+  (3,10)만, propose가 (0,10) 미선택).
+- **자체 적대 리뷰 clean(HIGH 0)**: phase-키 결정론(tie-break k[3] 추가)·연속 backpath 종단 결정론·S19 byte-identical
+  (평지 전부 인접·픽업 없어 candy 일관, SOLVED 5/5 rollouts8). ⓖ/ⓗ falsifiable(구 병합/비연속이면 FAIL). 전체
+  게이트 그린·EXIT 0(selftest18+analyze4+diverse4+selfcheck **ⓐ-ⓗ**+rediscover4/13/19/20). **⏳ codex 재리뷰.**
+
+### codex impl-review R3 = **approve** (no material findings) — impl-stage 종결
+> "Phase-key aggregation is deterministic, the backpath continuity rule is bounded and regression-checked, and the
+> new S19 fixture is wired into selftest/rediscover gates." codex 3R(R1 per-sample 목표 → R2 phase-키+연속 backpath
+> → R3 approve) + 자체리뷰 3R 사이 clean. **5d② sand_mound cell-up routing impl-stage 종결, 커밋 대기.**

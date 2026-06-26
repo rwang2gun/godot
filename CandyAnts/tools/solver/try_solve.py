@@ -198,13 +198,18 @@ def transfer_bench(test_ids: list[int], max_rollouts: int, mode: str = "vault") 
 # 여기선 각 타깃을 **재발견**(solve.solve, save=False)해 cleared + 재발견 plan의 액션 시그니처(순서 포함)가
 # 커밋된 solve.json과 일치하는지 단언한다. 대상 = `up` 루프(early/carry)를 실제로 도는 대표 스테이지:
 #   20 = early-chain(이 변경이 켜는 신규 경로) / 4 = early-arm 단발(early_armed=False 단축 = byte-identical
-#   경로) / 13 = carry-chain(early 미발화 유지). blocker-only는 up 루프 미진입이라 selftest replay로 충분.
-REDISCOVER_TARGETS = {4: 10, 13: 35, 20: 60}     # stage_id → max_rollouts(여유 cap; 시그니처 비교라 cap 무관)
+#   경로) / 13 = carry-chain(early 미발화 유지) / 19 = **cell-up stacking**(sand_mound ③ 분기·wall_targets·
+#   같은-col exclude·off-sweep 회귀; 5d② 신규 경로). blocker-only는 up 루프 미진입이라 selftest replay로 충분.
+REDISCOVER_TARGETS = {4: 10, 13: 35, 19: 30, 20: 60}   # stage_id → max_rollouts(여유 cap; 시그니처 비교라 cap 무관)
 
 
 def rediscover_verify(targets: dict) -> int:
     all_ok = True
-    # up-루프 대표 스테이지를 solve.solve(save=False)로 재발견 → cleared + 액션 시그니처 일치.
+    # ① cell-up 검출/후보 단위 박제(엔진 불요, fail-closed) — wall_targets 방향/soundness/정렬 + R3-M1 off=5 emit.
+    if not solve.model._selfcheck_wall_targets():
+        print("[rediscover-verify] FAIL — _selfcheck_wall_targets (cell-up 검출/후보 회귀).")
+        return 1
+    # ② up-루프 대표 스테이지를 solve.solve(save=False)로 재발견 → cleared + 액션 시그니처 일치.
     for sid in sorted(targets):
         cap = targets[sid]
         sol_path = solve.ROOT / "data" / "solutions" / f"stage{sid:02d}.solve.json"

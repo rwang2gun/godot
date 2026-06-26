@@ -225,7 +225,10 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
         # 조기 발화해 boost가 2nd-step의 bridge(gap2 다리)를 max_n 밖으로 밀어내 **다중스킬 조합(climber+bridge)
         # 발견을 깨뜨린다**(stage20 실측: saved 1→0). 확정 plan에 early 무장이 든 뒤(=조합 발견 후)에만 체인
         # boost가 켜진다. forbid_pred(diverse)의 plan-aware base는 종전대로 base를 쓴다(아래 별도 인자).
-        cands = model.propose(layout, d, inv, metas, notes, exclude=tried, max_n=cap, plan=plan)
+        # ③ cell-up 같은-col 회피(T1)는 **speculative base**(LA2의 base2=plan+[c1] 포함)를 봐야 한다(plan-review
+        # R3-H1) — early-chain closure(plan, 확정)와 직교한 별도 인자 cellup_base=base로 전달. 확정 plan만 보면
+        # LA2 2nd-step이 같은-col 재스택(1/5 poison)을 제안할 수 있어 cellup_base에 base(speculative)를 넘긴다.
+        cands = model.propose(layout, d, inv, metas, notes, exclude=tried, max_n=cap, plan=plan, cellup_base=base)
         if seed_fn:
             cands = _merge_seeded(seed_fn(layout, d, inv, metas), cands)[:cap]
         else:

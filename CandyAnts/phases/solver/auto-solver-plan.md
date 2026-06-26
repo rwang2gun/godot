@@ -545,6 +545,133 @@ solve.json 액션이 이미 `{skill, target, trigger}` 구조라 **리프팅 = �
 - **정직 보고**: 미검증 스테이지에서 과대주장 0 — `range_sampled`/`gap_check_stride`/`gap_verified`/`axis_independent`/
   `provisional`/`search_capped` 플래그 정직 표기.
 
+### 5d② 계약 — sand_mound (cell-up) routing **[설계 · plan-review 대상, 2026-06-26]**
+> 5d 우산("sand_mound(cell-up) routing 등 미커버 메커니즘 추가는 여기서")의 첫 코드-변경 항목. 5d①(코퍼스 확장)은
+> 데이터 생성이라 리뷰 불요였으나, 본 항목은 `model.py`(+`solve.py` 게이트)에 **신규 routing 분기**를 추가 = plan-review
+> + impl-review 대상. 엔진/PlanRunner/게임 코드 무변경(솔버 휴리스틱 + selftest EXPECTED만).
+
+**문제(현 결함, 실측 재현)**: cell-target SIGN 스킬(sand_mound)은 `model.propose`에 **어떤 분기도 없다** — ① 루프는
+target=ant routing(reverse/safe_fall/cross)만, ② 루프는 `up`이되 ANT_ARMED(climber/slide)만(line 341 가드로
+non-ANT_ARMED skip). 결과: sand_mound 인벤토리 스테이지에서 propose가 **후보 0개**.
+- **S19 베이스라인 실측**(`search 19`, empty-plan trace): 5마리 전원 home(1,10)→우측보행→col5에서 좌측블록 끝나
+  **추락**(row10→14)→계곡 바닥 row14 착지→우측 (15,14)에서 **우측 tower(col16) 벽 막힘 반전**→좌측 (5,14)
+  좌측블록 막힘 반전→**col5↔15 무한 왕복**, **retired=0(낙하·물 0)·time_out**. candy(16,6)는 우측 tower 위
+  row7 → 계곡(row14)에서 **+7~8칸 상승** 필요. **낙하사·물 신호가 없어** 기존 `reverse_targets`(낙하 가장자리)는
+  완전 blind → "제안할 개입 후보 없음"으로 즉시 정지.
+
+**검증된 메커니즘(엔진 소스 실독)**:
+- 개미는 스킬 없이 **어떤 단차도 자동 못 올라감** — 같은 row 전방 셀이 solid면 벽으로 보고 **반전(flip)**(WalkerState/
+  CarryingState `is_on_wall`→`flip`), 전방 바닥 없으면 **추락**(FallerState).
+- **sand_mound = 수직 사다리 최대 5칸**(`WorkerState.SAND_MOUND_MAX_HEIGHT=5`). 위가 막히면 ledge **cap + 개미를
+  2칸 위 ledge로 텔레포트**. 건설한 개미가 즉시 타고 오르며, 깔린 사다리는 **영구 지형** → 이후 개미도 그 기둥을
+  `ladder_climb_ahead`로 탄다. 사인은 **one-shot**(첫 개미 1마리에 발동 후 queue_free) → **사인 1개 = 모두를 위한
+  사다리 1개**(인벤토리 sand_mound 개수 = 깔 수 있는 사다리 수와 직접 대응).
+- **추종 개미도 천장 레지를 넘는다**(`LadderClimbState` 꼭대기 종료 실독 — plan-review R2 조사로 *수정*): cap =
+  **위 칸=점유(레지) AND 위-위 칸=빔**이면 레지 위로 올라서고 보행 복귀. blocked = 위·위-위 둘 다 막힘일 때만.
+  ⚠ 따라서 "cap은 건설자 전용"이 **아님** — 영구 사다리를 뒤따르는 walker도 동일 cap으로 위층 진입(S19 5/5
+  실측, ant1~4 전부 candy 도달).
+- **⚠ 배치 위상 제약(stacking, S19 6×4 스윕 + 코드로 입증)** — 두 사다리를 쌓을 때:
+  - **(T1) 다른 열 필수**: 같은 col에 쌓으면 ladder2 바닥 rung이 ladder1 cap의 **"위-위=빔" 조건을 채워** 깨뜨려
+    추종자가 ladder1 꼭대기서 막힘(같은-col 전부 1/5). ladder2 col ≠ ladder1 col.
+  - **(T2) ladder2는 ladder1보다 진행방향(벽/목표) 쪽**: 개미가 ladder1로 상위 표면에 올라선 뒤 **벽 방향으로
+    걸어가다** ladder2 사인을 만나야 함. 반대편이면 못 만나거나 가장자리서 추락(스윕: L2col≤L1col 전부 0~1).
+  - **(T3) ladder1은 벽에서 떨어뜨려(off≥1) 사이에 ladder2 공간 확보**: 벽에 딱 붙은 반전-셀(off=0)에 ladder1을
+    두면 그 위 표면에서 ladder2를 둘 곳이 벽까지 없음(L1=벽열 전부 ≤1). off≥1 backpath 셀이라야 (T2) 공간이 남.
+- **cell 액션 스키마**(golden s05 선례·PlanRunner._fire_cell 실독): `{"skill":"sand_mound","target":{"mode":"cell",
+  "cell":[col,row]},"trigger":{"type":"at_frame","frame":0}}`. **cell=[col,row]=표면 위 빈 보행 셀**(SignPlacement가
+  아래로 snap, **점유 셀이면 MAX 반환=무효**). 사인은 그 셀에 들어온 floor 위 개미에 발동. **at_frame=0 = 사인을
+  시작에 *배치*(셀이 그때 유효 지형이어야)하고 *발동*은 개미 도달 시** — S19 두 타깃은 모두 기존 플랫폼 위라
+  frame-0 유효(snap 무해, R2 HIGH 경험 반증).
+
+**설계**:
+- **D1 · `diagnose` 신규 `wall_targets`** (reverse_targets의 *상승판*): **벽-반전**을 검출한다 — 트레이스에
+  `ant.direction` 필드가 없으므로(셀 변화 + carry/state만) **방향 d를 명시적으로 "진입(incoming) 세그먼트
+  방향"으로 정의**(plan-review R1-HIGH 해소). 절차: 연속 grounded 샘플에서 **수평 이동이 +→− 또는 −→+로
+  뒤집히는 국소 극점(반전 셀) (cx,cy)** 를 찾고, 그 직전 진입 방향 `d_in`(반전 전 마지막 수평 이동 부호)을
+  취한다. **soundness 게이트 = 전방 셀 `(cx+d_in, cy)`가 occupied**(=실제 벽에 부딪혀 반전; 허공에서 도는
+  반전·절벽 추락은 배제). 추가로 **목표가 더 위**(goal_row < cy; 목표=미픽업이면 candy, 운반이면 home)일 때만
+  채택. 기록 = 벽-기저 셀 (cx,cy)(=개미가 선 빈-위-바닥 셀, 사인 유효 셀) + `d_in` + 목표진척(이 col 상승 시
+  goal 거리 감소량) + backpath(진입측 보행 grounded 타일, off 변형 lead-time).
+  - **two-wall valley 명시**(S19): 계곡 바닥서 좌·우 벽 둘 다 d_in·전방-solid를 만족하면 **둘 다 후보로 emit**,
+    **목표 거리 감소량 desc 정렬**(candy 쪽으로 가까워지는 벽 우선; S19 우측벽 col15→candy col16). 엔진 verdict가
+    최종 판정 — 가중은 순서만. dedup·정렬 키 완전 결정론(좌표·진척, 안정 tie-break).
+  - **단위 selfcheck(prove-it, fail-closed)**: `model._selfcheck_wall_targets()` — 합성 grid + 합성 trace로
+    ⓐ right-wall(d_in=+1, 전방 solid → 검출) ⓑ left-wall(d_in=−1) ⓒ two-wall valley(둘 다 검출·목표 근접 정렬)
+    ⓓ 허공 반전(전방 비-solid → 미검출) ⓔ 목표가 아래(미검출)를 단언. rediscover-verify에 편입(reverse_targets
+    동형 검증 패턴). **이 selfcheck로 방향 규약을 박제** — 구현이 d 규약을 어기면 FAIL.
+- **D2 · `propose` 신규 ③ SIGN cell-up 분기 (후보 column-sweep, 엔진 판정 — A안)**: 인벤토리 중
+  **meta.target=="cell" AND routing=="up"** 스킬(현재 sand_mound만; 일반키)에 대해, 각 wall_target마다 **단일
+  반전-셀이 아니라 진입측 backpath를 따라 off=0..K cell-up 후보를 펼쳐** emit(at_frame 0). **위상 제약(T1~T3)을
+  솔버가 직접 인코딩하지 않고 후보 다양성 + 엔진 verdict로 해소**(기존 "후보 제안→엔진 판정" 철학):
+  - off=0(벽 붙음)은 (T3) 위반이라 단독 실패 → 검색이 off≥1 backpath 셀(벽에서 떨어진)을 이어서 평가. **backpath
+    깊이 K를 reverse(3)보다 늘려**(예 off=0..5) S19 valley(col15→col10 = 5칸)까지 닿게 한다. 가중 = `_note_w*8 +
+    목표진척 + (2-off 약화)` — off=0 우선이되 실패 시 off≥1 자연 진행.
+  - **(T1) 같은-col 회피**: base plan에 이미 cell-up 사다리가 col C에 있으면, **col C 후보를 exclude**(다른 backpath
+    off로 강제) — 같은 열 재스택을 원천 차단. 이건 cell-up 분기 내부 결정론 필터(① reverse exclude와 별개).
+  - exclude(tried)는 cell 라벨 단위. **① ant-loop·② up-loop와 완전 분리**(routing 키로 격리).
+- **D3 · 닫힌-루프 stacking (위상 의존 명시)**: 매 라운드 trace는 현재 도달 표면의 벽 막힘을 보임 → cell-up 후보
+  펼침 → 엔진이 (T1~T3) 만족 조합을 verdict로 선별 → 다음 라운드 한 단 위. **S19 = 2단**(valley→row11 플랫폼→
+  row7), **off≥1 + 다른-col + 우향** 조합을 검색이 찾음(증거: 손배치 (10,14)+(12,10) saved=5/5). LA2 lookahead가
+  off·col 조합 + bridge/blocker(S21~25) 보조. ⚠ **naive greedy(off=0만)는 (T3) 위반으로 실패** — 검색 breadth가
+  off-변형을 실제 탐색해야 하므로 cap/LA2 예산이 충분해야 함(S19 acceptance가 이를 박제).
+- **(볼트 crisis 노트 = 본 plan에서 제외, plan-review R1-MEDIUM 해소)**: `detect: wall_targets` 노트는 `knowledge.
+  detect_crises`가 하드코딩 토큰만 발화해 **코드 없이는 dead text**이고, 발화시키면 아카이브 `vault_prune` 표면을
+  건드린다. 따라서 본 routing plan은 **knowledge.py/볼트 무변경**(LIVE 서술 어휘 그대로). 신규 위기의 볼트 편입이
+  필요해지면 **별도 doc-only 변경**(regression: `knowledge.resolve`/`vault_prune` 출력 wall_targets에 대해 불변
+  단언)으로 분리한다.
+
+**정직 경계 / inert(byte-identical) 불변식**:
+- **인벤토리에 up-cell 스킬이 없으면**(기존 S1/S4/S11~17/S20·golden 전부) 신규 diagnose 필드·propose 분기 모두
+  **미발화 → 후보 집합·순서 byte-identical**. wall_targets는 ① 루프에 누출 금지.
+- analyze.py는 이미 cell-target 액션(`kind=="cell"`) 처리 → diverse/verify 호환.
+- 본 분기는 **단일 routing 클래스(up-cell)**만 추가 — break/down/jump cell 디바이스(Basher/Cutter/Digger/LeafJump)는
+  **미커버 유지**(스코프 밖, 정직 표기).
+
+**스코프 / Acceptance (falsifiable) — S19 100% = 하드 게이트** (plan-review R1-HIGH 해소, escape hatch 제거):
+- **본 변경의 하드 acceptance = `solve.solve(19)`가 sand_mound×2로 S19를 100%(saved=5/5) 클리어**. "primitive만
+  되고 진척만 보이면 통과"라는 출구를 **제거** — 닫힌-루프 stacking이 실제로 작동함을 *유일한 정준 증명*인 S19
+  클리어로 박제한다. **달성 가능성 = 경험적 입증**(손배치 witness): `[sand_mound@(10,14), sand_mound@(12,10)]`
+  → **saved=5/5, frame 1586**(5마리 전원 픽업·귀환). 즉 하드 게이트는 미입증 약속이 아니라 *존재가 확인된 해*를
+  솔버가 자동 발견하는 것.
+- **S19를 실행 가능 `verify` 게이트에 실편입**(plan-review R2-MEDIUM 해소 — 산문 acceptance만으론 회귀 못 잡음):
+  `rediscover-verify`에 **stage19 케이스 추가**(`solve.solve(19, save=False)` 재발견 → cleared saved=5/5 + 액션
+  시그니처 = sand_mound×2 단언). solve 시 `stage19.solve.json` 영속 + selftest EXPECTED 편입(frame byte-identical).
+  → `verify` frontmatter가 sand_mound routing 회귀(검출·후보·위상)를 잡는 단일 정준 게이트가 된다.
+- **만약 구현 중 S19가 cap·합리적 휴리스틱으로 100% 불가로 판명되면**: silent defer **금지**. S18식으로 **불가
+  근거를 실측 입증**(어떤 휴리스틱 한계인지, saturation 트레이스)한 뒤 **사용자에게 STOP·에스컬레이트** — 사용자가
+  재설계/재스코프/취소를 결정한다. (S18·S20 선례 = 사용자 오케스트레이터 결정.) 즉 S19는 "통과 OR 명시적
+  에스컬레이트"이지, 조용히 빠질 수 없다.
+- **S21~25(조합)·S5(sand_mound+floater)** = stretch(본 게이트 아님). S19 통과 후 별도 시도, 추가 routing 상호작용
+  필요할 수 있음. 이들은 명시적으로 본 변경의 acceptance에서 제외(정직 표기).
+- **회귀 게이트**: selftest **byte-identical**(기존 17 plan, 기존 solve.json git 무변경) + `verify` frontmatter 그린 +
+  `_selfcheck_wall_targets` PASS. wall_targets 결정론 정렬(reverse_targets 동형).
+
+**리스크(plan-review 타깃)**:
+- 벽 검출 과발화(목표가 위가 아닌 벽까지 라더) → 예산 낭비. **완화=목표-위 게이트**.
+- 사인 셀 점유/무효(SignPlacement MAX) → no-op. **완화=개미가 선 grounded 빈 셀(cx,cy) 배치**.
+- **stacking 위상 실패**(R2 조사로 식별·해소): 같은-col 재스택은 ladder1 추종-cap을 깨고(T1), 벽-붙은 off=0은
+  ladder2 공간을 막음(T3). **완화 = (T1) 같은-col exclude + (T3) backpath off≥1 후보 펼침 + 엔진 verdict 선별**.
+  ⚠ 잔여: naive greedy(off=0만)는 실패 → **검색 breadth(off·col 조합 탐색) 필수**. 이게 cap 예산에 민감하면 S19
+  acceptance에서 드러남(미달 시 사용자 에스컬레이트, escape 아님).
+- 결정론: wall_targets 정렬 키 + cell-up 후보 off/col 순서 완전 결정론(좌표·진척, tie-break 안정).
+
+**구현 바인딩 요구 (plan-review R3 incorporate — 사용자 "반영 후 구현 진입" 결정 2026-06-26, impl-stage 검증)**:
+plan-stage 3-round cap에서 R3 HIGH×1+MED×1이 나와 STOP→사용자가 "두 finding은 접근 무효 아닌 *테스트가능성
+요구*이므로 plan에 바인딩 후 구현, impl-stage 적대 리뷰로 검증"으로 결정. 아래 둘은 **구현·게이트 필수 조건**:
+- **R3-H1 · 같은-col exclude가 LA2에서도 적용 (solve.py plumbing 필수)**: T1(같은-col 회피)을 `model.propose`
+  내부에만 두면 안 됨 — 기존 `_propose`는 `model.propose(plan=plan)`로 **closed-over 확정 plan**만 넘기고 LA2는
+  speculative `base2`를 따로 받는다(solve.py:223-228·326). 확정 plan만 보면 **LA2 2nd-step(speculative 첫
+  sand_mound 후) 제안에 필터 미적용** → 유일 조합검색 경로가 같은-col 재스택(1/5 poison)을 제안. ∴ **cell-up
+  exclude는 speculative base(LA2의 base2 포함)를 봐야 한다** — early-chain closure 의미를 깨지 않도록 cell-up
+  전용 인자(`cellup_base`/`accepted_actions`)를 `propose`에 추가하고 `_propose`/LA2 경로가 각자의 base를 전달.
+  **regression(fail-closed)**: LA2가 speculative 첫 sand_mound 후 2번째를 제안할 때 **같은-col 후보가 부재**함을 단언.
+- **R3-M1 · off=K witness emit 증명(reverse depth cap 비재사용)**: S19 유일 해는 ladder1=col10=우측벽서 **off=5**.
+  현 reverse는 backpath 4 hard-cap(model.py:129)·제안 `min(3,len(bp))`(model.py:304) → 이를 미러하면 D1
+  selfcheck를 통과하면서 **witness col을 영영 미emit**, S19 실패가 비싼 rediscover서 모호 진단으로만 표면화.
+  ∴ **wall-target backpath collector는 reverse의 depth-4 cap을 재사용하지 말 것**(≥6 수집), cell-up 제안은
+  off=0..K(K≥5) emit. **fixture(fail-closed)**: S19형 우측벽 wall_target이 **backpath ≥6 보유** + `propose`가
+  롤아웃 전에 **off=5 후보 (10,14)를 실제 emit**함을 단언(`_selfcheck_wall_targets` 또는 별도 S19 fixture).
+
 ---
 
 ## (트랙 밖 · 별도 브랜치 다운스트림 — 구 Phase 5) 난이도·설계 감사 오라클
