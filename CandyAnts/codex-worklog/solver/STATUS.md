@@ -850,9 +850,51 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - **커밋·푸시 완료**: `6196a4d`(feat: 5d② sand_mound cell-up routing — S19 SOLVED) + `9f32372`(chore: carry-build
   .uid 고아 메타 정착) → `origin/auto-solver` 푸시. 5d② 종결.
 
+## 다음 세션 진입점 (2026-06-26 핸드오프) — S21~25 = **리스크-구동 다중-도구 분기** 설계 (⏳plan 미작성)
+
+> 사용자 결정(AskUserQuestion) = 5d② 후 "S21~25 sand_mound 조합". 트리아지·S22 심층 조사로 **방향이 큰 검색
+> 재설계로 수렴**. 다음 세션 = **plan 작성 → plan-review**. 하니스 `--fixed-fps`(GODOT_BIN=Downloads 중첩
+> console.exe, [[godot-binary-location]]). 인벤토리는 전부 커버된 routing(blocker/bridge/sand_mound/slide/floater),
+> basher/cutter/digger/leafjump 없음.
+
+### 트리아지 결과 (search 80롤, 전부 미해결 = 휴리스틱 갭, cap 아님 — 다 조기 "정지")
+- **S22**: best `bridge+slideR` → **reached=7(전원 픽업)·saved=0·lost=7** = 귀환 routing 갭(가장 근접).
+- **S21**(sand_mound 채택)·**S23**(blocker+bridge)·**S24**(floater+blocker)·**S25**(후보 0): reached=0, time_out.
+
+### S22 심층 (정준 타깃) — 핵심 발견
+- **귀환 실패 메커니즘**(trace): 운반 개미가 중앙 플랫폼(row6)서 좌측 col7 **절벽 낙하**→물 분실. home(0,2) 좌상단,
+  bridge는 이미 row2에 깔림. 솔버가 slideR(우측, 무효)에 락온해 sand_mound로 위로 올릴 생각을 못 함.
+- **✅ 단순해 witness 입증**: `bridge + sand_mound@(10,6)` → **saved=7/7 lost=0**. (col8/9는 0/7 — 사다리 꼭대기가
+  bridge 복귀선과 맞는 **배치 위상**이라야. col10만 7/7.)
+- **사용자 의도-해**(designer intent): **floater(낙하산)→slideR(우측 경사)→bridge(다리)→sand_mound(사다리)→사탕→
+  slideL(좌측 경사)** = 5종 풍부 해. 단순해(2종)와 **둘 다 유효** = 다양-해의 산 증거(의도≠유일).
+
+### 근본 진단 = greedy-commit dead-end (S19/S20/S22 재발 패턴)
+솔버가 중간 목표("reached")에 greedy-commit → 귀환 불가 배치 위에 동계열 도구만 쌓음, dead-end서 백트랙 못 함.
+다양성은 현재 `diverse.py`가 **첫 해 후 forbid**해서 사후적으로만 작동.
+
+### 합의된 방향 (사용자) = 리스크마다 적용-도구 집합 탐색
+"리스크 발견 시 다양한 도구를 넣고 해를 찾기" = **dead-end 탈출 + 다양-해 발견을 하나로 묶는 메커니즘**. 레벨 =
+리스크 시퀀스(낙하·경사·갭·벽·물), 각 리스크 = 적용-도구 집합(절벽 → floater/bridge/blocker/sand_mound…), 해 =
+선택 경로(여러 경로 = 다양-해). **북극성(Phase 5 다양-해)과 일치.**
+
+### 다음 작업 (plan 작성 골자 — plan-review 대상)
+1. **선결: sand_mound를 절벽 도구 집합에 편입** — 현재 cell-up은 *벽-반전*(wall_targets)만. **목표-위 절벽**
+   (운반 개미 home 위)에도 sand_mound 후보를 내야(reverse_targets→cell-up 연결). S22 witness(10,6) 입증됨.
+   ⚠ 현 propose ① 루프는 절벽마다 이미 blocker/floater/bridge 후보를 냄 — sand_mound만 빠짐.
+2. **검색 재설계: per-risk 도구-분기** — greedy 1경로 대신 리스크별 적용-도구를 별도 해-분기로 탐색,
+   성공 해들을 다양-해로 수집(`diverse.py` forbid 재사용), **cap/forbid로 탐색 폭증 제어**가 설계 핵심.
+3. **리스크 분류·적용-도구 매핑은 메타 routing 기반**(하드코딩 0, 기존 `_skills_by_routing` 확장).
+4. **acceptance(S22 정준)**: 솔버가 **의도-해(5종)와 단순해(2종)를 둘 다 다양-해로 발견**. (혹은 최소 1해 + 진척.)
+- 미결: 의도-해(floater→slideR→bridge→sand_mound→slideL)가 현 routing으로 *표현 가능*한지 손배치 미검증
+  (slideL/slideR routing=up·ANT_ARMED). plan 전 또는 plan 중 입증 권장.
+
 ## 블로커
-- 없음. (codex impl-review는 사용자 슬래시/bash 트리거 필요 — [[codex-adversarial-review-invocation]]. 이번 세션 bash 경로로 R10 approve 종결.)
-- **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경, plan/impl-review)** — 5d①에서 cap-saturate 확인, 분리.
-- sand_mound routing(5d②)은 사용자 SandMound WIP 정착 확인 후 착수(racing 방지).
+- **다음 작업 = S21~25 리스크-구동 다중-도구 분기 plan 작성**(위 핸드오프). 코드 변경 → plan-review.
+  codex 리뷰는 사용자 슬래시/bash 트리거 필요([[codex-adversarial-review-invocation]], 이번 세션 bash 경로로 plan
+  3R+impl 3R 완수).
+- **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
+- **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
 - **S20 구조-starvation = 수용된 latent 한계**(carry-mirror, 사용자 결정). 실제 structure→early→structure 레벨
   등장 시에만 semantic preservation 재설계로 재진입.
+- **break/down/jump cell 디바이스(Basher/Cutter/Digger/LeafJump) = 미커버 routing**(스코프 밖, 후속).
