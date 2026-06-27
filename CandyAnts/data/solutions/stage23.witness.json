@@ -1,0 +1,83 @@
+{
+ "stage": "res://scenes/stages/Stage23.tscn",
+ "deadline_frames": 12000,
+ "expect": {
+  "cleared": true,
+  "saved": 7
+ },
+ "actions": [
+  {
+   "skill": "floater",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 240,
+    "y_max": 360
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 312
+   }
+  },
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 600,
+    "y_max": 99999,
+    "dir": 0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 40
+   }
+  },
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     15,
+     14
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     19,
+     10
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "bridge",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "state": "carrying",
+    "y_min": 100,
+    "y_max": 400
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 730
+   }
+  }
+ ],
+ "note": "사용자 의도-해(엔진 검증 saved=7/7 frame=2415). 솔버 자동발견 아님(propose가 floater-분배자+sand_mound cap-onto-ledge+좌-routing 후보 미생성). 5f impl 1단계 (나) capability-갭 결론을 REVERSE: 레벨은 풀림, 솔버 휴리스틱 갭."
+}

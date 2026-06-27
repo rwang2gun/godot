@@ -1034,22 +1034,21 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - **정책(5d② R1, no silent defer) → 사용자 STOP·escalate**. 옵션: (a) overhang step-up routing 신설(별 trace) /
   (b) S23 인벤토리에 slide 추가(레벨 변경) / (c) S23 대표 게이트 철회·재스코프 / (d) 보류.
 
+### 5f S23 — 사용자 의도-해 검증 → **(나) 결론 REVERSE: 레벨 풀림, 솔버 휴리스틱 갭** (2026-06-27)
+- 사용자가 의도-해 제공(인터랙티브 HTML 보고서 경유) → 솔버 형식 변환·replay = **saved=7/7 lost=0 cleared
+  frame=2415**(`data/solutions/stage23.witness.json`, 5액션). **S23은 풀리는 레벨**(내 점검 verdict 오류).
+- **내 de-risk 3대 오판**: ① **floater=분배자**(ANT_SETTLE distribute_slow_fall, 1개가 7마리 전부에 분배 — "1마리만
+  안전하강" 오판) ② **방향**(의도-해는 좌측 갭 floater 하강, 내 over-the-top 아님) ③ **sand_mound cap**(레지 있는
+  col15→row11플랫폼·col19→천장에 cap+텔레포트; 내 42변형은 레지 없는 col14라 overshoot). 전부 **솔버 휴리스틱 갭,
+  capability 갭 아님**.
+- **시사**: model.propose가 floater-분배자·sand_mound cap-onto-ledge·좌-routing 후보를 **미생성** = 5f F1(burial)
+  보다 **propose 후보 생성 범위**가 본질 갭. 트레일 `phase05-impl-review ## 5f S23 — 사용자 의도-해 엔진 검증`.
+
 ## 블로커
-- **⏳ 5f impl = S23 점검 verdict: 현 인벤토리로 unsolvable 강한 추정 → 사용자 보고**(2026-06-27). 사용자 "S23
-  레벨/인벤토리 점검" 수행: over-the-top 42변형 + down-climb 3변형 + 솔버 cap40 = **전부 picked=0**. 근거 ①
-  sand_mound가 col14서 overshoot(레지 없음)·pocket 진입 벽 차단 ② **floater=1이 9칸 치사 갭에 7마리 안전하강
-  불가** ③ 45+변형 candy 미도달. **S23=사용자 Ch2 레벨 WIP 가능성(레벨 설계 이슈)**. 트레일 `phase05-impl-review
-  ## 5f S23 레벨/인벤토리 점검`. → 사용자: 손플레이 검증 / 인벤토리 조정(slide·floater 증량) / 레벨 재설계 택.
-- **5f plan-stage는 R4 approve 종결**(설계 유효). F1(per-risk 보호 일반화)은 witness 선결 실패로 미구현 —
-  S23이 burial 아닌 인벤토리/capability 갭이라 F1으로 해결 안 됨(de-risk가 5f 전제 falsify, 게이트가 제 역할).
+- **⏳ 5f 재설계 = propose 후보 생성 범위 확장**(다음 세션). S23 witness가 드러낸 미생성 후보: floater-분배자
+  routing / sand_mound cap-onto-ledge 배치(레지 검출→아래 col 사다리) / 좌-routing. `stage23.witness.json`=엔진
+  검증 회귀 기준. **5f plan-stage R4 approve는 유효하나 F1(burial)만으론 불충분** — 후보 생성이 선결.
 - S22 다양-해 완료(`55b7ae4` push). 5e push 확인 완료. 엔진/게임 무변경.
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
-- **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
-- **S20 구조-starvation = 수용된 latent 한계**(carry-mirror, 사용자 결정). 실제 structure→early→structure 레벨
-  등장 시에만 semantic preservation 재설계로 재진입.
-- **break/down/jump cell 디바이스(Basher/Cutter/Digger/LeafJump) = 미커버 routing**(스코프 밖, 후속).
-- **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
-- **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
-- **S20 구조-starvation = 수용된 latent 한계**(carry-mirror, 사용자 결정). 실제 structure→early→structure 레벨
-  등장 시에만 semantic preservation 재설계로 재진입.
+- **S18 100% 자동발견 = model.py 휴리스틱 트랙**. **S20 구조-starvation = 수용된 latent**(carry-mirror).
 - **break/down/jump cell 디바이스(Basher/Cutter/Digger/LeafJump) = 미커버 routing**(스코프 밖, 후속).
