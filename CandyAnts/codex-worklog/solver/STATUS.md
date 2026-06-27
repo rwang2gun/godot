@@ -1078,3 +1078,64 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙**. **S20 구조-starvation = 수용된 latent**(carry-mirror).
 - **break/down/jump cell 디바이스(Basher/Cutter/Digger/LeafJump) = 미커버 routing**(스코프 밖, 후속).
+
+## 5g 계약 작성 + plan-review 종결 (2026-06-27) — 탐험-보상 plateau-crossing 검색, ⏳구현 진입
+
+> 사용자 결정(AskUserQuestion) = 검색 전략 재설계 방향 **"② 구조-탐험 보상 score"**. 5f F1(burial)은 스파이크로
+> 필요·불충분 판명 → 5g가 실병목(greedy score 근시안) 타깃. plan §"5g 계약"(SUPERSEDED 5f) 작성.
+
+### de-risk 스파이크 (엔진 D4, 2026-06-27 — plan §0 grounding)
+- **(S0) floater seed → 닫힌-루프가 witness 셀 전부 노출**: `search 23`에 floater seed 시 sand_mound@(15,14)·
+  @(19,10)·blocker@(0,14) **전부 제안** = 후보 생성은 floater 분기 위에서 완비. ⚠ greedy 표면 분기(blocker+bridge)에선
+  미노출(witness 셀은 좌측-하강 분기에서만).
+- **(S1) witness prefix gradient**: cells_explored(visited cell 합집합) **단조 14→24→30→42→74**, goal_dist는 첫
+  2단계(floater·blocker) **평평(13)** → greedy·LA2(frontier=goal_dist) 거부. **②의 신호 = 탐험 프론티어** 실증.
+- **(S2) 분기점 문제**: floater는 round7 정상 greedy서 blocker에 밀려 거부, surface-commit 분기는 좌측 갭 미도달 →
+  floater 경로 영영 차단. stall-only-from-best 복구 불가 → breadth(best-first 백트래킹) 필요.
+
+### 5g 설계 (plan §5g) — 탐험-우선 fallback 검색, inert overlay
+- **Phase A(decision/rollout semantics 불변 + passive harvest)** + **Phase B(별도 가산 `PHASE_B_BUDGET=60` 예산
+  best-first)**. frontier(trace)=visited cell 합집합 = Phase B 전용 bounded tie-break(전역 품질 아님). novel-reject
+  (Phase A 평가·미채택·frontier 확장) 시드 → best-first(clear>frontier desc>score) expand. branch-local exclude +
+  canonical plan-sig memo(전역 tried 미상속). 종료=3중 경계(PHASE_B_BUDGET·MAX_PLAN_LEN=Σinv·memo). 메커니즘
+  signature=phase_b_entered + 시드 provenance(floater@base[]) + multiset. SEED_POOL_CAP=8.
+
+### plan-review = R1→R2→R3 STOP → 사용자 결정 "완화 후 구현 진입" (트레일 phase05-plan-review.md `## 5g Round 1~3`)
+- R1(HIGH×5: 5f/5g SoT충돌·Phase B예산·전역tried·종료성·floater seed·MED2·LOW) → 전부 반영.
+- R2(HIGH×1: cap-split이 _main_cap/LA2_RESERVE 충돌 + MED2) → **split 폐기, Phase B 별도 가산 예산**으로 해소.
+- R3(HIGH×1 STOP: "Phase A 코드 미변경"이 seed harvest와 모순) → **계약 완화**(decision/rollout byte-identical +
+  passive read-only harvest, git diff 0로 실증) → 사용자 "R4 없이 구현 진입"(5d② 선례).
+
+### 다음 = 5g 구현 1단계 = S23 자동발견 de-risk (하드 선결, no silent defer)
+- frontier()+harvest+Phase B best-first 구현 → `search 23 --max-rollouts 40 +PHASE_B_BUDGET=60` saved=7/7 + 메커니즘
+  signature(phase_b_entered·floater@base[] 시드·multiset). 미달 시 §3·§4 종합 판정 escalate/STOP.
+- 환경: `GODOT_BIN=D:/Godot_v4.6.2-stable_win64_console.exe`, 하니스 `--fixed-fps`. codex=Bash companion(plan=task).
+- ⚠ 워킹트리 사용자 Ch2 WIP(stage17.tres·project.godot·미추적 stage26~33) 솔버 무관 — 격리.
+
+## 5g 구현 de-risk(6회) → S23 자동발견 미달 · 사용자 재스코프 (2026-06-28)
+
+> plan-stage 종결(R1→R3 STOP→사용자 "완화 후 구현 진입") 후 구현 1단계 = S23 자동발견 de-risk. 트레일
+> `phase05-impl-review.md ## 5g de-risk 진행`. 엔진/게임 무변경 — model.py(`frontier()`) + solve.py(Phase A
+> read-only harvest + Phase B beam+refine).
+
+### de-risk 6회 progression (전부 `search 23`, 매번 한 misrank 해소→다음 층 노출)
+1. frontier-단일 best-first → blocker(frontier 비최대) misrank, 미해결.
+2. skill-diverse beam → **blocker 생존**, depth4 frontier 77 도달(budget 소진).
+3. +budget(360) → witness 노드(picked7,fr74)가 비생산 고-fr spread(77)에 밀림.
+4. score-우선 → picked=7·saved=1 부분, score saved-우선 myopia(saved=1>picked=7 디딤돌).
+5. progress-aware(saved+picked, retired, goal, frontier) stepping-stone rank → **picked=7+전 skill 전depth 유지**,
+   그러나 **picked=7-retired=7(전원 픽업후 사망) 국소최적 수렴**.
+6. +placement refinement(±2 coordinate-ascent, REFINE_BUDGET=160) → retired=7 불변(alive 변형 ±2 내 미발견).
+- **결론**: ②+③ beam+refine로 **S23 정확한 생존-배치 witness 자동발견 불가**(picked=7 "모양"엔 도달, picked=7-alive
+  정확 배치 placement-needle 미조립). 솔버 capability 한계 — **레벨은 풀림**(`stage23.witness.json` 엔진검증 saved=7/7).
+
+### 사용자 결정(AskUserQuestion 2026-06-28) = **S23 hard-gate 재스코프**
+- **S23 = stretch(자동발견 open 하드문제), hard-gate 철회**. 오라클 목적("풀리는가")엔 witness 채택 충분.
+- **②+③ beam 개선 보존**: inert 실측 검증 — S11(2롤)·S13(26롤 frame=2719) 재탐색 **byte-identical**(git diff 0),
+  Phase B 미진입(Phase A clear). harvest=read-only라 Phase A 거동 불변. solved 스테이지 무영향.
+- plan §5g 헤더에 ⚠재스코프 배너 + §5 하드게이트 철회 표기. de-risk 6회 트레일 박제(impl-review).
+
+### 다음 (사용자 결정 대기 / 후보)
+- beam 코드 = **WIP 워킹트리(미커밋)**, inert 보존. 정식 커밋 시 = de-risk print 정리 + impl-stage 적대 리뷰 필요
+  (현재는 S23 미해결이라 게이트 편입 대상 아님). 또는 다른 미해결 스테이지(S21/24/25)에 beam 효과 검증 후 결정.
+- ⚠ 워킹트리: 솔버 WIP(model.py/solve.py) + 사용자 Ch2 WIP(stage17.tres·project.godot·미추적 stage26~33) 혼재 — 격리.

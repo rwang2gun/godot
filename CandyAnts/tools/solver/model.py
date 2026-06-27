@@ -329,6 +329,17 @@ def best_goal_dist(trace: dict, layout: dict) -> int:
     return best
 
 
+def frontier(trace: dict) -> int:
+    """트레이스 전 개미 **visited cell `{(cx,cy)}` 합집합 크기** = 탐험 프론티어(Phase 5g Phase B 전용 bounded
+    tie-break 신호). 결정론·좌표 비의존. ⚠ *전역 품질 metric이 아니다* — 왕복/루프도 frontier를 키울 수 있어
+    해의 품질 판정이 아닌 *탐색 순서* heuristic으로만 쓴다(품질=엔진 verdict). Phase A는 이 함수를 호출하지 않는다."""
+    cells: set[tuple[int, int]] = set()
+    for si in sorted({int(k) for k in trace.keys()}) if trace else []:
+        for s in _samples(trace, si):
+            cells.add((s[1], s[2]))
+    return len(cells)
+
+
 def _skills_by_routing(inventory: dict, metas: dict) -> dict[str, list[str]]:
     """인벤토리 스킬을 routing별로 그룹(메타 기반, 하드코딩 0)."""
     out: dict[str, list[str]] = {}

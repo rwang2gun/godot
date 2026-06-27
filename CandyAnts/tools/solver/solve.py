@@ -35,6 +35,19 @@ LA2_RESERVE = 8   # codex impl R5: 메인 평가 단계(D2 보호로 후보 수�
                   # lookahead(LA2) budget을 잠식하지 않게 떼어두는 롤아웃 예약(LA2 = frontier 2개 × cands ≤4 = 8).
                   # 보호 미발동(up_cell 없음 → cands ≤ max_n)이면 메인 단계가 이 상한에 안 닿아 inert(byte-identical).
 
+# ---- Phase 5g: 탐험-우선 fallback 검색(plan §5g, ②탐험+③beam). Phase A와 별도 가산 예산 ----
+# de-risk(2026-06-27): frontier-단일 best-first는 witness 필수 단계 blocker(frontier 비최대)를 misrank → 미해결.
+# → 사용자 결정 ②+③ = **skill-class 다양성 보존 beam**(각 스킬군 최선을 beam에 유지 → 저-frontier blocker 분기 생존).
+PHASE_B_BUDGET = 360  # Phase A(max_rollouts)와 **별도 가산** — clear 없이 Phase A 종료 시에만 소비(inert: solved
+                      # 스테이지는 Phase A서 clear → Phase B 미진입, 예산 0 소비). beam depth×width 여유(de-risk:
+                      # budget 220은 depth4서 소진[frontier 77 도달]·depth5[귀환] 미도달 → witness depth5 도달까지 상향).
+BEAM_WIDTH = 10       # beam 폭(skill-diverse: per-skill 최선 보존 후 frontier-top으로 채움).
+SEED_POOL_CAP = 8     # R2-MED-2: (base_sig,_class)별 frontier-top K seed 보존(pool noise 억제, 결정론 정렬).
+REFINE_BUDGET = 160   # de-risk: beam은 picked=hp(전원 도달) "모양"엔 가나 정확한 cell 배치(개미 생존)를 못 맞춤
+                      # (placement needle) → 최선 노드의 cell-target 배치를 ±R coordinate-ascent perturb로 정밀탐색
+                      # (spike 국소탐색·analyze 윈도우 선례) + 확장. 사용자 결정 2026-06-28.
+REFINE_RADIUS = 2     # cell perturb 반경(±R 셀, (dc,dr) 격자).
+
 
 def _main_cap(rollouts: int, max_rollouts: int) -> int:
     """메인 평가 단계의 전역 rollouts 상한(codex impl R5·R7). 정상 per-round(`min(remaining,6)`)는 **항상 보존**
@@ -245,6 +258,21 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
         print("  [에러] 베이스라인 롤아웃 실패:", best.get("error"))
         return 1
     print(f"  baseline(무개입): {_fmt(best, hp)}")
+    baseline_res = best                       # [5g] Phase B 시드용 원본 baseline(아래 best 재할당 후에도 보존)
+    seed_pool: list[dict] = []                # [5g] Phase A harvest(read-only) — frontier 확장한 미채택 후보
+
+    def _harvest(base_plan: list, base_res: dict, pairs: list) -> None:
+        """[5g] read-only harvest: Phase A가 **이미 평가한** (cand,res) 중 frontier 확장분만 seed 풀에 append.
+        추가 롤아웃 0·Phase A 결정/순서/채택에 영향 0(순수 관찰, plan §2 R3-HIGH-1 — byte-identical은 G-pre1 git diff)."""
+        base_fr = model.frontier(base_res.get("trace", {}))
+        for cand, res in pairs:
+            if "error" in res:
+                continue
+            fr = model.frontier(res.get("trace", {}))
+            if fr > base_fr:
+                seed_pool.append({"base": list(base_plan), "action": cand["action"], "res": res,
+                                  "frontier": fr, "score": score(res, layout), "_class": cand.get("_class", "")})
+
     if is_full_clear(best, hp):
         prov["final_plan"] = list(plan)      # 빈 플랜([])도 유효한 '무도구' 해 — diverse가 정직 보고하게 기록
         if stats is not None:
@@ -368,6 +396,7 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
             if not evaluated:
                 print("  [정지] 제안할 개입 후보 없음(진단으로 더 둘 곳 없음).")
                 break
+            _harvest(plan, best, evaluated)          # [5g] read-only seed harvest(Phase A 거동 불변)
             cand, res = min(evaluated, key=lambda cr: score(cr[1], layout))
             if score(res, layout) < score(best, layout):
                 plan = plan + [cand["action"]]
@@ -394,6 +423,7 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
                     cands2_sib = _propose(diag1, min(max_rollouts - rollouts, 4), base2, res1, use_vault=False)
                     if cands2_sib:
                         ev2 = ev2 + eval_cands(base2, srcs2, cands2_sib, "(LA2-complete)")
+                _harvest(base2, res1, ev2)           # [5g] LA2 평가 후보도 harvest(frontier 확장분)
                 for c2, res2 in ev2:
                     if score(res2, layout) < score(best, layout) and (
                             combo is None or score(res2, layout) < score(combo[2], layout)):
@@ -414,6 +444,212 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
         if stats is not None:
             stats.update(prov, rollouts=rollouts, cleared=True)
         return _save(stage_id, stage_scene, deadline, inv, c.plan, c.res, rollouts, hp, layout, meta["total_ants"], save=save)
+
+    # ---- Phase 5g Phase B: 탐험-우선 fallback best-first (plan §5g) — Phase A가 clear 없이 종료(break OR
+    # max_rollouts 소진)했을 때만 발동. Phase A와 **별도 가산 예산**(PHASE_B_BUDGET). solved 스테이지는 Phase A서
+    # _Clear → 여기 미도달 = inert(byte-identical, G-pre1).
+    MAX_PLAN_LEN = sum(int(v) for v in inv.values())     # 종료 경계 (2): plan 길이 상한 = Σ inventory action
+    phase_b_entered = False
+    if not is_full_clear(best, hp):
+        import heapq
+        # seed pool 결정론 cap: (base_sig,_class)별 frontier-top SEED_POOL_CAP (R2-MED-2 pool noise 억제)
+        groups: dict = {}
+        for s in seed_pool:
+            groups.setdefault((json.dumps(s["base"], sort_keys=True, ensure_ascii=False), s["_class"]), []).append(s)
+        seeds = []
+        for gkey in sorted(groups):
+            seeds.extend(sorted(groups[gkey],
+                                key=lambda s: (-s["frontier"], s["score"], _action_sig(s["action"])))[:SEED_POOL_CAP])
+        has_floater = any(s["base"] == [] and s["action"].get("skill") == "floater" for s in seeds)
+        print(f"\n[Phase B] 진입(Phase A clear 실패) — raw seed {len(seed_pool)} → capped {len(seeds)}, "
+              f"budget {PHASE_B_BUDGET}롤, MAX_PLAN_LEN={MAX_PLAN_LEN}, floater@base[] 시드={has_floater}")
+        phase_b_entered = True
+
+        def _msig(p: list) -> tuple:                     # 순서무관 multiset sig (memo·tie-break)
+            return tuple(sorted(_action_sig(a) for a in p))
+
+        def _node(p: list, res: dict) -> dict:
+            tr = res.get("trace", {})
+            return {"plan": p, "res": res, "frontier": model.frontier(tr),
+                    "saved": int(res.get("saved", 0)), "picked": int(res.get("picked_total", 0)),
+                    "retired": model.count_retired(tr, layout)["total"],
+                    "goal": model.best_goal_dist(tr, layout)}
+
+        def _skill_of(node: dict) -> str:
+            return node["plan"][-1].get("skill", "") if node["plan"] else "_base"
+
+        # 정렬 키 = **회수가능 진척(stepping-stone) 우선** (de-risk: score의 saved-우선 myopia가 "saved=1 dead-end"를
+        # "picked=7 살아있는 디딤돌"보다 우선시켜 witness 이탈 — S14 "전원 픽업 디딤돌"을 beam/saved 레벨로 일반화).
+        # ① 도달-진척 `saved+picked` desc(candy 도달/귀환한 개미 수 = 회수가능 잠재), ② retired asc(살아있는 디딤돌
+        # 우선), ③ goal_dist asc(목표 근접), ④ frontier desc(score-평평 plateau 탐험 tie-break), ⑤ 결정론 sig.
+        def _rank(n: dict) -> tuple:
+            return (-(n["saved"] + n["picked"]), n["retired"], n["goal"], -n["frontier"], str(_msig(n["plan"])))
+
+        def _select_beam(nodes: list, K: int) -> list:
+            """skill-class 다양성 beam(②+③ — de-risk: 단일 신호로는 blocker/witness 노드 탈락). dedup → **per-skill
+            최선 보존**(저-순위 blocker 등 필수 분기 생존) → 잔여를 _rank-top으로 K까지 채움. 결정론."""
+            seen: dict = {}
+            for n in nodes:
+                sg = _msig(n["plan"])
+                if sg not in seen or _rank(n) < _rank(seen[sg]):
+                    seen[sg] = n
+            uniq = list(seen.values())
+            by_skill: dict = {}
+            for n in uniq:
+                sk = _skill_of(n)
+                cur = by_skill.get(sk)
+                if cur is None or _rank(n) < _rank(cur):
+                    by_skill[sk] = n
+            selected = sorted(by_skill.values(), key=_rank)
+            sel_sigs = {_msig(n["plan"]) for n in selected}
+            for n in sorted((x for x in uniq if _msig(x["plan"]) not in sel_sigs), key=_rank):
+                if len(selected) >= K:
+                    break
+                selected.append(n)
+                sel_sigs.add(_msig(n["plan"]))
+            return selected
+
+        memo: set = set()
+        # 초기 beam = baseline + harvested 시드(res 재사용=0롤), skill-diverse top BEAM_WIDTH
+        init = [_node([], baseline_res)] + [_node(s["base"] + [s["action"]], s["res"]) for s in seeds]
+        beam = _select_beam(init, BEAM_WIDTH)
+        pb_budget = PHASE_B_BUDGET                        # 종료 경계 (1, 주): 별도 가산 롤아웃 cap
+        pb_node = None
+        pb_best = min(init, key=_rank)                    # Phase B 전체 최선 진척 노드(refine 시드)
+        depth = 0
+        while beam and pb_budget > 0 and depth < MAX_PLAN_LEN:   # 종료 경계 (2): depth ≤ MAX_PLAN_LEN
+            depth += 1
+            pool: list = []                              # 이 레벨의 frontier-확장 자식
+            for node in beam:
+                if pb_budget <= 0:
+                    break
+                if is_full_clear(node["res"], hp):
+                    pb_node = node
+                    break
+                sg = _msig(node["plan"])
+                if sg in memo:                            # 종료 경계 (3): canonical plan-sig memo(중복 expand 0)
+                    continue
+                memo.add(sg)
+                if len(node["plan"]) >= MAX_PLAN_LEN:
+                    continue
+                diag = model.diagnose(node["res"].get("trace", {}), layout, hp)
+                # branch-local: Phase A 전역 tried 미상속(R1-HIGH-3) — exclude=set()(fresh), memo가 loop 방지.
+                cands = model.propose(layout, diag, inv, metas, notes, exclude=set(), max_n=6,
+                                      plan=node["plan"], cellup_base=node["plan"])
+                for cand in cands:
+                    if pb_budget <= 0:
+                        break
+                    child = node["plan"] + [cand["action"]]
+                    if _msig(child) in memo:
+                        continue
+                    res = run_plan(stage_scene, child, deadline, trace=True)
+                    pb_budget -= 1
+                    if "error" in res:
+                        continue
+                    cn = _node(child, res)
+                    if _rank(cn) < _rank(pb_best):
+                        pb_best = cn
+                    if is_full_clear(res, hp):
+                        pb_node = cn
+                        break
+                    # frontier 확장(탐험) OR _rank 개선(진척: 도달/회수/목표근접) 자식만 유지(헛 배회 억제 +
+                    # 생산 노드 보존; 둘 다 아니면 정체 자식이라 drop).
+                    if cn["frontier"] > node["frontier"] or _rank(cn) < _rank(node):
+                        pool.append(cn)
+                if pb_node is not None:
+                    break
+            if pb_node is not None:
+                break
+            if not pool:
+                break
+            beam = _select_beam(pool, BEAM_WIDTH)        # skill-diverse 다음 레벨 beam
+            top = min(beam, key=_rank) if beam else None
+            bskills = sorted({_skill_of(n) for n in beam})
+            ts = (f"saved={top['saved']} picked={top['picked']} retired={top['retired']} goal={top['goal']} "
+                  f"fr={top['frontier']}") if top else "—"
+            print(f"[Phase B] depth {depth}: beam {len(beam)}(skills {bskills}), top[{ts}], budget 남음 {pb_budget}")
+        used = PHASE_B_BUDGET - pb_budget
+        # ---- 국소 placement 정밀탐색(refinement, 사용자 결정 2026-06-28) ----
+        # beam은 picked=hp "모양"엔 도달하나 정확한 cell 배치(개미 생존)를 못 맞추는 placement-needle 해소:
+        # 최선 노드 pb_best의 cell-target 배치를 ±REFINE_RADIUS coordinate-ascent perturb(생존 변형 탐색) 후
+        # propose 확장으로 귀환/마무리 단계 시도(spike 국소탐색·analyze 윈도우 선례).
+        if pb_node is None and not is_full_clear(pb_best["res"], hp):
+            import copy
+            rb = REFINE_BUDGET
+            cur = pb_best
+            refine_memo = set(memo)
+            print(f"[Phase B] refine 진입 — 시드 best[saved={cur['saved']} picked={cur['picked']} "
+                  f"retired={cur['retired']} goal={cur['goal']}], budget {rb}롤")
+            cell_idxs = [i for i, a in enumerate(cur["plan"]) if (a.get("target") or {}).get("mode") == "cell"]
+            improved = True
+            while improved and rb > 0 and pb_node is None:        # (A) cell 배치 coordinate-ascent
+                improved = False
+                for i in cell_idxs:
+                    bc = (cur["plan"][i].get("target") or {}).get("cell")
+                    if not bc or rb <= 0:
+                        continue
+                    for dc in range(-REFINE_RADIUS, REFINE_RADIUS + 1):
+                        for dr in range(-REFINE_RADIUS, REFINE_RADIUS + 1):
+                            if (dc == 0 and dr == 0) or rb <= 0:
+                                continue
+                            np_ = copy.deepcopy(cur["plan"])
+                            np_[i]["target"]["cell"] = [bc[0] + dc, bc[1] + dr]
+                            sg = _msig(np_)
+                            if sg in refine_memo:
+                                continue
+                            refine_memo.add(sg)
+                            res = run_plan(stage_scene, np_, deadline, trace=True)
+                            rb -= 1
+                            if "error" in res:
+                                continue
+                            cn = _node(np_, res)
+                            if is_full_clear(res, hp):
+                                pb_node = cn
+                                break
+                            if _rank(cn) < _rank(cur):
+                                cur, improved = cn, True
+                        if pb_node is not None:
+                            break
+                    if pb_node is not None:
+                        break
+            if pb_node is None and rb > 0 and len(cur["plan"]) < MAX_PLAN_LEN:   # (B) 확장(귀환/마무리)
+                diag = model.diagnose(cur["res"].get("trace", {}), layout, hp)
+                cands = model.propose(layout, diag, inv, metas, notes, exclude=set(), max_n=8,
+                                      plan=cur["plan"], cellup_base=cur["plan"])
+                for cand in cands:
+                    if rb <= 0:
+                        break
+                    child = cur["plan"] + [cand["action"]]
+                    if _msig(child) in refine_memo:
+                        continue
+                    refine_memo.add(_msig(child))
+                    res = run_plan(stage_scene, child, deadline, trace=True)
+                    rb -= 1
+                    if "error" in res:
+                        continue
+                    if is_full_clear(res, hp):
+                        pb_node = _node(child, res)
+                        break
+                    cn = _node(child, res)
+                    if _rank(cn) < _rank(cur):
+                        cur = cn
+            used += REFINE_BUDGET - rb
+            if pb_node is None:
+                print(f"[Phase B] refine 후 미해결 — best[saved={cur['saved']} picked={cur['picked']} "
+                      f"retired={cur['retired']} goal={cur['goal']}], refine {REFINE_BUDGET - rb}롤")
+        if pb_node is not None and is_full_clear(pb_node["res"], hp):
+            sig_ms = sorted(a.get("skill") for a in pb_node["plan"])
+            print(f"[Phase B] SOLVED — plan={[a.get('skill') for a in pb_node['plan']]} ({used}롤 소비)")
+            print(f"[Phase B] 메커니즘 signature: phase_b_entered=True, floater@base[] 시드={has_floater}, "
+                  f"multiset={sig_ms}")
+            prov["final_plan"] = pb_node["plan"]
+            prov["plan_sources"] = ["phase_b"] * len(pb_node["plan"])
+            if stats is not None:
+                stats.update(prov, rollouts=rollouts + used, cleared=True)
+            return _save(stage_id, stage_scene, deadline, inv, pb_node["plan"], pb_node["res"],
+                         rollouts + used, hp, layout, meta["total_ants"], save=save)
+        print(f"[Phase B] 미해결 — {used}롤 소비, expand 노드 {len(memo)}, "
+              f"최대 frontier {max((s['frontier'] for s in seeds), default=0)}")
 
     # 상한 도달 또는 정체 — 100% 미달 → 체크포인트. 최고 기록 시도의 리타이어 개미·사용 도구 수도 보고.
     prov["plan_sources"] = plan_sources
