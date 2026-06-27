@@ -716,3 +716,23 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
 - **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+diverse4+wall_targets
   selfcheck ⓐ-ⓚ+**la2-reserve selfcheck**+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 byte-identical
   (정상 per-round 보존 → 메인 평가 불변). **⏳ codex 재리뷰.**
+
+### codex impl-review R8 (커밋 be78bb5..d8443d6 diff, --base HEAD~8) = needs-attention (HIGH×1) → 사용자 옵션 A
+- **[HIGH] Default cap silently prevents D2 protected candidates from being evaluated** (`solve.py`): propose가
+  `_class_prefix_protect`로 ≤2·max_n 반환하나, default `--max-rollouts=10`에서 baseline 후 `_main_cap()=7` →
+  첫 라운드가 정확히 옛 unprotected 6개만 평가 → max_n 이후 protected extra 미롤아웃 = **D2 inert under default mode**.
+  stage22 proof는 raised cap(40)이라 default-cap 동작 미증명.
+- **수학적 삼각 모순**: 정상 per-round(R7) + D2 protected(R5 보호) + LA2 reserve(R5)는 작은 cap에 **동시에 안
+  들어감**(cap budget 제약). R5↔R7↔R8이 이 본질적 trade-off를 노출. **사용자(오케스트레이터) 결정 = 옵션 A**:
+  명시 강제 + 정직 표기(codex "enforce explicit"). default cap 유지, D2는 cap 충분 필요를 명문화.
+- **수정**(`solve.py`): D2 보호가 정상 per-round를 넘겨 후보를 확장했는데(보호 발동) cap 부족으로 protected tail이
+  `main_cap`에 안 들어가면 **silent inert 대신 명시 [cap 경고] 로그**(평가 가능 수·부족 cap·witness 누락 가능·cap
+  상향 권장). cap contract explicit. **regression(R8-ⓒ)**: 충분 cap(40)서 protected 8개 전부 평가 + LA2 reserve 유지 /
+  부족 cap(10)서 protected 잘림(evaluable < 8) 박제. 게이트 cap(40)은 충분해 경고 없음 → 동작·solve.json byte-identical.
+- **실측 입증**: cap 10 → `[cap 경고] D2 보호 후보 6개 중 3개만 평가 가능 — cap=10 부족` + CHECKPOINT(미해결, silent
+  아님) / cap 40 → 경고 없이 saved 7/7. **정직 경계**: D2 스테이지는 cap이 (baseline+protected+reserve) 이상이어야
+  작동; default 10은 그 스테이지에 어차피 부족(D2 무관하게 미해결 CHECKPOINT)이라 실질 무해 + 이제 명시적.
+- **Self-Review Round 9 = clean (HIGH 0)**: 경고는 stdout(동작 무변경)·보호 발동+cap 부족 시만·게이트 cap 충분 byte-
+  identical·regression prove-it(부족 cap evaluable<8 falsifiable)·삼각 모순 정직 표기 검토.
+- **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19+analyze4+diverse4+wall_targets selfcheck ⓐ-ⓚ+
+  **la2-reserve selfcheck ⓐⓑⓒ**+rediscover 5. **회귀 0**: S13/14/19/20/22 byte-identical. **⏳ codex 재리뷰.**

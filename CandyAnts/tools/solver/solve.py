@@ -59,7 +59,17 @@ def _selfcheck_la2_reserve() -> bool:
     # prove-it: 옛 식 max(ro+1, mr-reserve)면 default 10·ro=1에서 max(2,2)=2 < per-round 7 = ⓐ 위반(vacuous 아님).
     if max(1 + 1, 10 - LA2_RESERVE) >= 1 + min(10 - 1, 6):
         print("[la2-reserve selfcheck] FAIL R7 prove-it vacuous(옛 식이 per-round 보존)"); return False
-    print("[la2-reserve selfcheck] PASS — 정상 per-round 보존(R7-ⓐ) + 큰 cap LA2 reserve(R7-ⓑ) 박제.")
+    # ⓒ codex R8 [HIGH](사용자 옵션 A): cap 충분(40)이면 D2 protected 8개 전부 평가 가능 + LA2 reserve 유지 /
+    # cap 부족(default 10)이면 protected 8개 중 일부만(evaluable < 8) = silent inert 아닌 *수학적 cap 부족*임을 박제.
+    PROT = 8                                                  # 보호 발동 후보 수 예(per_round 6 + 보호 extra 2)
+    ev_big = max(0, min(_main_cap(1, 40), 40) - 1)            # 충분 cap: protected 전부 평가 + reserve
+    if ev_big < PROT or _main_cap(1, 40) > 40 - LA2_RESERVE:
+        print("[la2-reserve selfcheck] FAIL R8-ⓒ 충분 cap서 protected 미평가 or LA2 reserve 침범:", ev_big); return False
+    ev_small = max(0, min(_main_cap(1, 10), 10) - 1)          # 부족 cap: protected 잘림(cap 경고 경로 도달)
+    if ev_small >= PROT:
+        print("[la2-reserve selfcheck] FAIL R8-ⓒ default cap이 protected 8개를 다 평가(cap 모순 미감지):", ev_small); return False
+    print("[la2-reserve selfcheck] PASS — 정상 per-round 보존(R7-ⓐ) + 큰 cap LA2 reserve(R7-ⓑ) + "
+          "cap 충분/부족 protected 평가 가능성(R8-ⓒ, 부족 시 명시 경고) 박제.")
     return True
 PLAN_HARNESS = "tests/PlanReplayHarness.tscn"
 META_DUMP = "tests/SolverMetaDump.tscn"
@@ -328,10 +338,21 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
     try:
         while rollouts < max_rollouts:
             diag = model.diagnose(best.get("trace", {}), layout, hp)
-            cands = _propose(diag, min(max_rollouts - rollouts, 6), plan, best)
+            per_round = min(max_rollouts - rollouts, 6)
+            cands = _propose(diag, per_round, plan, best)
             # LA2 reserve(codex impl R5·R7): 메인 평가는 정상 per-round(min(remaining,6))를 항상 보존하고(R7),
             # D2 보호 확장분만 max_rollouts-LA2_RESERVE까지 허용해 lookahead budget을 떼어 둔다(_main_cap 참조).
             main_cap = _main_cap(rollouts, max_rollouts)
+            # cap contract explicit(codex impl R8, 사용자 옵션 A): D2 보호가 정상 per-round를 넘겨 후보를 확장했는데
+            # (보호 발동) cap이 부족해 그 protected tail이 main_cap에 안 들어가면 **silent inert 대신 명시 경고** —
+            # cell-up witness가 평가 안 될 수 있음을 알린다(정상 per-round + protected + LA2_RESERVE는 작은 cap에
+            # 동시에 안 들어가는 수학적 제약). D2 스테이지는 cap 충분(≥ baseline+protected+reserve)이어야 작동;
+            # 부족하면 어차피 미해결 CHECKPOINT. 게이트 cap(40)은 충분해 경고 없음 → 동작·solve.json byte-identical.
+            evaluable = max(0, min(main_cap, max_rollouts) - rollouts)
+            if len(cands) > per_round and len(cands) > evaluable:
+                print(f"  [cap 경고] D2 보호 후보 {len(cands)}개(정상 {per_round} + 보호 {len(cands) - per_round}) 중 "
+                      f"{evaluable}개만 평가 가능 — cap={max_rollouts} 부족(LA2 reserve {LA2_RESERVE}). cell-up witness "
+                      f"누락 가능, cap 상향 권장(D2는 충분 cap 필요).")
             evaluated = eval_cands(plan, plan_sources, cands, "", cap=main_cap) if cands else []
             # 완전성 보장(re-review R3 HIGH): vault-preferred 집합을 **먼저** 평가한다 — 그 안에서 full-clear가
             # 나면 eval_cands가 즉시 _Clear로 단축(이게 유일한 절약: 클리어 라운드 early-exit). 하지만 개선 채택·
