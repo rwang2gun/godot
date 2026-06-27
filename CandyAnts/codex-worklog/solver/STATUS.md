@@ -979,9 +979,58 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   휴리스틱 작업 = plan-review + impl-review 대상**(가벼운 데이터 트랙에서 분리). solve.json/selftest 미편입
   (부분 해는 게이트 비대상). **다음 = 사용자 방향 결정**(S22식 witness 심층조사 후 routing 확장 / 또는 보류).
 
+## 5f 계약 작성 (2026-06-27) — per-risk 보호 일반화 (S21/23/24/25 승격) · ⏳plan-review 대기
+
+> 사용자 결정(AskUserQuestion) = "per-risk 재설계 plan 바로 작성". **5f 계약**을 `phases/solver/auto-solver-plan.md`에
+> append(5e 섹션 뒤). ⚠ plan SoT가 세션 중 동기화로 등장(멀티-PC) — Write 안전장치가 전체 이력 clobber 방지,
+> 기존 824줄에 5f 삽입(덮어쓰기 X).
+> **SoT 역할 분리(R1-LOW)**: **설계 계약의 authoritative SoT = `auto-solver-plan.md`**(plan/review 문서, 커밋
+> 비대상 로컬 working doc). **STATUS.md = cross-PC 세션 핸드오프·동기화 브릿지**(git 커밋되는 유일 트랙 기록).
+> 즉 "무엇을 만들 것인가"는 plan, "어디까지 됐고 다음 세션이 뭘 알아야 하나"는 STATUS.
+
+### S23 정준 de-risk (엔진 D4 trace, 5f grounding)
+- **메커니즘 규명**: S23 home(10,6)/candy(22,5), **spawn_direction=−1(좌향)**. 리스크 시퀀스 ① 좌측 절벽(col6,
+  물갭 cols4-5)→blocker reverse / ② 우측 갭(col11, 8칸)→bridge cross / ③ 우측 overhang(row6 cols15-25, candy는
+  꼭대기 row5)→sand_mound climb. 트리아지 best `['blocker','sand_mound']` reached=0 = **②에서 bridge가
+  blocker(reverse, water_w) 밑에 burial·mis-commit**.
+- **5e D2가 안 잡음**: `_class_prefix_protect`는 **up_cell만** 보호(`if "up_cell" not in classes…`). S23은
+  **cross(bridge) vs reverse(blocker)** 라는 *다른* class 쌍 → 5e 미보호. = **5f F1 = 보호 generic 일반화**.
+- **⚠ overhang climb 미확정**: 손배치 blocker+bridge+sand_mound@(14,6) → 개미 col6↔col14 무한왕복, best_min_y
+  row6.8 고정, picked=0. sand_mound가 row6→row5 climb 미작동. **(가) 배치 문제 vs (나) capability 갭** 미판별 —
+  현 솔버 cap40 reached=0이 (나) 배제 못 함. → **5f impl 1단계 = witness de-risk 하드 선결, 불가 시 STOP·escalate**.
+
+### 5f 설계 골자 (plan SoT §5f)
+- **F1**: 5e `_class_prefix_protect` up_cell-전용 → **generic non-top class 보호**(cross/safe_fall/up_cell, bounded
+  quota·risk 라운드-로빈, 5e 메커니즘 재사용). inert: 단일-class 리스크 byte-identical.
+- **F2**: 다중-리스크 cap 상향(S13/14 선례). **F3**: 다양-해 forbid 재사용(신규 0).
+- **acceptance**: S23 100%(witness 확립 시) 하드 게이트 + stretch S21/24/25. inert S11~S22 byte-identical.
+- **엔진/게임 무변경**(model.py/solve.py/selftest만, 5e 동일 계약면).
+
+### plan-review R1 → fix (2026-06-27, codex task-mqw3y1zn-covd6z)
+- **R1 = needs-attention**(HIGH×3+MED×2+LOW×1, 트레일 `phase05-plan-review.md ## 5f Round 1`). CRITICAL 0.
+- **6 finding 전부 plan §5f 반영**: HIGH-1(F1 메타 불일치→**F-pre0** ①② 후보에 `_risk`/`_off`/`_src_rank` 부여
+  바인딩+fail-closed selfcheck) / HIGH-2(inert 충돌→보호 발동 **ⓐ≥2 applicable class ⓑ한 class 완전 burial**로
+  협소화+F-pre2가 S13/14/20 무발동 명시 검증) / HIGH-3(witness 미falsifiable→§4 **50변형 finite matrix**: blocker/
+  bridge 고정+sand_mound col[11..20]×row{5,6,7} 30단+20쌍, deadline9000, saved≥1 AND picked>0 성공, 전 변형
+  picked=0=capability 갭 STOP+artifact 박제) / MED-1(scope→제목 "S23 대표 hard-gate, S21/24/25 stretch") /
+  MED-2(cap→`search 23 --max-rollouts 40` 상한 고정) / LOW(SoT 역할 분리 명시).
+- **R2 = needs-attention**: R1의 HIGH-1/MED-1/MED-2/LOW closed, HIGH-2(inert) 방향 closed. 남은/신규 3건 fix:
+  R2-HIGH-1(witness 4-way exhaustive 분기 `saved-witness`/`reach-only`/`no-reach`/`engine-error`) / R2-HIGH-2
+  (F1 quota를 `risk × class` 그룹핑, 각 class off=0 슬롯 보장+cross 공정성 selfcheck) / R2-MED-1(2-조합 12쌍
+  데카르트곱 고정=총 42변형). 트레일 `## 5f Round 2`.
+- **R3 = needs-attention → 3-round cap STOP**: 잔여 HIGH 1건(R3-HIGH-1 engine/error가 capability gap에 혼입 —
+  gap STOP은 42개 모두 성공 replay AND 모두 no-reach일 때만) + MED 2(F-pre1 stale 50변형→42·reach-only 미보존 /
+  quota overflow `#(risk,class)>max_n` 규칙 falsifiable화). R2-HIGH-2 S23 cross-burial은 closed. 트레일 `## 5f Round 3`.
+- **사용자 결정(AskUserQuestion) = "3건 적용 후 R4 확인"**. R3 3건 반영(§4 engine/error 격리·F-pre1 42변형·
+  F1 overflow 규칙) → **R4 = ✅ clean (approve), 잔여 HIGH/MEDIUM 0**. **5f plan-stage 종결**(R1→R2→R3 STOP·
+  사용자 승인→R4 approve, 트레일 `## 5f Round 1~4`).
+- **⏳ 다음 = 5f 구현 1단계 = S23 witness de-risk** (§4 42변형 matrix: blocker+bridge 고정 + sand_mound col
+  [11..20]×row{5,6,7} 30단 + 12쌍, 엔진 무변경 `try_solve.py replay`). 4-way 판정: saved-witness→(가) S23
+  hard-gate / engine-error→abort / reach-only→escalate / 42 no-reach→(나) capability 갭 STOP·사용자 결정.
+
 ## 블로커
-- **다음 작업 = S21/23/24/25 코드-변경 재설계(plan-review)** 또는 보류 — 사용자 결정 대기. stretch 트리아지
-  전부 reached=0(접근-경로 휴리스틱 갭). S22 다양-해는 완료(`55b7ae4`). 5e는 origin 푸시 확인 완료.
+- **다음 작업 = 5f codex plan-review → (approve 시) impl 1단계 S23 witness de-risk**. witness 불가 판명 시 STOP·
+  사용자 escalate((나) capability 갭이면 overhang routing 신설은 별 결정). S22 다양-해 완료(`55b7ae4` push).
   엔진/게임 무변경. (S20 carry-mirror·S18 휴리스틱·break/down/jump cell 디바이스는 기존 미커버 유지.)
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
