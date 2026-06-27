@@ -686,3 +686,16 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
   carry-chain(S13/14) 불변·정직 경계(cap 작으면 reserve가 메인 압박 = plan "cap은 시퀀스 깊이로" 영역, 게이트 cap 40 안전).
 - **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+diverse4+selfcheck
   ⓐ-ⓚ+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 재발견 byte-identical(reserve가 메인 평가 inert). **⏳ codex 재리뷰.**
+
+### codex impl-review R6 (커밋 be78bb5..3308540 diff, --base HEAD~6) = needs-attention (MEDIUM×1, HIGH 0) → fix
+- **HIGH 0 도달** — impl-stage clean(HIGH 기준). R5까지의 누적 수정으로 D2 cap contract·witness 보장·starvation·
+  LA2 reserve 4-way 긴장 해소. 남은 finding은 MEDIUM 1건(cheap·dead path, 일관성 위해 처리).
+- **[MEDIUM] Vault completion pass can consume the LA2 reserve** (`solve.py`): `main_cap`이 첫 `eval_cands`만 제한.
+  `vault_fn` 있으면 그 다음 완전성 pass `eval_cands(..., "(complete)")`가 `cap=None`(=max_rollouts) → sibling 평가가
+  LA2 reserve 소비 가능(R5 cap contract 회귀). **`vault_fn`은 Phase 4 ARCHIVED·항상 None이라 dead path**지만 cheap.
+- **수정**(`solve.py`): 메인 단계 완전성 pass도 `cap=main_cap` 적용(LA2 단계의 (LA2-complete)는 이미 reserve를 쓰는
+  단계라 무관). dead path라 게이트 byte-identical(vault None → 미실행).
+- **Self-Review Round 7 = clean (HIGH 0)**: cap=main_cap 일관 적용·dead path inert·S22 byte-identical(7/7 witness
+  off2, git diff 0)·LA2-complete는 reserve 단계라 제외 정당 검토.
+- **검증(R6 fix 후)**: import OK + `solve.solve(22)` 7/7(witness off2, 16롤) byte-identical. 전체 게이트는 R5와
+  동일(vault dead path 무영향, selfcheck/rediscover/selftest는 vault 무관). **⏳ codex 재리뷰(MEDIUM 수정 확인).**

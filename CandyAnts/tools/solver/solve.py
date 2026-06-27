@@ -313,7 +313,10 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
             if vault_fn:
                 cands_sib = _propose(diag, min(max_rollouts - rollouts, 6), plan, best, use_vault=False)
                 if cands_sib:
-                    evaluated = evaluated + eval_cands(plan, plan_sources, cands_sib, "(complete)")
+                    # codex impl R6 [MEDIUM]: 메인 단계의 완전성 pass도 **같은 main_cap** 적용 — 안 그러면 sibling
+                    # 평가가 LA2 reserve를 잠식해 R5 cap contract 회귀(vault_fn은 ARCHIVED·항상 None이라 dead path지만
+                    # 일관성·정확성 위해 동일 상한 적용). LA2 단계의 (LA2-complete)는 이미 reserve를 쓰는 단계라 무관.
+                    evaluated = evaluated + eval_cands(plan, plan_sources, cands_sib, "(complete)", cap=main_cap)
             if not evaluated:
                 print("  [정지] 제안할 개입 후보 없음(진단으로 더 둘 곳 없음).")
                 break
