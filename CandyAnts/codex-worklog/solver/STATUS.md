@@ -1044,10 +1044,19 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - **시사**: model.propose가 floater-분배자·sand_mound cap-onto-ledge·좌-routing 후보를 **미생성** = 5f F1(burial)
   보다 **propose 후보 생성 범위**가 본질 갭. 트레일 `phase05-impl-review ## 5f S23 — 사용자 의도-해 엔진 검증`.
 
+### 5f F1 스파이크 (2026-06-27) — 후보 생성 ≠ 병목, **greedy score가 진짜 병목** (revert)
+- 사용자 "한번 해보자" → F1 미니멀 스파이크 → S23 미해결, 정밀 진단 후 revert(model.py HEAD 복원).
+- **핵심 발견(스파이크 probe)**: S23 witness **5단계 후보 전부 기존 diagnose로 검출됨**(floater/blocker@col0=
+  reverse_targets, sand_mound@(15,14)·@(19,10)=**wall_targets 순차 검출**, 귀환 bridge=reverse_targets). 즉
+  **후보 생성 갭 아님**. 유일 병목 = **greedy score(best_goal_dist)+2-step LA**: floater는 candy 반대로 보내
+  goal_dist 악화 → frontier 제외. floater+blocker(개미 바닥)가 blocker-단독보다 goal_dist 나빠 commit·lookahead
+  둘 다 기각. **S23 해 = ~4단계 anti-greedy**(climb 3-4단계서야 goal_dist 개선) → greedy+2step LA 원천 불가.
+- **5f 재프레임**: F1(burial)은 필요·불충분. 진짜 막힘 = 검색 전략/score 근시안.
+
 ## 블로커
-- **⏳ 5f 재설계 = propose 후보 생성 범위 확장**(다음 세션). S23 witness가 드러낸 미생성 후보: floater-분배자
-  routing / sand_mound cap-onto-ledge 배치(레지 검출→아래 col 사다리) / 좌-routing. `stage23.witness.json`=엔진
-  검증 회귀 기준. **5f plan-stage R4 approve는 유효하나 F1(burial)만으론 불충분** — 후보 생성이 선결.
+- **⏳ 5f 재설계 = 검색 전략/score**(다음 세션, 큰 재설계). 방향: ① 깊은 lookahead(3-4단계) ② 구조-탐험 보상
+  score(novelty/escape-trap, goal_dist 악화에도 새 구조·등반 진척 인정) ③ beam search. **F1(propose 후보/burial)
+  아님 — 후보는 이미 완비**(스파이크 실증). `stage23.witness.json`=재설계 타깃·엔진 검증 회귀 기준.
 - S22 다양-해 완료(`55b7ae4` push). 5e push 확인 완료. 엔진/게임 무변경.
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙**. **S20 구조-starvation = 수용된 latent**(carry-mirror).
