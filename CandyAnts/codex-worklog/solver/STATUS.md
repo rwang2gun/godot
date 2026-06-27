@@ -1035,10 +1035,13 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   (b) S23 인벤토리에 slide 추가(레벨 변경) / (c) S23 대표 게이트 철회·재스코프 / (d) 보류.
 
 ## 블로커
-- **⏳ 5f impl = S23 (나) capability 갭 → 사용자 결정 대기**(STOP, 2026-06-27). overhang-top 1-row step-up이 현
-  routing/인벤토리로 불가(witness 42변형 전부 no-reach). F1(per-risk 보호 일반화) 자체는 미구현(witness 선결
-  실패로 진입 안 함). 옵션 (a)step-up routing 신설 /(b)S23 인벤토리 slide 추가(레벨 변경) /(c)게이트 철회·재스코프
-  /(d)보류. **5f plan-stage는 R4 approve 종결**(설계 유효, S23 적용 막힌 건 capability 갭).
+- **⏳ 5f impl = S23 점검 verdict: 현 인벤토리로 unsolvable 강한 추정 → 사용자 보고**(2026-06-27). 사용자 "S23
+  레벨/인벤토리 점검" 수행: over-the-top 42변형 + down-climb 3변형 + 솔버 cap40 = **전부 picked=0**. 근거 ①
+  sand_mound가 col14서 overshoot(레지 없음)·pocket 진입 벽 차단 ② **floater=1이 9칸 치사 갭에 7마리 안전하강
+  불가** ③ 45+변형 candy 미도달. **S23=사용자 Ch2 레벨 WIP 가능성(레벨 설계 이슈)**. 트레일 `phase05-impl-review
+  ## 5f S23 레벨/인벤토리 점검`. → 사용자: 손플레이 검증 / 인벤토리 조정(slide·floater 증량) / 레벨 재설계 택.
+- **5f plan-stage는 R4 approve 종결**(설계 유효). F1(per-risk 보호 일반화)은 witness 선결 실패로 미구현 —
+  S23이 burial 아닌 인벤토리/capability 갭이라 F1으로 해결 안 됨(de-risk가 5f 전제 falsify, 게이트가 제 역할).
 - S22 다양-해 완료(`55b7ae4` push). 5e push 확인 완료. 엔진/게임 무변경.
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
