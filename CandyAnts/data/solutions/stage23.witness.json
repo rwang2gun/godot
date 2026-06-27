@@ -75,9 +75,9 @@
    "trigger": {
     "type": "ant_reaches_x",
     "cmp": "le",
-    "x": 730
+    "x": 790.0
    }
   }
  ],
- "note": "사용자 의도-해(엔진 검증 saved=7/7 frame=2415). 솔버 자동발견 아님(propose가 floater-분배자+sand_mound cap-onto-ledge+좌-routing 후보 미생성). 5f impl 1단계 (나) capability-갭 결론을 REVERSE: 레벨은 풀림, 솔버 휴리스틱 갭."
+ "note": "사용자 의도-해(엔진 검증 saved=7/7). 레벨 (15,6) 제거 수정 반영: 귀환 bridge 트리거 col15→col16(le 790). 솔버 자동발견 아님(propose 후보는 완비, greedy score가 anti-greedy 4단계 floater 경로 미commit — 5f 재설계 타깃). 회귀 기준."
 }
