@@ -949,8 +949,39 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   protected+LA2 reserve는 작은 cap에 수학적 동시 불가 → D2는 충분 cap 필요, default 10은 명시 경고. 커밋 `be78bb5`(feat)
   +`2234381`/`1d73328`/`d2f1bd2`/`5fc58fd`/`3308540`/`7fdfd41`/`d8443d6`/`fc44c38`(R1~R8 fix). **미push(로컬).**
 
+## 5e push 확인 + stretch 1차 (2026-06-27) — S22 다양-해 완료 · S21/23/24/25 트리아지
+
+> 이전 핸드오프의 "5e 미push(로컬)"는 **stale** — 실측 확인 결과 `363b75a`(5e R9 approve 종결 STATUS
+> 동기화 커밋)가 이미 `origin/auto-solver`에 존재(`git ls-remote` HEAD==remote==363b75a). 5e push 완료.
+
+### S22 다양-해(D3) 완료 — `stage22.diverse.json` (코드 무변경, 데이터 생성, 커밋 `55b7ae4`)
+- `try_solve.py diverse 22 --save --extra-cap 200` → **n_classes=1, search_capped=false**(extra 203롤
+  자연소진). class1={bridge:1, sand_mound:1} 단순해 — bridge 슬롯 col[0–4] full sweep(gap_verified=stride1),
+  sand_mound cell[10,6] 고정. **의도-해(5종 floater→slideR→bridge→sand_mound→slideL)는 미발견** —
+  carry-arm `_w` burial(5e 문서화)로 휴리스틱이 그 경로를 클리어 못 함 → 정직 보고 n_classes=1(model.py
+  트랙 과제, 다양-해 데이터 갭 아님). revised 5b R10-approve forbid 메커니즘 그대로 사용(tools/solver 무변경).
+- **게이트 그린**: `diverse-verify`(무인자) = 5개(11/12/13/14/22) 전부 PASS — stage22 추가가 기존 4개 불변.
+
+### S21/23/24/25 stretch 트리아지 = **전부 reached=0(접근-경로 미해결), 코드-변경 트랙 필요**
+> 5e의 D2(evaluated-prefix, cross-routing burial 해소)는 **S22의 귀환-경로** 문제를 풀었으나, 이 4개는
+> **candy 픽업조차 못 함**(reached=0)이라 접근-경로 자체가 미해결 = 더 큰 휴리스틱 갭(cap 부족 아님).
+> 전부 cap 40 내 포화 또는 후보 소진.
+
+| Stage | best plan | saved | reached | 정지 사유 |
+|---|---|---|---|---|
+| S21 | `['sand_mound']` | 0/7 | 0 | 8 trapped, 27/40롤 진척0 |
+| S23 | `['blocker','sand_mound']` | 0/7 | 0 | 제안 후보 소진(13롤) |
+| S24 | `['floater','sand_mound']` | 0/7 | 0 | 33/40롤 진척0 |
+| S25 | `[]` | 0/7 | 0 | 유효 후보 0(tools=0), 15롤 |
+
+- 진단: 2026-06-26 핸드오프가 식별한 **greedy-commit dead-end + per-risk 도구-분기 재설계** 과제 그대로.
+  5e는 그 첫 슬라이스(S22 정준=귀환-경로 cell-up). 이 4개는 접근-경로(reached) 미해결이라 **추가 model.py
+  휴리스틱 작업 = plan-review + impl-review 대상**(가벼운 데이터 트랙에서 분리). solve.json/selftest 미편입
+  (부분 해는 게이트 비대상). **다음 = 사용자 방향 결정**(S22식 witness 심층조사 후 routing 확장 / 또는 보류).
+
 ## 블로커
-- **다음 작업 = 5e push + stretch**: S21/23/24/25 + S22 다양-해(D3). 하드 게이트(S22 cap40 7/7)·게이트·codex approve 완료.
+- **다음 작업 = S21/23/24/25 코드-변경 재설계(plan-review)** 또는 보류 — 사용자 결정 대기. stretch 트리아지
+  전부 reached=0(접근-경로 휴리스틱 갭). S22 다양-해는 완료(`55b7ae4`). 5e는 origin 푸시 확인 완료.
   엔진/게임 무변경. (S20 carry-mirror·S18 휴리스틱·break/down/jump cell 디바이스는 기존 미커버 유지.)
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
