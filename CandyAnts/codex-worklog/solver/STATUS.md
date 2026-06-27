@@ -1053,6 +1053,23 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   둘 다 기각. **S23 해 = ~4단계 anti-greedy**(climb 3-4단계서야 goal_dist 개선) → greedy+2step LA 원천 불가.
 - **5f 재프레임**: F1(burial)은 필요·불충분. 진짜 막힘 = 검색 전략/score 근시안.
 
+### stage23 레벨 수정 반영 (2026-06-27, 커밋 `f41c058` push)
+- 사용자 레벨 편집: `platform_cells`에서 **`Vector2i(15,6)` 제거**(천장 overhang 좌측 끝 lip), `Stage23.tscn`
+  Cell_15_6 노드 제거(+Godot 재직렬화, 엔티티 Home/Candy/Spawner/Water×44 무변경).
+- **witness 일관 갱신**: 천장 좌측 끝 col15→col16 이동 → 귀환 bridge 트리거 col15→**col16(le 790)**. 엔진
+  재검증 **saved=7/7 lost=0 frame=2375**(`stage23.witness.json`). 레벨↔witness 일관 유지.
+
+### 다음 세션 진입점 (2026-06-27 핸드오프)
+- **다음 작업 = 솔버 검색 전략/score 재설계**(5f 재프레임, 큰 작업·코드 변경 → plan/impl-review 대상). **타깃 =
+  `stage23.witness.json`**(엔진 검증 saved=7, anti-greedy 4단계 해)를 솔버가 자동 발견하게. **F1/후보 생성 아님**
+  (스파이크 실증: 5단계 후보 전부 검출됨). 방향 ①깊은 lookahead(3-4단계) ②구조-탐험 보상 score(novelty/
+  escape-trap) ③beam search 중 택1+plan-review.
+- **환경**: `GODOT_BIN=D:/Godot_v4.6.2-stable_win64_console.exe`, 하니스 `--fixed-fps` 필수. codex 리뷰=Bash
+  companion(`task`=plan, `adversarial-review --base`=impl). plan SoT `phases/solver/auto-solver-plan.md`(로컬
+  working doc, 커밋 비대상 — 세션 중 멀티-PC 동기화로 등장 주의, Write 전 Read 필수).
+- **워킹트리 격리 상태**: 사용자 Ch2 WIP 미커밋 잔류 = `data/stages/stage17.tres`·`project.godot`·**미추적
+  stage26~33**(layout/tres/tscn 24파일). 솔버 무관, 사용자 소관 — 솔버 커밋서 건드리지 말 것.
+
 ## 블로커
 - **⏳ 5f 재설계 = 검색 전략/score**(다음 세션, 큰 재설계). 방향: ① 깊은 lookahead(3-4단계) ② 구조-탐험 보상
   score(novelty/escape-trap, goal_dist 악화에도 새 구조·등반 진척 인정) ③ beam search. **F1(propose 후보/burial)
