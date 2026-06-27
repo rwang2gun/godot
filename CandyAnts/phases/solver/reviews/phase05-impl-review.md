@@ -666,3 +666,23 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
 - **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+diverse4+selfcheck
   ⓐ-ⓚ(cross-source 포함)+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 재발견 byte-identical(인터리브가
   S22 witness off2·기존 plan 불변). **⏳ codex 재리뷰.**
+
+### codex impl-review R5 (커밋 be78bb5..5fc58fd diff, --base HEAD~5) = needs-attention (HIGH×1) → 사용자 옵션 A
+- **[HIGH] Protected candidates can exhaust the round budget before lookahead runs** (`solve.py`): `_class_prefix_
+  protect`가 `out+picked` = 최대 2·max_n 반환하는데, solve.py는 max_n을 per-round cap(`min(max_rollouts-rollouts,6)`)
+  으로 주고 LA2는 별도 cap 4를 기대. `eval_cands`가 global `max_rollouts`만 체크 → mixed up_cell/non-cell 라운드가
+  의도 2배 평가. **default 10-rollout** 검색서 첫 라운드(cap 6)가 budget을 다 써 **2-step lookahead(LA2) skip**.
+- **4-way 긴장 + 사용자 결정**: R1~R4 누적이 bounded-cap ↔ witness 보장 ↔ non-cell starvation 방지 ↔ LA2 reserve의
+  본질적 긴장에 도달(max_n 슬롯만으론 동시 불가). **사용자(오케스트레이터) 결정 = 옵션 A(codex 권고2) LA2 reserve**:
+  propose 보호(witness 보장)는 유지, solve.py가 LA2 budget을 명시 예약.
+- **수정**(`solve.py`): `LA2_RESERVE=8`(frontier 2개 × cands ≤4) 모듈 상수 + `eval_cands(cap=None)` 인자(이 호출이
+  도달 가능한 전역 rollouts 상한). 메인 평가는 `main_cap = max(rollouts+1, max_rollouts - LA2_RESERVE)`로 호출 →
+  D2 보호가 후보를 per-round cap 초과로 늘려도 LA2 reserve를 잠식 못 함(per-round cap contract 복원). baseline/LA2는
+  cap=None(=max_rollouts, reserve 사용). **inert**: 보호 미발동(up_cell 없음 → cands ≤ max_n)이면 메인 평가가 상한에
+  안 닿아 byte-identical(cap ≫ 6).
+- **LA2 budget 보존 입증(codex 권고 regression)**: LA2를 실제 사용하는 **S13/S14 carry-chain이 reserve 하에 byte-
+  identical 재발견**(rediscover[13] PASS + selftest s14=4624) = "LA2 still receives intended budget" 직접 검증.
+- **Self-Review Round 6 = clean (HIGH 0)**: main_cap 결정론·보호 미발동 inert(메인 평가 ≤6 < cap-8)·LA2 reserve가
+  carry-chain(S13/14) 불변·정직 경계(cap 작으면 reserve가 메인 압박 = plan "cap은 시퀀스 깊이로" 영역, 게이트 cap 40 안전).
+- **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+diverse4+selfcheck
+  ⓐ-ⓚ+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 재발견 byte-identical(reserve가 메인 평가 inert). **⏳ codex 재리뷰.**

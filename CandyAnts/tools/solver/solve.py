@@ -31,6 +31,9 @@ import model
 
 ROOT = Path(__file__).resolve().parents[2]
 RUN_TEST = ROOT / "scripts" / "run_test.py"
+LA2_RESERVE = 8   # codex impl R5: 메인 평가 단계(D2 보호로 후보 수가 per-round cap을 초과할 수 있음)가 2-step
+                  # lookahead(LA2) budget을 잠식하지 않게 떼어두는 롤아웃 예약(LA2 = frontier 2개 × cands ≤4 = 8).
+                  # 보호 미발동(up_cell 없음 → cands ≤ max_n)이면 메인 단계가 이 상한에 안 닿아 inert(byte-identical).
 PLAN_HARNESS = "tests/PlanReplayHarness.tscn"
 META_DUMP = "tests/SolverMetaDump.tscn"
 
@@ -256,13 +259,17 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
                 prov["pruned_log"].append({"base": list(base), "action": a})
         return cands
 
-    def eval_cands(base: list[dict], base_srcs: list[str], cands: list, tag: str) -> list:
+    def eval_cands(base: list[dict], base_srcs: list[str], cands: list, tag: str, cap: int | None = None) -> list:
         """후보들을 base 플랜 위에 롤아웃. full clear면 _Clear로 즉시 탈출. 반환 (cand,res) 리스트.
         이미 base에 든 액션은 건너뛴다 — carry 후보는 exclude 면제(plan 누적 재평가)라, 채택돼 base에
         들어간 carry n이 다시 후보로 와도 중복 롤аут하지 않게 막는다(연쇄만 진행)."""
+        # cap(codex impl R5): 이 호출이 도달 가능한 전역 rollouts 상한. main eval은 LA2 reserve를 남기도록
+        # max_rollouts-LA2_RESERVE를 받고, baseline/LA2는 None(=max_rollouts). D2 보호가 후보를 per-round cap
+        # 초과로 늘려도 main eval이 2-step lookahead(LA2) budget을 잠식하지 못하게(per-round cap contract 복원).
+        limit = max_rollouts if cap is None else min(cap, max_rollouts)
         out: list = []
         for cand in cands:
-            if rollouts >= max_rollouts:
+            if rollouts >= limit:
                 break
             if cand["action"] in base:        # 이미 채택된 액션 — 중복 롤아웃 방지
                 continue
@@ -295,7 +302,10 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
         while rollouts < max_rollouts:
             diag = model.diagnose(best.get("trace", {}), layout, hp)
             cands = _propose(diag, min(max_rollouts - rollouts, 6), plan, best)
-            evaluated = eval_cands(plan, plan_sources, cands, "") if cands else []
+            # LA2 reserve(codex impl R5): 메인 평가가 LA2 budget을 잠식하지 않게 상한. 보호 미발동(up_cell 없음,
+            # cands ≤ max_n)이면 메인 평가가 이 상한에 안 닿아 byte-identical(cap ≫ 6이면 무영향). 최소 1개는 보장.
+            main_cap = max(rollouts + 1, max_rollouts - LA2_RESERVE)
+            evaluated = eval_cands(plan, plan_sources, cands, "", cap=main_cap) if cands else []
             # 완전성 보장(re-review R3 HIGH): vault-preferred 집합을 **먼저** 평가한다 — 그 안에서 full-clear가
             # 나면 eval_cands가 즉시 _Clear로 단축(이게 유일한 절약: 클리어 라운드 early-exit). 하지만 개선 채택·
             # 정체 판단 *전에* prune된 형제(off>=1)까지 **반드시** 평가해 ON이 OFF와 동일 후보 풀에서 결정하게
