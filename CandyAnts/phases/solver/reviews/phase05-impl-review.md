@@ -699,3 +699,20 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
   off2, git diff 0)·LA2-complete는 reserve 단계라 제외 정당 검토.
 - **검증(R6 fix 후)**: import OK + `solve.solve(22)` 7/7(witness off2, 16롤) byte-identical. 전체 게이트는 R5와
   동일(vault dead path 무영향, selfcheck/rediscover/selftest는 vault 무관). **⏳ codex 재리뷰(MEDIUM 수정 확인).**
+
+### codex impl-review R7 (커밋 be78bb5..7fdfd41 diff, --base HEAD~7) = needs-attention (HIGH×1) → fix
+- **[HIGH] LA2 reserve starves the main candidate set under small rollout caps** (`solve.py`): R5의 `main_cap =
+  max(rollouts+1, max_rollouts-LA2_RESERVE)`가 default 10에서 baseline 1롤 후 `max(2, 2)=2` → 메인이 **1개만
+  평가**하고 1-step 정체 선언 → frontier truncated. **D2 보호 inactive일 때도** 기존 per-round `min(remaining,6)`
+  동작을 깸(모든 `max_rollouts ≤ LA2_RESERVE+rollouts+1` 라운드).
+- **수정**(`solve.py`): `_main_cap(rollouts, max_rollouts) = max(rollouts + min(remaining,6), max_rollouts -
+  LA2_RESERVE)` — **정상 per-round(min(remaining,6))는 항상 보존**(R7: first-step frontier 불변)하고 D2 보호 확장분만
+  reserve까지 허용(둘 중 큰 상한). 보호 inactive면 cands ≤ per-round라 정상 per-round로 끝나 byte-identical.
+- **regression(codex 권고, 순수 단위)**: `_selfcheck_la2_reserve` — ⓐ 보호 inactive 시 main_cap이 정상 per-round를
+  절대 안 줄임(mr∈{10,12,30,40,60} × 전 라운드 전수) + ⓑ 큰 cap에서 LA2 reserve 보장 + **prove-it**(옛 식 max(ro+1,
+  mr-reserve)는 default 10·ro=1에서 2 < per-round 7 = ⓐ 위반, vacuous 아님). `rediscover-verify` ①'에 편입.
+- **Self-Review Round 8 = clean (HIGH 0)**: _main_cap 결정론·정상 per-round 보존(first-step frontier 불변)·보호
+  inactive byte-identical·regression prove-it falsifiable 검토.
+- **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+diverse4+wall_targets
+  selfcheck ⓐ-ⓚ+**la2-reserve selfcheck**+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 byte-identical
+  (정상 per-round 보존 → 메인 평가 불변). **⏳ codex 재리뷰.**

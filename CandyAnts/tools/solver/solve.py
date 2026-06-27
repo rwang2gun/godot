@@ -34,6 +34,33 @@ RUN_TEST = ROOT / "scripts" / "run_test.py"
 LA2_RESERVE = 8   # codex impl R5: 메인 평가 단계(D2 보호로 후보 수가 per-round cap을 초과할 수 있음)가 2-step
                   # lookahead(LA2) budget을 잠식하지 않게 떼어두는 롤아웃 예약(LA2 = frontier 2개 × cands ≤4 = 8).
                   # 보호 미발동(up_cell 없음 → cands ≤ max_n)이면 메인 단계가 이 상한에 안 닿아 inert(byte-identical).
+
+
+def _main_cap(rollouts: int, max_rollouts: int) -> int:
+    """메인 평가 단계의 전역 rollouts 상한(codex impl R5·R7). 정상 per-round(`min(remaining,6)`)는 **항상 보존**
+    (R7: 작은 cap에서 first-step frontier를 1개로 굶기지 않게 — 기존 동작 불변)하고, D2 보호가 그 이상으로 확장한
+    부분만 `max_rollouts-LA2_RESERVE`까지 허용해 2-step lookahead budget을 떼어 둔다(둘 중 큰 상한)."""
+    per_round = min(max_rollouts - rollouts, 6)
+    return max(rollouts + per_round, max_rollouts - LA2_RESERVE)
+
+
+def _selfcheck_la2_reserve() -> bool:
+    """codex impl R7 [HIGH] regression(순수 단위, 엔진 불요): 메인 평가 상한이 ⓐ 보호 inactive 시 **정상 per-round
+    (min(remaining,6))를 절대 안 줄이고**(first-step frontier 불변) ⓑ 큰 cap·이른 라운드에서 LA2_RESERVE를 떼어 둠."""
+    for mr in (10, 12, 30, 40, 60):
+        for ro in range(0, mr):
+            per = min(mr - ro, 6)
+            if _main_cap(ro, mr) < ro + per:                  # ⓐ 정상 per-round 보존(first-step pool 불변)
+                print("[la2-reserve selfcheck] FAIL R7-ⓐ main_cap %d < per-round %d (mr=%d ro=%d)"
+                      % (_main_cap(ro, mr), ro + per, mr, ro))
+                return False
+    if _main_cap(1, 40) != 40 - LA2_RESERVE:                  # ⓑ 큰 cap에서 보호 확장이 LA2 reserve 남김
+        print("[la2-reserve selfcheck] FAIL R7-ⓑ 큰 cap LA2 reserve 미보장:", _main_cap(1, 40)); return False
+    # prove-it: 옛 식 max(ro+1, mr-reserve)면 default 10·ro=1에서 max(2,2)=2 < per-round 7 = ⓐ 위반(vacuous 아님).
+    if max(1 + 1, 10 - LA2_RESERVE) >= 1 + min(10 - 1, 6):
+        print("[la2-reserve selfcheck] FAIL R7 prove-it vacuous(옛 식이 per-round 보존)"); return False
+    print("[la2-reserve selfcheck] PASS — 정상 per-round 보존(R7-ⓐ) + 큰 cap LA2 reserve(R7-ⓑ) 박제.")
+    return True
 PLAN_HARNESS = "tests/PlanReplayHarness.tscn"
 META_DUMP = "tests/SolverMetaDump.tscn"
 
@@ -302,9 +329,9 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
         while rollouts < max_rollouts:
             diag = model.diagnose(best.get("trace", {}), layout, hp)
             cands = _propose(diag, min(max_rollouts - rollouts, 6), plan, best)
-            # LA2 reserve(codex impl R5): 메인 평가가 LA2 budget을 잠식하지 않게 상한. 보호 미발동(up_cell 없음,
-            # cands ≤ max_n)이면 메인 평가가 이 상한에 안 닿아 byte-identical(cap ≫ 6이면 무영향). 최소 1개는 보장.
-            main_cap = max(rollouts + 1, max_rollouts - LA2_RESERVE)
+            # LA2 reserve(codex impl R5·R7): 메인 평가는 정상 per-round(min(remaining,6))를 항상 보존하고(R7),
+            # D2 보호 확장분만 max_rollouts-LA2_RESERVE까지 허용해 lookahead budget을 떼어 둔다(_main_cap 참조).
+            main_cap = _main_cap(rollouts, max_rollouts)
             evaluated = eval_cands(plan, plan_sources, cands, "", cap=main_cap) if cands else []
             # 완전성 보장(re-review R3 HIGH): vault-preferred 집합을 **먼저** 평가한다 — 그 안에서 full-clear가
             # 나면 eval_cands가 즉시 _Clear로 단축(이게 유일한 절약: 클리어 라운드 early-exit). 하지만 개선 채택·
