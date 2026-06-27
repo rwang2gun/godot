@@ -649,3 +649,20 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
 - **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+diverse4+selfcheck
   ⓐ-ⓚ(source-priority 포함)+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 재발견 byte-identical(source-rank
   도입이 S22 witness off2·기존 plan 불변). **⏳ codex 재리뷰.**
+
+### codex impl-review R4 (커밋 be78bb5+2234381+1d73328+d2f1bd2 diff, --base HEAD~4) = needs-attention (HIGH×1) → fix
+- **[HIGH] Bounded source-rank quota can starve all fall-edge cell-up witnesses behind wall targets** (`model.
+  _class_prefix_protect`): `_src_rank=(src_order, ti)`에서 wall(src_order=0)이 모든 fall(src_order=1)보다 앞 →
+  `extra[:max_n]`가 wall off0..5(6개)로 다 차면 fall-edge off 0개 평가. wall target + S22형 귀환 절벽 공존 시
+  D1 burial 재발(cross-source starvation). 기존 selfcheck는 두 fall risk((1,0),(1,1))만 비교라 미커버.
+- **수정**(`model._class_prefix_protect`): extra를 **risk별(`_src_rank`) 그룹 라운드-로빈 인터리브**로 max_n까지
+  뽑아 wall/fall이 quota를 공평 분배 — 고우선순위 risk가 먼저이되(R3 보존) 어느 source도 다른 source를 완전
+  굶기지 않는다(R4 cross-source 공평). 그룹 내 off↑ 결정론. 단일 risk(S22 fall 1개)면 1 그룹 → off↑ 순차(동일).
+  **selfcheck 강화**: wall (0,0) off0..5 + fall (1,0) off0..3, max_n=6 → fall witness off2 생존 단언. **prove-it
+  vacuous 아님 실증**: 인터리브를 raw src_order global 순(R3 버전)으로 되돌리면 wall 6개가 quota 독점·fall starve
+  = selfcheck FAIL(실측).
+- **Self-Review Round 5 = clean (HIGH 0)**: risk 라운드-로빈 결정론(src_rank 그룹 순 + off↑)·S22 단일 risk byte-
+  identical(1 그룹=off↑ 순차)·cross-source 공평·잔여 정직(max_n < risk수×off면 cap 부족 = plan "시퀀스 깊이로" 영역).
+- **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+diverse4+selfcheck
+  ⓐ-ⓚ(cross-source 포함)+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 재발견 byte-identical(인터리브가
+  S22 witness off2·기존 plan 불변). **⏳ codex 재리뷰.**

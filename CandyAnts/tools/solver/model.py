@@ -556,9 +556,12 @@ def _class_prefix_protect(cands: list[dict], max_n: int) -> list[dict]:
     routing burial이 있었다(S22 de-risk 실측). 여기서 up_cell 프리픽스(backpath off 전부)를 절단 밖이면 **보호**해,
     어느 routing이 그 리스크를 푸는지를 _w가 아니라 엔진 verdict가 결정하게 한다.
     **bounded extra quota = max_n**(codex impl R2 [HIGH]): 보호 extra를 **최대 max_n개**로 제한해 반환 길이 ≤
-    2·max_n(무제한 append → per-round 롤아웃 budget 잠식 금지). 첫 max_n 슬롯은 종전 _w 순(carry-arm/cross 등
-    non-cell 후보 보존 → LA2/non-cell starvation 없음). extra는 up_cell만 off↑ 결정론 — up_cell 프리픽스가 max_n
-    이하면 전부(S22 fall off0..3=4≤6), 초과면 off↑ 앞쪽 max_n개(many-risk에서 정직 bounded·cap은 시퀀스 깊이로).
+    2·max_n(무제한 append → per-round 롤аут budget 잠식 금지). 첫 max_n 슬롯은 종전 _w 순(carry-arm/cross 등
+    non-cell 후보 보존 → LA2/non-cell starvation 없음).
+    **risk별 라운드-로빈 인터리브**(codex impl R3·R4 [HIGH]): bounded quota를 risk(_src_rank)별 그룹으로 공평
+    분배 — raw (src_order, ti) global 순서면 wall off0..5가 quota를 독점해 fall witness가 starve(R4 cross-source).
+    src_rank 순 그룹의 off↑ 프리픽스를 라운드-로빈으로 뽑아 고우선순위 risk 먼저이되(R3) cross-source 공평(R4).
+    단일 risk(S22 fall 1개)면 1 그룹 → off↑ 순차(동일). many-risk·cap 초과는 정직 bounded(cap은 시퀀스 깊이로).
     정직 inert:
       - up_cell이 *유일* class(S19=sand_mound only)면 절단이 곧 그 class의 _w 순 → 보호 항등 → byte-identical.
       - up_cell *없는* multi-class(S13/14/20 = reverse+up_armed)면 보호 대상 부재(extra=[]) → 무영향 → byte-identical.
@@ -569,12 +572,28 @@ def _class_prefix_protect(cands: list[dict], max_n: int) -> list[dict]:
         return out
     in_out = {id(c) for c in out}
     extra = [c for c in cands if c.get("_class") == "up_cell" and id(c) not in in_out]
-    # **diagnose 우선순위 보존**(codex impl R3 [HIGH]): bounded quota를 좌표(_risk)순이 아니라 **source rank**
-    # (`_src_rank=(src_order, ti)` = propose가 순회한 diagnose 정렬 순위: reverse_targets는 water/freq/depth,
-    # wall_targets는 목표 근접)순으로 채운다. 좌표순이면 many-risk에서 저우선순위 fall edge(작은 col)가 quota를
-    # 독점해 고우선순위/water risk의 witness off를 누락한다. (src_rank, off↑)면 고우선순위 risk 프리픽스가 먼저 생존.
-    extra.sort(key=lambda c: (c.get("_src_rank", (9, 9)), c.get("_off", 0)))
-    return out + extra[:max_n]                        # bounded: 반환 ≤ 2·max_n (codex R2 무제한 append 금지)
+    # **risk별 라운드-로빈 인터리브**(codex impl R3·R4 [HIGH]): bounded quota를 risk(`_src_rank=(src_order, ti)` =
+    # propose 순회 diagnose 정렬: wall src_order=0/fall=1, ti=source 내 water·freq·목표근접 순위)별 그룹으로 묶어
+    # **공평 분배**. raw (src_order, ti) global 순서로 자르면 wall off0..5가 quota를 독점해 fall-edge witness가 완전
+    # starve된다(R4: wall+fall 공존 시 D1 burial 재발). src_rank 순 그룹의 off↑ 프리픽스를 라운드-로빈으로 max_n까지
+    # 뽑아 — 고우선순위 risk가 먼저이되(R3) 어느 source도 다른 source를 완전 굶기지 않는다(R4 cross-source 공평).
+    extra.sort(key=lambda c: (c.get("_src_rank", (9, 9)), c.get("_off", 0)))   # src_rank 순(고우선순위 먼저) + off↑
+    groups: list = []                                  # risk별 그룹(src_rank order 유지, 내부 off↑)
+    for c in extra:
+        sr = c.get("_src_rank", (9, 9))
+        if groups and groups[-1][0] == sr:
+            groups[-1][1].append(c)
+        else:
+            groups.append((sr, [c]))
+    glists = [g[1] for g in groups]
+    picked: list = []                                  # bounded ≤ max_n, risk 그룹 라운드-로빈(cross-source 공평)
+    while len(picked) < max_n and any(glists):
+        for grp in glists:
+            if grp:
+                picked.append(grp.pop(0))
+                if len(picked) >= max_n:
+                    break
+    return out + picked                                # 반환 ≤ 2·max_n (codex R2 bounded)
 
 
 def _note_w(notes: dict, sid: str) -> int:
@@ -764,11 +783,24 @@ def _selfcheck_wall_targets() -> bool:
     if not any(c.get("_src_rank") == (1, 0) and c.get("_off") == 2 for c in prot3):  # 고우선순위 riskA off2 생존
         print("[wall_targets selfcheck] FAIL D2 source-priority: 고우선순위 risk off2가 bounded quota서 누락(좌표순 독점):",
               [c["label"] for c in prot3]); return False
+    # codex R4 [HIGH]: **cross-source(wall+fall) 공평** — wall off0..5가 quota 독점해 fall-edge witness starve 금지.
+    # wall (0,0) off0..5 + fall (1,0) off0..3, max_n=6 → risk 라운드-로빈으로 fall off2 생존(raw src_order global 순
+    # 이면 wall 6개가 quota 독점·fall 0개 = D1 burial 재발 = FAIL = prove-it).
+    wall_c = [{"action": {"skill": "sand_mound", "target": {"mode": "cell", "cell": [30 + off, 6]}},
+               "label": "W%d" % off, "_class": "up_cell", "_off": off, "_src_rank": (0, 0),
+               "_risk": ("wall", 30 + off, 6), "_w": 8 + off} for off in range(6)]
+    fall_c = [{"action": {"skill": "sand_mound", "target": {"mode": "cell", "cell": [off, 6]}},
+               "label": "F%d" % off, "_class": "up_cell", "_off": off, "_src_rank": (1, 0),
+               "_risk": ("fall", off, 6), "_w": 8 + off} for off in range(4)]
+    prot4 = _class_prefix_protect(sorted(fake_armed + wall_c + fall_c, key=lambda c: -c["_w"]), 6)
+    if not any(c.get("_src_rank") == (1, 0) and c.get("_off") == 2 for c in prot4):  # fall witness off2 생존(starve X)
+        print("[wall_targets selfcheck] FAIL D2 cross-source: wall이 bounded quota 독점·fall witness off2 starve:",
+              [c["label"] for c in prot4]); return False
     # inert: up_cell이 유일 class면 보호 항등(S19). 단순 절단과 동일해야 byte-identical.
     only_cells = sorted(fake_cells, key=lambda c: -c["_w"])
     if _class_prefix_protect(only_cells, 2) != only_cells[:2]:
         print("[wall_targets selfcheck] FAIL D2 inert(유일 up_cell class인데 보호가 절단을 바꿈):"); return False
     print("[wall_targets selfcheck] PASS — ⓐ-ⓚ 검출/방향/정렬/per-sample목표/phase별키/연속backpath/목표-위fall-edge"
           "/cell-up backpath_above(stale 픽업전 회피) + R3-M1 off=5 + R3-H1 same-col + D2 burial-protect witness off=2 "
-          "(bounded ≤2·max_n·non-cell starvation 없음·many-risk bounded·source-priority 보존·inert 항등).")
+          "(bounded ≤2·max_n·non-cell starvation 없음·many-risk bounded·source-priority 보존·cross-source 공평·inert 항등).")
     return True
