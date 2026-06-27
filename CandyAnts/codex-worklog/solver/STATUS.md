@@ -1024,14 +1024,27 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - **사용자 결정(AskUserQuestion) = "3건 적용 후 R4 확인"**. R3 3건 반영(§4 engine/error 격리·F-pre1 42변형·
   F1 overflow 규칙) → **R4 = ✅ clean (approve), 잔여 HIGH/MEDIUM 0**. **5f plan-stage 종결**(R1→R2→R3 STOP·
   사용자 승인→R4 approve, 트레일 `## 5f Round 1~4`).
-- **⏳ 다음 = 5f 구현 1단계 = S23 witness de-risk** (§4 42변형 matrix: blocker+bridge 고정 + sand_mound col
-  [11..20]×row{5,6,7} 30단 + 12쌍, 엔진 무변경 `try_solve.py replay`). 4-way 판정: saved-witness→(가) S23
-  hard-gate / engine-error→abort / reach-only→escalate / 42 no-reach→(나) capability 갭 STOP·사용자 결정.
+### 5f 구현 1단계 = S23 witness de-risk (2026-06-27) → **(나) capability 갭 입증 · STOP·escalate**
+- **42변형 전부 no-reach**(단일 30 + 쌍 12, saved=0·picked=0·time_out, engine-error 0). 트레일
+  `phase05-impl-review.md ## 5f witness de-risk`.
+- **메커니즘**: blocker+bridge가 개미를 col14(bridge 끝)까지 전달하나, candy는 우측 overhang(row6) **꼭대기
+  row5**. sand_mound cell-up은 **다중-셀 수직 사다리**라 row6→row5 **1칸 step-up 불가**(꼭대기 overshoot→
+  picked=0). 1-row step-up=builder/slide 능력인데 S23 인벤토리=blocker/bridge/floater/sand_mound(slide 없음).
+  → 현 routing+인벤토리로 overhang-top 도달 불가.
+- **정책(5d② R1, no silent defer) → 사용자 STOP·escalate**. 옵션: (a) overhang step-up routing 신설(별 trace) /
+  (b) S23 인벤토리에 slide 추가(레벨 변경) / (c) S23 대표 게이트 철회·재스코프 / (d) 보류.
 
 ## 블로커
-- **다음 작업 = 5f codex plan-review → (approve 시) impl 1단계 S23 witness de-risk**. witness 불가 판명 시 STOP·
-  사용자 escalate((나) capability 갭이면 overhang routing 신설은 별 결정). S22 다양-해 완료(`55b7ae4` push).
-  엔진/게임 무변경. (S20 carry-mirror·S18 휴리스틱·break/down/jump cell 디바이스는 기존 미커버 유지.)
+- **⏳ 5f impl = S23 (나) capability 갭 → 사용자 결정 대기**(STOP, 2026-06-27). overhang-top 1-row step-up이 현
+  routing/인벤토리로 불가(witness 42변형 전부 no-reach). F1(per-risk 보호 일반화) 자체는 미구현(witness 선결
+  실패로 진입 안 함). 옵션 (a)step-up routing 신설 /(b)S23 인벤토리 slide 추가(레벨 변경) /(c)게이트 철회·재스코프
+  /(d)보류. **5f plan-stage는 R4 approve 종결**(설계 유효, S23 적용 막힌 건 capability 갭).
+- S22 다양-해 완료(`55b7ae4` push). 5e push 확인 완료. 엔진/게임 무변경.
+- **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
+- **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
+- **S20 구조-starvation = 수용된 latent 한계**(carry-mirror, 사용자 결정). 실제 structure→early→structure 레벨
+  등장 시에만 semantic preservation 재설계로 재진입.
+- **break/down/jump cell 디바이스(Basher/Cutter/Digger/LeafJump) = 미커버 routing**(스코프 밖, 후속).
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
 - **S20 구조-starvation = 수용된 latent 한계**(carry-mirror, 사용자 결정). 실제 structure→early→structure 레벨
