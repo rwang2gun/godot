@@ -519,8 +519,8 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
         if str(meta.get("target")) != "cell" or str(meta.get("routing")) != "up":
             continue
         seen_cells: set = set()                           # 좌·우 벽 + fall/wall이 같은 backpath 셀을 양쪽서 내는
-        for src_list, n_cap, risk_kind in ((wts, 6, "wall"), (fall_up, 4, "fall")):   # 중복 차단(첫 발견 가중 유지).
-            for ti, tgt in enumerate(src_list):
+        for src_order, (src_list, n_cap, risk_kind) in enumerate(((wts, 6, "wall"), (fall_up, 4, "fall"))):
+            for ti, tgt in enumerate(src_list):           # 중복 차단(첫 발견 가중 유지). src_order·ti = diagnose 우선순위.
                 # fall은 **목표-위 phase backpath**(backpath_above, codex impl R1 HIGH — stale 픽업전 동선 회피),
                 # wall은 wall_targets backpath. fall_up은 goal_above=True만이라 backpath_above 존재(fallback 안전).
                 bp = (tgt.get("backpath_above") if risk_kind == "fall" else tgt.get("backpath")) or [tgt["cell"]]
@@ -542,7 +542,7 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
                     # 방향 다음 사다리(T2) 공간이 남는다. off=0(붙음)은 T3 dead-end라 후순위. tgt_w 1급, off 2급.
                     # D2(5e): off는 _w 내부 선호일 뿐 — burial 시 `_class_prefix_protect`가 off 전부를 평가 보장.
                     cands.append({"action": action, "label": label, "_class": "up_cell",
-                                  "_off": off, "_risk": (risk_kind, tcol, trow),
+                                  "_off": off, "_src_rank": (src_order, ti), "_risk": (risk_kind, tcol, trow),
                                   "_w": _note_w(notes, sid) * 8 + tgt_w * 8 + off})
 
     cands.sort(key=lambda c: -c["_w"])
@@ -569,7 +569,11 @@ def _class_prefix_protect(cands: list[dict], max_n: int) -> list[dict]:
         return out
     in_out = {id(c) for c in out}
     extra = [c for c in cands if c.get("_class") == "up_cell" and id(c) not in in_out]
-    extra.sort(key=lambda c: (c.get("_risk", ()), c.get("_off", 0)))
+    # **diagnose 우선순위 보존**(codex impl R3 [HIGH]): bounded quota를 좌표(_risk)순이 아니라 **source rank**
+    # (`_src_rank=(src_order, ti)` = propose가 순회한 diagnose 정렬 순위: reverse_targets는 water/freq/depth,
+    # wall_targets는 목표 근접)순으로 채운다. 좌표순이면 many-risk에서 저우선순위 fall edge(작은 col)가 quota를
+    # 독점해 고우선순위/water risk의 witness off를 누락한다. (src_rank, off↑)면 고우선순위 risk 프리픽스가 먼저 생존.
+    extra.sort(key=lambda c: (c.get("_src_rank", (9, 9)), c.get("_off", 0)))
     return out + extra[:max_n]                        # bounded: 반환 ≤ 2·max_n (codex R2 무제한 append 금지)
 
 
@@ -747,11 +751,24 @@ def _selfcheck_wall_targets() -> bool:
         print("[wall_targets selfcheck] FAIL D2 many-risk 무제한 append(extra>max_n):", len(prot2)); return False
     if sum(1 for c in prot2 if c.get("_class") == "up_armed") < 6:   # armed 6개(첫 max_n) 전부 보존 = starvation 없음
         print("[wall_targets selfcheck] FAIL D2 many-risk armed starvation:", [c.get("label") for c in prot2]); return False
+    # codex R3 [HIGH]: bounded quota가 **diagnose 우선순위(source rank)** 보존 — 좌표순이면 저우선순위 risk(작은
+    # col)가 quota 독점해 고우선순위 risk winning off 누락. riskA(src_rank ti=0, col 큼=좌표상 후순위)의 off2가
+    # riskB(ti=1, col 작음=좌표상 선순위)에 안 밀리고 생존. (좌표순 정렬이면 riskA off2 누락 = FAIL = prove-it.)
+    riskA = [{"action": {"skill": "sand_mound", "target": {"mode": "cell", "cell": [20 + off, 6]}},
+              "label": "A%d" % off, "_class": "up_cell", "_off": off, "_src_rank": (1, 0),
+              "_risk": ("fall", 20 + off, 6), "_w": 8 + off} for off in range(4)]
+    riskB = [{"action": {"skill": "sand_mound", "target": {"mode": "cell", "cell": [off, 6]}},
+              "label": "B%d" % off, "_class": "up_cell", "_off": off, "_src_rank": (1, 1),
+              "_risk": ("fall", off, 6), "_w": 8 + off} for off in range(4)]
+    prot3 = _class_prefix_protect(sorted(fake_armed + riskA + riskB, key=lambda c: -c["_w"]), 6)
+    if not any(c.get("_src_rank") == (1, 0) and c.get("_off") == 2 for c in prot3):  # 고우선순위 riskA off2 생존
+        print("[wall_targets selfcheck] FAIL D2 source-priority: 고우선순위 risk off2가 bounded quota서 누락(좌표순 독점):",
+              [c["label"] for c in prot3]); return False
     # inert: up_cell이 유일 class면 보호 항등(S19). 단순 절단과 동일해야 byte-identical.
     only_cells = sorted(fake_cells, key=lambda c: -c["_w"])
     if _class_prefix_protect(only_cells, 2) != only_cells[:2]:
         print("[wall_targets selfcheck] FAIL D2 inert(유일 up_cell class인데 보호가 절단을 바꿈):"); return False
     print("[wall_targets selfcheck] PASS — ⓐ-ⓚ 검출/방향/정렬/per-sample목표/phase별키/연속backpath/목표-위fall-edge"
           "/cell-up backpath_above(stale 픽업전 회피) + R3-M1 off=5 + R3-H1 same-col + D2 burial-protect witness off=2 "
-          "(bounded ≤2·max_n·non-cell starvation 없음·many-risk bounded·inert 항등).")
+          "(bounded ≤2·max_n·non-cell starvation 없음·many-risk bounded·source-priority 보존·inert 항등).")
     return True

@@ -633,3 +633,19 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
 - **게이트 8/8 그린·EXIT 0(R2 fix 후)**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+
   diverse4+selfcheck ⓐ-ⓚ(R2 bounded 포함)+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 재발견 byte-
   identical(bounded fix가 S22 witness off2·기존 plan 불변). **⏳ codex 재리뷰.**
+
+### codex impl-review R3 (커밋 be78bb5+2234381+1d73328 diff, --base HEAD~3) = needs-attention (HIGH×1) → fix
+- **[HIGH] Bounded extra quota is ordered by coordinates, not diagnosis priority** (`model._class_prefix_protect`):
+  extra[:max_n]의 정렬이 `(_risk, _off)` = `(risk_kind, tcol, trow, off)` 좌표순이라, propose가 이미 계산한 source
+  priority(reverse_targets=water/freq/depth, wall_targets=목표 근접)를 버린다. many-risk에서 저우선순위 fall edge
+  (작은 col)가 bounded quota를 독점해 고우선순위/water risk의 off2/off3가 미평가될 수 있다.
+- **수정**(`model.py`): up_cell 후보에 **source rank `_src_rank=(src_order, ti)`** 캐리(propose 순회 순서 = diagnose
+  정렬: wall src_order=0 / fall=1, ti=source 내 정렬 순위). `_class_prefix_protect` extra 정렬을 `(_src_rank, off↑)`로
+  — 고우선순위 risk 프리픽스가 bounded quota서 먼저 생존. **selfcheck 강화**: riskA(src_rank ti=0, col 큼=좌표상
+  후순위)의 off2가 riskB(ti=1, col 작음=좌표상 선순위)에 안 밀리고 quota 생존 단언. **prove-it vacuous 아님 실증**:
+  정렬을 좌표순(_risk)으로 되돌리면 riskB가 quota 독점·riskA off2 누락 = selfcheck FAIL(실측 확인).
+- **Self-Review Round 4 = clean (HIGH 0)**: `_src_rank` 결정론(src_order·ti·off)·solve 미사용 메타 키(byte-identical)·
+  S22 단일 fall risk라 src_rank 순=off↑(동일)·codex source-priority 해소(falsifiable) 검토.
+- **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+diverse4+selfcheck
+  ⓐ-ⓚ(source-priority 포함)+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 재발견 byte-identical(source-rank
+  도입이 S22 witness off2·기존 plan 불변). **⏳ codex 재리뷰.**
