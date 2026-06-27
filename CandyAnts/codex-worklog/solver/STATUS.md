@@ -915,11 +915,36 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   내 approve(STOP 불요). 트레일 [phase05-plan-review.md](../../phases/solver/reviews/phase05-plan-review.md)
   `## 5e Round 1·2·3`. **plan-stage 종결 → 구현 진입 가능.**
 
+## 5e 구현 완료 (2026-06-27) — S22 SOLVED·게이트 그린·자체리뷰 clean, ⏳codex impl-review
+
+> 트레일 [phase05-impl-review.md](../../phases/solver/reviews/phase05-impl-review.md) `## 5e 구현`. plan §"5e 계약"
+> (R3 approve) 구현. 엔진/PlanRunner/게임 무변경 — `tools/solver/model.py` + `scripts/run_plan.py` + `try_solve.py`.
+
+- **D1**(`model.py`): diagnose가 fall_edges에 **per-sample `goal_above`**(`edge_goal_above` OR 집계: cur[3]==1=
+  운반→home / 아니면 candy가 셀보다 위) 추가 → reverse_targets에 `goal_above` 필드. propose ③ cell-up이
+  `wall_targets` + **목표-위 fall-edge**(reverse_targets 중 goal_above) 함께 순회(wall=전방 solid·fall=비-solid
+  배타, seen_cells 중복 차단; N: wall=6/fall=4). ①(reverse/safe_fall/cross)는 goal_above 무시=byte-identical.
+- **D2**(`model._class_prefix_protect`, propose 말미): `up_cell`이 *다른 class*(carry-arm `up_armed`·bridge
+  `cross`)와 경쟁 시 _w(≈10)가 carry-arm(_w≈220)에 눌려 top-max_n 절단에 밀려 **롤아웃조차 안 되던** cross-routing
+  burial 해소 — up_cell 프리픽스(off 전부)를 절단 밖이면 추가 보호. **3중 inert 가드**: up_cell∉classes OR
+  len(classes)≤1(S19 단일) OR len(cands)≤max_n(절단 없음)이면 무발동=byte-identical. ①②③에 `_class` 부여
+  (action/label/_w 불변, solve 미사용 → 누출 0). 추가 순서 (_risk, off↑) 사전식 결정론.
+- **selfcheck 확장**(`_selfcheck_wall_targets` ⓘ-ⓙ + D2 prove-it): ⓘ 목표-위 fall-edge→emit + wall 누출 0 /
+  ⓙ 목표-아래→미emit / D2 witness-rolled(carry-arm _w220 독점 합성서 보호가 witness off2 포함 + naive 절단엔
+  up_cell 0개=burial 재현[vacuous 아님] + 단일 up_cell 보호 항등[inert]).
+- **하드 게이트 = S22 100%**: `solve.solve(22)` **saved 7/7**, plan=`[bridge, sand_mound@(10,6)]`, 16롤. 롤8~13
+  carry-arm(slideR/L) 미클리어 → D2 보호로 cell-up off0(8,6)→off1(9,6)→**off2(10,6) 클리어**(de-risk witness 일치).
+- **회귀 0(byte-identical 실측)**: S19(8롤)·S13(26)·S14(40)·S20(31) solve.json git diff **0**. D1 fall-edge가 S19에
+  누출 0(단일 up_cell→D2 무발동), D2가 up_cell 없는 multi-class(S13/14/20)에 무영향.
+- **게이트 8/8 그린·EXIT 0**: Determinism×2(962f)+SkillMetadataDrift(11)+harness-test+selftest **19**(golden5+solve14,
+  stage22 saved=7, frame byte-identical s12=2385·s13=2719·s14=4624)+analyze4(272체크)+diverse4(145체크)+rediscover
+  **5**(4/13/19/20/**22** cleared actions 2/2). EXPECTED·REDISCOVER에 22 편입, stage22.solve.json 신규.
+- **자체 적대 리뷰 clean(HIGH 0)**: byte-identical 경로(①goal_above 무시·_class solve 미사용)·D2 3중 가드·soundness
+  (fall/wall 배타)·정직 경계(edge_goal_above OR 집계 over-emit 무해·D2 전역 multi-class over-eval 무해) 검토. **⏳ codex**.
+
 ## 블로커
-- **다음 작업 = 5e 구현** — model.py(D1 cell-up 목표-위 fall-edge + `_selfcheck_wall_targets` 확장) + solve.py
-  (D2 per-risk·per-class evaluated-prefix breadth) + rediscover[22]·**witness-rolled fixture**(stop/commit 전
-  (10,6)=off2 실제 평가 단언) + selftest EXPECTED. 하드 게이트 = `solve.solve(22)` 7/7. impl-stage = 자체 적대
-  리뷰 clean 후 codex 재리뷰(사용자 트리거). 엔진/게임 무변경.
+- **다음 작업 = 5e codex impl-review → clean 후 커밋·푸시.** 그 후 stretch: S21/23/24/25 + S22 다양-해(D3).
+  하드 게이트(S22 7/7)·게이트·자체리뷰 완료. 엔진/게임 무변경.
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
 - **S20 구조-starvation = 수용된 latent 한계**(carry-mirror, 사용자 결정). 실제 structure→early→structure 레벨

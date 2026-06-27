@@ -548,3 +548,52 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
 > "Phase-key aggregation is deterministic, the backpath continuity rule is bounded and regression-checked, and the
 > new S19 fixture is wired into selftest/rediscover gates." codex 3R(R1 per-sample 목표 → R2 phase-키+연속 backpath
 > → R3 approve) + 자체리뷰 3R 사이 clean. **5d② sand_mound cell-up routing impl-stage 종결, 커밋 대기.**
+
+---
+
+## 5e 구현 (리스크-구동 다중-도구 분기, S22 정준) — 2026-06-27
+
+> plan §"5e 계약"(R3 approve) 구현. D1(목표-위 fall-edge cell-up) + D2(intervention-class evaluated-prefix
+> burial 해소). 엔진/PlanRunner/게임 무변경 — `tools/solver/model.py`(diagnose/propose) + `scripts/run_plan.py`
+> (EXPECTED) + `tools/solver/try_solve.py`(rediscover[22]) + `data/solutions/stage22.solve.json`.
+
+### 산출물
+- **D1** (`model.diagnose`): fall_edges에 **per-sample `goal_above`** 추가(`edge_goal_above`, OR 집계 —
+  cur[3]==1=운반→home / 아니면 candy가 셀보다 위인가). reverse_targets 항목에 `goal_above` 필드. ①(reverse/
+  safe_fall/cross) 후보는 이 필드 **무시**(낙하 차단=목표 방향 무관) → byte-identical 보존.
+- **D1** (`model.propose` ③): cell-up 루프가 `wall_targets` + **목표-위 fall-edge**(`reverse_targets` 중
+  `goal_above`)를 함께 순회. wall(전방 solid)·fall(전방 비-solid) **배타**라 셀 중복 없음(`seen_cells` 보장). N:
+  wall=6, fall=4(reverse backpath cap). 후보에 `_class="up_cell"`·`_off`·`_risk` 부여.
+- **D2** (`model._class_prefix_protect`, propose 말미 호출): `up_cell`이 *다른 class*(carry-arm `up_armed`,
+  bridge `cross`…)와 경쟁할 때, _w(≈10)가 carry-arm(_w≈220)에 눌려 top-`max_n` 절단에 밀려 **롤아웃조차 안 되던**
+  cross-routing burial 해소 — up_cell 프리픽스(off 전부)를 절단 밖이면 **추가 보호**. 3중 inert 가드: `up_cell∉
+  classes` OR `len(classes)≤1`(S19 단일) OR `len(cands)≤max_n`(절단 없음)이면 보호 무발동=byte-identical. ①②③
+  후보에 `_class` 부여(action/label/_w 불변, solve 미사용 → 누출 0).
+- **selfcheck 확장** (`_selfcheck_wall_targets`): ⓘ 목표-위 fall-edge → cell-up emit + wall_targets 누출 0(soundness)
+  / ⓙ 목표-아래 fall-edge → 미emit / **D2 witness-rolled prove-it**(carry-arm _w220 독점 합성 cands에서 보호가
+  witness off=2 포함 + naive 절단엔 up_cell 0개=burial 재현 [vacuous 아님] + 단일 up_cell 보호 항등 [inert]).
+- **게이트 편입**: `EXPECTED_SOLVE_STAGES`에 22 + `REDISCOVER_TARGETS[22]=40` + `stage22.solve.json` 신규.
+
+### 하드 게이트 = S22 100% (plan acceptance)
+- `solve.solve(22)` **SOLVED 7/7**, plan=`[bridge max_x, sand_mound@(10,6)]`, rollouts=16. de-risk witness
+  (10,6)을 burial 없이 자동 발견 — 롤8~13 carry-arm(slideR/L) 미클리어 → **D2 보호**로 cell-up off0(8,6)→off1
+  (9,6)→**off2(10,6) 클리어**. (8/9/11,6=0/7, off2만 유효 = de-risk 입증과 일치.)
+- **witness-rolled fixture** = rediscover[22](solve.solve 재발견 → 액션 시그니처 `[bridge, sand_mound(10,6)]`
+  일치, cleared) + selfcheck D2 prove-it(보호 메커니즘 단위 박제). "후보 풀 존재"가 아니라 "실제 발견·평가" 단언.
+
+### 회귀 0 (byte-identical, 실측 입증)
+- **재발견 byte-identical**: S19(8롤, (10,14)/(11,10))·S13(26롤)·S14(40롤)·S20(31롤) — solve.json git diff **0**.
+  D1 fall-edge가 S19에 누출 0(단일 up_cell → D2 보호 무발동), D2가 up_cell 없는 multi-class(S13/14/20)에 무영향.
+- **전체 verify 게이트 8/8 그린·EXIT 0**: Determinism×2(962f) + SkillMetadataDrift(11) + harness-test(PASS+exit0)
+  + selftest **19 plans**(golden5+solve14, stage22 saved=7, frame byte-identical s12=2385·s13=2719·s14=4624) +
+  analyze --verify(4 analysis 272체크) + diverse-verify(4 diverse 145체크) + rediscover-verify(5: 4/13/19/20/22).
+
+### Self-Review Round 1 = clean (HIGH 0)
+- **byte-identical 경로**: ① 후보 goal_above 무시·_class solve 미사용 → 누출 0(S13/14/19/20 git diff 0 실측).
+- **D2 발동 3중 가드**: 단일 up_cell 항등 / up_cell 없는 multi-class extra=[] / 절단 없으면 무발동. 결정론 extra
+  정렬 (_risk, _off) 완전 사전식.
+- **soundness**: fall-edge·wall 배타 + seen_cells 중복 차단(selfcheck ⓘ 누출 0 박제).
+- **정직 경계(문서화)**: `edge_goal_above` OR 집계(어느 phase든 목표-위면 True)이고 `edge_back`은 첫 발견 동선 —
+  backpath는 phase-무관 grounded 타일이라 일관, 같은 edge 양-phase 시 over-emit 가능(무해, cell-up=영구 사다리).
+  D2 보호도 "전역 multi-class" 발동이라 독립 리스크의 up_cell over-eval 가능(정확성 무해·결정론 유지·cap 제어).
+- **⏳ codex impl-review 대기**(사용자 트리거 — model-invocation 불가).

@@ -199,8 +199,9 @@ def transfer_bench(test_ids: list[int], max_rollouts: int, mode: str = "vault") 
 # 커밋된 solve.json과 일치하는지 단언한다. 대상 = `up` 루프(early/carry)를 실제로 도는 대표 스테이지:
 #   20 = early-chain(이 변경이 켜는 신규 경로) / 4 = early-arm 단발(early_armed=False 단축 = byte-identical
 #   경로) / 13 = carry-chain(early 미발화 유지) / 19 = **cell-up stacking**(sand_mound ③ 분기·wall_targets·
-#   같은-col exclude·off-sweep 회귀; 5d② 신규 경로). blocker-only는 up 루프 미진입이라 selftest replay로 충분.
-REDISCOVER_TARGETS = {4: 10, 13: 35, 19: 30, 20: 60}   # stage_id → max_rollouts(여유 cap; 시그니처 비교라 cap 무관)
+#   같은-col exclude·off-sweep 회귀; 5d② 신규 경로) / 22 = **5e cell-up fall-edge + D2 burial-protect**(목표-위
+#   절벽 cell-up + carry-arm burial 해소; witness off=2 (10,6) 실제 발견 단언). blocker-only는 up 루프 미진입.
+REDISCOVER_TARGETS = {4: 10, 13: 35, 19: 30, 20: 60, 22: 40}   # stage_id → max_rollouts(여유 cap; 시그니처 비교라 cap 무관)
 
 
 def rediscover_verify(targets: dict) -> int:

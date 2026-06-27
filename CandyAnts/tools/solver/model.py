@@ -91,6 +91,10 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
     fall_edges: dict[tuple, int] = {}                       # (col,row,dir) → count (legacy)
     edge_back: dict[tuple, list] = {}                       # (col,row,dir) → 동선 grounded backpath [(cx,cy),...]
     edge_water: dict[tuple, bool] = {}                      # (col,row,dir) → 물 익사로 이어짐
+    edge_goal_above: dict[tuple, bool] = {}                 # (col,row,dir) → **per-sample 목표가 이 셀보다 위**
+    #   (미픽업이면 candy, 운반이면 home; 5d② per-sample 목표 규약 정합, OR 집계). 5e D1: 목표-위 fall-edge에만
+    #   cell-up(sand_mound 사다리) 후보를 낸다 — 운반 개미를 절벽 위 목표 경로로 들어올리는 게 진척일 때만.
+    #   ①(reverse/safe_fall/cross) 후보는 이 필드를 **무시**(낙하 차단은 목표 방향 무관) → byte-identical 보존.
     near_candy: dict = {"dist": 1 << 30, "cell": None, "dir": 0}
     picked_ants = 0
     ant_ids = sorted({int(k) for k in trace.keys()}) if trace else []
@@ -120,6 +124,10 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
             fall_edges[key] = fall_edges.get(key, 0) + 1
             if died_water:
                 edge_water[key] = True
+            # 5e D1: 이 가장자리 *시점*의 목표(per-sample, cur[3]==1=운반→home / 아니면 candy)가 셀보다 위인가.
+            # OR 집계(어느 통과 샘플이든 목표-위면 True) — cell-up 후보 게이트(목표-아래 전용 가장자리는 미emit).
+            _goal = _goal_cell(cur[3] == 1, layout)
+            edge_goal_above[key] = edge_goal_above.get(key, False) or (_goal is not None and _goal[1] < cur[2])
             # 동선 backpath: 이 가장자리 샘플 i에서 뒤로 가며 **grounded 타일만** 수집(공중 낙하 건너뜀).
             # 첫 원소 = 가장자리 셀 자신(off=0), 이후 = 거슬러 간 보행 타일(off=1,2,...). 같은 (col,row)
             # 연속 중복은 제외(셀 변화 단위). 첫 발견 시에만 기록(가장 이른 통과 동선).
@@ -150,7 +158,8 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
     keys = sorted(fall_edges.keys(),
                   key=lambda k: (0 if edge_water.get(k) else 1, -fall_edges[k], -k[1]))
     reverse_targets = [{"cell": (k[0], k[1]), "dir": k[2], "backpath": edge_back.get(k, [(k[0], k[1])]),
-                        "to_water": bool(edge_water.get(k)), "count": fall_edges[k]} for k in keys]
+                        "to_water": bool(edge_water.get(k)), "count": fall_edges[k],
+                        "goal_above": bool(edge_goal_above.get(k))} for k in keys]
     return {
         "picked_total": picked_ants,
         "reverse_targets": reverse_targets,
@@ -414,7 +423,7 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
                               "target": {"mode": "ant", "select": sel, "y_min": y_min, "y_max": y_max},
                               "trigger": {"type": "ant_reaches_x", "cmp": cmp, "x": (col + 0.5) * cs}}
                     ceil_w = 4 if ceil else 0                            # 천장 있는 셀 선호(낙하 재충돌 회피, 사용자 통찰)
-                    cands.append({"action": action, "label": label,
+                    cands.append({"action": action, "label": label, "_class": routing,
                                   "_w": _note_w(notes, sid) * 8 + water_w + tgt_w + (2 - off) + ceil_w})
 
     # ② 무장 up(climber 등) — 세 타이밍·타깃을 후보로 내고 엔진이 고른다(사용자 통찰):
@@ -453,7 +462,7 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
             action = {"skill": sid, "target": {"mode": "ant", "select": "spawn_index", "spawn_index": si},
                       "trigger": {"type": "immediate"}}
             w = (early_w_base + (ant_n - si)) if early_armed else (base + _note_w(notes, sid))
-            cands.append({"action": action, "label": label, "_w": w})
+            cands.append({"action": action, "label": label, "_class": "up_armed", "_w": w})
         # carry: 픽업이 하나라도 발생했으면(picked_total>0) 운반 개미 귀환 무장을 제안. 귀로 단계면 최우선.
         # carry(운반 개미 무장)는 exclude(tried) 면제 — plan 누적 시 재평가돼야 carry1→2→…→n 연쇄 채택이
         # 된다(사용자 통찰: carry가 tried로 막히면 early/afterpick으로 흩어져 *비운반* 개미에 climber가 가고,
@@ -465,14 +474,16 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
                 continue
             action = {"skill": sid, "target": {"mode": "ant", "select": "min_x", "state": "carrying"},
                       "trigger": {"type": "picked_ge", "n": n}}
-            cands.append({"action": action, "label": label, "_w": carry_base + (cnt - n) + _note_w(notes, sid)})
+            cands.append({"action": action, "label": label, "_class": "up_armed",
+                          "_w": carry_base + (cnt - n) + _note_w(notes, sid)})
         for n in range(1, cnt + 1):                      # late: 회수 완료 후 max_x 무장
             label = "%s@afterpick%d" % (sid, n)
             if label in exclude:
                 continue
             action = {"skill": sid, "target": {"mode": "ant", "select": "max_x"},
                       "trigger": {"type": "picked_ge", "n": n}}
-            cands.append({"action": action, "label": label, "_w": base - 1 + _note_w(notes, sid)})
+            cands.append({"action": action, "label": label, "_class": "up_armed",
+                          "_w": base - 1 + _note_w(notes, sid)})
 
     # ③ SIGN cell-up (sand_mound 등 meta.target==cell && routing==up) — 상승 벽-반전(wall_targets)에 사다리 설치.
     # **후보 column-sweep(A안)**: 단일 반전-셀이 아니라 진입측 backpath off=0..K를 펼쳐, 엔진 verdict가 배치 위상
@@ -481,34 +492,63 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     # routing==up 스킬이 인벤토리에 없으면 루프 미진입 → 후보 byte-identical.
     cellup_cols = _cellup_cols(cellup_base, metas)       # 이미 깐 사다리 col(LA2 base 포함, T1 같은-col 회피, R3-H1)
     wts = diag.get("wall_targets", [])
+    # 5e D1: 목표-위 fall-edge(reverse_targets 중 goal_above)도 cell-up 소스로 편입 — 운반 개미가 추락하는 *절벽*
+    # 위에도 사다리를 세워 목표 경로를 확보한다(S22 귀환 절벽). wall(전방 solid)과 fall-edge(전방 비-solid·추락)는
+    # **배타**라 셀 중복 없음(seen_cells가 한 번 더 보장). 목표-위 게이트: wall은 _wall_targets에서 이미, fall-edge는
+    # goal_above로(목표-아래 전용 가장자리는 fall_up에서 빠짐 → 미emit). 수집 상한 N: wall=6(R3-M1), fall=4(reverse
+    # backpath cap). inert: cell-up 스킬 없으면 루프 미진입, fall_up 비면 fall 소스 무발화(byte-identical).
+    fall_up = [t for t in diag.get("reverse_targets", []) if t.get("goal_above")]
     for sid in sorted(inventory):
         meta = metas.get(sid) or {}
         if str(meta.get("target")) != "cell" or str(meta.get("routing")) != "up":
             continue
-        seen_cells: set = set()                           # 좌·우 벽이 같은 backpath 셀(예 valley off=5=col10)을
-        for ti, tgt in enumerate(wts):                    # 양쪽서 내는 중복 후보 차단(중복 롤아웃 방지). 첫(=목표
-            bp = tgt.get("backpath") or [tgt["cell"]]      # 근접 정렬 우선) 발견 가중 유지.
-            tgt_w = len(wts) - ti                         # wall_targets 정렬 순위(목표 근접) 가중
-            for off in range(min(6, len(bp))):            # off=0..5 (reverse depth-4 cap 비재사용, R3-M1)
-                col, row = bp[off]
-                if col in cellup_cols:                    # T1: 같은-col 재스택 배제(speculative base 기준, R3-H1)
-                    continue
-                if (col, row) in seen_cells:              # 이 스킬에서 동일 셀 중복 emit 방지(좌·우 벽 교집합)
-                    continue
-                seen_cells.add((col, row))
-                label = "%s@cell:%d,%d" % (sid, col, row)
-                if label in exclude:
-                    continue
-                action = {"skill": sid, "target": {"mode": "cell", "cell": [col, row]},
-                          "trigger": {"type": "at_frame", "frame": 0}}
-                # off **큰 쪽 선호**(+off): 벽은 개미↔목표 사이에 있으므로, ladder1을 벽에서 멀리(접근로 안쪽)
-                # 놓아야 climb 후 목표 방향으로 다음 사다리(T2) 공간이 남는다. off=0(벽 붙음)은 T3 dead-end라
-                # 후순위. tgt_w(목표 근접 벽)가 1급, off는 그 안의 2급 선호.
-                cands.append({"action": action, "label": label,
-                              "_w": _note_w(notes, sid) * 8 + tgt_w * 8 + off})
+        seen_cells: set = set()                           # 좌·우 벽 + fall/wall이 같은 backpath 셀을 양쪽서 내는
+        for src_list, n_cap, risk_kind in ((wts, 6, "wall"), (fall_up, 4, "fall")):   # 중복 차단(첫 발견 가중 유지).
+            for ti, tgt in enumerate(src_list):
+                bp = tgt.get("backpath") or [tgt["cell"]]
+                tgt_w = len(src_list) - ti                # 소스 내 정렬 순위(목표 근접) 가중
+                tcol, trow = tgt["cell"]
+                for off in range(min(n_cap, len(bp))):    # wall off=0..5 / fall off=0..3 (R3-M1: reverse cap 비재사용)
+                    col, row = bp[off]
+                    if col in cellup_cols:                # T1: 같은-col 재스택 배제(speculative base 기준, R3-H1)
+                        continue
+                    if (col, row) in seen_cells:          # 동일 셀 중복 emit 방지(좌·우 벽·fall/wall 교집합)
+                        continue
+                    seen_cells.add((col, row))
+                    label = "%s@cell:%d,%d" % (sid, col, row)
+                    if label in exclude:
+                        continue
+                    action = {"skill": sid, "target": {"mode": "cell", "cell": [col, row]},
+                              "trigger": {"type": "at_frame", "frame": 0}}
+                    # off **큰 쪽 선호**(+off): ladder1을 벽/가장자리에서 멀리(접근로 안쪽) 놓아야 climb 후 목표
+                    # 방향 다음 사다리(T2) 공간이 남는다. off=0(붙음)은 T3 dead-end라 후순위. tgt_w 1급, off 2급.
+                    # D2(5e): off는 _w 내부 선호일 뿐 — burial 시 `_class_prefix_protect`가 off 전부를 평가 보장.
+                    cands.append({"action": action, "label": label, "_class": "up_cell",
+                                  "_off": off, "_risk": (risk_kind, tcol, trow),
+                                  "_w": _note_w(notes, sid) * 8 + tgt_w * 8 + off})
 
     cands.sort(key=lambda c: -c["_w"])
-    return cands[:max_n]
+    return _class_prefix_protect(cands, max_n)
+
+
+def _class_prefix_protect(cands: list[dict], max_n: int) -> list[dict]:
+    """5e D2 — 리스크별 intervention-class *evaluated-prefix* 보장(burial 해소, plan §"5e 계약" D2).
+    한 라운드에 `up_cell`(cell-up 사다리)이 *다른 class*(carry-arm 등 `up_armed`, bridge `cross` …)와 경쟁할
+    때, cell-up은 _w(≈10)가 carry-arm(_w≈220)에 눌려 top-`max_n` 절단에서 밀려 **롤아웃조차 안 되던** cross-
+    routing burial이 있었다(S22 de-risk 실측). 여기서 up_cell 프리픽스(backpath off 전부)를 절단 밖이면 **추가
+    보호**해, 어느 routing이 그 리스크를 푸는지를 _w가 아니라 엔진 verdict가 결정하게 한다. 정직 inert:
+      - up_cell이 *유일* class(S19=sand_mound only)면 절단이 곧 그 class의 _w 순 → 보호 항등 → byte-identical.
+      - up_cell *없는* multi-class(S13/14/20 = reverse+up_armed)면 보호 대상 부재(extra=[]) → 무영향 → byte-identical.
+      - up_cell + 다른 class(S22 = cross/up_armed/up_cell)일 때만 발동. 절단(len(cands)>max_n)이 없으면 무발동.
+    추가 순서 = (risk, off↑) 사전식(plan D2 "off 오름차순 결정론"). _w는 프리픽스 내부·잔여 순서만 결정한다."""
+    out = cands[:max_n]
+    classes = {c.get("_class") for c in cands if c.get("_class")}
+    if "up_cell" not in classes or len(classes) <= 1 or len(cands) <= max_n:
+        return out
+    in_out = {id(c) for c in out}
+    extra = [c for c in cands if c.get("_class") == "up_cell" and id(c) not in in_out]
+    extra.sort(key=lambda c: (c.get("_risk", ()), c.get("_off", 0)))
+    return out + extra
 
 
 def _note_w(notes: dict, sid: str) -> int:
@@ -610,5 +650,52 @@ def _selfcheck_wall_targets() -> bool:
     h1_cols = {c["action"]["target"]["cell"][0] for c in cands_h1 if c["action"]["target"].get("mode") == "cell"}
     if 10 in h1_cols:
         print("[wall_targets selfcheck] FAIL R3-H1 speculative base col10 미배제(같은-col 재스택 가능):", sorted(h1_cols)); return False
-    print("[wall_targets selfcheck] PASS — ⓐ-ⓗ 검출/방향/정렬/per-sample목표/phase별키/연속backpath + R3-M1 off=5 + R3-H1 same-col 박제.")
+    # ===== 5e D1: 목표-위 *fall-edge*(절벽 추락 가장자리)도 cell-up 후보 소스 — wall(전방 solid)과 배타 =====
+    # ⓘ 목표-위(운반→home 위): 운반 개미(hc=1)가 row7 플랫폼(cols8..11) 좌단 (8,6)서 col7 절벽으로 추락(전방
+    #    (7,6) 비-solid). home(0,2) 위 → goal_above=True → propose가 fall-edge backpath에 cell-up(sand_mound) emit.
+    occ_i = {(c, 7) for c in range(8, 12)}             # row7 플랫폼 cols8..11(전방 col7 비어=절벽)
+    tr_i = {"0": [[0, 11, 6, 1], [1, 10, 6, 1], [2, 9, 6, 1], [3, 8, 6, 1], [4, 7, 6, 1]]}   # 운반 좌향 → (8,6) 추락
+    L_i = _L(occ_i, candy=(11, 2), home=(0, 2))
+    diag_i = diagnose(tr_i, L_i, 1)
+    fe_i = next((t for t in diag_i["reverse_targets"] if t["cell"] == (8, 6) and t["dir"] == -1), None)
+    if fe_i is None or not fe_i.get("goal_above"):
+        print("[wall_targets selfcheck] FAIL ⓘ 목표-위 fall-edge goal_above 미설정:", diag_i["reverse_targets"]); return False
+    if diag_i["wall_targets"]:                          # soundness: 전방 비-solid라 wall_targets와 배타(누출 0)
+        print("[wall_targets selfcheck] FAIL ⓘ fall-edge가 wall_targets로 누출(전방 비-solid인데 벽 검출):", diag_i["wall_targets"]); return False
+    cands_i = propose(L_i, diag_i, {"sand_mound": 2}, metas_s, {}, set(), max_n=40)
+    if not any(c["action"]["target"].get("cell") == [10, 6] for c in cands_i):
+        print("[wall_targets selfcheck] FAIL ⓘ 목표-위 fall-edge cell-up (10,6) 미emit:",
+              [c["label"] for c in cands_i if "cell" in c["label"]]); return False
+    # ⓙ 목표-아래(미픽업→candy 아래): 같은 절벽이나 candy(11,12)가 *아래* → goal_above=False → cell-up 미emit.
+    tr_j = {"0": [[0, 11, 6, 0], [1, 10, 6, 0], [2, 9, 6, 0], [3, 8, 6, 0], [4, 7, 6, 0]]}   # 미픽업 좌향 추락
+    L_j = _L(occ_i, candy=(11, 12), home=(0, 12))
+    diag_j = diagnose(tr_j, L_j, 1)
+    fe_j = next((t for t in diag_j["reverse_targets"] if t["cell"] == (8, 6)), None)
+    if fe_j is None or fe_j.get("goal_above"):
+        print("[wall_targets selfcheck] FAIL ⓙ 목표-아래 fall-edge goal_above 오설정:", diag_j["reverse_targets"]); return False
+    cands_j = propose(L_j, diag_j, {"sand_mound": 2}, metas_s, {}, set(), max_n=40)
+    if any("cell" in c["label"] for c in cands_j):
+        print("[wall_targets selfcheck] FAIL ⓙ 목표-아래 fall-edge가 cell-up emit:",
+              [c["label"] for c in cands_j if "cell" in c["label"]]); return False
+    # ===== 5e D2 witness-rolled prove-it: burial 해소 보호가 intra-class 랭킹 가정에 안 기댐 =====
+    # carry-arm(up_armed _w≈220)이 top-max_n 독점할 때, up_cell 프리픽스(off 전부)가 절단 밖이어도 보호돼
+    # witness off=2가 반환에 포함되는가. 현 +off _w면 top=off3만 보장돼 off2 누락 = burial. 합성 cands prove-it.
+    fake_armed = [{"action": {"skill": "slideR", "k": i}, "label": "armed%d" % i, "_class": "up_armed",
+                   "_w": 220 - i} for i in range(6)]
+    fake_cells = [{"action": {"skill": "sand_mound", "target": {"mode": "cell", "cell": [off, 6]}},
+                   "label": "cell%d" % off, "_class": "up_cell", "_off": off, "_risk": ("fall", 8, 6),
+                   "_w": 8 + off} for off in range(4)]      # _w=8+off → off3 최고(=naive 절단이 보장하는 유일 후보)
+    merged = sorted(fake_armed + fake_cells, key=lambda c: -c["_w"])
+    protected = _class_prefix_protect(merged, 6)
+    if not any(c.get("_off") == 2 and c.get("_class") == "up_cell" for c in protected):
+        print("[wall_targets selfcheck] FAIL D2 보호가 witness off=2 미포함(burial 미해소):",
+              [c["label"] for c in protected]); return False
+    if any(c.get("_class") == "up_cell" for c in merged[:6]):   # prove-it: naive 절단엔 burial(up_cell 0개)
+        print("[wall_targets selfcheck] FAIL D2 prove-it vacuous(naive 절단에 up_cell 존재 = burial 미재현)"); return False
+    # inert: up_cell이 유일 class면 보호 항등(S19). 단순 절단과 동일해야 byte-identical.
+    only_cells = sorted(fake_cells, key=lambda c: -c["_w"])
+    if _class_prefix_protect(only_cells, 2) != only_cells[:2]:
+        print("[wall_targets selfcheck] FAIL D2 inert(유일 up_cell class인데 보호가 절단을 바꿈):"); return False
+    print("[wall_targets selfcheck] PASS — ⓐ-ⓙ 검출/방향/정렬/per-sample목표/phase별키/연속backpath/목표-위fall-edge "
+          "+ R3-M1 off=5 + R3-H1 same-col + D2 burial-protect witness off=2 박제(naive=burial, inert 항등).")
     return True
