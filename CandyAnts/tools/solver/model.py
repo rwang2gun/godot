@@ -73,6 +73,24 @@ def _died_water(ss: list, layout: dict) -> bool:
     return (cx, cy) in haz or (cx, cy + 1) in haz
 
 
+def _grounded_backpath(ss: list, i: int, occ: set, cap: int = 4) -> list:
+    """낙하 가장자리 샘플 i에서 뒤로 가며 **grounded(바로 아래 solid) 타일만** 수집(공중 낙하 건너뜀). 첫 원소
+    = 가장자리 셀 자신(off=0), 이후 = 거슬러 간 보행 타일(off=1,2,…). 같은 (col,row) 연속 중복 제외. cap 중단.
+    (reverse backpath용 — 인접성 무관. wall_targets의 연속-세그먼트 수집과 별개.)"""
+    bp: list = []
+    for j in range(i, -1, -1):
+        s = ss[j]
+        if (s[1], s[2] + 1) not in occ:
+            continue
+        cell = (s[1], s[2])
+        if bp and bp[-1] == cell:
+            continue
+        bp.append(cell)
+        if len(bp) >= cap:
+            break
+    return bp
+
+
 def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
     """관측 궤적에서 실패를 진단. 반환:
       picked_total, reverse_targets(반전 블로커 후보, **동선 backpath 포함**), near_candy, fall_edges(legacy).
@@ -95,6 +113,9 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
     #   (미픽업이면 candy, 운반이면 home; 5d② per-sample 목표 규약 정합, OR 집계). 5e D1: 목표-위 fall-edge에만
     #   cell-up(sand_mound 사다리) 후보를 낸다 — 운반 개미를 절벽 위 목표 경로로 들어올리는 게 진척일 때만.
     #   ①(reverse/safe_fall/cross) 후보는 이 필드를 **무시**(낙하 차단은 목표 방향 무관) → byte-identical 보존.
+    edge_back_above: dict[tuple, list] = {}                 # (col,row,dir) → **목표-위를 만족한 샘플**의 backpath
+    #   (cell-up 전용, codex impl R1 HIGH). edge_back(① 공용, 첫 발견)이 stale 픽업-전 동선이면 cell-up 셀이 틀려
+    #   운반 귀환 backpath를 누락하므로, 목표-위 phase의 동선에서 따로 잡는다(첫 목표-위 통과 동선).
     near_candy: dict = {"dist": 1 << 30, "cell": None, "dir": 0}
     picked_ants = 0
     ant_ids = sorted({int(k) for k in trace.keys()}) if trace else []
@@ -127,23 +148,17 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
             # 5e D1: 이 가장자리 *시점*의 목표(per-sample, cur[3]==1=운반→home / 아니면 candy)가 셀보다 위인가.
             # OR 집계(어느 통과 샘플이든 목표-위면 True) — cell-up 후보 게이트(목표-아래 전용 가장자리는 미emit).
             _goal = _goal_cell(cur[3] == 1, layout)
-            edge_goal_above[key] = edge_goal_above.get(key, False) or (_goal is not None and _goal[1] < cur[2])
-            # 동선 backpath: 이 가장자리 샘플 i에서 뒤로 가며 **grounded 타일만** 수집(공중 낙하 건너뜀).
-            # 첫 원소 = 가장자리 셀 자신(off=0), 이후 = 거슬러 간 보행 타일(off=1,2,...). 같은 (col,row)
-            # 연속 중복은 제외(셀 변화 단위). 첫 발견 시에만 기록(가장 이른 통과 동선).
+            _above = _goal is not None and _goal[1] < cur[2]
+            edge_goal_above[key] = edge_goal_above.get(key, False) or _above
+            # 동선 backpath(① reverse/safe_fall/cross 공용): 첫 발견 동선(가장 이른 통과). ①은 목표 방향 무관이라
+            # 첫 발견으로 충분 → byte-identical 보존.
             if key not in edge_back:
-                bp: list = []
-                for j in range(i, -1, -1):
-                    s = ss[j]
-                    if not supported(s[1], s[2]):
-                        continue
-                    cell = (s[1], s[2])
-                    if bp and bp[-1] == cell:
-                        continue
-                    bp.append(cell)
-                    if len(bp) >= 4:
-                        break
-                edge_back[key] = bp
+                edge_back[key] = _grounded_backpath(ss, i, occ)
+            # cell-up 전용 backpath(codex impl R1 HIGH): **목표-위를 만족한** 샘플(운반=home 위/미픽업=candy 위)의
+            # 동선에서 따로 수집(첫 목표-위 통과). OR 집계 goal_above에 stale 픽업-전 backpath가 섞여 cell-up이
+            # 엉뚱한 route에 사다리를 emit하던 결함을 막는다 — propose ③ fall은 이 backpath_above를 쓴다.
+            if _above and key not in edge_back_above:
+                edge_back_above[key] = _grounded_backpath(ss, i, occ)
         # candy 근접(미픽업 개미만).
         if not picked and candy is not None:
             for i2, s in enumerate(ss):
@@ -158,6 +173,7 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
     keys = sorted(fall_edges.keys(),
                   key=lambda k: (0 if edge_water.get(k) else 1, -fall_edges[k], -k[1]))
     reverse_targets = [{"cell": (k[0], k[1]), "dir": k[2], "backpath": edge_back.get(k, [(k[0], k[1])]),
+                        "backpath_above": edge_back_above.get(k),
                         "to_water": bool(edge_water.get(k)), "count": fall_edges[k],
                         "goal_above": bool(edge_goal_above.get(k))} for k in keys]
     return {
@@ -505,7 +521,9 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
         seen_cells: set = set()                           # 좌·우 벽 + fall/wall이 같은 backpath 셀을 양쪽서 내는
         for src_list, n_cap, risk_kind in ((wts, 6, "wall"), (fall_up, 4, "fall")):   # 중복 차단(첫 발견 가중 유지).
             for ti, tgt in enumerate(src_list):
-                bp = tgt.get("backpath") or [tgt["cell"]]
+                # fall은 **목표-위 phase backpath**(backpath_above, codex impl R1 HIGH — stale 픽업전 동선 회피),
+                # wall은 wall_targets backpath. fall_up은 goal_above=True만이라 backpath_above 존재(fallback 안전).
+                bp = (tgt.get("backpath_above") if risk_kind == "fall" else tgt.get("backpath")) or [tgt["cell"]]
                 tgt_w = len(src_list) - ti                # 소스 내 정렬 순위(목표 근접) 가중
                 tcol, trow = tgt["cell"]
                 for off in range(min(n_cap, len(bp))):    # wall off=0..5 / fall off=0..3 (R3-M1: reverse cap 비재사용)
@@ -677,6 +695,24 @@ def _selfcheck_wall_targets() -> bool:
     if any("cell" in c["label"] for c in cands_j):
         print("[wall_targets selfcheck] FAIL ⓙ 목표-아래 fall-edge가 cell-up emit:",
               [c["label"] for c in cands_j if "cell" in c["label"]]); return False
+    # ⓚ codex impl R1 [HIGH]: 같은 fall edge를 픽업 전(goal_above=false, **긴 동선 A**)과 운반(goal_above=true,
+    #    **짧은 동선 B**)이 통과 → goal_above OR=true이나 cell-up backpath는 *운반 동선 B*서 와야(첫 발견 A가 아니라).
+    #    A 사용=stale phase merge → A 전용 셀 (10,6)·(11,6) emit = FAIL(prove-it: backpath_above 없으면 A 사용).
+    occ_k = {(c, 7) for c in range(8, 12)}             # row7 플랫폼 cols8..11(전방 col7 절벽)
+    tr_k = {"0": [[0, 11, 6, 0], [1, 10, 6, 0], [2, 9, 6, 0], [3, 8, 6, 0], [4, 7, 6, 0]],   # 미픽업 A(4셀 동선)
+            "1": [[0, 9, 6, 1], [1, 8, 6, 1], [2, 7, 6, 1]]}                                  # 운반 B(2셀 동선)
+    L_k = _L(occ_k, candy=(11, 12), home=(0, 2))       # candy 아래(픽업전 goal_above=false) / home 위(운반 true)
+    diag_k = diagnose(tr_k, L_k, 1)
+    fe_k = next((t for t in diag_k["reverse_targets"] if t["cell"] == (8, 6) and t["dir"] == -1), None)
+    if fe_k is None or not fe_k.get("goal_above"):
+        print("[wall_targets selfcheck] FAIL ⓚ goal_above 미설정(OR 집계):", diag_k["reverse_targets"]); return False
+    cands_k = propose(L_k, diag_k, {"sand_mound": 2}, metas_s, {}, set(), max_n=40)
+    k_cells = {tuple(c["action"]["target"]["cell"]) for c in cands_k if c["action"]["target"].get("mode") == "cell"}
+    if (10, 6) in k_cells or (11, 6) in k_cells:       # A 전용 셀 = stale 픽업전 backpath 사용(운반 B 동선 밖) = FAIL
+        print("[wall_targets selfcheck] FAIL ⓚ cell-up이 stale 픽업전 backpath A 사용(운반 B 밖 셀 emit):",
+              sorted(k_cells)); return False
+    if (8, 6) not in k_cells or (9, 6) not in k_cells:  # 운반 동선 B 셀은 emit돼야(목표-위 phase backpath)
+        print("[wall_targets selfcheck] FAIL ⓚ 운반 backpath B 셀 미emit:", sorted(k_cells)); return False
     # ===== 5e D2 witness-rolled prove-it: burial 해소 보호가 intra-class 랭킹 가정에 안 기댐 =====
     # carry-arm(up_armed _w≈220)이 top-max_n 독점할 때, up_cell 프리픽스(off 전부)가 절단 밖이어도 보호돼
     # witness off=2가 반환에 포함되는가. 현 +off _w면 top=off3만 보장돼 off2 누락 = burial. 합성 cands prove-it.
@@ -696,6 +732,7 @@ def _selfcheck_wall_targets() -> bool:
     only_cells = sorted(fake_cells, key=lambda c: -c["_w"])
     if _class_prefix_protect(only_cells, 2) != only_cells[:2]:
         print("[wall_targets selfcheck] FAIL D2 inert(유일 up_cell class인데 보호가 절단을 바꿈):"); return False
-    print("[wall_targets selfcheck] PASS — ⓐ-ⓙ 검출/방향/정렬/per-sample목표/phase별키/연속backpath/목표-위fall-edge "
-          "+ R3-M1 off=5 + R3-H1 same-col + D2 burial-protect witness off=2 박제(naive=burial, inert 항등).")
+    print("[wall_targets selfcheck] PASS — ⓐ-ⓚ 검출/방향/정렬/per-sample목표/phase별키/연속backpath/목표-위fall-edge"
+          "/cell-up backpath_above(stale 픽업전 회피) + R3-M1 off=5 + R3-H1 same-col + D2 burial-protect witness off=2 "
+          "박제(naive=burial, inert 항등).")
     return True

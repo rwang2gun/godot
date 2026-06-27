@@ -597,3 +597,22 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
   backpath는 phase-무관 grounded 타일이라 일관, 같은 edge 양-phase 시 over-emit 가능(무해, cell-up=영구 사다리).
   D2 보호도 "전역 multi-class" 발동이라 독립 리스크의 up_cell over-eval 가능(정확성 무해·결정론 유지·cap 제어).
 - **⏳ codex impl-review 대기**(사용자 트리거 — model-invocation 불가).
+
+### codex impl-review R1 (커밋 be78bb5 diff, --base HEAD~1) = needs-attention (HIGH×1) → fix
+- **[HIGH] Fall-edge goal aggregation can reuse a stale phase backpath** (`model.py` diagnose): `goal_above`는
+  `(col,row,dir)`로 OR 집계인데 `edge_back`은 그 키 첫 발견 동선만 기록 → 같은 fall edge를 **픽업 전**(목표-아래)과
+  **운반 중**(목표-위) 통과하면, 나중 운반 샘플이 `goal_above`를 true로 플립하지만 emit된 backpath는 첫(픽업 전)
+  동선이라 cell-up이 *엉뚱한 route*에 사다리를 놓고 실제 사다리가 필요한 운반 귀환 backpath를 누락한다. `_wall_targets`가
+  phase 키로 명시 회피한 stale phase-merging 클래스의 재도입. (S22는 운반만 (8,6)을 지나가 우연히 일관했으나 일반 결함.)
+- **수정**(`model.py`): cell-up 전용 backpath를 **목표-위를 만족한 샘플**서 따로 수집(`edge_back_above`, 첫 목표-위
+  통과). reverse_targets에 `backpath_above` 필드 + propose ③ fall은 `backpath_above` 사용(① reverse는 종전 `backpath`
+  = byte-identical). backpath 수집을 `_grounded_backpath` 헬퍼로 통일(기존 인라인과 동일 로직). **selfcheck ⓚ 추가**:
+  같은 fall edge를 픽업 전(goal_above=false, 긴 동선 A)·운반(true, 짧은 동선 B) 통과 → cell-up이 운반 B 동선 셀만
+  emit, A 전용 셀 (10,6)/(11,6) 미emit(prove-it: backpath_above 없으면 stale A 사용해 (10,6) emit = FAIL, falsifiable).
+- **Self-Review Round 2 = clean (HIGH 0)**: backpath_above 결정론(ant_ids/sample 순 첫 목표-위)·`goal_above⟹
+  backpath_above 존재`·byte-identical(① backpath 불변·헬퍼 동일 로직·backpath_above는 ③ fall만)·codex 시나리오 ⓚ
+  해소 검토. 정직 경계: 픽업전·운반 *둘 다* 목표-위면 첫 동선 사용(둘 다 목표-위라 사다리 유효, codex 핵심 false→true 해소).
+- **게이트 8/8 그린·EXIT 0(수정 후)**: Determinism×2(962f)+SkillMetadataDrift(11)+harness-test+selftest **19**(stage22
+  saved=7, frame byte-identical s12=2385·s13=2719·s14=4624)+analyze4(272체크)+diverse4(145체크)+selfcheck ⓐ-ⓚ+
+  rediscover **5**(4/13/19/20/22 cleared 시그니처 일치). **회귀 0(byte-identical)**: S13/14/19/20/22 재발견 solve.json
+  git diff 0(backpath_above 도입이 S22 witness off2·기존 plan 불변). **⏳ codex 재리뷰.**
