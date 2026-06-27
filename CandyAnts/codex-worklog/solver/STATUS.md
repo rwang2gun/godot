@@ -940,11 +940,18 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   stage22 saved=7, frame byte-identical s12=2385·s13=2719·s14=4624)+analyze4(272체크)+diverse4(145체크)+rediscover
   **5**(4/13/19/20/**22** cleared actions 2/2). EXPECTED·REDISCOVER에 22 편입, stage22.solve.json 신규.
 - **자체 적대 리뷰 clean(HIGH 0)**: byte-identical 경로(①goal_above 무시·_class solve 미사용)·D2 3중 가드·soundness
-  (fall/wall 배타)·정직 경계(edge_goal_above OR 집계 over-emit 무해·D2 전역 multi-class over-eval 무해) 검토. **⏳ codex**.
+  (fall/wall 배타)·정직 경계 검토.
+- **codex impl-review 9R(R1~R8 finding → R9 approve) + 자체 리뷰 9R clean → 종결.** 누적 해소(트레일 phase05-impl-review
+  `## codex impl-review R1~R9`): R1 stale phase backpath→`edge_back_above` / R2 cap 무제한→bounded ≤2·max_n / R3 좌표순
+  →`_src_rank` source priority / R4 wall이 fall starve→risk 라운드-로빈 인터리브 / R5 main이 LA2 잠식→`LA2_RESERVE`(사용자
+  옵션 A) / R6 vault complete cap(dead) / R7 reserve가 작은 cap starve→`_main_cap` per-round 보존 / R8 default cap
+  protected 미평가(삼각 모순)→명시 [cap 경고]+CHECKPOINT(사용자 옵션 A enforce). **정직 박제**: 정상 per-round+D2
+  protected+LA2 reserve는 작은 cap에 수학적 동시 불가 → D2는 충분 cap 필요, default 10은 명시 경고. 커밋 `be78bb5`(feat)
+  +`2234381`/`1d73328`/`d2f1bd2`/`5fc58fd`/`3308540`/`7fdfd41`/`d8443d6`/`fc44c38`(R1~R8 fix). **미push(로컬).**
 
 ## 블로커
-- **다음 작업 = 5e codex impl-review → clean 후 커밋·푸시.** 그 후 stretch: S21/23/24/25 + S22 다양-해(D3).
-  하드 게이트(S22 7/7)·게이트·자체리뷰 완료. 엔진/게임 무변경.
+- **다음 작업 = 5e push + stretch**: S21/23/24/25 + S22 다양-해(D3). 하드 게이트(S22 cap40 7/7)·게이트·codex approve 완료.
+  엔진/게임 무변경. (S20 carry-mirror·S18 휴리스틱·break/down/jump cell 디바이스는 기존 미커버 유지.)
 - **5d② sand_mound cell-up routing = 종결**(커밋·푸시 `6196a4d`). S19 자동 5/5.
 - **S18 100% 자동발견 = model.py 휴리스틱 트랙(코드 변경)** — 5d①에서 cap-saturate 확인, 분리(별 트랙).
 - **S20 구조-starvation = 수용된 latent 한계**(carry-mirror, 사용자 결정). 실제 structure→early→structure 레벨

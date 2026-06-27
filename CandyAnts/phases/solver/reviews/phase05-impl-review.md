@@ -736,3 +736,25 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
   identical·regression prove-it(부족 cap evaluable<8 falsifiable)·삼각 모순 정직 표기 검토.
 - **게이트 8/8 그린·EXIT 0**: Determinism×2+Drift(11)+harness+selftest 19+analyze4+diverse4+wall_targets selfcheck ⓐ-ⓚ+
   **la2-reserve selfcheck ⓐⓑⓒ**+rediscover 5. **회귀 0**: S13/14/19/20/22 byte-identical. **⏳ codex 재리뷰.**
+
+### codex impl-review R9 (커밋 be78bb5..fc44c38 diff, --base HEAD~9) = **approve** (no material findings) — impl-stage 종결
+> "No ship-blocking finding supported from the reviewed diff. The D1 fall-edge/backpath split, D2 bounded interleave,
+> and solve.py cap warning/reserve path are internally consistent enough to ship; remaining concerns are documented
+> cap tradeoffs rather than hidden runtime defects."
+
+- **codex 9R(R1~R8 finding → R9 approve) + 자체 리뷰 9R 사이 clean.** 누적 해소:
+  - R1 [HIGH] stale phase backpath → `edge_back_above`(목표-위 샘플 동선, ⓚ prove-it).
+  - R2 [HIGH] cap 무제한 append → bounded extra ≤2·max_n.
+  - R3 [HIGH] 좌표순 우선순위 무시 → `_src_rank` source priority.
+  - R4 [HIGH] wall이 fall starve → risk별 라운드-로빈 인터리브(cross-source 공평).
+  - R5 [HIGH] main이 LA2 budget 잠식 → `solve.py LA2_RESERVE`(사용자 옵션 A).
+  - R6 [MEDIUM] vault complete가 reserve 잠식 → complete도 main_cap(dead path).
+  - R7 [HIGH] reserve가 작은 cap main starve → `_main_cap` 정상 per-round 보존 + regression.
+  - R8 [HIGH] default cap이 protected 미평가(삼각 모순) → 명시 [cap 경고]+CHECKPOINT(사용자 옵션 A enforce).
+- **핵심 산물**: D1(목표-위 fall-edge cell-up + phase-안전 backpath_above) + D2(bounded·source-priority·cross-source
+  인터리브 burial 보호) + solve.py(LA2 reserve로 per-round cap contract + cap 부족 명시 경고). 엔진/게임 무변경.
+- **하드 게이트 = S22 100%**(cap 40): `solve.solve(22)` saved 7/7, plan=[bridge, sand_mound@(10,6)], 16롤, witness off2.
+- **회귀 0(byte-identical)**: S13/14/19/20/22 재발견 solve.json git diff 0. 게이트 8/8 그린·EXIT 0(selfcheck wall_targets
+  ⓐ-ⓚ + la2-reserve ⓐⓑⓒ + rediscover 5 + selftest 19 + analyze 4 + diverse 4).
+- **정직 경계(박제)**: 정상 per-round + D2 protected + LA2 reserve는 작은 cap에 수학적으로 동시 불가 → D2는 충분 cap
+  (≥baseline+protected+reserve) 필요, default 10은 D2 스테이지에 부족(명시 경고+CHECKPOINT, silent 아님). **5e impl-stage 종결.**
