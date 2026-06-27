@@ -553,12 +553,16 @@ def _class_prefix_protect(cands: list[dict], max_n: int) -> list[dict]:
     """5e D2 — 리스크별 intervention-class *evaluated-prefix* 보장(burial 해소, plan §"5e 계약" D2).
     한 라운드에 `up_cell`(cell-up 사다리)이 *다른 class*(carry-arm 등 `up_armed`, bridge `cross` …)와 경쟁할
     때, cell-up은 _w(≈10)가 carry-arm(_w≈220)에 눌려 top-`max_n` 절단에서 밀려 **롤아웃조차 안 되던** cross-
-    routing burial이 있었다(S22 de-risk 실측). 여기서 up_cell 프리픽스(backpath off 전부)를 절단 밖이면 **추가
-    보호**해, 어느 routing이 그 리스크를 푸는지를 _w가 아니라 엔진 verdict가 결정하게 한다. 정직 inert:
+    routing burial이 있었다(S22 de-risk 실측). 여기서 up_cell 프리픽스(backpath off 전부)를 절단 밖이면 **보호**해,
+    어느 routing이 그 리스크를 푸는지를 _w가 아니라 엔진 verdict가 결정하게 한다.
+    **bounded extra quota = max_n**(codex impl R2 [HIGH]): 보호 extra를 **최대 max_n개**로 제한해 반환 길이 ≤
+    2·max_n(무제한 append → per-round 롤아웃 budget 잠식 금지). 첫 max_n 슬롯은 종전 _w 순(carry-arm/cross 등
+    non-cell 후보 보존 → LA2/non-cell starvation 없음). extra는 up_cell만 off↑ 결정론 — up_cell 프리픽스가 max_n
+    이하면 전부(S22 fall off0..3=4≤6), 초과면 off↑ 앞쪽 max_n개(many-risk에서 정직 bounded·cap은 시퀀스 깊이로).
+    정직 inert:
       - up_cell이 *유일* class(S19=sand_mound only)면 절단이 곧 그 class의 _w 순 → 보호 항등 → byte-identical.
       - up_cell *없는* multi-class(S13/14/20 = reverse+up_armed)면 보호 대상 부재(extra=[]) → 무영향 → byte-identical.
-      - up_cell + 다른 class(S22 = cross/up_armed/up_cell)일 때만 발동. 절단(len(cands)>max_n)이 없으면 무발동.
-    추가 순서 = (risk, off↑) 사전식(plan D2 "off 오름차순 결정론"). _w는 프리픽스 내부·잔여 순서만 결정한다."""
+      - up_cell + 다른 class(S22 = cross/up_armed/up_cell)일 때만 발동. 절단(len(cands)>max_n)이 없으면 무발동."""
     out = cands[:max_n]
     classes = {c.get("_class") for c in cands if c.get("_class")}
     if "up_cell" not in classes or len(classes) <= 1 or len(cands) <= max_n:
@@ -566,7 +570,7 @@ def _class_prefix_protect(cands: list[dict], max_n: int) -> list[dict]:
     in_out = {id(c) for c in out}
     extra = [c for c in cands if c.get("_class") == "up_cell" and id(c) not in in_out]
     extra.sort(key=lambda c: (c.get("_risk", ()), c.get("_off", 0)))
-    return out + extra
+    return out + extra[:max_n]                        # bounded: 반환 ≤ 2·max_n (codex R2 무제한 append 금지)
 
 
 def _note_w(notes: dict, sid: str) -> int:
@@ -723,16 +727,31 @@ def _selfcheck_wall_targets() -> bool:
                    "_w": 8 + off} for off in range(4)]      # _w=8+off → off3 최고(=naive 절단이 보장하는 유일 후보)
     merged = sorted(fake_armed + fake_cells, key=lambda c: -c["_w"])
     protected = _class_prefix_protect(merged, 6)
+    if len(protected) > 12:                            # codex impl R2 [HIGH]: bounded extra(≤2·max_n), 무제한 append 금지
+        print("[wall_targets selfcheck] FAIL D2 보호 cap 초과(무제한 append, budget 잠식):", len(protected)); return False
     if not any(c.get("_off") == 2 and c.get("_class") == "up_cell" for c in protected):
         print("[wall_targets selfcheck] FAIL D2 보호가 witness off=2 미포함(burial 미해소):",
               [c["label"] for c in protected]); return False
+    if sum(1 for c in protected[:6] if c.get("_class") == "up_armed") < 1:   # codex R2: non-cell starvation 방지
+        print("[wall_targets selfcheck] FAIL D2 non-cell(armed) starvation(첫 max_n 슬롯에 없음):",
+              [c["label"] for c in protected[:6]]); return False
     if any(c.get("_class") == "up_cell" for c in merged[:6]):   # prove-it: naive 절단엔 burial(up_cell 0개)
         print("[wall_targets selfcheck] FAIL D2 prove-it vacuous(naive 절단에 up_cell 존재 = burial 미재현)"); return False
+    # codex R2: **many up_cell risks** → extra bounded(≤max_n, 무제한 append 금지) + armed 첫 max_n 슬롯 전부 보존
+    # (LA2/non-cell starvation 없음). up_cell 10개라도 반환 ≤ 2·max_n, armed 6개 보존.
+    many_cells = [{"action": {"skill": "sand_mound", "target": {"mode": "cell", "cell": [off, 6]}},
+                   "label": "mc%d" % off, "_class": "up_cell", "_off": off, "_risk": ("fall", off, 6),
+                   "_w": 1 + off} for off in range(10)]
+    prot2 = _class_prefix_protect(sorted(fake_armed + many_cells, key=lambda c: -c["_w"]), 6)
+    if len(prot2) > 12:
+        print("[wall_targets selfcheck] FAIL D2 many-risk 무제한 append(extra>max_n):", len(prot2)); return False
+    if sum(1 for c in prot2 if c.get("_class") == "up_armed") < 6:   # armed 6개(첫 max_n) 전부 보존 = starvation 없음
+        print("[wall_targets selfcheck] FAIL D2 many-risk armed starvation:", [c.get("label") for c in prot2]); return False
     # inert: up_cell이 유일 class면 보호 항등(S19). 단순 절단과 동일해야 byte-identical.
     only_cells = sorted(fake_cells, key=lambda c: -c["_w"])
     if _class_prefix_protect(only_cells, 2) != only_cells[:2]:
         print("[wall_targets selfcheck] FAIL D2 inert(유일 up_cell class인데 보호가 절단을 바꿈):"); return False
     print("[wall_targets selfcheck] PASS — ⓐ-ⓚ 검출/방향/정렬/per-sample목표/phase별키/연속backpath/목표-위fall-edge"
           "/cell-up backpath_above(stale 픽업전 회피) + R3-M1 off=5 + R3-H1 same-col + D2 burial-protect witness off=2 "
-          "박제(naive=burial, inert 항등).")
+          "(bounded ≤2·max_n·non-cell starvation 없음·many-risk bounded·inert 항등).")
     return True

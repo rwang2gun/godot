@@ -616,3 +616,20 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
   saved=7, frame byte-identical s12=2385·s13=2719·s14=4624)+analyze4(272체크)+diverse4(145체크)+selfcheck ⓐ-ⓚ+
   rediscover **5**(4/13/19/20/22 cleared 시그니처 일치). **회귀 0(byte-identical)**: S13/14/19/20/22 재발견 solve.json
   git diff 0(backpath_above 도입이 S22 witness off2·기존 plan 불변). **⏳ codex 재리뷰.**
+
+### codex impl-review R2 (커밋 be78bb5+2234381 diff, --base HEAD~2) = needs-attention (HIGH×1) → fix
+- **[HIGH] Class protection can silently overrun the per-round candidate cap** (`model._class_prefix_protect`):
+  `out=cands[:max_n]` 후 절단 밖 up_cell을 **전부 append** → solve가 per-round budget(min(max_rollouts-rollouts,6)
+  또는 4)을 주는데 보호가 그걸 무제한 초과해 롤аут budget 잠식. mixed-class diagnosis에 wall/fall up_cell risk가
+  많으면 의도한 4~6 평가보다 훨씬 많이 소비 → stage-dependent false checkpoint·search 변화·LA2/non-cell starvation.
+- **수정**(`model._class_prefix_protect`): extra를 **bounded quota = max_n으로 상한**(`extra[:max_n]`) → 반환 길이
+  ≤ 2·max_n(무제한 append 금지). 첫 max_n 슬롯은 종전 _w 순(carry-arm/cross 등 non-cell 후보 보존 → starvation
+  없음). extra는 up_cell만 off↑ 결정론 — S22 fall off0..3=4≤6이라 전부(witness off2 포함), many-risk는 off↑
+  앞쪽 max_n개로 정직 bounded(cap은 리스크 시퀀스 깊이로, plan 정직 표기). **selfcheck 강화**: `len(protected)≤2·
+  max_n`(bounded) + 첫 max_n 슬롯에 up_armed 보존(non-cell starvation 방지) + **many-risk 케이스**(up_cell 10개 +
+  armed 6개 → 반환 bounded·armed 6 전부 보존) 추가.
+- **Self-Review Round 3 = clean (HIGH 0)**: bounded ≤2·max_n(extra[:max_n])·non-cell 첫 슬롯 보존·witness off2 유지
+  (S22 4≤6)·가드 동일 byte-identical·many-risk 정직 bounded 검토. codex 두 우려(무제한 budget 잠식 + starvation) 해소.
+- **게이트 8/8 그린·EXIT 0(R2 fix 후)**: Determinism×2+Drift(11)+harness+selftest 19(stage22 saved=7)+analyze4+
+  diverse4+selfcheck ⓐ-ⓚ(R2 bounded 포함)+rediscover 5(4/13/19/20/22). **회귀 0**: S13/14/19/20/22 재발견 byte-
+  identical(bounded fix가 S22 witness off2·기존 plan 불변). **⏳ codex 재리뷰.**
