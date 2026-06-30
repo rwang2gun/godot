@@ -1136,6 +1136,28 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - plan §5g 헤더에 ⚠재스코프 배너 + §5 하드게이트 철회 표기. de-risk 6회 트레일 박제(impl-review).
 
 ### 다음 (사용자 결정 대기 / 후보)
-- beam 코드 = **WIP 워킹트리(미커밋)**, inert 보존. 정식 커밋 시 = de-risk print 정리 + impl-stage 적대 리뷰 필요
-  (현재는 S23 미해결이라 게이트 편입 대상 아님). 또는 다른 미해결 스테이지(S21/24/25)에 beam 효과 검증 후 결정.
-- ⚠ 워킹트리: 솔버 WIP(model.py/solve.py) + 사용자 Ch2 WIP(stage17.tres·project.godot·미추적 stage26~33) 혼재 — 격리.
+- beam 코드 = **커밋됨**(`1d21649` inert WIP, model.py+11/solve.py+236). 정식 정리 커밋 시 = de-risk print 정리 +
+  impl-stage 적대 리뷰 필요(현재는 S23 미해결이라 게이트 편입 대상 아님). 또는 다른 미해결 스테이지(S21/24/25)에
+  beam 효과 검증 후 결정 → **아래 ## 5g beam stretch 검증에서 수행.**
+- ⚠ 워킹트리: 사용자 Ch2 WIP(stage17.tres·project.godot·미추적 stage26~33) — 솔버 무관, 격리.
+
+## 5g beam stretch 검증 (2026-07-01) — S21/24/25에 beam 효과 측정 (사용자 방향 "beam을 S21/24/25에 검증")
+
+> 동기: 5g de-risk가 S23 자동발견 미달로 재스코프된 뒤, 커밋된 inert beam이 **다른 미해결 stretch에서
+> 효과가 있는지** 측정해 (a) beam 정식 정리·유지 가치 (b) 실병목이 후보 생성인지 search/score인지 구별.
+> `try_solve search {21,24,25} --max-rollouts 40`(Phase B budget 360 자동 발동). 엔진/코드 무변경, 측정 전용.
+
+| Stage | 인벤토리 | Phase A best | **Phase B beam+refine 최고** | seed/frontier | 판정 |
+|---|---|---|---|---|---|
+| **S24** | blocker2/floater1/sand_mound2/slideL1/slideR1 | reached=0 (`['floater','sand_mound']` reached=1) | **saved=5 picked=7/7 retired=1 goal=0** | raw seed 21·floater@base[]=True·max fr 89 | **beam 실병목 돌파** — 전원 픽업, saved 0→5(미완 클리어) |
+| **S25** | blocker2/bridge2/floater2/sand_mound4/slideL1/slideR1 | reached=0 (slide fallback만) | saved=0 picked=0 fr=0 (무력) | **raw seed 0**·floater@base[]=False | **후보 생성 갭** — propose가 risk 미검출, 시드 없어 beam 공회전 |
+| **S21** | (미수집) | — | — | — | Phase B 진입 후 사용자 판단으로 38분 미완 중단(결론 불변) |
+
+- **핵심 대비**: S24는 beam이 Phase A로 못 가던 영역(reached 0 → **picked 7/7**)을 실제 전진 = beam이 **score-myopia
+  병목엔 유효**(seed 있을 때). S25는 `model.propose`가 slideL/slideR fallback만 생성·blocker/bridge/floater/
+  sand_mound 0제안 → raw seed 0 → beam 공회전 = **후보 생성 갭**(5f S23 propose-범위 결론과 동일 계열).
+- **결론(사용자 = "이 정도면 못 깬다고 봐야")**: beam은 S21·S24·S25 **전부 완전 클리어 못 함**(stretch 미돌파).
+  단 S24의 picked=7 전진은 beam이 죽은 코드가 아님을 입증 — 실병목이 둘로 갈림: ① **후보 생성**(S25류, propose가
+  risk·routing 미검출) ② **last-mile 배치/귀환**(S24류, picked=7인데 saved=5 = needle 미조립). **stretch 미해결은
+  정직 보고**(게이트/solve.json 미편입 — 부분 해는 비대상).
+- **회귀 0**(측정 전용, save=True지만 클리어 0이라 solve.json 미생성). 잔류 프로세스 정리 완료.
