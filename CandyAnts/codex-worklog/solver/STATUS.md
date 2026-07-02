@@ -1161,3 +1161,29 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   risk·routing 미검출) ② **last-mile 배치/귀환**(S24류, picked=7인데 saved=5 = needle 미조립). **stretch 미해결은
   정직 보고**(게이트/solve.json 미편입 — 부분 해는 비대상).
 - **회귀 0**(측정 전용, save=True지만 클리어 0이라 solve.json 미생성). 잔류 프로세스 정리 완료.
+
+## S24 "탈출!" witness 확립 (2026-07-02) — carry-state 지붕 blocker + 드롭 회수 패턴 (엔진 검증 saved=7/7)
+
+> 사용자 방향 = "S24 last-mile 단독공략". 어제 beam 최고점(picked=7/7 saved=5 retired=1)의 미조립 needle을
+> trace 진단으로 규명, witness를 수기 유도. **코드 무변경**(solve.py 임시 probe 패치는 진단 후 revert) —
+> 데이터(`stage24.witness.json`)+docs만.
+
+- **레벨 메커니즘(트레이스 실증)**: home(10,2)=밀폐 상자 지붕 위 · candy(11,9)=상자 안 · 10마리/hp7(여유 3).
+  경로 = ① 지붕 좌측 낙하(floater 분배자 @(4,2), 12행 낙하 안전화) ② 바닥 좌향 물가 blocker@(0,14) ③
+  **cap-onto-ledge 침투 사다리** sand_mound@cell(9,14): rungs rows14~11 + 챔버 마루 (9,10) TOP reskin →
+  개미가 챔버 내부 (9,9)로 텔레포트. **col9 필수** — col12 사다리는 착지 우향이라 candy(col11)를 지나쳐
+  무한루프(Phase A rollout19 reached=1의 정체 원인) ④ 챔버 내 정적 사다리 col13로 지붕 cap(13,2) 탈출 —
+  **우향 착지**라 지붕 우측(col16) 낙하 → (16,15) 물 익사가 본질 리스크.
+- **needle = blocker target에 `state:"carrying"` 명시**: PlanRunner `_select_ant` 기본은 비운반만 → 지붕
+  우측 blocker(비운반 select)는 마지막 빈손 ant9(f1906)에야 발화, 운반자 5마리(f1448~)는 이미 익사
+  (saved=2 재현 실측). carrying 명시 → **첫 귀환 운반자 ant2에 즉시 발화**(x ge 672) → 벽@(14,2) + 조각
+  드롭 → 후속 운반자 6마리 벽-반사 귀가 + **빈손 ant9가 DroppedCandy(40×40 픽업 area) 회수 → 7번째 배달**.
+  saved=7/7 lost=0 frame=2072, 결정론 replay ×2 byte-identical.
+- **산출물**: `data/solutions/stage24.witness.json`(expect cleared+saved7, stage23.witness 선례 동일 포맷).
+  selftest 19/19 그린 — witness는 selftest glob(*.solve.json) 비대상, 게이트 무변경.
+- **솔버 갭 재정밀화(5g "last-mile" 실체)**: **propose ① reverse 후보가 carrying-state 타깃을 미생성**.
+  beam은 지붕 우측 fall-edge blocker 후보(비운반 select)를 이미 냈지만 발화가 늦어 saved≈5 상한(어제 beam
+  최고점과 정확히 일치). 필요한 신규 후보 클래스 = **carry-reverse**(운반자 1마리 희생 벽 + 드롭-회수 회계,
+  잉여 병력(총병력>hp) 있을 때 유효) — 향후 model.propose 확장 트랙(plan-review 대상)의 구체 스펙 확보.
+- **다음 후보**: propose 확장(carry-reverse[S24 자동발견] + risk 미검출[S25류] 통합 plan-review) / beam 정식
+  정리·리뷰 / S21 witness 시도. 워킹트리 사용자 Ch2 WIP(stage17.tres·project.godot·stage26~33) 격리 유지.

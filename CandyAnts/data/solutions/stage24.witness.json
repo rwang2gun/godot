@@ -1,0 +1,64 @@
+{
+ "stage": "res://scenes/stages/Stage24.tscn",
+ "deadline_frames": 6000,
+ "expect": {
+  "cleared": true,
+  "saved": 7
+ },
+ "actions": [
+  {
+   "skill": "floater",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 88,
+    "y_max": 200
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 216
+   }
+  },
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 664,
+    "y_max": 776
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 24
+   }
+  },
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [9, 14]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "carrying",
+    "y_min": 88,
+    "y_max": 200
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "ge",
+    "x": 672
+   }
+  }
+ ]
+}
