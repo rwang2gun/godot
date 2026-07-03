@@ -1242,3 +1242,16 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   파일)은 커밋, plan.md(§Phase R 포함 — 5f/5g 본문과 동일 파일이라 함께 커밋 불가)·phase05 리뷰 수정분은
   선례대로 로컬 working doc 유지(cross-PC SoT는 본 STATUS 항목).
 - ⚠ 워킹트리 사용자 Ch2 WIP(stage17.tres·project.godot·stage26~33) 격리 유지 — 커밋 제외.
+
+### S12 stretch 결과 (2026-07-03 세션 말 확정) — 0/3 seed FAIL (정직 보고, R0 acceptance 무영향)
+
+- 동일 pinned 예산(`--stage 12 --seeds 0,1,2 --envs 4 --max-episodes 20000 --max-wall 7200`)으로 3 seed 전부
+  **에피소드 예산 풀 소진 미클리어**(seed당 20k eps ≈ 48분). **bestR=-0.02 = 20k 에피소드에서 양성 신호(픽업
+  1회조차) 0** — S12는 blocker×3이 전부 맞아야 picked가 발생하는 계단 구조라 부분 plan의 중간 보상이 없고,
+  REINFORCE가 오를 기울기 자체가 없음(정책은 "1액션 후 SUBMIT" 최소-페널티로 수렴).
+- 산출물 없음(`stage12.rl.json` 미생성 — 클리어 0), `stage11.rl.json` verify-r0 재확인 PASS. plan §R0 item 6
+  "stretch 실패해도 R0 성공" 그대로 — **R0 종결 유지**.
+- **R1 문제의식 확정**: S12류 다단 조합은 terminal-only 보상으론 발견 불가(S11 오버핏과의 대비가 plan §정직
+  경계 "다단 신뢰할당 증거는 S12부터"를 실증). R1 후보 = trace-피드백 중간보상(휴리스틱 diagnose 신호의
+  보상화)·curriculum(부분 인벤토리)·off-policy 재사용(발견 희소성 완화). 참고: 백그라운드 파이프(`| tail`)가
+  train.py exit 1을 0으로 마스킹 — 판정은 stdout 집계줄이 권위(run_test exit-0 gotcha와 동일 계열).
