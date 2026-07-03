@@ -1187,3 +1187,58 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   잉여 병력(총병력>hp) 있을 때 유효) — 향후 model.propose 확장 트랙(plan-review 대상)의 구체 스펙 확보.
 - **다음 후보**: propose 확장(carry-reverse[S24 자동발견] + risk 미검출[S25류] 통합 plan-review) / beam 정식
   정리·리뷰 / S21 witness 시도. 워킹트리 사용자 Ch2 WIP(stage17.tres·project.godot·stage26~33) 격리 유지.
+
+## Phase R 킥오프 — 정식 RL 솔버: plan approve + R0 파이프라인 증명 (S11 3/3 seed 오버핏, 2026-07-03)
+
+> **패러다임 병행 트랙 개시** (사용자 2026-06-24 결정 "휴리스틱→정식 RL", 목적=학습/실험 그 자체 — 비효율
+> 감수. 오라클 생산 실용성은 Phase 5 휴리스틱 트랙이 계속 담당). 환경 spike는 선행 커밋 `f637a24`
+> (PlanServerHarness TCP NDJSON + env.py GodotEnv — persistent 6회+단발 byte-identical, warm 0.46s/롤아웃;
+> STATUS 미기록이었음 → 본 항목으로 편입). 이번 세션 = **MDP 설계(plan-stage) → R0 구현 → S11 오버핏 성공**.
+
+### plan-stage (codex task-모드 3R, 트레일 `reviews/phaseR-plan-review.md`)
+- plan SoT에 §"Phase R — 정식 RL 솔버" 신설: **plan-구성 MDP**(스텝=액션 추가 or SUBMIT, 에피소드당 롤아웃
+  1회 terminal reward), factored 액션 문법(skill/trigger/cmp/param/y_row/select/state + SUBMIT, ant-target
+  한정 R0 어휘), 보상 `2·cleared+(saved+0.3·picked−0.2·lost)/hp_stage−0.02·len`(분모=StageData 상수 —
+  PlanRunner deadline verdict `hp=-1` 오염 차단), REINFORCE+baseline(불안정 시 PPO 승격 사전 명시).
+- 리뷰: R1(HIGH3: deadline hp=-1 보상 오염·문법이 S12 해 미커버[cmp le/y밴드/walker]·acceptance 재현 불가
+  +M3+L1) → fix → R2(HIGH1: `--seed {0,1,2}` 플레이스홀더 → 단일 pinned 커맨드 + M3: config manifest·N폴백·
+  verify 범위) → fix → **R3 approve**(M1 격자 변환 결정론 규칙은 plan 내 처리). 3-round cap 내 종결.
+
+### R0 구현 (`tools/solver/rl/{mdp.py,train.py,requirements.txt}` — 엔진/PlanRunner/게이트 무변경)
+- **mdp.py**: 관측=레이아웃 그리드 one-hot(H×W×5)+인벤토리+partial plan 슬롯(model.parse_layout/
+  solve.stage_meta read-only 재사용). 액션 decode(x=셀센터 col×48+24 — known 해 x값 4개 정확 일치)·
+  encode(y밴드→row 겹침최대·동률 낮은 row)·보상.
+- **train.py**: GodotEnv 풀(free-port, boot-실패 재시도, 부분실패 close, **병렬 preflight = 학습과 동일
+  ThreadPoolExecutor 경로** N=4×2회 byte-identical, 실패 시 N=1 강등+manifest 기록) + factored REINFORCE
+  (MLP 2×128, head별 categorical, 스텝0 SUBMIT 마스킹, 엔트로피 0.03→0.005 감쇠, 러닝 baseline) +
+  `--seeds` 집계 + effective-config manifest + `--verify-r0`/`--coverage` fail-closed 로컬 게이트.
+- **RL 실이슈 2건(스모크 실측)**: ① 빈-plan collapse attractor — 보상 0의 즉시 SUBMIT이 음수-보상 탐험을
+  이겨 정책 붕괴 → 스텝0 SUBMIT 마스킹(최소 plan 길이 1)으로 원천 차단. ② 탐험/활용 균형 — SUBMIT 경로
+  엔트로피(head 1개 ~0.7) vs 탐험 경로(7 head ~10) 비대칭 → 엔트로피 보너스 상향+감쇠. 보상 지형은 우호적
+  (S11 클리어 창 col18~21 4칸 + p17 picked=4 부분신호 인접).
+
+### 결과 (전부 그린)
+- **문법 커버리지 PASS**: known S11·S12 해 격자 인코딩 → 엔진 리플레이 saved 4/4·5/5 (1행 y밴드로 등가).
+- **병렬 preflight PASS**: 4 env × 2회 = 8런 byte-identical (병렬 경로).
+- **S11 오버핏 PASS(고정 커맨드)**: `--stage 11 --seeds 0,1,2 --envs 4 --max-episodes 20000 --max-wall 7200`
+  → **3/3 seed greedy 클리어**(seed0/1=160eps, seed2=1280eps; 예산 대비 1~6%), warm ~0.13s/에피소드(4병렬).
+  산출 `data/solutions/stage11.rl.json`(best plan+expect+effective config+seed별 곡선).
+- **verify-r0 PASS** + **음성 실증 5종**(seed 개수/예산 pin/stage 바인딩/deadline 자기-일관 변조 → 전부 FAIL,
+  복원 → PASS).
+- **기존 verify 게이트 8/8 그린**(Determinism×2·SkillMetadataDrift·harness-test·selftest 19/19·analyze
+  --verify·diverse-verify·rediscover-verify) — rl.json 존재 상태에서 실측 = 게이트 비커플링 실증. 회귀 0.
+
+### impl-stage 적대 리뷰 (트레일 `reviews/phaseR-impl-review.md`)
+- codex R1(HIGH: verify-r0 pinned 계약/스테이지 바인딩 미강제 + MED: 순차 preflight·EnvPool 부분실패 누수)
+  → fix+음성실증 → Self-R1 clean → codex R2(HIGH: replay deadline 자기-일관 변조 통과) → `R0_PIN`
+  replay_deadline=7000 고정+음성실증 → Self-R2 clean → **codex R3 approve**.
+
+### 다음
+- **S12 stretch**(blocker×3 다단 credit assignment, 동일 예산·saved==5 predicate) — 세션 말 백그라운드 진행,
+  결과 별도 반영(실패해도 R0 acceptance는 성립 — plan §R0 item 6).
+- R1 로드맵(미확정): 다중 스테이지 단일 정책(CNN 인코더)·cell-target 액션·트리거 어휘 확장. R2: trace-피드백
+  refinement MDP·curriculum(stretch S21/23/24/25).
+- 의존성: torch 2.12.1+cpu(py3.14)+numpy 설치됨, `rl/requirements.txt` 핀. phaseR 리뷰 트레일 2종(신규
+  파일)은 커밋, plan.md(§Phase R 포함 — 5f/5g 본문과 동일 파일이라 함께 커밋 불가)·phase05 리뷰 수정분은
+  선례대로 로컬 working doc 유지(cross-PC SoT는 본 STATUS 항목).
+- ⚠ 워킹트리 사용자 Ch2 WIP(stage17.tres·project.godot·stage26~33) 격리 유지 — 커밋 제외.
