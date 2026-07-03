@@ -1255,3 +1255,33 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   경계 "다단 신뢰할당 증거는 S12부터"를 실증). R1 후보 = trace-피드백 중간보상(휴리스틱 diagnose 신호의
   보상화)·curriculum(부분 인벤토리)·off-policy 재사용(발견 희소성 완화). 참고: 백그라운드 파이프(`| tail`)가
   train.py exit 1을 0으로 마스킹 — 판정은 stdout 집계줄이 권위(run_test exit-0 gotcha와 동일 계열).
+  → **후속 세션(2026-07-03)에서 R1 스코프 확정 = trace-shaped 보상**(plan §R1이 SoT): 위 "후보" 중
+  trace-피드백 보상이 구현 대상, curriculum·off-policy는 fallback 사다리/R2 후보로 재배열.
+
+## Phase R R1 — trace-shaped 보상 + SIL로 S12 다단 돌파 · 캠페인 스윕 개시 (2026-07-04)
+
+> 사용자 지시: S25까지 계속 진행 · 학습 wall 최대 30분(1800s) · 발견/이슈는 별도 로그 박제.
+> **세션 로그(발견 F1~F8·이슈 I1~I6 SoT) = [2026-07-04-rl-r1-campaign.md](2026-07-04-rl-r1-campaign.md)**.
+> plan §R1 신설(plan-review 3R: R1 HIGH→R2 HIGH→**R3 approve**) + post-approve 사용자 수정(wall 1800·
+> §R1-스윕) + FAIL-진단 amendment 2건(트레일 phaseR-plan-review.md `# §R1` 섹션).
+
+### R1 최종 레시피 (3중 실패 모드를 각각 해소 — 전부 실측 근거)
+1. **trace-shaped 보상**(`R += 0.5·goal접근 − 0.1·retired비율`, model.best_goal_dist/count_retired
+   read-only 재사용, 분모=상수): terminal-only의 기울기-0(R0 박제)을 해소. prefix 단조성 probe로 사전
+   실증(F1: goal 항이 #1을, retired 항이 #2를 구별 — **retired 필수**).
+2. **문법 r1.1 + entropy_min 0.02**: 1차 pinned 0/3 FAIL 진단(F4 — bestR 0.231="b1+SUBMIT" 길이-1
+   국소최적·y밴드 needle) → y_row 어휘=layout-파생 surface rows(S12 head 18→5, D7-충실·커버리지 PASS
+   불변) + 탐험 바닥 상향. probe에서 사다리 등반 재개(0.279→0.447)했으나 **커밋 실패**(F6).
+3. **SIL(fallback 2)**: top-8 buffer (R−baseline)+ 재모방 — 희소 발견→커밋 병목 해소. probe seed0
+   **S12 클리어**(F7).
+- **acceptance PASS(F8)**: pinned `--stage 12 --seeds 0,1,2 --envs 4 --max-episodes 20000 --max-wall
+  1800 --shaping trace --train-deadline 4500 --sil` = **2/3 seed**(4320/3200 eps, seed1 미수렴 정직 기록).
+  **RL 해 frame 2130/2239 = known 휴리스틱 해(2981)보다 빠른 신해 무힌트 발견**. verify-r1 PASS(R1_PIN
+  fail-closed: shaping 계수·train_deadline 4500·sil 상수 포함 + preflight_trace 증거 + replay ×2).
+- stage11.rl.json 문법 r1.1 재생성(3/3, 80/80/320 eps — R0보다 빠름) + verify-r0 PASS.
+- 신규 이슈 계약: verify 예산 검사 오버슛 허용(+batch/+60s — I6 경계 시맨틱), Godot 좀비 정리 습관(I4),
+  학습 실행은 무파이프+`python -u`(I5).
+
+### R1-스윕 (S13~S25, 단일 seed·30분 cap·비게이트 — 진행 중)
+- 선결: `--max-len 8`(I1 — S14 known 8액션 표현) + ant-target 메타 필터(I2 — cell-target 혼재 차단,
+  S19=sand_mound만이라 SKIP). 결과는 세션 로그 표에 스테이지별 박제.

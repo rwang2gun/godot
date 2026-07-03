@@ -28,16 +28,32 @@ for _s in (sys.stdout, sys.stderr):               # cp949 무관 UTF-8(트랙 �
 import model  # noqa: E402  (tools/solver/model.py — parse_layout)
 import solve  # noqa: E402  (tools/solver/solve.py — stage_meta)
 
+_METAS_CACHE: dict | None = None
+
+
+def skill_metas() -> dict:
+    """SkillRegistry 메타(SolverMetaDump 브리지, D7 — 게임지식 하드코딩 0). 프로세스당 1회 Godot 부팅 캐시."""
+    global _METAS_CACHE
+    if _METAS_CACHE is None:
+        _METAS_CACHE = solve.dump_capabilities()["skills"]
+    return _METAS_CACHE
+
 # ---------- 문법 어휘 (R0 — plan §Phase R MDP 정의) ----------
 TRIGGER_VOCAB = ("ant_reaches_x", "picked_ge")
 CMP_VOCAB = ("ge", "le")
 SELECT_VOCAB = ("max_x", "min_x")
 STATE_VOCAB = ("any", "walker", "carrying")
-GRAMMAR_VERSION = "r0.1"
+# r1.1 (2026-07-04, S12 FAIL 진단 반영): y_row 어휘 = any + **layout-파생 surface rows**(개미가 설 수
+# 있는 행만 — solid 위 빈 셀). 18행 전수 → ~6개로 needle 축소. D7-충실: 레이아웃 관측 파생(해 힌트 아님).
+GRAMMAR_VERSION = "r1.1"
 
 # 보상 계수 (plan: 형태 확정·계수 튜닝 자유 — effective config로 manifest에 박제)
 REWARD = {"cleared": 2.0, "saved": 1.0, "picked": 0.3, "lost": -0.2,
           "len_penalty": -0.02, "timeout_penalty": -0.1}
+
+# R1 trace-shaped 보상 계수 (plan §R1: 형태 확정·계수 튜닝 자유, 총합 상한 < cleared 유지).
+# S12 prefix 실측(plan §R1 grounding): goal 항이 #1을, retired 항이 #2를 구별 — 둘 다 필수.
+SHAPING = {"goal": 0.5, "retired": 0.1}
 
 
 class StageMDP:
@@ -49,6 +65,7 @@ class StageMDP:
         meta = solve.stage_meta(stage_id)
         self.inventory: dict[str, int] = meta["inventory"]
         self.hp: int = meta["candy_hp"]                       # hp_stage(상수) — result.hp 미사용(R1-H1)
+        self.ants_total: int = max(1, int(meta["total_ants"]))  # shaping 분모(스테이지 상수, R1 계약)
         self.layout = model.parse_layout(
             ROOT / "data" / "stage_layouts" / f"stage{stage_id:02d}_layout.tres")
         self.cs: int = self.layout["cell_size"]
@@ -58,15 +75,30 @@ class StageMDP:
                 cells.add(v)
         self.W = max(c for c, _ in cells) + 1
         self.H = max(r for _, r in cells) + 1
-        self.skills: list[str] = sorted(self.inventory)       # 결정론 순서
-        self.max_len = min(sum(self.inventory.values()), max_len)
+        self.D0 = self.W + self.H                             # 셀 맨해튼 상한(레이아웃 상수) — shaping 분모
+        # R1-스윕: 문법 = ant-target 스킬만(plan §R1-스윕 정직 선언). cell-target(sand_mound 등)은
+        # 스킬 head에서 제외 — 메타 덤프 기반(D7, 하드코딩 0). 전부 cell-target이면 비표현 스테이지.
+        metas = skill_metas()
+        self.skills: list[str] = sorted(
+            sid for sid in self.inventory
+            if str((metas.get(sid) or {}).get("target", "")) == "ant")   # 결정론 순서
+        if not self.skills:
+            raise ValueError(
+                f"stage {stage_id}: ant-target 스킬 0 (inventory={sorted(self.inventory)}) — "
+                "R0/R1 문법 비표현(cell-target 어휘는 R2 후보)")
+        self.max_len = min(sum(self.inventory[s] for s in self.skills), max_len)
+        # r1.1: surface rows = 개미가 설 수 있는 행(빈 셀 (c,r) 아래 (c,r+1)이 solid). y밴드는 개미
+        # y-선택이므로 이 행들만 의미 있음(비표면 행 밴드는 공집합 매칭) — 어휘 손실 없는 축소.
+        occ = set(self.layout["occupied"])
+        self.y_rows: list[int] = sorted({r for (c, r1) in occ
+                                         for r in ((r1 - 1),) if r >= 0 and (c, r) not in occ})
         # factored head 크기 — skill 마지막 인덱스 = SUBMIT.
         self.heads: dict[str, int] = {
             "skill": len(self.skills) + 1,
             "trigger": len(TRIGGER_VOCAB),
             "cmp": len(CMP_VOCAB),
             "param": max(self.W, self.hp),
-            "y_row": self.H + 1,                              # 0 = any(밴드 없음), r+1 = row r
+            "y_row": len(self.y_rows) + 1,                    # 0 = any(밴드 없음), i+1 = y_rows[i] (r1.1)
             "select": len(SELECT_VOCAB),
             "state": len(STATE_VOCAB),
         }
@@ -127,7 +159,7 @@ class StageMDP:
         target: dict = {"mode": "ant", "select": SELECT_VOCAB[a["select"]],
                         "state": STATE_VOCAB[a["state"]]}
         if a["y_row"] > 0:
-            row = a["y_row"] - 1                    # 밴드 변환식(plan): [row*cs, (row+1)*cs]
+            row = self.y_rows[a["y_row"] - 1]       # r1.1: surface row 인덱스 → 행. 밴드=[row*cs,(row+1)*cs]
             target["y_min"] = float(row * self.cs)
             target["y_max"] = float((row + 1) * self.cs)
         ttype = TRIGGER_VOCAB[a["trigger"]]
@@ -153,15 +185,15 @@ class StageMDP:
             param = max(0, min(self.W - 1, round((float(trig["x"]) - self.cs / 2) / self.cs)))
         else:
             param = max(0, min(self.hp - 1, int(trig.get("n", 1)) - 1))
-        # y밴드 → row: 겹침 최대, 동률이면 낮은 row(R3-M 결정론 규칙)
+        # y밴드 → row: **surface rows 중** 겹침 최대, 동률이면 낮은 row(R3-M 결정론 규칙, r1.1 도메인 축소)
         y_row = 0
         if "y_min" in t and "y_max" in t:
             lo, hi = float(t["y_min"]), float(t["y_max"])
-            best, best_ov = 0, -1.0
-            for r in range(self.H):
+            best, best_ov = 0, float("-inf")
+            for i, r in enumerate(self.y_rows):
                 ov = min(hi, (r + 1) * self.cs) - max(lo, r * self.cs)
                 if ov > best_ov:
-                    best, best_ov = r, ov
+                    best, best_ov = i, ov
             y_row = best + 1
         select = SELECT_VOCAB.index(t.get("select", "max_x"))
         state = STATE_VOCAB.index(t.get("state", "walker"))   # PlanRunner 기본 state=walker 정합
@@ -180,3 +212,13 @@ class StageMDP:
         if res.get("reason") == "deadline":
             r += REWARD["timeout_penalty"]
         return r
+
+    # ----- R1 trace-shaped bonus (plan §R1 — 형태 확정; trace 파생은 model.py read-only 재사용) -----
+    def shaped_bonus(self, res: dict) -> float:
+        """`R_r1 = R_r0 + shaped_bonus`. 분모 = 스테이지/레이아웃 상수(D0=W+H, ants_total — result 파생
+        분모 금지, R0-H1 교훈). fail-safe: trace 부재/빈 trace → goal 항 0(goal_d=D0)·retired 0."""
+        tr = res.get("trace") or {}
+        goal_d = model.best_goal_dist(tr, self.layout)        # 빈 trace → 1<<30 → min(...)=D0 → 항 0
+        retired = model.count_retired(tr, self.layout)["total"] if tr else 0
+        return (SHAPING["goal"] * (1.0 - min(goal_d, self.D0) / self.D0)
+                - SHAPING["retired"] * (retired / self.ants_total))

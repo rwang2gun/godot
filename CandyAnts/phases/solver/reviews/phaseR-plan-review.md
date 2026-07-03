@@ -69,3 +69,62 @@ The four R2 fixes are sufficient. Sanity: hp_stage aligns with StageData.candy_h
 - MEDIUM → plan 내 처리: 변환 규칙 명문화(겹침 최대 row, 동률 시 낮은 row, 선택 row 기록).
 - LOW×2 → 수용(트레일 박제): verify-r0의 manifest 신뢰는 로컬 비게이트 검사 + 독립 replay가 보완. per-seed wall은 문서로 해소.
 - **plan stage 종결 = R1 fix → R2 fix → R3 approve (3-round cap 내).** 구현(R0) 진입.
+
+---
+
+# §R1 (trace-shaped 보상) plan-stage 리뷰 (2026-07-03)
+
+> 대상: plan §"R1 — trace-피드백 보상 shaping". codex `task --effort high`(read-only, 미커밋 plan — task 모드).
+> 정책 = plan stage 3-round cap.
+
+## R1 Round 1 — needs-attention (HIGH 1 · MEDIUM 4 · LOW 1)
+
+**Verdict: needs-attention.** No CRITICAL findings.
+
+- **HIGH:** `--verify-r1`/`R1_PIN` under-pinned vs R0 gate — stage_id=12, envs_requested=4, budgets,
+  replay_deadline=7000, shaping coefficients가 fail-closed 상수로 명시 안 됨 (R0_PIN 교훈).
+- **MEDIUM-1:** goal_dist "단조" 과대 서술 — probe 자체가 #2에서 goal plateau·retired가 구별함을 보임.
+  올바른 주장 = 합성(goal+retired) 단조.
+- **MEDIUM-2:** trace 처리량 주장만 있고 게이트 없음 — trace-on preflight/manifest 기록 필요.
+- **MEDIUM-3:** 엔트로피(0.03→0.005)와 shaped 보상 스케일 상호작용 미언급 — 스케줄 pin 또는 진단 로깅.
+- **MEDIUM-4:** cross-doc drift — STATUS는 R1을 "후보 집합"으로 서술, plan은 확정. 순환 SoT 리스크.
+- **LOW:** 로드맵 아래 리스크 절 stale — "shaping(picked/lost)로 완화"는 S12가 반증한 문구.
+- Non-issue 확인: PlanServerHarness trace passthrough 건전(env.py:91, PlanServerHarness.gd:74,89).
+
+### 처리 (전부 반영)
+- H1 → Acceptance 2항에 R1_PIN 상수 전량 명시(stage_id·seeds·envs·예산·replay_deadline·shaping·**계수
+  {goal:0.5, retired:0.1}**) + "계수 튜닝은 fallback 1에서만, R1_PIN 동일 커밋 갱신" 계약. pinned 검증
+  커맨드 명시(`--verify-r1 --stage 12`).
+- M1 → "합성 신호(goal_dist+retired) 단조"로 본문·정직 경계 재서술(known-prefix 한정 명시).
+- M2 → trace-on preflight(digest+trace 전부 identical) + `preflight_trace_wall_s` manifest 기록 설계 추가.
+- M3 → 엔트로피 스케줄 R0 유지 사전 결정 박제 + 배치 로그에 meanShape 분리 출력(진단 가시성).
+- M4 → STATUS S12 stretch 항목에 "후속 세션 R1 스코프 확정(plan §R1 SoT)" 추기.
+- L1 → 리스크 절 "R0가 반증 → R1 trace-파생 shaping 대체"로 갱신.
+- (자기-발견, Round 1 전 반영) 학습 deadline 함정: 격자-인코딩 S12 클리어 frame=2981 vs 학습 cap 3000f
+  → `--train-deadline` 신설, pinned 커맨드 4500. / S12 prefix 단조성 probe 실측을 §R1 grounding에 박제.
+
+## R1 Round 2 — needs-attention (HIGH 1 · MEDIUM 1; Round 1 전 항목 closed 확인)
+
+- **HIGH:** `--train-deadline 4500`이 pinned 커맨드에 있는데 R1_PIN 강제 목록에 없음 — plan 스스로
+  "3000f cap이 최적점 근방을 굶긴다"고 명시했으므로 material 파라미터. stale 3000f 산출물이 통과 가능.
+- **MEDIUM:** trace-on preflight를 게이트로 서술하고 `preflight_trace_wall_s`를 기록한다면서 verify-r1
+  manifest 완전성 검사에 그 증거(패스 마커/wall)가 없음 — fail-closed 밖에 남음.
+- Verified closed: R1 Round 1의 HIGH·M1(합성 단조)·M2(대부분)·M3(엔트로피)·M4(STATUS)·LOW 전부.
+
+### 처리 (전부 반영)
+- H → R1_PIN에 `train_deadline=4500` 편입(verify-r1 fail-closed 강제). "학습-전용 knob 비대상"의 R0
+  원칙에 대한 명시 예외 — plan이 material하다고 스스로 입증한 knob은 pin.
+- M → manifest에 `preflight_trace {ok, wall_s, runs}` 필드 필수 + `envs_effective>1 → ok=true` 강제
+  (N=1 강등 시 ok=false 허용 = R0 N-폴백 계약 동형)를 verify-r1 검사에 편입.
+
+## R1 Round 3 — **approve** (no remaining findings)
+
+- Verified: R1_PIN에 `train_deadline=4500` fail-closed 편입(+R0 "학습-전용 knob 비대상" 원칙의 명시 예외
+  근거) / verify-r1이 `preflight_trace {ok,wall_s,runs}` 요구 + `envs_effective>1 → ok=true` 강제 +
+  ok=false는 N=1 강등 계약 하에서만 허용.
+- **Final verdict: approve.** plan-stage 종결(R1→fix→R2→fix→R3 approve, 3-round cap 내).
+
+### Post-approve 사용자 수정 (2026-07-04 — 리뷰 대상 아님, 사용자 결정 기록)
+- **wall 예산 하향**: pinned 커맨드·R1_PIN `max_wall 7200→1800`(사용자 "최대 30분 기준"). 설계 불변 —
+  예산 상수만 교체. 음성 대조(dc68a47, wall 7200에서 20k eps 완주)와의 비교 눈금은 에피소드 수로(plan 정직 표기).
+- **§R1-스윕 신설**: S13~S25 순차 탐사(단일 seed·30분 cap·비게이트·세션 로그 박제). acceptance 무관.
