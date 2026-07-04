@@ -129,6 +129,15 @@ class EnvPool:
                 pass
 
 
+def _trace_valid(t) -> bool:
+    """trace 페이로드 형태 검증(공용 — preflight/학습 롤아웃/verify replay, codex R3·R4):
+    비어있지 않은 dict + 개미별 비어있지 않은 샘플 리스트 + 첫 샘플 len>=4(소비자 s[3] 접근 정합)."""
+    return (isinstance(t, dict) and len(t) > 0
+            and all(isinstance(v, list) and len(v) > 0
+                    and isinstance(v[0], (list, tuple)) and len(v[0]) >= 4
+                    for v in t.values()))
+
+
 def preflight(pool: EnvPool, stage_scene: str, with_trace: bool = False) -> dict:
     """N env × 빈 plan 2회 = 전 digest identical — **학습과 동일한 병렬 경로(pool.evaluate,
     ThreadPoolExecutor)로 실행**해 동시성 자체를 검증한다(R1-M1: 순차 preflight는 병렬 미검증).
@@ -145,13 +154,8 @@ def preflight(pool: EnvPool, stage_scene: str, with_trace: bool = False) -> dict
     trace_present = None
     if with_trace:
         # post-commit codex R3 MEDIUM: trace 수집이 조용히 사라지면(전부 None) 동등성 비교가 공허하게
-        # 통과 → "trace 결정론 증거"가 빈-plan 결정론으로 격하됨. **부재/공백/기형 trace = fail-closed** —
-        # 비어있지 않은 dict + 개미별 비어있지 않은 샘플 리스트(소비자 s[3] 접근과 정합: 샘플 len>=4).
-        def _trace_valid(t) -> bool:
-            return (isinstance(t, dict) and len(t) > 0
-                    and all(isinstance(v, list) and len(v) > 0
-                            and isinstance(v[0], (list, tuple)) and len(v[0]) >= 4
-                            for v in t.values()))
+        # 통과 → "trace 결정론 증거"가 빈-plan 결정론으로 격하됨. **부재/공백/기형 trace = fail-closed**
+        # (형태 계약 = 모듈 공용 _trace_valid).
         traces = [r.get("trace") for r in results]
         trace_present = all(_trace_valid(t) for t in traces)
         if not trace_present:
@@ -294,6 +298,15 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict) -> dict:
                   "actions": mdp.decode_plan(p)} for p, _, _ in eps]
         rollouts = pool.evaluate(plans)
         episodes += len(eps)
+        if use_trace:
+            # post-commit codex R4 MEDIUM: 빈-plan preflight만으론 "액션 발화 시 trace 소실" 회귀를 못
+            # 잡고, shaped_bonus의 {} fail-safe가 무력화를 침묵시킴 → **액션 롤아웃별 trace 검증**.
+            # 위반 = 학습 run 전체 fail(정직 크래시 — silent shaping 격하로 'trace' 라벨 산출물 금지).
+            for r in rollouts:
+                if not _trace_valid(r.get("trace")):
+                    raise RuntimeError(
+                        f"trace-shaped 학습 롤아웃에 유효 trace 부재 — 엔진/Env trace 수집 회귀 "
+                        f"(fail-closed): digest={_digest(r)}")
         bonuses = [mdp.shaped_bonus(r) if use_trace else 0.0 for r in rollouts]
         rewards = [mdp.reward(r, len(p)) + b
                    for (p, _, _), r, b in zip(eps, rollouts, bonuses)]
@@ -555,6 +568,18 @@ def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
             fails.append("replay 미클리어")
         if int(digests[0].get("saved") or 0) != mdp.hp:
             fails.append(f"saved {digests[0].get('saved')} != hp_stage {mdp.hp}")
+        # ⑤ trace 재생 replay (post-commit codex R4): 빈-plan preflight는 "액션 발화 시 trace 소실"
+        # 회귀를 못 잡는다 — **pinned actions 자체를 trace=True로 재생**해 ⓐ trace 유효 ⓑ trace 관측이
+        # 시뮬레이션을 교란하지 않음(digest 동일)을 실측.
+        if pin.get("shaping") == "trace":
+            res_t = solve.run_plan(d["stage"], canon, d["deadline_frames"], trace=True)
+            if "error" in res_t:
+                fails.append(f"trace replay 에러: {res_t['error']}")
+            else:
+                if _digest(res_t) != digests[0]:
+                    fails.append(f"trace replay digest 불일치: {_digest(res_t)} != {digests[0]}")
+                if not _trace_valid(res_t.get("trace")):
+                    fails.append("pinned actions의 trace replay에서 trace 부재/기형 — 수집 회귀")
     if fails:
         print(f"[{label}] FAIL:")
         for f in fails:

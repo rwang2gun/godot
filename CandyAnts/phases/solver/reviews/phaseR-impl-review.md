@@ -156,3 +156,31 @@
   (best_goal_dist/count_retired)가 접근하는 최소 구조와 일치. 과잉 검증(값 시맨틱)은 하지 않음(형태만).
 - `trace_present=None`(with_trace=False 경로)은 반환에 미포함 — R0 manifest 형태 불변.
 - 동등성 비교는 trace_present 확인 후에만 수행 — None 간 공허 동등 경로 제거 확인.
+
+## Round 4 (2026-07-04) — needs-attention (MEDIUM 1 · HIGH 0)
+
+- **[medium] Trace shaping can silently degrade after an empty-plan-only preflight** (mdp.py
+  shaped_bonus + train.py) — trace 검증이 빈-plan preflight에만 있고, 실제 학습 롤아웃(actions 발화)은
+  `shaped_bonus`가 부재 trace를 `{}`로 fail-safe 변환해 shaping 0으로 침묵 진행 → "빈 plan은 trace 정상·
+  액션 발화 시 trace 소실" 회귀가 manifest·live preflight 둘 다 통과하면서 `shaping='trace'` 라벨 산출물이
+  base 보상+SIL만으로 인증될 수 있음.
+
+### 처리 (수정)
+- `_trace_valid`를 모듈 공용 헬퍼로 승격(3 소비자: preflight / 학습 롤아웃 / verify replay).
+- **train_seed 롤아웃별 trace 검증**: use_trace면 각 배치 롤아웃의 trace 유효성 확인, 위반 시
+  `RuntimeError`로 run 전체 fail(정직 크래시 — silent shaping 격하 산출물 원천 금지). run_training의
+  finally가 pool.close() 보장.
+- **verify-r1 ⑤ trace 재생 replay**: pinned actions(canonical)를 `trace=True`로 1회 재생 — ⓐ trace
+  유효성 ⓑ digest가 non-trace replay와 동일(trace 관측이 시뮬레이션 비교란) 실측. 빈-plan preflight가
+  못 보는 "액션 발화 시 소실"을 인증 대상 plan 자체로 검증.
+- **음성 실증(probe)**: ActionTraceDropPool(빈 plan trace 정상·액션 plan만 소실 = R4 정확 시나리오) →
+  ① train_seed RuntimeError fail-closed ② 빈-plan preflight는 통과(지적 재현 = 롤아웃 검증 필수 입증).
+  정상 경로 스모크: S11 seed0 trace+SIL 80 eps 클리어(회귀 0) + verify-r1/r0 PASS(trace replay 포함).
+
+## Self-Review Round 4 (2026-07-04) — clean (HIGH 0)
+
+- RuntimeError 전파 경로: train_seed → run_training(catch 없음) → finally pool.close() → 프로세스 비정상
+  종료 = 정직 실패(manifest 미기록이 옳음 — 부분 성공 위장 없음).
+- greedy 평가 rollout은 trace 미요청·shaping 미사용 — 검증 비대상이 정확.
+- verify ⑤는 grammar_fails==0 && replay 성공 경로 안에서만 실행 — canon 유효성 전제 성립.
+- shaped_bonus의 {} fail-safe는 잔존하되(순수 함수 방어) 학습 경로에선 롤아웃 검증이 선행해 마스킹 불가.
