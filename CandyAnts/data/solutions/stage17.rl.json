@@ -108,7 +108,7 @@
    }
   },
   "pass": true,
-  "pass_rule": ">=2/3 seeds greedy clear within per-seed budget",
+  "pass_rule": ">=1/1 seeds greedy clear within per-seed budget",
   "seeds": [
    {
     "seed": 0,
@@ -362,6 +362,7 @@
    "ok": true,
    "wall_s": 0.68,
    "runs": 8
-  }
+  },
+  "mode": "exploratory-sweep"
  }
 }

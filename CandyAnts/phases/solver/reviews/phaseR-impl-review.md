@@ -184,3 +184,27 @@
 - greedy 평가 rollout은 trace 미요청·shaping 미사용 — 검증 비대상이 정확.
 - verify ⑤는 grammar_fails==0 && replay 성공 경로 안에서만 실행 — canon 유효성 전제 성립.
 - shaped_bonus의 {} fail-safe는 잔존하되(순수 함수 방어) 학습 경로에선 롤아웃 검증이 선행해 마스킹 불가.
+
+## Round 5 (2026-07-04) — needs-attention (MEDIUM 1 · HIGH 0)
+
+- **[medium] Single-seed sweep artifacts are certified with the >=2/3 pass label** (train.py
+  run_training) — pass_rule이 ">=2/3 seeds…"로 하드코딩돼 단일-seed 탐사 스윕 산출물(S17: seeds=[0],
+  pass:true)이 pinned 3-seed acceptance와 구별 불가 = 증거 과대표시. (게이트 자체는 seeds pin으로 스윕
+  산출물을 거부하므로 인증 우회는 아니나, manifest 자기서술이 fail-open.)
+
+### 처리 (수정)
+- **writer 정직화**: `pass_rule = f">={need}/{len(seeds)} seeds…"`(verify와 동일식 need) + `mode` 필드
+  신설(`pinned-acceptance` iff seeds==pinned [0,1,2], else `exploratory-sweep`). 3-seed 경로의 pass_rule
+  문자열은 기존과 바이트 동일(">=2/3…") — stage11/12 pinned 산출물과 자연 정합, verify 무영향.
+- **S17 메타 다운그레이드**(재학습 없는 정직 relabel — run 사실과 일치): pass_rule ">=1/1…" +
+  mode "exploratory-sweep". actions/결과 무변경(탐사 스윕 증거로서 유효).
+- **실증**: S11 단일-seed 저장 스모크 → 신규 필드 정확(">=1/1"+exploratory-sweep) 확인 후 git 복원 →
+  verify-r0/r1 PASS(pinned 산출물 비영향).
+
+## Self-Review Round 5 (2026-07-04) — clean (HIGH 0)
+
+- need 식이 verify `_verify_pinned`와 동일((n+(n%2)+1)//2) — 판정 이원화 없음, 집계 print에도 need 표기.
+- mode 판정 기준 seeds==R0_PIN["seeds"]: R0/R1 pin 동일 세트라 단일 기준으로 충분. 스윕이 우연히
+  [0,1,2]를 쓰면 pinned-acceptance로 표기되나 그 경우 예산/shaping pin은 verify가 잡음 — mode는
+  가독 라벨이지 인증 필드가 아님(인증 권위=verify pin 검사 전체).
+- S17 hand-edit 범위 = 서술 메타 2필드만, actions/seeds/curves 등 측정치 무변경 — 위조 아님(다운그레이드).

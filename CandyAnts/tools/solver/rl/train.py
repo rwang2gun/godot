@@ -391,8 +391,9 @@ def run_training(args) -> int:
     finally:
         pool.close()
     n_clear = sum(1 for r in seed_results if r["cleared"])
-    passed = n_clear * 2 >= len(seeds) + (len(seeds) % 2)   # ≥2/3 (일반화: 과반)
-    print(f"=== 집계: {n_clear}/{len(seeds)} seed 클리어 → {'PASS' if passed else 'FAIL'} ===")
+    need = (len(seeds) + (len(seeds) % 2) + 1) // 2         # ≥2/3 (일반화: 과반) — verify와 동일식
+    passed = n_clear >= need
+    print(f"=== 집계: {n_clear}/{len(seeds)} seed 클리어 (필요 ≥{need}) → {'PASS' if passed else 'FAIL'} ===")
     # 산출물: 최소 에피소드 성공 seed의 greedy plan + manifest(effective config 전량, R2-M1)
     ok = [r for r in seed_results if r["cleared"]]
     if ok and not args.no_save:
@@ -407,7 +408,13 @@ def run_training(args) -> int:
                 "grammar_version": GRAMMAR_VERSION, "no_hint": True,
                 "envs_requested": args.envs, "envs_effective": envs_effective,
                 "config": {**cfg, "reward": REWARD, "shaping_coeffs": dict(SHAPING)},
-                "pass": passed, "pass_rule": ">=2/3 seeds greedy clear within per-seed budget",
+                # post-commit codex R5: pass_rule은 실제 seed 수 기반 — 단일-seed 스윕이 ">=2/3" 라벨로
+                # 증거 과대표시하던 fail-open 차단. mode가 pinned acceptance와 탐사 스윕을 명시 구별
+                # (pinned seed set = R0/R1 공통 [0,1,2]; verify는 어차피 seeds pin으로 스윕 산출물 거부).
+                "pass": passed,
+                "pass_rule": f">={need}/{len(seeds)} seeds greedy clear within per-seed budget",
+                "mode": ("pinned-acceptance" if seeds == R0_PIN["seeds"]
+                         else "exploratory-sweep"),
                 "seeds": [{k: r[k] for k in ("seed", "cleared", "episodes", "wall_s", "best_reward")}
                           for r in seed_results],
                 "curves": {str(r["seed"]): r["curve"] for r in seed_results},
