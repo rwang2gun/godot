@@ -62,7 +62,7 @@ DEFAULTS = dict(batch=16, lr=3e-3, entropy=0.03, entropy_min=0.02, entropy_decay
 # replay_deadline도 pin(impl-R2 HIGH: manifest 자기-일관성만 보면 느슨한 deadline 재생성이 통과) —
 # 판정 replay가 인증의 실체이므로 그 deadline은 상수 고정. 학습-전용 knob(train_deadline 등)은 pin 비대상.
 R0_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=7200,
-              replay_deadline=REPLAY_DEADLINE)
+              replay_deadline=REPLAY_DEADLINE, max_len=DEFAULTS["max_len"])
 
 # R1 고정 acceptance 계약(plan §R1) — R0_PIN + shaping 상수(plan-R1-H1: 계수까지 fail-closed;
 # 계수 튜닝은 fallback 1에서만, 그때 이 pin도 같은 커밋에서 갱신). train_deadline=4500은 "학습-전용
@@ -72,7 +72,8 @@ R0_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=7200,
 # 세션 로그 F6·F7). fallback 계약대로 채택 시 pin 동일-커밋 갱신.
 R1_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=1800,
               replay_deadline=REPLAY_DEADLINE, shaping="trace", shaping_coeffs=dict(SHAPING),
-              train_deadline=4500, sil=True, sil_buffer=8, sil_coef=0.1)
+              train_deadline=4500, sil=True, sil_buffer=8, sil_coef=0.1,
+              max_len=DEFAULTS["max_len"])   # post-commit codex R1 HIGH: 문법 길이도 인증 실체 — pin
 
 
 def _digest(r: dict) -> dict:
@@ -410,7 +411,7 @@ def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
     d = json.loads(path.read_text(encoding="utf-8"))
     meta = d.get("rl_meta") or {}
     cfg = meta.get("config") or {}
-    mdp = StageMDP(stage_id)
+    mdp = StageMDP(stage_id, max_len=pin["max_len"])   # pinned 문법(길이 포함)이 검증 기준
     # ① manifest 완전성 + 스테이지 바인딩 + pinned 계약(impl-R1 HIGH: 다른 config/스테이지 산출물 차단)
     if d.get("stage_id") != stage_id:
         fails.append(f"stage_id {d.get('stage_id')} != {stage_id}")
@@ -449,8 +450,21 @@ def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
         pf = meta.get("preflight_trace")
         if not isinstance(pf, dict) or any(k not in pf for k in ("ok", "wall_s", "runs")):
             fails.append("rl_meta.preflight_trace {ok,wall_s,runs} 누락")
-        elif int(meta.get("envs_effective") or 0) > 1 and pf.get("ok") is not True:
-            fails.append("envs_effective>1인데 preflight_trace.ok != true")
+        else:
+            # post-commit codex R1 MEDIUM: 값의 구조까지 강제 — runs는 preflight 계약(env당 정확히
+            # 2회 = 2*envs_requested; pin envs>1이라 preflight 항상 실행), wall>0. runs=0/wall=0
+            # 같은 무의미 자기-보고 증거를 fail-closed로 차단.
+            eff = int(meta.get("envs_effective") or 0)
+            if pf.get("runs") != 2 * pin["envs"]:
+                fails.append(f"preflight_trace.runs {pf.get('runs')!r} != 2*envs_requested "
+                             f"{2 * pin['envs']} (preflight 계약 위반 — 위조/무의미 증거)")
+            w = pf.get("wall_s")
+            if not (isinstance(w, (int, float)) and not isinstance(w, bool) and w > 0):
+                fails.append(f"preflight_trace.wall_s {w!r} — 양수 실측치 아님")
+            if eff > 1 and pf.get("ok") is not True:
+                fails.append("envs_effective>1인데 preflight_trace.ok != true")
+            if eff <= 1 and pf.get("ok") is True:
+                fails.append("envs_effective<=1(N=1 강등)인데 preflight_trace.ok == true — 모순 manifest")
     seeds = meta.get("seeds") or []
     if [s.get("seed") for s in seeds] != pin["seeds"]:
         fails.append(f"seeds {[s.get('seed') for s in seeds]} != pinned {pin['seeds']}")
@@ -469,10 +483,35 @@ def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
     n_clear = sum(1 for s in seeds if s.get("cleared"))
     if n_clear < need:
         fails.append(f"{n_seeds}-seed predicate 미달: cleared {n_clear}/{n_seeds} (≥{need} 필요)")
-    # ③ 독립 replay ×2 (단발 run_plan = 권위 경로) + saved==hp_stage
+    # ③ 문법 인코딩 가능성 (post-commit codex R1 HIGH): grammar_version 문자열 신뢰 금지 — 각 액션이
+    # encode→decode 라운드트립으로 **자기 자신을 재생산**해야 현행 문법의 표현 가능 액션이다(문법 밖
+    # 액션은 격자 투영이 값을 바꾸거나 어휘 .index가 예외 → fail-closed). 길이도 pinned 실효 max_len
+    # (min(ant-target 인벤토리 합, pin.max_len)) 이내여야 정책이 산출 가능했던 plan.
+    actions = d.get("actions") or []
+    canon: list[dict] = []
+    grammar_fails = 0
+    if len(actions) > mdp.max_len:
+        fails.append(f"actions {len(actions)}개 > pinned 실효 max_len {mdp.max_len} — 문법 밖 길이")
+        grammar_fails += 1
+    if not actions:
+        fails.append("actions 비어 있음 — 유효 해 아님(스텝0 SUBMIT 마스킹 계약)")
+        grammar_fails += 1
+    for i, a in enumerate(actions):
+        try:
+            rt = mdp.decode(mdp.encode_action(a))
+        except Exception as e:
+            fails.append(f"action[{i}] 문법 인코딩 불가({type(e).__name__}: {e}) — grammar 밖 액션")
+            grammar_fails += 1
+            continue
+        if rt != a:
+            fails.append(f"action[{i}] encode→decode 라운드트립 불일치(문법 밖 액션): {a} != {rt}")
+            grammar_fails += 1
+        canon.append(rt)
+    # ④ 독립 replay ×2 (단발 run_plan = 권위 경로) + saved==hp_stage — **replay 대상은 라운드트립
+    # canonical plan**(문법 산출이 replay 권위; ③ 통과 시 원본과 값 동일). ③ 실패면 replay 무의미 — 생략.
     digests = []
-    for i in range(2):
-        res = solve.run_plan(d["stage"], d["actions"], d["deadline_frames"], trace=False)
+    for i in range(2 if grammar_fails == 0 else 0):
+        res = solve.run_plan(d["stage"], canon, d["deadline_frames"], trace=False)
         if "error" in res:
             fails.append(f"replay {i + 1} 에러: {res['error']}")
             break

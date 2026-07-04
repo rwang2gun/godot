@@ -1285,3 +1285,10 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 ### R1-스윕 (S13~S25, 단일 seed·30분 cap·비게이트 — 진행 중)
 - 선결: `--max-len 8`(I1 — S14 known 8액션 표현) + ant-target 메타 필터(I2 — cell-target 혼재 차단,
   S19=sand_mound만이라 SKIP). 결과는 세션 로그 표에 스테이지별 박제.
+
+### R1 impl-stage 사후 리뷰 (2026-07-04, 트레일 `reviews/phaseR-impl-review.md` §R1)
+- codex R1(HIGH: verify-r1이 문법 인코딩 가능성 미검증 — grammar_version 문자열 신뢰 + MED:
+  preflight_trace 자기위조 가능) → hot-fix: **encode→decode 라운드트립 자기재생산 검사** + max_len pin
+  (R0/R1) + 실효 길이 검사 + canonical plan replay + preflight runs==2*envs·wall>0·강등-모순 거부.
+  음성 실증 6종(오프그리드 x·비정렬 y밴드·길이 초과·max_len 변조·runs=0·wall=0) 전부 FAIL + 복원 PASS,
+  verify-r0/r1 회귀 0 → Self-R1 clean → codex 재리뷰 진행.

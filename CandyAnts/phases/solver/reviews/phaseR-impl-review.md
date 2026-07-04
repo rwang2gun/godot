@@ -62,3 +62,51 @@
 > fail-open finding in the staged R0 files. **No material findings.**
 
 **impl-stage 종결**: R1(H1·M2) fix+음성실증 → Self-R1 clean → R2(H1) fix+음성실증 → Self-R2 clean → R3 approve.
+
+---
+
+# Phase R R1 (trace-shaped 보상+SIL) — impl-stage 적대적 리뷰 트레일 (사후 경로)
+
+> 대상: 커밋 `431fdd6` diff(base `dc68a47`) — `tools/solver/rl/{mdp.py,train.py}` +
+> `data/solutions/stage{11,12,17}.rl.json`. R1 커밋이 명시 박제한 "codex 리뷰 미실시 — 다음 세션 첫 작업"
+> 이행. 사후(post-commit) 리뷰이므로 HIGH는 hot-fix 커밋(`fix: … (phase R sweep)`) 경로.
+
+## Round 1 (2026-07-04) — needs-attention (HIGH 1 · MEDIUM 1)
+
+- **[high] verify-r1 replays arbitrary actions without proving they are encodable by grammar r1.1**
+  (train.py verify 경로) — grammar_version 문자열만 검사하고 `d["actions"]`를 그대로 replay. StageMDP
+  encode→decode 왕복 검증·액션 수 vs pinned max_len 검사 부재 → grammar_version="r1.1"로 위조/수기 산출물
+  (더 큰 max_len·ant-target/y_row 어휘 밖 액션 포함)이 replay만 통과하면 인증됨. "R1 문법의 산출물"이라는
+  계약 파괴.
+- **[medium] Trace preflight evidence can be self-forged with nonsensical run counts** — {ok,wall_s,runs}
+  키 존재만 검사. runs가 preflight 계약(2×envs)과 일치하는지·zero/음수 wall·zero runs 거부 없음 →
+  `preflight_trace={"ok":true,"wall_s":0,"runs":0}` 위조가 통과(trace 결정론 증거가 fail-closed 아님).
+
+### 처리 (전부 수정 — hot-fix 커밋)
+- HIGH → ① `R0_PIN`/`R1_PIN`에 `max_len=6` 추가(기존 extra_cfg 메커니즘이 cfg 존재+값 자동 강제) +
+  `_verify_pinned`의 StageMDP를 pinned max_len으로 구성. ② `len(actions) ≤ 실효 max_len`(=min(ant-target
+  인벤토리 합, pin.max_len)) + 빈 actions 거부. ③ **각 액션 encode→decode 라운드트립 자기재생산 검사** —
+  문법 밖 액션은 격자 투영이 값을 바꾸거나(오프-그리드 x·비정렬 y밴드) 어휘 `.index`가 예외(미지 스킬·
+  state) → fail-closed. 키 누락/잉여 키(at_frame 등)도 decode의 명시 키 재생산과 불일치로 검출. ④ replay
+  대상을 라운드트립 canonical plan으로(문법 산출이 replay 권위; 통과 시 원본과 값 동일), 문법 실패 시
+  replay 생략(이미 FAIL 확정).
+- MEDIUM → `preflight_trace.runs == 2*envs_requested`(preflight 계약: env당 정확히 2회) + `wall_s > 0`
+  (bool 배제 타입 검사) + `envs_effective≤1(강등)인데 ok=true`인 모순 manifest 거부.
+- **음성 실증 6종 + 복원**(스크래치 하네스, stage12.rl.json 변조): ① off-grid trigger.x(+7px, 엔진 replay
+  가능·문법 밖) → FAIL(라운드트립 불일치) ② 행 비정렬 y밴드 → FAIL ③ 액션 복제 길이 초과 → FAIL(4>실효 3)
+  ④ config.max_len=8 변조 → FAIL(pin) ⑤ preflight runs=0 → FAIL ⑥ wall_s=0 → FAIL / 복원 → **verify-r1
+  PASS**. verify-r0(S11)도 강화 후 PASS(회귀 0).
+- 하네스 사고 1건 정직 기록: 1차 실행이 cp949 print로 중단돼 변조본이 디스크에 잔존 → 2차 실행 orig가
+  오염본을 읽음(전 케이스 "actions 4개" 혼입). git restore로 원본 복원 후 재실행 = 클린 결과. 교훈:
+  변조-복원 하네스는 git 권위 복원 + UTF-8 reconfigure 필수.
+
+## Self-Review Round 1 (2026-07-04) — clean (HIGH 0)
+
+- 위조 경로 전수 재점검: 키 누락(select/state/mode) → decode가 명시 키 재생산 → 불일치 FAIL / NaN·Inf x →
+  round() 예외 → FAIL / picked_ge n 범위 밖·비정수 → clamp/int 불일치 FAIL / 잉여 키 → 불일치 FAIL — 열린
+  경로 발견 못 함.
+- `envs_effective==1 & ok==true` 모순 검사의 거짓 양성 없음: 강등은 preflight FAIL시에만 발생(build_pool
+  유일 경로), N=1 요청 placeholder(runs=0)는 envs_requested pin에서 선차단.
+- replay 생략 게이트(grammar_fails>0)는 fails 비어있지 않은 FAIL 확정 경로 — 거짓 통과 불가. PASS 경로
+  digests[0] 접근 안전(fails 없으면 replay 2회 보장).
+- 학습 경로(run_training/train_seed)·mdp.py·--coverage 무변경 — 게이트 강화만. HIGH 0.
