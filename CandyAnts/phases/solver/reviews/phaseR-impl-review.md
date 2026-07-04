@@ -220,3 +220,34 @@ R2(MED: 검증자 실행 요구) → `cc9f1f4` live preflight → Self-R2 clean 
 `7d1ae6d` trace_present fail-closed+probe → Self-R3 clean → R4(MED: 롤아웃 trace 소실 침묵) →
 `9a06f6e` 롤아웃 검증+trace 재생 replay+probe → Self-R4 clean → R5(MED: 스윕 라벨 과대표시) →
 `93f58a5` pass 시맨틱 정직화+S17 다운그레이드 → Self-R5 clean → **R6 approve**.
+
+# §R2 impl 사후 리뷰 (2026-07-04, base=1079481^)
+
+## Round 1 (codex adversarial-review --base HEAD~1)
+Verdict: needs-attention
+
+- [high] verify-r2 allows pinned acceptance to pass with missing pinned seeds (train.py 결측-seed subset 허용)
+  → 결측 seed를 "암묵 FAIL 집계"로만 다뤄 cherry-pick 경로(나쁜 seed 생략) 존재. 권고: 전원 기록 요구
+  또는 결측의 상류-실패 근거 검증.
+- [high] Transfer checkpoint provenance is verified only against mutable JSON, not checkpoint bytes
+  → ckpt_loaded.sha를 chain/상류 JSON과만 대조 — 상류 ckpt "파일"의 실존·해시·내용 미검증. 위조/스테일
+  JSON으로 임의 transfer 출처 위장 가능. 권고: 상류 ckpt 파일 resolve→sha 실측→load→내부
+  stage/seed/cleared/digest/chain 검증(byte-backed).
+- [medium] Saved checkpoint validation omits the per-stage mask digest
+  → 저장 ckpt 무결 블록이 mask_digest 미대조 — exact-resume 계약 비이행 ckpt를 게이트가 인증 가능.
+  권고: ck.mask_digest == mdp.mask_digest() 추가.
+
+## Round 1 hot-fix (적용)
+- HIGH-1: 결측 pinned seed = **상류 산출물의 미클리어 실증이 있어야만 허용**(from-scratch 사슬은 전원
+  기록 필수) — "결측=FAIL 집계" 시맨틱은 유지하되 결측의 *근거*를 fail-closed 검증(cherry-pick 차단).
+- HIGH-2: transfer 출처 **byte-backed** — 상류 ckpt 파일 실존+sha 실측(ckpt_loaded·상류 manifest 양쪽
+  대조)+load 후 grammar/vocab·stage/seed/cleared_seg·layout/mask digest(상류 mdp 기준)·내부 사슬 검증.
+- MED-3: 저장 ckpt 검증에 mask_digest 대조 추가.
+
+## Self-Review Round 1 (hot-fix 자체 적대 리뷰)
+- 결측-근거 로직: 상류 JSON 위조로 "미클리어 근거"를 조작해도 결측 seed는 여전히 FAIL 집계 —
+  predicate 부풀림 경로 없음(근거 위조의 이득 = 0). 상류 산출물/기록 부재 = fail-closed FAIL 확인.
+- byte-backed 블록은 JSON 교차 통과 후에만 진입(중복 보고 없음), 상류 mdp digest 기준값은 pinned
+  cap(4500)·max_len(6)으로 학습 config와 정합(stage11/19 PASS 실증).
+- 음성 실증 3종(P1 결측 무근거/P2 상류 ckpt 바이트 변조/P3 mask_digest+sha 정합 위조) 전부 검출,
+  복원 PASS. verify-r0/r1 비접촉(코드 경로 분리). → HIGH 0, clean.
