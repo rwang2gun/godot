@@ -1094,11 +1094,18 @@ def _check_preflight_evidence(pf, envs_req: int, envs_eff: int, fails: list[str]
         fails.append(f"{px}: envs_effective<=1(N=1 강등)인데 ok == true — 모순 manifest")
 
 
-def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain_stages,
+# 사슬 세그먼트 contract 키(codex §R2-R4 HIGH — stage-id 축약 비교 금지, 전체 메타데이터 대조)
+_SEG_KEYS = ("stage_id", "seed", "mode", "episodes", "batches", "wall_s", "cleared",
+             "ckpt_sha", "ckpt_path")
+
+
+def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain,
                         pin: dict, vocab_digest: str, fails: list[str], px: str,
                         expect_sha: str | None = None) -> None:
     """ckpt 기록({path,sha256})의 **byte-backed** 검증 — 파일 실존 + sha 실측(기록·대조 sha 양쪽) +
-    load 후 내용 계약(grammar/전역 어휘·stage·seed·layout/mask digest·cleared_seg·내부 사슬).
+    load 후 내용 계약(grammar/전역 어휘·stage·seed·layout/mask digest·cleared_seg) + **내부 사슬을
+    신뢰-검증된 세그먼트 레코드와 전체 메타데이터로 대조**(expect_chain = 이 ckpt의 자기-세그먼트를
+    말단으로 포함한 사슬; codex §R2-R4 HIGH — id 축약 비교 금지) + 학습 로드 계약 실행.
     현-스테이지 저장분 / transfer 로드 출처 / 결측-seed 상류 근거 3경로가 **동일 계약**을 공유
     (codex §R2-R1 HIGH-2·R2 HIGH-1/2 — JSON-only 신뢰·부재-우회 제거)."""
     f = ROOT / str(rec.get("path"))
@@ -1140,10 +1147,30 @@ def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain_
         fails.append(f"{px}: ckpt mask_digest 불일치(exact-resume 계약 비이행)")
     if expect_cleared is not None and bool(ck.get("cleared_seg")) != bool(expect_cleared):
         fails.append(f"{px}: ckpt cleared_seg {ck.get('cleared_seg')} != 기대 {expect_cleared}")
-    if expect_chain_stages is not None:
-        ck_stages = ([g.get("stage_id") for g in (ck.get("chain") or [])] + [ck.get("stage_id")])
-        if ck_stages != list(expect_chain_stages):
-            fails.append(f"{px}: ckpt 내부 사슬 {ck_stages} != 기대 {list(expect_chain_stages)}")
+    if expect_chain is not None:
+        # 내부 사슬 = 자기-세그먼트 이전의 완결 세그먼트들. 신뢰 사슬(expect_chain[:-1])과
+        # **contract 키 전체**로 세그먼트별 대조(codex §R2-R4 HIGH — seed/mode/cleared/sha/카운터
+        # 위조가 stage-id 열 뒤에 숨는 것 차단).
+        internal = ck.get("chain") or []
+        expect_prior = list(expect_chain[:-1])
+        if len(internal) != len(expect_prior):
+            fails.append(f"{px}: ckpt 내부 사슬 길이 {len(internal)} != 기대 {len(expect_prior)}")
+        else:
+            for i, (a, b) in enumerate(zip(internal, expect_prior)):
+                bad = [k for k in _SEG_KEYS if a.get(k) != b.get(k)]
+                if bad:
+                    fails.append(f"{px}: ckpt 내부 사슬[{i}] 세그먼트 메타 불일치 {bad}: "
+                                 f"{ {k: a.get(k) for k in bad} } != { {k: b.get(k) for k in bad} }")
+        # 자기-세그먼트 결속: ckpt의 세그먼트 카운터/모드가 신뢰 사슬 말단 레코드와 일치해야
+        # 내부 카운터 위조로 구간 예산 회계(plan-R2 MED-4)를 우회할 수 없다.
+        last = expect_chain[-1]
+        for ck_k, seg_k in (("seg_mode", "mode"), ("batch_i", "batches"),
+                            ("episodes_seg", "episodes"), ("wall_seg", "wall_s"),
+                            ("cleared_seg", "cleared"), ("stage_id", "stage_id"),
+                            ("seed", "seed")):
+            if ck.get(ck_k) != last.get(seg_k):
+                fails.append(f"{px}: ckpt.{ck_k} {ck.get(ck_k)!r} != 사슬 말단.{seg_k} "
+                             f"{last.get(seg_k)!r} — 자기-세그먼트 결속 위반")
     # 학습 로드 계약 실행(codex §R2-R3 HIGH — 검증자와 로더의 계약 동일화): dtype·model_cfg 대조 +
     # pinned 정책/옵티마이저 인스턴스에 state_dict **실로드**(shape/key 불일치 = 예외 = FAIL).
     # 메타데이터만 갖춘 위조 .pt는 여기서 반드시 죽는다. torch_rng는 uint8 상태 텐서여야 함
@@ -1256,7 +1283,7 @@ def verify_r2(stage_id: int) -> int:
                 else:
                     pre = len(fails)
                     _validate_ckpt_file(ue["ckpt_saved"], up_sid, s, False,
-                                        [g.get("stage_id") for g in (ue.get("chain") or [])],
+                                        list(ue.get("chain") or []),
                                         pin, mdp.vocab_digest, fails,
                                         f"결측 seed {s} 근거(S{up_sid})")
                     excuse = len(fails) == pre         # 증거 검증 전부 통과 시에만 근거 인정
@@ -1333,7 +1360,8 @@ def verify_r2(stage_id: int) -> int:
                     else:
                         # byte-backed provenance(codex §R2-R1 HIGH-2): 상류 ckpt "파일"을 실측하고
                         # 내용 계약까지 검증(공용 helper) — 위조/스테일 manifest로 출처 위장 불가.
-                        _validate_ckpt_file(ue["ckpt_saved"], up_sid, sd, True, stages[:-1],
+                        # 기대 사슬 = 검증된 외부 사슬의 상류 구간(세그먼트 레코드, §R2-R4).
+                        _validate_ckpt_file(ue["ckpt_saved"], up_sid, sd, True, chain[:-1],
                                             pin, mdp.vocab_digest, fails,
                                             f"{px} transfer 출처(S{up_sid})",
                                             expect_sha=cl.get("sha256"))
@@ -1347,7 +1375,7 @@ def verify_r2(stage_id: int) -> int:
         else:
             if cs.get("sha256") != chain[-1].get("ckpt_sha"):
                 fails.append(f"{px}: ckpt_saved sha != 말단 세그먼트 ckpt_sha(사슬 기록 모순)")
-            _validate_ckpt_file(cs, stage_id, sd, bool(e.get("cleared")), stages,
+            _validate_ckpt_file(cs, stage_id, sd, bool(e.get("cleared")), chain,
                                 pin, mdp.vocab_digest, fails, px)
     # ③ 문법 라운드트립 + 표현 가능 길이 (r1 ③ 계승 — r2 문법)
     actions = d.get("actions") or []

@@ -302,3 +302,25 @@ Verdict: needs-attention
   산출물 3종으로 정합 실증. 검증자는 전역 RNG 비오염(set_rng_state 미호출, 타입/shape 검사만).
 - 음성 픽스처 2종(R3-N1 메타-온리 .pt + sha 정합 위장 / R3-N2 hidden-64 shape 위조 state_dict)
   전부 거부 + 복원 PASS. stage11/19 PASS 회귀 0. → HIGH 0, clean.
+
+## Round 4 (codex adversarial-review --base HEAD~4)
+Verdict: needs-attention
+
+- [high] Checkpoint validation only compares internal chain stage IDs
+  → ck['chain']를 stage-id 열로 축약 비교 — 내부 세그먼트의 seed/mode/cleared/ckpt_sha/path 위조가
+  통과(resume/transfer 시 chain이 그대로 복사되므로 오염 전파). 권고: 신뢰 사슬(검증된 외부 JSON
+  chain)과 세그먼트 전체 메타데이터 대조 + 회귀 픽스처.
+
+## Round 4 hot-fix (적용)
+- `_validate_ckpt_file`의 기대값을 stage-id 열 → **세그먼트 레코드 리스트**로 승격: 내부 chain을
+  contract 키 전체(stage_id/seed/mode/episodes/batches/wall_s/cleared/ckpt_sha/ckpt_path)로
+  세그먼트별 대조 + **ckpt 자기-세그먼트 결속**(seg_mode/batch_i/episodes_seg/wall_seg/cleared_seg가
+  외부 사슬 말단 레코드와 일치 요구 — 내부 카운터 위조로 구간 예산 회계 우회 차단).
+- 회귀 픽스처: 유효 state_dict + 내부 chain seed/mode 위조 ckpt → 거부 실증.
+
+## Self-Review Round 4 (hot-fix 자체 적대 리뷰)
+- 3 호출부 기대 사슬 배선(현-스테이지=chain / transfer 출처=chain[:-1] / 결측 근거=ue.chain — 전부
+  자기-세그먼트를 말단으로 포함) 실 산출물 3종 PASS로 정합 실증. wall_s float 등가(json repr 왕복) 확인.
+- 남은 신뢰 루트 = 산출물 JSON ↔ ckpt 바이트가 링크마다 상호-앵커(사슬 sha 교차 + 내부 세그먼트 전
+  키 + 자기-세그먼트 결속 + state_dict 실로드) — 위조하려면 pinned shape의 실 학습 상태를 재구성해야
+  하는 수준. 음성 픽스처 2종(R4-N1/N2) 검출·복원 PASS. → HIGH 0, clean.
