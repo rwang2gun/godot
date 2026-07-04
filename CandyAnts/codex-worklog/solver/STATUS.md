@@ -1293,4 +1293,4 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   음성 실증 6종(오프그리드 x·비정렬 y밴드·길이 초과·max_len 변조·runs=0·wall=0) 전부 FAIL + 복원 PASS,
   verify-r0/r1 회귀 0 → Self-R1 clean → codex R2(MED: preflight 자기-보고는 증거 아님 — 검증자 실행
   요구) → **verify-r1에 검증자 측 live trace preflight**(pinned envs 직접 실행, ok+runs 실측, 예외
-  fail-closed) → verify-r0/r1 PASS → Self-R2 clean → codex R3 진행.
+  fail-closed) → verify-r0/r1 PASS → Self-R2 clean → codex R3(MED: trace 부재 시 공허 통과) → **preflight trace 유효성 fail-closed**(trace_present 필드+live 검사 요구, 누락/빈/기형 거부, probe 3종 실증) → Self-R3 clean → codex R4 진행.

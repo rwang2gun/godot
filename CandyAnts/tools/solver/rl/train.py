@@ -142,12 +142,28 @@ def preflight(pool: EnvPool, stage_scene: str, with_trace: bool = False) -> dict
     wall = time.monotonic() - t0
     digests = [_digest(r) for r in results]
     ok = all(d == digests[0] for d in digests)
-    if with_trace and ok:
+    trace_present = None
+    if with_trace:
+        # post-commit codex R3 MEDIUM: trace 수집이 조용히 사라지면(전부 None) 동등성 비교가 공허하게
+        # 통과 → "trace 결정론 증거"가 빈-plan 결정론으로 격하됨. **부재/공백/기형 trace = fail-closed** —
+        # 비어있지 않은 dict + 개미별 비어있지 않은 샘플 리스트(소비자 s[3] 접근과 정합: 샘플 len>=4).
+        def _trace_valid(t) -> bool:
+            return (isinstance(t, dict) and len(t) > 0
+                    and all(isinstance(v, list) and len(v) > 0
+                            and isinstance(v[0], (list, tuple)) and len(v[0]) >= 4
+                            for v in t.values()))
         traces = [r.get("trace") for r in results]
-        ok = all(t == traces[0] for t in traces)
+        trace_present = all(_trace_valid(t) for t in traces)
+        if not trace_present:
+            ok = False
+        elif ok:
+            ok = all(t == traces[0] for t in traces)
     print(f"[preflight] envs={pool.n} runs={len(digests)} trace={with_trace} "
-          f"parallel identical={ok} wall={wall:.2f}s base={digests[0]}")
-    return {"ok": ok, "wall_s": round(wall, 2), "runs": len(digests)}
+          f"trace_present={trace_present} parallel identical={ok} wall={wall:.2f}s base={digests[0]}")
+    info = {"ok": ok, "wall_s": round(wall, 2), "runs": len(digests)}
+    if with_trace:
+        info["trace_present"] = trace_present
+    return info
 
 
 def build_pool(envs_requested: int, stage_scene: str,
@@ -473,7 +489,8 @@ def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
         try:
             live_pool = EnvPool(pin["envs"])
             live = preflight(live_pool, mdp.stage_scene, with_trace=True)
-            if live["ok"] is not True or live["runs"] != 2 * pin["envs"]:
+            if (live["ok"] is not True or live["runs"] != 2 * pin["envs"]
+                    or live.get("trace_present") is not True):   # R3: trace 부재도 명시 거부
                 fails.append(f"검증자 측 trace preflight 실측 FAIL: {live}")
         except Exception as e:
             fails.append(f"검증자 측 trace preflight 실행 불가({type(e).__name__}: {e}) — fail-closed")

@@ -133,3 +133,26 @@
 - 위조 관점 재점검: 이제 preflight 경로 회귀는 검증자 실행에서 직접 드러남 — manifest 편집으로 은폐
   불가. 남은 자기-신뢰 = seed별 episodes/wall 수치(R0 때 LOW 수용 — 독립 replay+예산 pin이 보완) 동일.
 - 학습 경로 무변경. verify 실행 비용 +4 env 부팅(~0.6s) — 게이트 성격상 무시 가능.
+
+## Round 3 (2026-07-04) — needs-attention (MEDIUM 1 · HIGH 0)
+
+- **[medium] Live trace preflight accepts missing traces as valid evidence** (train.py preflight) —
+  `with_trace=True`가 `r.get("trace")` 동등성만 비교 → trace 수집이 조용히 사라지면(전부 None) 공허
+  통과 = live 검증이 "빈-plan 결정론"으로 격하, trace-shaped 경로 인증이 무근거화.
+
+### 처리 (수정)
+- `preflight()`에 **trace 유효성 fail-closed**: 비어있지 않은 dict + 개미별 비어있지 않은 샘플 리스트 +
+  첫 샘플 len>=4(소비자 `s[3]` 접근 정합) 전 결과 요구. 위반 시 `ok=False` + 반환에 `trace_present`
+  필드 신설. `_verify_pinned` live 검사가 `trace_present is True`까지 명시 요구.
+- **음성 실증(probe, EnvPool 서브클래스로 회귀 시뮬레이션)**: ① trace 필드 누락 풀 → ok=False·
+  trace_present=False ② trace 빈 dict 풀 → 동일 FAIL ③ 정상 풀 대조 → ok=True·trace_present=True.
+  verify-r1/r0 회귀 0 (verify-r1 live preflight trace_present=True 확인).
+- 부수 정합: 학습 경로(build_pool)도 같은 guard를 타므로 trace 수집 회귀 시 N=1 강등+ok=False가
+  manifest에 정직 기록되고, verify 측 live preflight가 독립적으로 FAIL — 이중 차단.
+
+## Self-Review Round 3 (2026-07-04) — clean (HIGH 0)
+
+- `_trace_valid` 경계: dict 아님/빈 dict/빈 샘플 리스트/기형 샘플(len<4) 전부 거부 — 소비자
+  (best_goal_dist/count_retired)가 접근하는 최소 구조와 일치. 과잉 검증(값 시맨틱)은 하지 않음(형태만).
+- `trace_present=None`(with_trace=False 경로)은 반환에 미포함 — R0 manifest 형태 불변.
+- 동등성 비교는 trace_present 확인 후에만 수행 — None 간 공허 동등 경로 제거 확인.
