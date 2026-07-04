@@ -1343,3 +1343,40 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   9커밋(결측-seed 근거/byte-backed·정본경로 provenance/로드 계약 동일화/내부사슬 전체-메타 결속/
   seed별 replay predicate/knob 전량 pin/optimizer 슬롯/RNG 실왕복) + 자체리뷰 매 라운드 clean +
   음성 픽스처 ~20종. 종결 스윕 그린(verify-r0/r1/r2(11·19)·coverage×2). 상세=세션 로그 + 트레일.
+
+## Phase R §R3 plan-stage 종결 (2026-07-04) — trace-refinement MDP (closed-loop 학습판)
+
+> 스코프 = 사용자 결정 "**trace-refinement 우선**"(dense per-prefix는 내부 fallback rung). 병목 = R2
+> curriculum 사슬 0/3 FAIL의 S13(blocker1+climber5 carry-연쇄, bestR 0.660 전이-불변 고원).
+> plan SoT = `phases/solver/auto-solver-plan.md` §R3. 트레일 = `reviews/phaseR-plan-review.md` `# §R3`.
+
+### 설계 핵심 (blind 구성 → feedback 구성)
+- **MDP 재정의**: 정책이 **직전 partial plan의 롤아웃 trace를 상태로 관측**하며 다음 액션 선택(휴리스틱
+  closed-loop의 학습판). 액션 문법 `r2.1` 무변경 — *관측/상태*만 확장. `--refine` opt-in(기본 off →
+  R0/R1/R2·verify-r0/r1/r2 완전 불변).
+- **R3_OBS_SCHEMA**(material obs 상수 전량 pin): 공간 채널 `[visit_walk, loss, visit_carry, pickup_goal]`
+  (C_trace=4) + 집계 스칼라 7종 + verdict_code enum{absent:0..error:4} + 정규화 분모 전량 열거 + dtype
+  float32 + absent fail-safe + `obs_schema_digest`.
+- **비용 상한**: L+1 롤아웃/에피소드 + 결정론 memo 캐시(`memo_key = sha256(exec_config_digest[full
+  runtime stage snapshot·skill meta·fixed_fps·SimConfig·capabilities·godot rev·grammar·deadlines·trace
+  schema·protocol], lowered plan)`). THROUGHPUT_FLOOR{MIN_EPISODES=3000, MIN_DISTINCT=1500} — wall-bound
+  vacuous FAIL 차단(floor 미달=`throughput-pin-invalid`≠model FAIL, 예산 개정 ≤1회 후 `throughput-infeasible`).
+- **보상**: primary = `R_d4(D4 verdict) + R1_terminal_shaping`(계상 1회). fallback = dense per-prefix
+  PBRS(`R_d4 + ΣF_t`, γ=1.0·terminal φ=0 전 원인·R1 terminal off — 정책-불변, telescoping 단위테스트).
+  PPO는 out-of-scope(별도 plan-review).
+- **acceptance**: S13 무힌트 `--refine` ≥2/3 seed 클리어(primary) + trace-blind pinned 대조(인과 라벨
+  `r3_mechanical_pass` vs `trace_causal_pass`) + --refine 재개 등가성(warm/cold memo) + memo 결정론
+  (on vs --no-memo) + verify-r3(R3_PRIMARY/DENSE_PIN 분리·음성 ≥7종·outcome 분기) + 기존 게이트 8/8 +
+  S11/S12 refine 비회귀 스모크.
+
+### plan-review (codex task-모드, 3-round cap + user-extended R4)
+- R1(H5·M4·L2) → R2(H4·M4·L1, fix 경계 갭) → R3(**H2·M3·L2 → 정책 STOP·사용자 보고**) → 사용자 승인
+  "7건 반영 + R4" → **R4 CRITICAL/HIGH 0·LOW 2 in-plan 종결**(§R2 선례 동일 경로).
+- 주요 진화: 처리량 floor 게이트(vacuous FAIL 차단)·memo_key full exec-config digest·obs schema 전량 pin·
+  PBRS 불변 조건 pin·pin 3분리(PRIMARY/DENSE, PPO out-of-scope)·trace-blind 인과 격리·outcome enum.
+
+### 상태·다음
+- **plan.md §R3 + 개요 + reviews/phaseR-plan-review.md `# §R3`(R1~R4) + 본 STATUS 항목 = 커밋 대상**
+  (plan.md는 선례대로 로컬 working doc이나 §R3는 신규 설계라 커밋; cross-PC SoT = 본 항목).
+- 다음 = **R3 구현**(`tools/solver/rl/{mdp,train}.py` refine 경로 — 사용자 go 대기). 엔진/PlanRunner 무변경.
+- ⚠ 워킹트리 사용자 Ch2 WIP(stage26~33 등) 격리 유지 — 커밋 제외.

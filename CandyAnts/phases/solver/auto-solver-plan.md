@@ -15,7 +15,7 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 - **확정·완료(리뷰·구현 통과)**: 결정 D1~D7 + **Phase 0·1·2·3a**. falsifiable acceptance 충족.
 - **강제 종료(2026-06-24, 사용자)**: **Phase 4(전술 라이브러리 — 속도 위한 전이)**. 4a 실측이 boost를 falsify + pruning-for-speed가 incompleteness 산물로 판명 → 속도 가설 기각. 본문 §Phase 4 = TERMINATED 배너(음성-입증 이력 보존). 살아남은 자산(볼트=해 설명 어휘)은 Phase 5로 이관.
 - **확정·진행 중(in-track 현재)**: **Phase 5 — 솔버 고도화 및 재설계**. 솔버 가치를 *속도*가 아닌 **다양-해 발견 + 풀이법 보고서(designer-in-the-loop)**로 재정의. Phase 0~2 자산 위에 얹는 재설계. Item 1(배치/전략 축) 완료·게이트 그린.
-- **확정·진행 중(병행 실험 트랙)**: **Phase R — 정식 RL 솔버**(2026-06-24 사용자 패러다임 결정). 목적=학습/실험 그 자체. Phase 5 휴리스틱 트랙과 코드·게이트 커플링 0으로 병행. 환경 spike 완료(`f637a24`) → R0 완료(S11 3/3 오버핏 `d7d3352`, S12 stretch FAIL `dc68a47`) → **R1 완료**(S12 2/3 seed `431fdd6` + impl 사후 리뷰 R6 approve, hot-fix 5커밋) → 스윕 S20~S25 취소(사용자, curriculum 전제) → **R2(영속 학습: 체크포인트+스테이지-불변 정책+curriculum+cell-target)가 설계 대상**(§R2, 사용자 지시 2026-07-04: 가중치 저장/로드 필수).
+- **확정·진행 중(병행 실험 트랙)**: **Phase R — 정식 RL 솔버**(2026-06-24 사용자 패러다임 결정). 목적=학습/실험 그 자체. Phase 5 휴리스틱 트랙과 코드·게이트 커플링 0으로 병행. 환경 spike 완료(`f637a24`) → R0 완료(S11 3/3 오버핏 `d7d3352`, S12 stretch FAIL `dc68a47`) → **R1 완료**(S12 2/3 seed `431fdd6` + impl 사후 리뷰 R6 approve, hot-fix 5커밋) → 스윕 S20~S25 취소(사용자, curriculum 전제) → **R2 완료**(영속 학습: 체크포인트+스테이지-불변 정책+curriculum+cell-target — impl 10R approve, S19 cell-target 3/3·재개 등가성 PASS, curriculum 사슬 S13 0/3 정직 FAIL) → **R3(trace-refinement MDP: closed-loop 학습판, S13 다단 carry-연쇄 돌파)가 설계 대상**(§R3, 사용자 결정 2026-07-04: trace-refinement 우선).
 - **트랙 밖(별도 브랜치 · 다운스트림)**: (구 Phase 5)감사 오라클·(구 Phase 6)생성. 2026-06-20 사용자 결정 — 생성은 솔버 역할이 아니라 **솔버 산출(다양-해·풀이법 보고서)을 참조하는 별개 소비자**. in-track Phase 5가 "5" 슬롯을 차지하므로, 이 둘은 번호 없는 다운스트림으로 격리.
 
 ## 비전 / 북극성 (방향 — 확정 범위 아님, 사용자 정렬 2026-06-18)
@@ -1480,15 +1480,252 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
   금지"에 반함). 메인 execute 게이트(frontmatter verify)에 verify-r2는 미편입 — R2 게이트는 인증
   산출물(11/19) 한정 로컬 게이트.
 
-### 로드맵 (미확정 — 증거 후 재계획)
-- **R3 후보**: trace-피드백 refinement MDP(상태에 직전 롤아웃 trace 인코딩 = 휴리스틱 closed-loop의
-  학습판) / dense per-prefix shaping / PPO 승격. R2 증거 확보 후 선택.
+### 로드맵 (R2 증거로 확정 — §R3 참조)
+- ~~**R3 후보**: trace-피드백 refinement MDP / dense per-prefix shaping / PPO 승격. R2 증거 후 선택.~~
+  → **확정(사용자 결정 2026-07-04): R3 = trace-refinement MDP 우선**(dense per-prefix는 R3 내부 fallback
+  rung). 근거 = R2 acceptance 2 FAIL(S13 전이-불변 고원 0.660). 상세 = 아래 §R3.
+
+### R3 — trace-refinement MDP (closed-loop 학습판): S13 다단 carry-연쇄 돌파 **[설계 초안 · plan-review 대상, 2026-07-04]**
+
+> **배경(전부 실측 근거)**: R2 curriculum 사슬 acceptance가 **0/3 FAIL**했고, 그 병목은 S13(blocker×1 +
+> climber×5 carry-연쇄, ant-target 6액션)이 **`bestR 0.660` 고원에 전이-불변**으로 갇힌 것이다(R2 impl 로그
+> §escalate — from-scratch 3-seed·transfer seed2 전부 동일 0.660). R1-스윕도 S13/S14/S15/S16/S18(전부 5액션+
+> carry/floater 다단)을 30분 단일 seed로 미돌파했다(campaign 로그 표). **정직 진단(R1/R2 공통)**: R0~R2는
+> plan을 **blind로 구성**한다 — 상태 = (레이아웃·인벤토리·partial-plan 슬롯)뿐이고 롤아웃은 SUBMIT 시 1회.
+> 보상은 terminal(R0) 또는 terminal trace-shaped(R1)라 "부분적으로 맞은 plan"의 **조합 자체를 샘플링**하는
+> 부담이 전적으로 탐험(entropy/SIL)에 실린다. carry-연쇄는 조합 폭이 30분 예산을 초과(R1 campaign 정직 결론).
+> **대조로, 휴리스틱 트랙은 S13을 26롤에 풀었다** — 그 메커니즘은 **closed-loop**: 부분 plan을 롤아웃 →
+> **trace를 관측**(어느 개미가 어디서 loop/사망하는지) → 진단 → 개입 1개 추가 → 재관측(model.py/solve.py).
+> **R3 = 그 closed-loop를 학습판으로 옮긴다**: 정책이 **직전 부분 plan의 롤아웃 trace를 상태로 관측**하면서
+> 다음 액션을 고른다. 즉 blind 구성 → **feedback 구성**. (사용자 결정 2026-07-04: trace-refinement 우선,
+> dense per-prefix는 그 내부 fallback rung.)
+
+**선결 계약 — 레거시 게이트·인증 산출물 격리 (§R2 계약 계승, 최우선)**
+- **액션 문법은 `r2.1` 그대로**(R3은 *관측/상태*를 확장하지 트리거·타깃 어휘를 바꾸지 않는다). 따라서
+  verify-r0/r1(리터럴 `"r1.1"` 동결)·verify-r2(`r2.1`)의 grammar pin·**인증 산출물은 무영향**. **인증 산출물
+  정본(R1-med2 정정)** = R1 `stage12.rl.json` + R2 `stage11.rl2.json`·`stage19.rl2.json`(verify-r2 PASS
+  대상). `stage12/13.rl2.json`은 **R2 acceptance 2 FAIL의 정직 박제 기록**(인증 아님 — verify-r2가 거부하는
+  것이 기대 동작). r3은 문법 인자를 `r2.1`로 재사용.
+- **관측 확장 = 신규 ckpt 포맷 `candyants-rl3-ckpt-v1`**(model_cfg에 trace-채널 수/obs-schema digest 포함 →
+  r2 정책과 shape 비호환). verify-r0/r1/r2는 정책 가중치를 로드하지 않으므로(산출물=plan JSON) ckpt 포맷
+  변경과 무관. r3 ckpt/산출물은 verify-r3 관할.
+- **`--refine` opt-in(기본 off)**: 미지정 시 R0/R1/R2 경로·보상·obs 차원·pinned 커맨드·verify-r0/r1/r2
+  재현성 **완전 불변**(trace-채널 미부착, 롤아웃 1회/에피소드). manifest에 `refine` 플래그 기록.
+- **불변식 (R1-low1 축소)**: **Godot 게임/PlanRunner 시맨틱·verdict 무변경**(엔진 무변경 — trace는 기존
+  opt-in 경로 `"trace":true`(R1)로 이미 획득, partial plan 롤아웃은 기존 GodotEnv/PlanServerHarness가 그대로
+  처리 = 짧은 plan은 미발화 트리거 안전 무시, golden 음성 plan 선례). **Python `rl/`·`env.py`는 opt-in
+  refine 오케스트레이션(closed-loop prefix 롤아웃·memo 토글·trace rasterize)을 가산**하되, **`--refine`
+  미지정 경로는 byte-identical 회귀**(verify-r0/r1/r2로 실증). trace→그리드 래스터화는 신규 `rl/` 순수
+  코드(model.py 파서는 read-only 재사용).
+
+**MDP 재정의 (R3 — blind 구성 → feedback 구성)**
+- **상태 s_t (R0~R2 + trace 확장)**: ① 레이아웃 그리드 one-hot(R2 공유 CNN 입력, 5ch) ② 인벤토리 잔량
+  ③ partial-plan 슬롯 인코딩 ④ **[신규] 현 partial plan P_t의 롤아웃 trace-피처**(아래 `R3_OBS_SCHEMA`가
+  전량 pin). CNN은 layout 5ch에 trace 공간 채널을 **concat**해 입력(공간 정렬 자연) + 집계 스칼라는 flat
+  벡터에 append. **trace-피처의 분모/상수는 전부 레이아웃 상수**(R1-H1 hp=-1 오염 교훈 계승 — result 파생
+  분모 금지).
+- **`R3_OBS_SCHEMA` (R1-high3 — material obs 상수, 구현 전 pin·impl 커밋 동봉. verify-r3가 obs-schema
+  digest 불일치 fail-closed)**: obs 확장분의 *전부*를 결정론적으로 확정 — "impl 확정" 여지 0.
+  - **공간 채널 `trace_channels`(고정 이름·순서)**: `[visit_walk, loss, visit_carry, pickup_goal]`
+    (C_trace=4, D7-충실·해 힌트 0): (a) `visit_walk`=walk 상태 셀 방문 밀도, (b) `loss`=사망/loss 셀
+    (익사·낙하사 = LostState/AdriftState 종착), (c) `visit_carry`=운반(carrying) 방문 밀도(귀로 loop
+    가시화 — S13/S17 핵심 신호), (d) `pickup_goal`=픽업·goal 도달 마커.
+  - **집계 스칼라(고정 순서)**: `[best_goal_dist, retired_total, retired_water, retired_fall,
+    picked_total, saved, verdict_code]`(`model.best_goal_dist`/`count_retired` **read-only import**).
+    **`verdict_code` enum pin(R2-med1 — 숫자 매핑 고정)**: `{absent:0, cleared:1, incomplete:2,
+    timeout:3, error:4}`(정규화 시 `/4`).
+  - **정규화·rasterize 규칙(전부 결정론, "등" 없음 — 분모 전량 열거 R2-med1)**: 밀도 채널(visit_walk·
+    visit_carry) = per-cell 방문 프레임 카운트 / `replay_deadline`(=7000, 셀 총 방문 상한 상수) 후
+    `clip(0,1)`; loss·pickup_goal 채널 = 이벤트 마커 카운트 / `total_ants`(레이아웃 상수) 후 `clip(0,1)`;
+    좌표 rasterize = trace 셀 좌표→그리드 인덱스(엔진 셀 격자 그대로, off-grid는 버림 없이 격자 경계로
+    clamp); 스칼라 정규화 = `best_goal_dist/(W+H)`·`retired_{total,water,fall}/total_ants`·
+    `picked_total/hp`·`saved/hp`·`verdict_code/4`(전부 레이아웃 상수 분모, result 파생 금지).
+  - **dtype·absent-value·digest**: dtype=`float32`; trace 부재(빈 trace/스폰 전 종료) = **전 채널·스칼라 0
+    + `verdict_code=absent(0)`**(fail-safe 명시); **`obs_schema_digest`** = 위 전부(채널 이름/순서·스칼라
+    순서·verdict_code enum 매핑·정규화 분모·dtype·absent 규칙)의 sha256 = ckpt·산출물·verify-r3 대조 키.
+- **액션 a_t**: `r2.1` 문법 그대로(sum-type kind + 트리거 직교 + factored head + SUBMIT). **차이는 관측뿐**
+  — 정책이 trace를 보고 다음 액션을 고른다.
+- **에피소드 = refinement 라운드 시퀀스**: 스텝 t에서 s_t(=P_t + rollout(P_t) trace)를 관측 → 액션 선택.
+  append면 P_{t+1}=P_t+a_t를 **롤아웃**해 trace_{t+1} 생성 → s_{t+1}. SUBMIT(또는 인벤토리 소진·max_len)면
+  terminal. 스텝 0의 P_0=빈 plan → rollout(빈 plan) trace = **baseline 진단**(휴리스틱 closed-loop의 출발점과
+  동일). 스텝0 SUBMIT 마스킹(최소 길이 1) 유지.
+- **롤아웃 비용 + 결정론 memo 캐시(비용 상한 계약)**: 최종 길이 L 에피소드 = P_0..P_L 롤아웃 = **L+1회**
+  (blind R0~R2의 1회 대비 상승). env 결정론(R1 실증) → `rollout(P)`를 **memo 캐시**.
+  **`memo_key` 스키마(R1-high2·R2-high4 — plan JSON만으론 불충분, `rollout(P)`는 전체 exec config에 의존)**
+  = `sha256(exec_config_digest, 정규화 lowered plan)`, where **`exec_config_digest` = 멤버 전량 명시**(숨은
+  의존 0): `{stage_resource_digest, skill_ids/meta_digest(SkillRegistry 메타), fixed_fps, SimConfig(결정론
+  상수), solver_capabilities_digest, godot_binary/script/project_rev_digest, grammar/vocab_digest,
+  train_deadline, replay_deadline, trace_request/schema_digest, protocol_version}`.
+  **`stage_resource_digest`(R3-high1 — subset 금지)** = 스테이지의 **canonical full runtime snapshot content
+  hash** = `.tres`(StageData 전 필드: 레이아웃·인벤토리·hp·**spawn schedule/count/points·timeout/objectives·
+  per-entity config**) + 참조 리소스(layout `.tres` 등) 전 의존의 content hash(subset 열거 아닌 전체 직렬화
+  해시 — rollout에 영향 주는 어떤 필드도 누락 불가). 키 스키마 자체가 material 계약(verify-r3가 memo digest
+  위조 fail-closed + **음성: spawn/timeout/per-entity 등 runtime 필드 각 변경이 memo key를 무효화**함을 실증).
+  ⚠ exec config 중 하나라도 바뀌면 캐시 무효(cross-config stale hit 차단). 학습 초반 = 캐시 미스 다수, 수렴 = 히트 급증 → 실비용은
+  (에피소드×L)이 아니라 **탐색된 distinct prefix 수**에 상한. manifest에 `memo_hit_rate`·distinct-prefix 수
+  기록(정직 처리량 노출). **캐시는 처리량만 — verdict/보상/샘플링 불변**(acceptance 3이 cache-on==cache-off
+  byte-identical로 실증). **재개 등가성 판정 시 캐시 = 처리량-중립**: `--max-batches`+wall-disabled 모드
+  에서 캐시 warm/cold가 결과·정지행동을 바꾸면 안 됨(비직렬화 warm 캐시가 wall-limited 정지를 바꾸는 것
+  차단 — acceptance 2·3이 실증).
+- **보상 (R3 primary — R1 계승, terminal). 명명 분리(R2-high2 — 이중계상 봉합)**:
+  - **`R_d4`** = R0 **D4 terminal verdict 보상만** = `2·cleared + (saved+0.3·picked−0.2·lost)/hp − 0.02·len`
+    (분모 상수). **trace shaping 미포함**.
+  - **`R1_terminal_shaping`** = `+w_goal·(1−goal_d/D0) − w_retired·(retired/ants)`(§R1 형태·계수
+    `{goal:0.5, retired:0.1}`).
+  - **primary 보상 = `R_d4 + R1_terminal_shaping`**(=§R1의 R_r1과 동일, 계상 1회). dense 모드 보상은
+    `R_d4 + ΣF_t`(아래 acceptance 6 — R1_terminal_shaping **off**). **verify-r3 강제**: primary는 shaping
+    정확 1회(중복 0)·dense는 `R1_terminal_shaping=off` 검증.
+  **trace는 상태(정책 정보)만 바꾸고 보상 형태는 안 바꾼다** — 가설 = closed-loop 관측만으로 carry-연쇄
+  조립이 가능해진다. primary shaping은 **최종 롤아웃(SUBMIT) 1회**로만 계산(중간 스텝의 obs용 롤아웃은
+  보상 0 — dense fallback의 per-step F_t와 이중계상 차단; primary는 dense 아님).
+- **알고리즘·정책**: R2 스테이지-불변 공유 CNN(+trace 채널) + factored REINFORCE + baseline + SIL(§R1
+  계승) + entropy 스케줄(경계 리셋 R2 계승). fallback = dense PBRS(acceptance 6)까지; PPO는 R3
+  out-of-scope(별도 plan-review).
+- **문법 커버리지 불변**: 액션 문법 `r2.1` 무변경 → known S11/S12(ant)·S19(cell) 커버리지(coverage-r2)는
+  그대로 유효. R3은 커버리지 재검만(신규 문법 없음).
+
+**Acceptance (falsifiable — 고정 커맨드/설정, R0/R1/R2 스타일)**
+1. **S13 무힌트 trace-refinement 오버핏(primary)**: `python tools/solver/rl/train.py --grammar r2.1
+   --stage 13 --seeds 0,1,2 --envs 4 --max-episodes 20000 --max-wall 1800 --shaping trace
+   --train-deadline 4500 --sil --refine` — **predicate = 3 seed 중 ≥2가 예산 내 greedy plan 표준
+   deadline(7000f) replay에서 saved==hp_stage(=5)**. 미달 = FAIL(원인 분석 후 사용자 보고, silent 재스코프
+   금지).
+   - **처리량 floor 게이트(R1-high1/R2-high3 — wall-bound vacuous FAIL 차단, escape-hatch cap 명시)**:
+     R3=L+1 롤아웃/에피소드라 R1(1롤, S13 ~3.5k eps/1800s)보다 처리량이 낮다 → **model FAIL 판정 전에 최소
+     처리량 도달을 강제**. pin = `THROUGHPUT_FLOOR`: seed당 **완료 에피소드 ≥ `MIN_EPISODES`(=3000) 또는
+     distinct-prefix 롤아웃 ≥ `MIN_DISTINCT`(=1500 — S13 known 해 공간 격자 하한 실측 기준으로 pin, "impl
+     확정" 아님)**. wall이 floor 도달 **전에** 걸리면 그 seed = **`throughput-pin-invalid`(infra) ≠ model
+     FAIL**. **escape-hatch cap(R2-high3)**: 예산/pin 개정은 **명시 리뷰 하 최대 1회**만 허용(예산 상향
+     후보를 사용자에게 escalate) → **개정 후에도 floor 미달이면 설계를 `throughput-infeasible`로 분류**
+     (무한 상향 금지). **`throughput-infeasible` = 1급 terminal 산출물(R3-med2)**: manifest `outcome` enum
+     `∈ {pass, model_fail, throughput-pin-invalid, throughput-infeasible}` + `budget_revisions`(≤1). verify-r3는
+     `throughput-infeasible`을 **infra terminal로만 수용**(model FAIL도 success도 아님 — predicate 판정 제외).
+     **invalid/개정 런 산출물 전량 보존**(박제 — 사후 검증 가능). **preflight 처리량
+     calibration 필수**: 본실행 전 저비용 preflight로 eps/s·memo_hit_rate 실측 → floor 도달 가능성 사전
+     판별(binding 축 예보). floor 도달 후 미클리어 = 정당한 model FAIL. **비용 정직 pin**: manifest에
+     `episodes_completed`·`distinct_prefix_rollouts`·`total_rollouts`·`memo_hit_rate`·`wall_s`·binding-축
+     (episode|wall|floor)·`budget_revisions`(≤1) 전량 기록(눈금 비교는 에피소드 축 한정, wall 축은 비용
+     구조 차이 명시 — 예산 "동일" 과대주장 금지).
+   - **음성 대조(A/B — 2단 격리, R2-high1: trace-blind = pinned 대조 런)**: 둘 다 **pinned 대조**(동일
+     seeds `0,1,2`·예산·memo·THROUGHPUT_FLOOR 회계):
+     - (i) **terminal-only**(no --refine, R2/R1 from-scratch = 0/3 bestR 0.660 이미 박제) — refine 유무 대비.
+     - (ii) **`--refine --trace-blind`**(trace 채널·스칼라 전부 zeroed dummy, **롤아웃 수·loop·비용은
+       --refine과 동일**) — *trace 정보* vs *loop/cost 변화* 격리.
+     **인과 가드(false-green 차단, R3-med1 — outcome 라벨 2분)**: 산출물·보고는 **두 라벨을 분리** 강제:
+     - **`r3_mechanical_pass`** = --refine(trace-full)이 ≥2/3 클리어(acceptance 1의 PASS 조건 — 그것만).
+     - **`trace_causal_pass`** = `r3_mechanical_pass` **∧** (i)terminal-only **∧** (ii)trace-blind가 **둘 다
+       미클리어**일 때만 true. (ii) trace-blind가 클리어하면 `trace_causal_pass=false` +
+       `trace_causal_reason="refinement_loop_helped, blind_control_also_cleared"`(스키마 명명 일관) —
+       "trace 정보가 고원을 뚫었다" 주장은 `trace_causal_pass=true`에서만 허용.
+     즉 top-level "R3 PASS"는 `r3_mechanical_pass`를 뜻하며 trace 증거로 오독 금지(verify-r3가 두 라벨
+     분리 기록 강제). 세 런 결과 전부 산출물 박제.
+2. **--refine 재개 등가성(P1 불변 — R2 acceptance 1 계승)**: `--accept-resume-equiv --grammar r2.1
+   --stage 13 --seeds 0 --envs 4 --max-batches 6 --shaping trace --train-deadline 4500 --sil --refine`
+   → 무중단 2N vs N+ckpt+resume+N의 **정책 파라미터 비트동일 + 배치별 meanR 곡선 일치**. 성립 근거 =
+   trace-피처가 **결정론 rasterize(순수 함수) ∘ 결정론 trace**라 obs가 결정론 → R2 배치 계약(ⓐ~ⓓ)
+   그대로 성립. **memo 직렬화 계약 확정(R2-med2 — impl 결정 제거)**: memo 캐시는 **ckpt에 직렬화하지 않고
+   재개 시 결정론 재구성**(캐시=순수 처리량이므로 warm/cold 무관하게 동일 결과여야 함). **검증 = resume
+   등가성을 warm·cold memo 양쪽에서 실행**(재개 후 캐시 빈 상태[cold] / 재개 전 워밍[warm] 둘 다 최종
+   파라미터·곡선 일치). 불일치 = P1 FAIL(캐시가 학습 궤적을 오염시킨다는 증거 — 부분 직렬화/비결정 은폐 금지).
+3. **memo-캐시 결정론(R3 신규 계약)**: memo는 **기본 on**, `--no-memo`로 끔(R1-med3 CLI pin). 같은 seed·
+   예산에서 **memo-on vs `--no-memo`**가 **best plan·산출물·배치별 meanR 곡선 byte-identical** — 캐시가
+   verdict/보상/샘플링을 바꾸지 않음의 실증(캐시=순수 처리량 최적화). 두 커맨드 명시:
+   - memo-on:  `... --refine --stage 13 --seeds 0 --max-batches 8`
+   - memo-off: `... --refine --stage 13 --seeds 0 --max-batches 8 --no-memo`
+   preflight에도 편입(캐시 결정론이 acceptance 1의 처리량 주장을 뒷받침).
+4. **`--verify-r3`(fail-closed 로컬 게이트)**: `python tools/solver/rl/train.py --verify-r3 --stage 13` =
+   R2 게이트 전체 계승(pinned 예산·문법 라운드트립·live trace preflight·롤아웃 trace 검증·trace 재생
+   replay·pass 시맨틱 mode 필드) + **해당 mode의 pin(아래 R3_*_PIN 분리) 명시 상수 전량 강제**
+   (R1_PIN/R2_PIN 교훈 계승) + **obs 계약**: `obs_schema_digest`(R3_OBS_SCHEMA 전체)·`trace_channels`
+   집합/순서·집계 스칼라 순서 = 산출물·ckpt와 일치(불일치 fail-closed) + **memo 계약**: `memo_key` 스키마
+   digest 일치 + memo-결정론 증거(preflight cache-on==`--no-memo` digest) + **처리량 회계**: manifest에
+   `episodes_completed`·`distinct_prefix_rollouts`·`total_rollouts`·`memo_hit_rate`·binding-축 존재 +
+   THROUGHPUT_FLOOR 판정(floor 미달 seed는 `throughput-pin-invalid` 라벨, model FAIL로 오분류 금지) +
+   manifest 완전성(seed별 예산 준수·no_hint·envs_effective·effective config 전량) + **outcome별 검사 분기
+   (R4-low1 명시)**: `pass` = predicate(3-seed ≥2) ∧ best plan replay ×2 byte-identical ∧ saved==hp 요구 /
+   `model_fail` = floor 도달 ∧ predicate 미달 / `throughput-pin-invalid`·`throughput-infeasible` = **pass
+   replay 스킵**(predicate 판정 제외) ∧ 보존된 preflight/런 산출물·budget/floor 증거 요구 + ckpt 무결
+   (파일 sha·내부 digest·mode별 계약 —
+   R3 primary는 from-scratch라 `--resume-ckpt` exact digest 계약만, transfer 미사용) + **결과 라벨 강제**
+   (`mode ∈ {primary, dense_fallback}` — R1-high5; PPO는 R3 out-of-scope) + **mode↔pin 정합**(primary는
+   `R3_PRIMARY_PIN`·dense는 `R3_DENSE_PIN`으로만 검증, 교차 금지). **음성 실증 ≥7종**(refine=false 위장·
+   trace_channels 변조·obs_schema_digest 위조·memo_key digest 위조·off-grid·비-pinned seed·max_len 변조)
+   전부 FAIL 검출 + 복원 PASS. 메인 verify 게이트 비편입 유지(커플링 0 — RL 트랙 로컬 게이트).
+5. **기존 게이트 전체 그린 + verify-r0/r1/r2 계속 PASS**(엔진/PlanRunner 무변경, --refine opt-in → 회귀 0):
+   Determinism×2·SkillMetadataDrift·harness-test·selftest·analyze --verify·diverse/rediscover-verify +
+   verify-r0(S11 3/3)·verify-r1(S12 2/3)·verify-r2(S11·S19). **+ `--refine` 비파괴 스모크(R1-med4/R2-med3 —
+   기존 성공 사례 퇴행 반증, S11·S12 둘 다)**:
+   - `--refine --stage 11 --seeds 0 --max-episodes 3000 --shaping trace --train-deadline 4500 --sil
+     --no-save` greedy 클리어(S11 1액션).
+   - `--refine --stage 12 --seeds 0 --max-episodes 8000 --shaping trace --train-deadline 4500 --sil
+     --no-save` greedy 클리어(S12 3-blocker — R1 성공 사례 bounded 재확인, S11보다 예산↑이나 acceptance
+     본실행보다 작음).
+   둘 다 `--no-save`로 산출물 격리(판정=stdout 집계줄). S12가 refine 하에서 퇴행하면 그 자체가 finding.
+6. (fallback rung — acceptance 1 FAIL 시, 순서 고정·건너뛰기 금지) **dense per-prefix PBRS**(§R1
+   fallback 3; R3에선 prefix 롤아웃이 이미 발생하므로 **추가 Godot 롤아웃 없음** — φ 계산·rasterize·캐시압
+   비용은 존재, R1-low2 정정). **정확 정의(R1-high4 — PBRS 불변 성립 조건 전량 pin, `--dense-shaping`)**:
+   - **base reward = `R_d4`**(D4 terminal verdict 보상 = 위 primary 정의의 `R_d4`와 동일, trace shaping
+     미포함).
+   - **dense 모드 보상 = `R_d4 + Σ_t F_t`, `F_t = γ·φ(P_{t+1}) − φ(P_t)`** (PBRS는 `R_d4`에 *더함* — 피할
+     것은 terminal φ와 dense Δφ *둘 다* 더하기). φ = **R1 trace potential** `φ(P) = w_goal·(1−goal_d/D0)
+     − w_retired·(retired/ants)`(계수 `{0.5,0.1}` 계승).
+   - **`γ=1.0`(undiscounted episodic) pin** + **terminal potential `φ(terminal)=0` 강제 — 모든 terminal
+     원인(R2-low1)**: SUBMIT·인벤토리 소진·max_len·timeout/error·clear 어느 종료든 종단 상태 잠재 0 →
+     Σ_t F_t = γ^L·φ(terminal) − φ(P_0) = **−φ(P_0) 상수**(정책-불변, Ng 1999). 즉 dense 모드에선 **R1
+     terminal trace-shaping 제거**(`R_d4`만 terminal + per-step F_t) — 이중계상 원천 차단.
+   - **결정론 telescoping 단위테스트**(verify-r3-dense 편입): 임의 plan(모든 terminal 원인 포함)의 Σ F_t ==
+     γ^L φ(term) − φ(P_0) (=−φ(P_0)) 정확 일치 실증.
+   `--dense-shaping` 플래그. **pin 분리(R1-high5)**: dense는 별도 **`R3_DENSE_PIN`**(불변, 아래) — primary
+   `R3_PRIMARY_PIN`을 갱신하지 않는다. primary FAIL 산출물(`mode=primary`)은 검증 상태로 **박제 보존**,
+   dense 산출물은 `mode=dense_fallback` 라벨. → **dense도 FAIL = 정직 박제 + 사용자 STOP(에스컬레이션 —
+   R0/R1 선례)**. **PPO 승격은 R3 out-of-scope(R2-med4 — dead 브랜치 제거)**: dense FAIL 시 PPO 자동 진입
+   금지, **별도 plan-review 라운드에서 R3_PPO_PIN을 pin한 뒤**에만 착수(현 R3은 primary + dense 2단만).
+7. (비게이트 탐사) **R3-스윕**: R1-스윕 FAIL 스테이지(S14/S15/S16/S18 — 전부 5액션+ carry/floater 다단)에
+   `--refine` 적용(단일 seed·1800s), R1-스윕 from-scratch 대비표 박제. 결과 무관 acceptance 성립(탐사).
+
+**pin 분리 계약 (R1-high5 — mode별 불변 pin, 세부 상수는 impl 커밋 동봉 = R0/R1/R2 선례)**
+- **`R3_PRIMARY_PIN`**(acceptance 1·2·3·5) = `refine=true`·`shaping="trace"`(계수 `{goal:0.5,retired:0.1}`,
+  terminal-only)·`grammar="r2.1"`·`obs_schema_digest`(R3_OBS_SCHEMA)·`memo`(기본 on)·`seeds=[0,1,2]`·
+  `envs=4`·`max_episodes=20000`·`max_wall=1800`·`replay_deadline=7000`·`train_deadline=4500`·`sil(8,0.1)`·
+  `max_len`(S13=6)·`THROUGHPUT_FLOOR{MIN_EPISODES=3000, MIN_DISTINCT=1500}`(R3-high2 — impl-pin 금지, verify-r3가
+  다른 값이면 리뷰된 plan 개정 없이 FAIL). **primary 산출물은 이 pin으로만 검증·박제**(dense가 갱신 금지).
+- **`R3_DENSE_PIN`**(acceptance 6, fallback 1·최종) — **독립 정의(R3-med3 — shaping 상속 모호 제거)**:
+  `refine=true`·**`shaping="none"`**(terminal trace shaping 미적용 — dense가 override·reject)·
+  `dense_shaping=true`·`gamma=1.0`·`terminal_potential=0`·φ 계수 `{goal:0.5,retired:0.1}` + primary와 공유하는
+  나머지(`grammar="r2.1"`·`obs_schema_digest`·`memo`·`seeds`·`envs`·`max_episodes`·`max_wall`·
+  `replay_deadline`·`train_deadline`·`sil(8,0.1)`·`max_len`·`THROUGHPUT_FLOOR{MIN_EPISODES=3000,
+  MIN_DISTINCT=1500}`). 별도 산출물 라벨 `mode=dense_fallback`. **verify-r3가 dense는 `shaping="trace"`이면
+  FAIL**(primary shaping과 이중계상 차단).
+- **PPO = R3 out-of-scope(R2-med4)**: `R3_PPO_PIN`은 현 R3에서 미pin(별도 plan-review 라운드에서 pin 후
+  착수) — dead 브랜치로 두지 않음. R3 fallback 사다리 = **primary → dense 2단**뿐, dense FAIL = 사용자 STOP.
+- **결과 라벨 불변**: 각 산출물의 `mode` 필드(`primary`|`dense_fallback`)가 어느 pin으로 검증됐는지 명시 →
+  "primary 성공" 보고가 dense 산출물로 silent 치환되는 것 차단(verify-r3가 mode↔pin 정합 강제).
+
+**정직 경계**: R3은 "**closed-loop trace 관측이 다단 carry-연쇄 조립을 가능하게 하는가**"의 실험이다. S13은
+휴리스틱이 26롤에 푼(closed-loop trace 진단이 실증된) 스테이지 — R3은 그 진단을 정책에 내재화한다. 성공해도
+(a) S14(8액션)·S21~S25(cell-target needle)로의 일반화 주장 없음 (b) 휴리스틱 대비 효율 주장 없음(학습/실험
+목적) (c) 탐험 경로 전반의 trace-단조성 주장 없음. **acceptance 1 FAIL 가능성은 설계에 내재**(trace 관측이
+샘플-효율을 못 바꿀 수도 — 그 경우 fallback 사다리 → 정직 박제).
+
+**리스크(R3 고유)**
+- **처리량 급락**: L+1 롤아웃/에피소드. memo 캐시가 1차 방어(결정론 재사용)이나 1800s 내 유의미 에피소드
+  수가 부족할 위험 → acceptance가 wall-bound로 vacuous FAIL할 여지. **완화 = acceptance 1의 THROUGHPUT_FLOOR
+  게이트**(floor 미달 = `throughput-pin-invalid`(infra)로 분류, model FAIL 오분류 차단) + preflight 실측
+  처리량 사전 확인(binding 축을 산출물로 판별) + manifest 비용 회계 전량. floor 자체가 wall 내 미달이면
+  pin 개정(예산 상향) 후보로 사용자 escalate(R0/R1 material-knob 선례).
+- **obs 확장이 재개 등가성/결정론을 깰 위험**: rasterize 순수성·trace 결정론이 방어(acceptance 2·3이
+  실증) — 부동소수/딕셔너리 순서 등 비결정 소스 유입 시 즉시 P1 FAIL로 검출.
+- **trace가 오히려 신호를 흐릴 위험**(과적합·distractor 채널): C_trace 채널이 많으면 CNN이 노이즈에
+  과적합 → 오히려 퇴행. 완화 = 채널 집합을 휴리스틱이 실제 쓰는 신호(방문/사망/carry-loop/pickup)로
+  한정(D7-충실, 임의 확장 금지) + S11/S12 비파괴 스모크(--refine이 기존 성공 사례를 퇴행 안 시킴 저비용
+  반증)를 acceptance 5 회귀에 포함.
 
 ### 리스크
 - sparse reward: ~~클리어 희소 → shaping 항(picked/lost)으로 완화~~ **R0가 반증**(2026-07-03, `dc68a47`):
   picked/lost 항은 S11(1액션)만 커버, S12 계단에선 전부 0으로 flat → **R1 trace-파생 shaping
   (goal_dist+retired)이 대체**(§R1). S11 탐색 공간 ~10³ 오버핏 무난 예상은 적중(3/3 seed).
-- 학습 불안정(REINFORCE 고분산): baseline+배치 크기로 1차 방어, PPO 승격 경로 사전 명시.
+- 학습 불안정(REINFORCE 고분산): baseline+배치 크기+SIL로 방어. PPO 승격은 R1~R3에선 미사용(각 phase의
+  fallback 사다리 최종단 후보로만 명시 — R3는 별도 plan-review 전까지 out-of-scope).
 - 세션 간 재현: 학습 산출물에 seed·하이퍼파라미터·에피소드 수 동봉(재현 스크립트 1줄).
 
 ---

@@ -214,3 +214,137 @@ R3 3건 반영:
   **mode별 digest 계약 명문**(exact=전부 일치 / transfer=레이아웃·마스크 면제+전역 어휘 digest
   fail-closed)으로 재작성, P1과 동일 문구 강제. **§R2 plan-stage 종결** (R1 11건 → R2 8건 → R3 3건 →
   R4 MED 1건 in-plan — 사용자 승인 user-extended cap 경로).
+
+# §R3 (trace-refinement MDP: closed-loop 학습판) plan-review (2026-07-04)
+
+> 대상 = auto-solver-plan.md `### R3 — trace-refinement MDP` 섹션. codex task-모드 적대 리뷰,
+> 3-round cap(플랜 정책). 스코프 = 사용자 결정 "trace-refinement 우선, dense per-prefix는 내부 fallback".
+
+## Round 1 (2026-07-04) — CRITICAL 0 · HIGH 5 · MEDIUM 4 · LOW 2
+
+- **[high-1] 처리량 acceptance under-pin·wall-bound**: R3=L+1 롤아웃/에피소드인데 R2와 동일 20k/1800s
+  pin. S13은 1롤에서도 ~3.5k eps/1800s(R1 로그) → R3는 wall 전 수백 에피소드만 돌 위험. plan이
+  인지는 하나 acceptance predicate가 아님. → **처리량 floor 게이트**(최소 완료 에피소드/distinct-prefix
+  롤아웃 도달 요구; 미달=“infra/throughput-pin invalid”≠model FAIL) + max-rollouts/distinct-prefix pin.
+- **[high-2] memo 캐시 키 계약이 주장 대비 약함**: `rollout(P)`는 plan JSON뿐 아니라 stage/layout digest·
+  grammar lowering·deadline·trace flag/schema·engine build에 의존 → “같은 prefix=같은 결과”는 전체 exec
+  config 하에서만 참. on/off byte-identical 테스트는 좋으나 키 스키마 pin 없이는 불충분. → **memo_key =
+  hash(stage_id, layout_digest, grammar/vocab_digest, train/replay deadline, trace 요청/schema digest,
+  정규화 lowered plan, engine/protocol version)** 명문화 + resume 등가성은 --max-batches·wall-disabled로
+  판정 명시(비직렬화 warm 캐시가 wall-limited 정지 행동 바꿈 차단).
+- **[high-3] R3_PIN이 material obs 상수를 impl에 남김**: trace_channels가 “impl 확정”인데 verify-r3는
+  material 계약으로 요구 → 모순. 누락 상수 = 채널 이름/순서·스칼라 순서·정규화/클리핑·밀도 분모·
+  rasterize 좌표·dtype·absent-value 인코딩·obs-schema digest. → **R3_OBS_SCHEMA를 구현 전 pin**,
+  verify-r3는 obs schema digest 불일치 fail-closed.
+- **[high-4] dense potential이 정책-불변을 과대주장**: PBRS 불변은 base reward·γ·terminal potential
+  관례·Markov state가 정의돼야 성립. plan이 γ·base clear 유지 여부·R1 terminal shaping 제거 여부·
+  terminal φ zeroing 미pin. “가산 아님”도 부정확(PBRS는 base에 *더함* — 피해야 할 건 terminal φ와
+  dense Δφ *둘 다* 더하기). → base=D4 terminal verdict 보상, dense=base+PBRS, dense 모드에선 R1
+  terminal trace bonus 제거, γ pin, terminal φ=0 강제(또는 telescoping 상수 증명) + 결정론 telescoping
+  단위테스트.
+- **[high-5] fallback이 R3 결과를 silent 재스코프 가능**: acceptance 6이 primary FAIL 후 `--dense-shaping`
+  켜고 R3_PIN을 같은 커밋에 갱신 → 후일 verify-r3가 dense를 통과시키는데 보고는 “trace-refinement
+  primary 성공”으로 읽힐 위험. → **R3_PRIMARY_PIN / R3_DENSE_PIN 분리(불변)** + primary 실패 산출물
+  검증 보존 + 결과 라벨 `primary`/`dense_fallback`/`ppo_fallback`(R1 impl R5 mode-필드 선례).
+- **[medium-1] A/B 격리 과장**: “유일 차이=--refine”이나 --refine은 obs+상호작용+롤아웃수+memo+wall
+  동역학을 바꿈. 성공은 closed-loop 가설을 지지하나 주장만큼 깔끔친 않음. → **blind-refinement 대조군**
+  (동일 prefix 롤아웃·비용, trace 채널 zeroed/dummy)로 trace-정보 vs loop/cost 격리.
+- **[medium-2] R2 산출물 서술 모호**: R3 선결이 “인증=stage11/12/19 rl/rl2.json”이라 했으나 R2 실측은
+  stage12/13.rl2.json=실패 기록·인증은 stage11/19 rl2만. stage12는 R1 rl.json으로만 인증. → 정정:
+  “인증 = R1 stage12.rl.json + R2 stage11/19.rl2.json; stage12/13.rl2.json=실패 기록”.
+- **[medium-3] --memo CLI 미pin**: acceptance 3이 “--memo on/off 또는 --no-memo”라 모호, 스모크 커맨드에
+  플래그 없음, train.py에 옵션 부재. → default-on + `--no-memo` 확정, 두 커맨드 명시.
+- **[medium-4] S11/S12 refine 비회귀 약속했으나 acceptance 아님**: 리스크에만 있고 acceptance 5는
+  기존 게이트/verify-r0/r1/r2만(=--refine 미실행). → 저비용 `--refine --stage 11/12` 스모크 acceptance
+  편입 or 주장 삭제.
+- **[low-1] “엔진/PlanRunner/env.py 무변경” 과절대**: closed-loop prefix 롤아웃·memo 토글·rasterize는
+  최소한 RL env 오케스트레이션을 바꿈. → 불변식 축소: Godot gameplay/PlanRunner 시맨틱 무변경, Python
+  RL env는 opt-in refine 오케스트레이션 가산 허용.
+- **[low-2] “무비용에 가까움” 낙관적**: prefix 롤아웃은 이미 있으나 φ 계산·rasterize·캐시압·저장 비용
+  존재. → “추가 Godot 롤아웃 없음”으로 표현.
+
+→ 전 항목(HIGH 5 + MEDIUM 4 + LOW 2) §R3 v2 반영 → Round 2 재리뷰.
+
+## Round 2 (2026-07-04) — CRITICAL 0 · HIGH 4 · MEDIUM 4 · LOW 1 (R1: M2/M3/L1/L2 해소·H2/H3/H4 부분·H1/H5/M1/M4 미해소)
+
+- **[high-1] trace-blind 대조가 여전히 비게이트 → trace-정보 주장 false-green**: --refine 성공이 trace
+  내용 아닌 loop/최적화 동역학/prefix-cost 때문일 수 있음. → **trace-blind를 pinned 대조 런**(동일 seed·
+  예산·memo·floor)으로 승격 + 인과 가드: trace-blind도 ≥2/3 클리어하면 "trace 정보가 고원을 뚫었다" 주장
+  금지·"refinement loop가 도움, trace-특정 인과 미증명"으로 relabel.
+- **[high-2] 보상 정의 충돌 = R1 terminal shaping 이중계상**: primary `R_base + R1_terminal_shaping`인데
+  `R_base`를 "D4 + R1 terminal trace-shaping"으로 정의(이중) + dense는 R_base를 D4-only로 씀 = live SoT
+  충돌. → 명명 분리 `R_d4`; primary=`R_d4 + R1_terminal_shaping`; dense=`R_d4 + ΣF_t`; verify-r3가 primary
+  shaping 1회·dense `R1_terminal_shaping=off` 강제.
+- **[high-3] THROUGHPUT_FLOOR escape hatch + MIN_DISTINCT 미pin**: 반복 floor miss가 언제 설계 실패인지
+  cap/retry 규칙 없음, MIN_DISTINCT="impl 확정". → MIN_DISTINCT 설계 내 pin + preflight 처리량 calibration +
+  invalid 런 산출물 전량 보존 + **예산/pin 개정 최대 1회(명시 리뷰)** 후 미달이면 throughput-infeasible 분류.
+- **[high-4] memo key가 cross-config stale 안전엔 여전히 부족**: inventory/hp·skill 메타·fixed-fps/SimConfig·
+  capabilities·Godot script/project rev를 (layout_digest/engine_version에 숨지 않는 한) 명시 안 함. →
+  **`exec_config_digest` 정의 + 멤버 전량 열거**(stage resource digest[inventory/hp]·skill ids/meta digest·
+  fixed-fps·SimConfig·script/version digest·deadlines·trace request/schema·정규화 plan).
+- **[medium-1] R3_OBS_SCHEMA 잔여 material 갭**: "max_len_frames 등"(등 금지)·verdict_code 숫자 enum 미pin.
+  → "등" 삭제·분모 전량 열거·verdict_code enum 매핑 pin·obs_schema_digest 포함.
+- **[medium-2] 재개 등가성 memo 직렬화가 impl 결정으로 남음**: "캐시 재구성 또는 ckpt 동봉 — impl 확정".
+  치명 아님(acceptance 3이 memo-on/off byte 동일 요구)이나 resume 행동 미명세. → **택1: memo 미직렬화+결정론
+  재구성**(채택) → resume를 warm·cold memo 양쪽서 검증.
+- **[medium-3] S11/S12 비회귀 절반만**: S11 스모크만·S12 optional. S12는 R1 성공 사례라 silent 퇴행 위험.
+  → **bounded S12 refine 스모크 추가**(작아도).
+- **[medium-4] PPO fallback = dead/리뷰불가 브랜치**: R3_PPO_PIN "승격 시" 확정 = 리뷰 가능 pin 아님. →
+  **PPO를 별도 plan-review 라운드 전까지 out-of-scope 선언**(dead 브랜치 제거 — dense도 FAIL이면 사용자
+  escalate로 새 plan).
+- **[low-1] dense PBRS terminal 처리가 SUBMIT만 언급**: 인벤토리 소진·max_len·timeout/실패·clear 조기
+  terminal도 φ(terminal)=0 강제해야. → terminal 잠재 0을 모든 terminal 원인으로 정의.
+
+→ 전 항목(HIGH 4 + MEDIUM 4 + LOW 1) §R3 v3 반영 → Round 3(최종·3-round cap) 재리뷰.
+
+## Round 3 (2026-07-04) — CRITICAL 0 · HIGH 2 · MEDIUM 3 · LOW 2 → **정책상 STOP·사용자 보고** (3-round cap)
+
+R2 fix 검증: H2/M1/M2/M3/L1 resolved · H1 mostly(MED outcome-label 잔여) · M4 mostly(stale PPO 텍스트) ·
+**H3/H4 미완**(아래 2 HIGH). "fixes가 만든 경계 갭, 반복 아님" 판정.
+
+- **[high-1] `exec_config_digest`가 rollout-영향 입력을 여전히 과소명세**: `stage_resource_digest(레이아웃+
+  인벤토리+hp)`가 subset — spawn schedule/count·spawn points·stage timeout/objectives·per-entity config·
+  resource deps·Godot 바이너리/헤드리스 호출이 밖. 이 키가 memoized `rollout(P)`를 게이트하므로 stale
+  hit이 trace·보상·D4 replay를 오염. → `stage_resource_digest`를 **canonical full runtime stage snapshot
+  (스테이지 리소스+deps 전체 content hash)**로 정의(subset 금지) + verify-r3 음성(각 runtime 필드 변경이
+  memo key 무효화).
+- **[high-2] `MIN_DISTINCT` pin 불일치**: acceptance는 `1500`인데 R3_PRIMARY_PIN은 `impl-pin` — R2-H3가
+  닫으려던 arbitrary-floor escape 재개방. → 전 R3 pin 정의(dense 포함)에서 `impl-pin`→`1500` + verify-r3가
+  다른 값이면(리뷰된 plan 개정 없이) FAIL.
+- **[medium-1] trace-blind 인과 가드가 top-level PASS 오독 여지**: trace-blind도 클리어 시 `trace_causal=
+  unproven` relabel은 되나 R3 "PASS"가 trace 증거로 오독될 수 있음. → outcome 라벨 분리: `r3_mechanical_pass`
+  (trace-full 성공) vs `trace_causal_pass`(trace-full 성공 ∧ 양 대조 실패).
+- **[medium-2] `throughput-infeasible`가 1급 terminal 산출물로 미pin**: 분류로만 서술. → manifest outcome
+  enum `throughput-infeasible`·`budget_revisions=1`·preflight/런 산출물 보존·verify-r3가 infra terminal로만
+  수용(model FAIL/success 아님) 강제.
+- **[medium-3] dense pin이 `R3_PRIMARY_PIN ∪ dense_shaping=true`라 shaping 상속 모호**(primary는
+  `shaping="trace"` 포함). → `R3_DENSE_PIN` 독립 정의(`shaping="none"`+`dense_shaping=true` 또는 dense가
+  terminal trace shaping을 override·reject 명시).
+- **[low-1] 개요(STATUS 앞) R2를 현 설계 타깃으로 서술** — R3 확정과 불일치(경미, 문서 상단).
+- **[low-2] 레거시 리스크 텍스트 "PPO 승격 경로 사전 명시"가 R3 out-of-scope와 충돌**.
+
+**정책 판정**: 3-round cap Round 3에서 HIGH 2 → **즉시 STOP·사용자 보고**(CLAUDE.md plan-stage 정책).
+두 HIGH 모두 수렴적·기계적(H2=consistency 슬립, H1=digest scope 강화, fix 방향 자명). 사용자 결정 대기
+(수정 방향·범위·취소). §R2 선례 = "3건 반영 + R4 user-extended cap".
+
+## Round 4 (2026-07-04, user-extended cap — 사용자 승인 "7건 반영 + R4 재리뷰")
+
+Round 3 7건(HIGH 2 + MEDIUM 3 + LOW 2) v4 반영:
+- HIGH-1 → `stage_resource_digest` = canonical full runtime stage snapshot content hash(subset 금지;
+  spawn schedule/count/points·timeout/objectives·per-entity·deps 전체) + verify-r3 runtime-필드 음성.
+- HIGH-2 → `MIN_DISTINCT=1500`을 전 R3 pin(primary/dense)에 일관 pin, verify-r3가 타 값 거부.
+- MED-1 → outcome 라벨 2분(`r3_mechanical_pass` = trace-full 클리어 / `trace_causal_pass` = ∧ 양 대조 실패).
+- MED-2 → `throughput-infeasible` 1급 manifest outcome enum(+budget_revisions≤1) + verify-r3 infra-terminal 수용.
+- MED-3 → `R3_DENSE_PIN` 독립 정의(`shaping="none"`+`dense_shaping=true`, verify-r3가 dense shaping="trace" 거부).
+- LOW-1 → 개요 R2 완료·R3 설계 대상으로 갱신 / LOW-2 → 레거시 리스크 PPO 문구 R3 out-of-scope 정합.
+
+→ Round 4 codex 재리뷰 대기.
+
+**Round 4 결과 — CRITICAL/HIGH 0 · LOW 2 → plan 내 처리 종결**
+- Round 3 7건 전부 실질 해소 확인(H1 full-snapshot digest — over-broad invalidation은 per-run distinct-prefix
+  memo 비용 논증 무해로 수용 / H2 MIN_DISTINCT=1500 floor·primary·dense 일관 / M1 라벨 분리로 overclaim 차단 /
+  M2 throughput-infeasible 1급 terminal / M3 R3_DENSE_PIN 독립·shaping="none" / L1·L2 정합).
+- [low-1] verify-r3 outcome 분기(pass=predicate/replay · model_fail=floor∧미달 · throughput-* = pass replay
+  스킵+산출물 요구) 명시 → 반영. [low-2] `trace_causal_pass=false`+`trace_causal_reason` 스키마 명명 일관 → 반영.
+- **§R3 plan-stage 종결** (R1 11건 → R2 9건 → R3 7건[STOP·사용자 승인] → R4 CRITICAL/HIGH 0·LOW 2 in-plan —
+  사용자 승인 user-extended cap 경로, §R2 선례 동일). 다음 = **R3 구현**(사용자 go 대기).
