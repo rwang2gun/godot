@@ -758,3 +758,151 @@ rediscover-verify(4/13/**19**/20). **inert 불변식 확인**: up-cell 스킬 �
   ⓐ-ⓚ + la2-reserve ⓐⓑⓒ + rediscover 5 + selftest 19 + analyze 4 + diverse 4).
 - **정직 경계(박제)**: 정상 per-round + D2 protected + LA2 reserve는 작은 cap에 수학적으로 동시 불가 → D2는 충분 cap
   (≥baseline+protected+reserve) 필요, default 10은 D2 스테이지에 부족(명시 경고+CHECKPOINT, silent 아님). **5e impl-stage 종결.**
+
+---
+
+## 5f witness de-risk (2026-06-27) — S23 42변형 matrix → **(나) capability 갭 입증**
+
+> plan §4(R4 approve) 구현 1단계. 엔진/게임 무변경, `try_solve.py replay` 손배치. 고정 액션 = blocker reverse
+> @좌측절벽(min_x, le x=312=col6) + bridge cross @우측절벽(max_x, ge x=528=col11). deadline_frames=9000.
+
+**단일 30변형** (sand_mound cell (col,row), col∈{11..20}×row∈{5,6,7}):
+- **30/30 = no-reach** (saved=0, picked_total=0, time_out). engine-error 0.
+
+**2-조합 12쌍** (sand_mound (c1,6)+(c2,6), c1∈{13,14,15}×c2∈{16,17,18,19}):
+- **12/12 = no-reach** (saved=0, picked_total=0, time_out). engine-error 0.
+
+**종합 판정 (§4 4-way)**: saved-witness 0 / engine-error 0 / reach-only 0 / **42 전부 no-reach** → **(나) capability
+갭 입증**. silent defer 금지(5d② R1) → **사용자 STOP·escalate**.
+
+**메커니즘(왜 (나))**: blocker+bridge는 개미를 우측 갭 너머 col14(bridge 끝, body row6)까지 전달하나(trace
+col6↔col14 왕복 확인), candy(22,5)는 우측 overhang(row6 cols15-25) **꼭대기 row5** 보행면. col14→col15 row6은
+벽. sand_mound cell-up은 **다중-셀 수직 사다리**(꼭대기 cap/open까지 ~5칸 상승)라 row6→row5 **1칸 step-up**을
+못 만든다(꼭대기가 row5 위로 overshoot → 개미가 candy 보행면 row5에 정착 못 함, 전부 picked=0). 1-row step-up은
+builder/stair(slideL/slideR) 능력인데 **S23 인벤토리 = blocker/bridge/floater/sand_mound(slide 없음)**.
+→ S23은 현 routing+인벤토리로 overhang-top 도달 불가. artifact: `scratchpad/s23_w_*.plan.json`(42개) +
+`s23_witness_singles.json`/`s23_witness_pairs.json`.
+
+**미해소 가능성(정직)**: ① 의도-해가 blocker+bridge가 아닌 *전혀 다른* 리스크-처리(예 floater 하강→우측 계단
+상승)일 수 있음 — 그 경우도 계단 1-row step-up은 동일 갭. ② S23 인벤토리/레벨 자체가 미완성(사용자 레벨 WIP).
+→ **사용자 결정 대기**: (a) overhang step-up routing 신설(별 trace) / (b) S23 인벤토리에 slide 추가(레벨 변경) /
+(c) S23 대표 게이트 철회·다른 stretch로 재스코프 / (d) 보류.
+
+### 5f S23 레벨/인벤토리 점검 (2026-06-27, 사용자 결정) — **S23 현 인벤토리로 unsolvable (강한 증거)**
+
+> 사용자 "S23 레벨/인벤토리 먼저 점검". over-the-top(42변형) 외 **down-climb 대안 + 인벤토리 제약** 점검.
+
+**sand_mound 메커니즘 확정**(`WorkerState._place_sand_mound_tile`): 시전 개미 body_cell에서 위로 1칸씩 rung
+배치(SAND_MOUND_MAX_HEIGHT=5). 위 칸 점유 시 `_can_cap_ledge`(위=레지·위위=빈·earth면) 통과하면 cap+2칸
+텔레포트, 아니면 무변경 종료. **빈칸이면 최대 5칸 상승 후 종료(허공 cap 없음 = overshoot)**.
+
+**점검 결과 (전부 picked=0, 즉 candy 미도달)**:
+- **over-the-top(blocker+bridge+sand_mound)**: 42변형 no-reach(앞 절). 개미가 col14(bridge 끝)서 col15 row6 벽
+  막힘. sand_mound@col14는 위에 레지 없어 5칸 overshoot(허공) → candy 보행면 row5 미착. col15-19 pocket(레지
+  있음)엔 벽 때문에 진입 불가.
+- **down-climb(blocker+floater+sand_mound, 3변형)**: DC1/DC2/DC3 전부 saved=0 picked=0 **lost=0** time_out —
+  개미가 갭 낙하조차 안 하고 중앙 플랫폼서 정체(candy 미도달).
+- **인벤토리 hard 제약**: gap 낙하 = 9칸(row6→row15) = 기절사(≥6칸). **floater 인벤토리=1** → 7마리 중 1마리만
+  안전 하강 가능 → down-climb으로 saved=7 원천 불가.
+- **솔버 search cap40**: reached=0(트리아지) — 자동 탐색도 picked 0.
+
+**점검 verdict**: S23(인벤토리 blocker2/bridge2/floater1/sand_mound2)는 **saved=7 클리어 불가로 강하게 추정**.
+근거 = ① over-the-top: sand_mound가 col14서 overshoot(레지 없음)·pocket 진입 벽 차단 ② down-climb: floater=1이
+9칸 치사 갭에 7마리 안전하강 불가 ③ 솔버·손배치 45+변형 전부 picked=0. **S23은 사용자 Ch2 레벨 WIP일 가능성
+(레벨 설계 이슈).** → 사용자 보고: 손플레이 검증 / 인벤토리 조정(slide 또는 floater 증량) / 레벨 재설계 중 택.
+
+### 5f S23 — 사용자 의도-해 엔진 검증 → **(나) capability-갭 결론 REVERSE** (2026-06-27)
+
+> 사용자가 직접 클리어한 의도-해를 인터랙티브 HTML 보고서로 받아 솔버 형식 변환·replay 검증.
+> **결과: saved=7/7 lost=0 cleared frame=2415** (`data/solutions/stage23.witness.json`).
+
+**검증된 해 (5액션)**: floater@col6(좌측 절벽 분배자) + blocker@col0(바닥 반전) + sand_mound@(15,14) +
+sand_mound@(19,10) + bridge@(귀환 운반 개미, col15→col14 cliff). 9마리 중 floater·blocker 2마리 정착 →
+**정확히 7 carrier = candy_hp**. (blocker@col23은 픽업 자동반전 때문에 불요 — 사용자 6번째 배치 생략 가능.)
+
+**의도-해 메커니즘 (전진→귀환)**:
+1. 좌향 spawn → col6서 **floater 분배자 정착**(ANT_SETTLE `distribute_slow_fall` — 1개가 지나는 7마리 전부에
+   slow-fall 분배) → **좌측 갭** 안전 하강(우측 아닌 좌측!).
+2. 바닥 row15 좌행 → col0 blocker 반전 → 우행.
+3. **sand_mound@(15,14)**: col15 상승 → row11 플랫폼(cols14-21) 레지에 **cap**(15,10 착지).
+4. row11 플랫폼 우행 → **sand_mound@(19,10)**: col19 상승 → **천장(overhang) 레지에 cap**(19,5 착지).
+5. 천장 top(row5) 우행 → candy(22) 픽업 **자동반전** → 좌행.
+6. col15서 **bridge 무장**(운반 개미) → col14 cliff에 다리 → 중앙 플랫폼 복귀 → home(10,6).
+
+**내 de-risk가 틀린 3가지 (솔버 휴리스틱 갭, capability 갭 아님)**:
+1. **floater=분배자 오판**: "floater=1 → 1마리만 안전하강"으로 봤으나, 실제 ANT_SETTLE distribute_slow_fall은
+   **1개가 모든 통과 개미에 분배**. → down-climb 즉각 기각이 오류.
+2. **방향 오판**: blocker로 우향 반전 후 over-the-top(bridge)만 시도. 의도-해는 **좌측 갭 하강**(floater) 경로.
+3. **sand_mound cap 오판**: col14(위 레지 없음)에 놓아 overshoot 보고. 실제 **레지 있는 col15/col19**에 놓으면
+   `_can_cap_ledge`가 row11 플랫폼·천장에 **cap+텔레포트**. 42변형이 cap 위치(레지 위)를 안 짚음.
+
+**시사 (솔버 과제)**: model.propose가 ① floater-분배자 routing(safe_fall, 좌측 갭) ② sand_mound **cap-onto-ledge
+배치**(레지 검출 → 그 아래 col에 사다리) ③ 좌-routing 후보를 **미생성**. 5f F1(burial)보다 **propose 후보 생성
+범위**가 본질 갭. → 5f 재설계 필요(다음 세션). stage23.witness.json = 회귀 기준(엔진 검증 해).
+
+### 5f F1 스파이크 (2026-06-27) — 후보 생성 ≠ 병목, **greedy score가 진짜 병목** (revert)
+
+> 사용자 "한번 해보자" → F1 미니멀 스파이크(① 후보에 _off/_src_rank/_risk 부여 + `_class_prefix_protect`를
+> safe_fall/cross/up_cell generic 보호). S23 witness 자동발견 시도. **결과: 미해결, 정밀 진단 후 revert.**
+
+**스파이크 결과**: F1이 floater(safe_fall)를 평가까지는 시킴(롤아웃에 floater 등장) — 그러나 솔버는 여전히
+**blocker를 commit**. 원인 규명(단계별 probe):
+- **모든 5단계 후보는 기존 diagnose로 검출됨**(후보 생성 갭 아님): floater/blocker@col0 = reverse_targets,
+  sand_mound@(15,14)·@(19,10) = **wall_targets**(floater+blocker 후 (15,14), +sand15 후 (19,10) 순차 검출 실증,
+  개미 row14→row6 cap 성공), 귀환 bridge = reverse_targets.
+- **유일 병목 = greedy score(best_goal_dist) + 2-step LA**: floater는 개미를 좌측(candy 반대)으로 보내 goal_dist
+  악화 → LA2 frontier(goal_dist 최근접 2개)서 제외. 더 결정적으로 **floater+blocker(개미 바닥, goal_dist≈17)가
+  blocker-단독(개미 중앙-우, ≈12)보다 goal_dist 나쁨** → score가 floater 경로를 commit·lookahead 둘 다 기각.
+- **근본**: S23 해는 **~4단계 anti-greedy**(climb 3-4단계 가서야 goal_dist 개선). greedy+2-step LA로 **원천 불가**.
+
+**시사(5f 재프레임)**: F1(burial)은 필요하나 **불충분** — 진짜 막힘은 **검색 전략/score 근시안**. 해결 방향(다음
+세션, 큰 재설계): ① 깊은 lookahead(3-4단계, 비용↑) ② **구조-탐험 보상 score**(novelty/escape-trap — 새 구조 영역
+도달·등반을 goal_dist 악화에도 진척으로 인정; 단 옛 best_min_y는 S14서 역효과라 신중) ③ beam search(다양 부분
+플랜 유지). **revert**: 스파이크는 S23 미해결 + byte-identical 깸 → model.py HEAD 복원. `stage23.witness.json`이
+재설계 타깃·회귀 기준.
+
+## 5g 구현 1단계 = S23 자동발견 de-risk (2026-06-27) → **미해결 · §4 ⓑ escalate (no silent defer)**
+구현: `model.frontier()` + Phase A read-only harvest + Phase B 탐험-우선 best-first(별도 가산 PHASE_B_BUDGET=60,
+branch-local exclude, 3중 종료 경계, SEED_POOL_CAP=8). `search 23 --max-rollouts 40`.
+- **결과**: Phase A 정지(blocker+bridge, reached=0) → **Phase B 진입(floater@base[] 시드=True, raw 15→capped 15)**
+  → **미해결: 60롤 소비, expand 9노드, 최대 frontier 45**(witness 74 미달). saved=0/7.
+- **진단(핵심) = frontier-우선 best-first가 생산적 경로 misrank**: 잘못된 분기(floater→sand@(3,14) 등)도 개미를
+  퍼뜨려 frontier↑ → **frontier 절대값 우선순위가 생산적 witness 경로(floater 24→blocker 30, 상대적으로 낮은
+  frontier)를 frontier 높은 dead 분기에 밀어냄**. seed 풀도 surface 고-frontier 시드(30~45)가 floater(24)보다 먼저
+  pop돼 budget 소진. §0 gradient(witness 따라 frontier 단조)는 *경로 내부*엔 맞으나 **분기 *선택* 신호로는 부적합**
+  (잘못된 경로도 frontier 자람). = **budget 부족 아닌 우선순위 신호 focusing 실패**(plan §3 리스크 실측).
+- **정책**: plan §4 ⓑ(saved<7 cap 소진 → silent defer 금지 → §3 escalate). 코드는 de-risk WIP(미커밋) — 사용자
+  방향 결정 대기. 옵션: (a) 우선순위 신호 재설계(frontier+goal-directed/structure 결합 or greedy-DFS+backtrack)
+  (b) budget 대폭 상향(focusing 문제라 효과 의문) (c) 다른 메커니즘(③ beam/깊은 lookahead) (d) 재스코프/보류.
+
+### 5g de-risk 진행 (②+③ beam 정련, 2026-06-27~28) — picked=7 도달·witness 정확배치 미조립 → escalate
+사용자 결정 ②+③(탐험+beam) 후 5회 de-risk로 Phase B 메커니즘 점진 정련(전부 `search 23 --max-rollouts 40`):
+| # | 메커니즘 | budget | 결과 |
+|---|---|---|---|
+| 1 | frontier-단일 best-first | 60 | 미해결, max fr 45. blocker(frontier 비최대) misrank. |
+| 2 | skill-diverse beam(frontier) | 220 | **blocker 생존**(depth2~3), depth4 max fr 77, budget 소진 depth5 미도달. |
+| 3 | 〃 + budget↑ | 360 | depth4 fr77 도달하나 witness 노드(picked7,fr74)가 비생산 고-fr spread(77)에 밀려 미조립. |
+| 4 | score-우선 + frontier 2차 | 360 | picked=7·saved=1 부분해 도달. **score saved-우선 myopia가 saved=1 dead-end>picked=7 디딤돌**. |
+| 5 | progress-aware(saved+picked, retired, goal, fr) | 360 | **picked=7·skill다양성 전depth 유지**, 그러나 **picked=7-retired=7(전원픽업후 전원사망) 국소최적 수렴**. |
+- **정밀 진단(현 한계)**: beam이 picked=7(전원 candy 도달)까지 안정 도달하나, witness의 picked=7은 **retired=0
+  (살아있는 운반)** — 그 *정확한 배치*(`sand(15,14)+sand(19,10)`가 개미 생존시킴)가 **placement 조합 needle-in-
+  haystack**이라 미조립. 대부분 sand 배치는 死로 이어져 picked=7-die near-miss가 지배. = ②+③ beam의 한계
+  (탐험·진척 신호는 옳으나 정확 placement 미해결).
+- **정책(plan §4 ⓑ, no silent defer)** → 사용자 escalate. 코드=de-risk WIP(미커밋). 옵션: (a) placement 국소
+  정밀탐색 추가(picked=7-die 노드 주변 sand 셀 ±1 perturb로 alive 변형 탐색 — spike 국소탐색/analyze 윈도우 선례)
+  (b) budget·beam 대폭 상향(조합 폭이라 효과 의문) (c) S23 hard-gate 재스코프(stretch 강등) (d) 보류.
+
+### 5g de-risk 6회차 = placement refinement (2026-06-28) → 여전히 미해결, escalate 확정
+사용자 결정(국소 정밀탐색) 반영: `_refine`(pb_best cell-target 배치 ±REFINE_RADIUS=2 coordinate-ascent + propose 확장,
+REFINE_BUDGET=160). 결과: beam best=picked=7-**retired=7(전원 픽업후 전원 사망)**, refine 160롤 perturb했으나
+**retired=7 불변**(alive 변형 ±2 내 미발견). 총 520롤 미해결.
+- **종합 결론**: 구현된 ②+③ beam(skill-diverse + progress-aware stepping-stone rank) + placement refinement로
+  **S23 정확한 생존-배치 witness 자동발견 불가**. 메커니즘은 directionally 작동(picked=7 전원 candy 도달·전 skill
+  유지·blocker 생존)하나, witness의 picked=7-**alive**(retired=0, 2nd ladder가 개미 생존시킴)를 못 조립 —
+  picked=7-**die** 국소최적이 지배. = 솔버 capability 한계(레벨은 풀림, witness 엔진검증 saved=7/7).
+- **6회 정련 progression**: frontier-단일 → skill-diverse beam → +budget → score-우선 → stepping-stone rank →
+  +placement refinement. 각 단계가 한 misrank를 풀었으나 다음 층 노출. 정확 placement-needle은 미해결.
+- **정책(no silent defer + no thrash)** → 사용자 escalate. 코드=de-risk WIP(미커밋, model.frontier + Phase A
+  harvest + Phase B beam+refine). 권고 옵션: (a) S23 hard-gate 재스코프(witness=엔진검증 해를 코퍼스에 채택,
+  솔버 자동발견은 open 하드문제로 stretch 강등 — 오라클 목적엔 '풀림' 입증으로 충분) (b) 사용자 명시 승인 하
+  대규모 투자(witness 구조 seed / 훨씬 큰 search) (c) 다른 접근 재설계 (d) 보류·전환.

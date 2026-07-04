@@ -232,3 +232,118 @@ codex plan-review 3R(R1 HIGH×1 → R2 HIGH×1+MED×1 → **R3 approve**). 3-rou
 plan §"5e 계약" 확정 → **구현 진입 가능**. 구현 = model.py(D1 cell-up 목표-위 fall-edge + selfcheck 확장) +
 solve.py(D2 per-risk·per-class evaluated-prefix breadth) + rediscover[22]·witness-rolled fixture + selftest EXPECTED.
 **plan-stage 종결.**
+
+---
+
+## 5f Round 1 (2026-06-27, codex task-mqw3y1zn-covd6z) — needs-attention
+
+> 대상 = plan §"5f 계약 — per-risk 보호 일반화 (S21/23/24/25 승격)". codex `task` 모드(bash companion).
+
+**Verdict: needs-attention** (CRITICAL 0 / HIGH 3 / MEDIUM 2 / LOW 1).
+
+- **HIGH-1 F1 메타데이터 불일치**: F1은 generic class에 "risk별 evaluated-prefix·off↑ 결정론"을 적용한다지만,
+  현 reverse/safe_fall/cross 후보는 `_class`/`_w`만 갖고 `_off`/`_src_rank`/`_risk`는 up_cell만 보유
+  (model.py:442 vs :544). 보호 함수도 `_src_rank`/`_off` 의존(:580). → 권고: ant-routing 후보에도 `_risk`/
+  `_off`/`_src_rank` 부여를 바인딩 요구 + S23 synthetic에서 cross가 top-max_n 밖이어도 risk/off prefix 실평가
+  fail-closed selfcheck.
+- **HIGH-2 inert 충돌**: 5e inert는 "up_cell 없으면 보호 완전 off" 가드(:570·:574)에 의존. 5f가 class-agnostic
+  으로 바꾸면 S13/S14/S20(multi-class·up_cell-absent)이 generic 보호 발동 대상이 될 수 있어 byte-identical
+  주장과 충돌. → 권고: 보호 대상 class 명시적 좁히기 OR S11~S22 어떤 multi-class에서도 F1 무발동/항등을 합성
+  selfcheck + solve.json git diff로 증명.
+- **HIGH-3 witness 실패판정 미falsifiable**: §4 "손배치로도 불가"의 검색범위·배치후보·cap·deadline·성공/실패
+  메트릭 부재. → 권고: blocker/bridge 고정 여부, sand_mound 후보영역, bridge 후보폭, max frames/rollouts,
+  saved/reached/picked 기준을 finite matrix로 못박고 witness JSON/trace artifact 이름 지정.
+- **MEDIUM-1 hard-gate scope 흔들림**: 제목/도입은 S21/23/24/25 전체 승격으로 읽히나 Acceptance는 S23만
+  hard-gate. STATUS는 후자와 일치. → 권고: "S23 대표 hard gate 승격, S21/24/25 stretch 유지"로 정정.
+- **MEDIUM-2 cap acceptance 탄력적**: F2 cap 상향 허용하나 구체 cap 없음. Acceptance도 solve.solve(23) 성공만
+  말하고 cap 미고정. → 권고: 정확한 command + cap(상한 포함) 지정.
+- **LOW SoT 표현 혼선**: STATUS가 plan을 SoT라며 동시에 cross-PC SoT는 STATUS라 적음. → 역할 분리 명시.
+
+**처리(R1→fix)**: 6 finding 전부 plan §5f + STATUS 수정 반영 → R2 재리뷰 예정.
+
+## 5f Round 2 (2026-06-27, codex task-mqw486zk-92nhvn) — needs-attention
+
+> R1 6 finding fix 후 재리뷰. **closed**: HIGH-1(메타 F-pre0 방향 충분)·MED-1(scope)·MED-2(cap command)·LOW(SoT).
+> HIGH-2(inert S13/14/20)는 solve.json diff+명시검증 방향으로 closed. **남은/신규**:
+
+- **R2-HIGH-1(witness matrix partial)**: §4 성공=`saved≥1 AND picked>0`/실패=`전변형 saved=0 AND picked=0`만
+  정의 → `picked>0 AND saved=0`(reach-only)가 붕 뜸(구현자 임의해석). → **수정**: 결과를 `saved-witness`/
+  `reach-only`/`no-reach`/`engine-error` 4-way exhaustive 분기, `no-reach` 전부일 때만 capability gap.
+- **R2-HIGH-2(F1 class 공정성 신규)**: F1 quota가 risk/off 중심(5e `_src_rank`/`_off` 정렬, model.py:580)이라
+  같은 risk에서 safe_fall/up_cell이 quota 선점 시 cross가 평가 prefix 밖에 남을 수 있음(S23=safe_fall+cross+up_cell).
+  → **수정**: 보호 grouping을 `risk × class`로, 각 applicable class가 최소 1 prefix 슬롯(off=0) 보장 후 off 심화.
+  F-pre0 selfcheck에 `reverse+safe_fall+cross`서 cross 평가-prefix 진입 단언 추가.
+- **R2-MED-1(2-조합 결정론)**: "상위 후보 ≤20쌍"이 row·pair ordering·산정기준 미고정. → **수정**: 12쌍 데카르트곱
+  (`c1∈{13,14,15}×c2∈{16,17,18,19}`, row6, 사전식) 고정 = 총 42변형(30단+12쌍).
+
+**처리(R2→fix)**: 3 finding 전부 plan §4/F1/F-pre0 반영 → R3 재리뷰(3-round cap 최종).
+
+## 5f Round 3 (2026-06-27, codex task-mqw4gfky-xfwxp5) — needs-attention → **3-round cap STOP**
+
+> R2 3 finding fix 후 최종 재리뷰. **3-round cap 정책: Round 3 HIGH 1건 → 즉시 중단·사용자 결정.**
+
+- **R3-HIGH-1(engine/error가 capability gap에 혼입)**: §4 종합판정 `42변형 전부 no-reach(±engine error)`면
+  capability gap이라 했으나, 실행 실패 변형이 "no-reach 전수"로 둔갑 가능 → R2-HIGH-1 미완전 closure. capability
+  gap STOP은 **42개 모두 성공 replay AND 모두 no-reach일 때만**; engine/error 1건이라도 남으면 gap 아니라
+  fail-closed abort/escalate. *(잔여 HIGH — STOP 트리거)*
+- **R3-MED-1(F-pre1 stale 50변형)**: §4는 42(30+12) 고정인데 F-pre1이 "§4 finite matrix(50변형)"로 stale 재오염
+  + "전 변형 picked=0이면 STOP"이 §4 4-way 판정보다 약해 reach-only 미보존.
+- **R3-MED-2(quota overflow 과대진술)**: "같은 risk 모든 class 최소 1 prefix" + "bounded ≤max_n"을 절대보장처럼
+  쓰나 `#(risk,class)>max_n` overflow 규칙이 F-pre3 경고 수준 → falsifiable 아님. "보장 전제: applicable class
+  수 ≤ max_n, 초과 시 fail-closed/escalate" 필요. (R2-HIGH-2 S23 cross-burial 자체는 closed.)
+
+**정책 판정**: Round 3 HIGH 1건 존재 → **plan-stage STOP, 사용자 결정 대기**(수정 방향·범위·취소). 3 finding 전부
+trivial wording/consistency 닫힘이며 설계 변경 아님(아래 사용자 보고 참조).
+
+### 5f R3 → fix (사용자 결정 = 3건 적용 후 R4 확인)
+- R3-HIGH-1 → §4 종합판정 4-우선순위(engine/error 1건이라도 → fail-closed abort, gap 결론은 42개 모두 정상
+  replay 전제). R3-MED-1 → F-pre1 "42변형" 정정 + §4 4-way 판정 그대로 따름(reach-only/engine 보존). R3-MED-2 →
+  F1 risk×class에 overflow 규칙(전제 슬롯≤max_n, 초과 시 fail-closed 경고·정직 표기). → R4 재리뷰 예정.
+
+## 5f Round 4 (2026-06-27, codex task-mqw67lgf-dw2yye) — ✅ clean (approve)
+
+> R3 3건 wording fix 후 확인 라운드(사용자 결정). **verdict = clean, 잔여 HIGH/MEDIUM 0.**
+- R3-HIGH-1 closed: §4 종합판정 4-우선순위(saved-witness→engine/error abort→reach-only escalate→no-reach gap),
+  engine/error가 gap에 섞일 여지 제거.
+- R3-MED-1 closed: F-pre1 "42변형=30단+12쌍" + §4 4-way 판정 보존.
+- R3-MED-2 closed: quota overflow가 "활성 risk×class ≤ max_n" 전제 조건부 보장 + 초과 시 fail-closed CHECKPOINT.
+
+**5f plan-stage 종결**: R1(6)→R2(3)→R3(3, HIGH 1 STOP·사용자 R4 승인)→**R4 approve**. 구현 진입 가능.
+구현 1단계 = §4 S23 witness de-risk 42변형 matrix(엔진 무변경). (가)→S23 hard-gate / (나)→사용자 escalate.
+
+## 5g Round 1 (탐험-보상 plateau-crossing 검색, codex task — 2026-06-27)
+Verdict: **needs-attention** (HIGH×5 + MEDIUM×2 + LOW×1). 방향 자체는 타당, 구현 전 계약 보강 필요.
+- **HIGH-1**: 5f와 5g가 같은 S23 hard-gate를 동시에 live로 둔다(plan-as-SoT 병존, 5f에 supersede 표시 없음).
+- **HIGH-2**: Phase B 예산 보장 없음 — Phase A가 cap을 다 쓰면 Phase B=0롤. "break를 fallback으로 대체"는 no-progress break에만 적용, budget exhaustion 미적용.
+- **HIGH-3**: branch best-first가 현 전역 `tried`/exclude 모델과 충돌(다른 branch 동일 label suppress vs loop 방지 근거 변경). `tried` 스코프 전환 미계약.
+- **HIGH-4**: 종료성 "frontier 유한"만으론 부족 — plan-sequence 수는 별도(inventory decrement 불명시·exclude 면제). depth cap + canonical memo 필요, frontier 단조는 pruning heuristic.
+- **HIGH-5**: floater가 Phase B seed pool에 반드시 든다는 계약 약함("거부" 범위 불명확). G-pre에 "S23 round에서 floater가 novel-reject pool 포함" prove-it 필요.
+- **MEDIUM-1**: acceptance가 plateau-crossing 미증명(우연 greedy clear 오인) — `phase_b_entered=true` + 순서 signature 필요.
+- **MEDIUM-2**: cap80 근거 약함(S14 40×2는 경험치, branching factor 무관) — product threshold로 격하 + 실패 시 최소 진단 구체화.
+- **LOW**: frontier=탐험가치 동치 과함 — bounded tie-break signal로 격하, 전역 품질 metric 아님 명시.
+
+## 5g Round 2 (codex task — 2026-06-27)
+Verdict: **needs-attention**. R1 대부분 closed(HIGH-1/3/4/5·MED-2·LOW), 새 HIGH 1 + MED 2:
+- **HIGH-R2-1**(HIGH-2 재개방): `PHASE_A_CAP = max_rollouts - PHASE_B_RESERVE` split이 기존 `_main_cap`/`LA2_RESERVE`(solve.py:39~67)와 충돌 — `_main_cap(...,max_rollouts)`면 Phase A가 reserve 잠식, `_main_cap(...,PHASE_A_CAP)`면 이중 차감으로 solved stage Phase A 후보 폭/순서 변경(inert 깨짐). + PHASE_B_RESERVE 수치 부재라 S14(40)/S20(30)/S13(26)이 PHASE_A_CAP 전 clear됨을 사전 검증 불가.
+- **MED-R2-1**: 메커니즘 signature(floater가 하위-route 앞) 결정론 판정 불명확 — memo는 순서무관 multiset이라 다른 construction order가 먼저 처리되면 floater-first suppress 가능. predicate화 필요(seed[0]==floater@base[]·bottom-route 명시).
+- **MED-R2-2**: novel-reject가 floater 포함은 OK이나 seed pool deterministic bound 부재 → cap 내 pool noise가 witness 조립 방해 가능. top-K/class histogram 제한 권고.
+
+**fix 방향**: cap-split 폐기 → **Phase A 불변(full max_rollouts) + Phase B 별도 가산 예산**(_main_cap/LA2_RESERVE 무간섭, Phase A byte-identical trivially). signature=predicate화. seed pool SEED_POOL_CAP top-K.
+
+## 5g Round 3 (codex task, 최종 — 2026-06-27) → **STOP (3-round cap, HIGH 1)**
+Verdict: **STOP. HIGH 1건.**
+- **HIGH-R3-1**: "Phase A 코드 미변경"(literally, frontier 미평가, byte-identical trivially) 계약 ↔ Phase B
+  seed harvesting(Phase A eval_cands가 평가한 미채택 후보 중 frontier 확장분 = floater@base[] 포함) 계약 **충돌**.
+  novel-reject 시드를 얻으려면 Phase A 평가 루프에 passive harvesting/observer를 넣어야 하므로 "코드 미변경" 불가.
+  → 사용자 결정 필요: 계약을 "Phase A **decision/rollout semantics byte-identical**, passive harvest side-channel
+  허용"으로 완화 vs Phase B 시드를 별도 재실행으로 수집. (R2-HIGH-1 cap-split 자체는 닫힘; 그 대체 논증이 구현불가 형태.)
+- 잔여 압박 축 판정(추가 HIGH 아님): signature predicate (b) fail-closed 타당 / SEED_POOL_CAP=8은 G-pre4 FAIL-가드로
+  잔여 HIGH 아니나 "항상 살림" 문구는 prove-it 조건으로 격하 권고(MED) / 5f SUPERSEDED 배너 OK.
+
+**3-round cap STOP** → 사용자 보고·결정(수정 방향·범위·취소).
+
+**5g plan-stage 종결**: R1(HIGH×5)→R2(HIGH×1)→R3(HIGH×1 STOP)→**사용자 결정(AskUserQuestion) = "계약 완화 후 구현 진입"**.
+R3-HIGH-1 반영: "Phase A literally 코드 미변경" → **"decision/rollout semantics byte-identical + passive read-only
+harvest side-channel"**, byte-identical을 G-pre1 solve.json git diff 0으로 실증(trivially 폐기). SEED_POOL_CAP "항상
+살림"→G-pre4 prove-it 격하. **R4 없이 구현 진입**, 충족은 impl-stage 적대 리뷰 + fail-closed selfcheck로 검증(5d② 선례).
+구현 1단계 = §4 S23 자동발견 de-risk(saved=7/7 + 메커니즘 signature). 미달 시 §3·§4 escalate/STOP(no silent defer).

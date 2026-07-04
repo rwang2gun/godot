@@ -15,6 +15,7 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 - **확정·완료(리뷰·구현 통과)**: 결정 D1~D7 + **Phase 0·1·2·3a**. falsifiable acceptance 충족.
 - **강제 종료(2026-06-24, 사용자)**: **Phase 4(전술 라이브러리 — 속도 위한 전이)**. 4a 실측이 boost를 falsify + pruning-for-speed가 incompleteness 산물로 판명 → 속도 가설 기각. 본문 §Phase 4 = TERMINATED 배너(음성-입증 이력 보존). 살아남은 자산(볼트=해 설명 어휘)은 Phase 5로 이관.
 - **확정·진행 중(in-track 현재)**: **Phase 5 — 솔버 고도화 및 재설계**. 솔버 가치를 *속도*가 아닌 **다양-해 발견 + 풀이법 보고서(designer-in-the-loop)**로 재정의. Phase 0~2 자산 위에 얹는 재설계. Item 1(배치/전략 축) 완료·게이트 그린.
+- **확정·진행 중(병행 실험 트랙)**: **Phase R — 정식 RL 솔버**(2026-06-24 사용자 패러다임 결정). 목적=학습/실험 그 자체. Phase 5 휴리스틱 트랙과 코드·게이트 커플링 0으로 병행. 환경 spike 완료(`f637a24`) → R0 완료(S11 3/3 오버핏 `d7d3352`, S12 stretch FAIL `dc68a47`) → **R1 완료**(S12 2/3 seed `431fdd6` + impl 사후 리뷰 R6 approve, hot-fix 5커밋) → 스윕 S20~S25 취소(사용자, curriculum 전제) → **R2(영속 학습: 체크포인트+스테이지-불변 정책+curriculum+cell-target)가 설계 대상**(§R2, 사용자 지시 2026-07-04: 가중치 저장/로드 필수).
 - **트랙 밖(별도 브랜치 · 다운스트림)**: (구 Phase 5)감사 오라클·(구 Phase 6)생성. 2026-06-20 사용자 결정 — 생성은 솔버 역할이 아니라 **솔버 산출(다양-해·풀이법 보고서)을 참조하는 별개 소비자**. in-track Phase 5가 "5" 슬롯을 차지하므로, 이 둘은 번호 없는 다운스트림으로 격리.
 
 ## 비전 / 북극성 (방향 — 확정 범위 아님, 사용자 정렬 2026-06-18)
@@ -774,6 +775,671 @@ plan-stage 3-round cap에서 R3 HIGH×1+MED×1이 나와 STOP→사용자가 "�
 - **결정론**: D1 cell-up 후보 순서 + D2 class 인터리브 키 완전 결정론(좌표·진척·사전식 tie-break).
 - **미결(plan-review 또는 impl 중 입증)**: 의도-해(floater→slideR→bridge→sand_mound→slideL, 5종)가 현 routing
   으로 *표현 가능*한지 손배치 미검증(slideL/slideR routing=up·ANT_ARMED). stretch라 하드 게이트엔 무영향.
+
+---
+
+### 5f 계약 — per-risk 보호 일반화 (S23 대표 hard-gate 승격, S21/24/25 stretch 유지) **[⛔ SUPERSEDED by §5g (2026-06-27)]**
+> **⛔ SUPERSEDED 배너 (2026-06-27, 5g Round-1 HIGH-1 해소)**: 5f의 핵심 가설(F1 = cross-class burial 일반화가
+> S23 mis-commit의 원인)이 **impl 스파이크로 반증**됐다(plan §"5f F1 스파이크"·STATUS: 후보 생성≠병목, greedy
+> score 근시안이 병목). 따라서 **5f의 S23 hard-gate·F1 구현·§4 witness matrix·F-pre0~3 바인딩·rediscover[23]은
+> 더 이상 구현 대상이 아니다** — S23 hard-gate는 **§5g(탐험-보상 plateau-crossing)로 이관**. 5f 본문은 *음성-입증
+> 이력*(burial≠병목 확인 경로)으로 보존하되 **확정 구현 계약은 §5g가 유일 SoT**. 5f F1(burial) 자산은 미래에
+> 실제 cross-class burial 레벨이 등장하면 재진입 가능(현 캠페인 부재 = latent). 아래 5f 본문은 이력 기록이다.
+>
+> 5e가 S22(귀환 cell-up burial)를 풀고 **S21·S23·S24·S25를 "추가 routing 상호작용 필요 가능"으로 stretch
+> defer**했다(§5e Acceptance line "stretch"). 트리아지(cap40)로 그 defer가 확증됨 — **4개 전부 reached=0**(개미가
+> candy 픽업조차 못 함, cap 부족 아님). 5f는 그중 **S23 하나만 실측 grounding 위에서 대표 hard-gate로 승격**하고
+> (S22-동형 cross/reverse burial을 정준 사례로), **S21/24/25는 stretch 유지**(R1-MEDIUM 정정 — 제목·Acceptance·
+> STATUS 일치). `model.py`/`solve.py`/selftest만 — 엔진/PlanRunner/게임 무변경(5e와 동일 계약면).
+
+**0. 실측 grounding (S23 정준, 엔진 D4 trace — 가설 아닌 재현된 결함)**
+S23 "부서진 배"(file23) 권위 grid(`parse_layout`):
+```
+       0....5....1....5....2....5   (col)
+ row6  ...............###########   우측 overhang cols15-25
+ row7  ####..######........######   좌 cols0-3 / 중앙 cols6-11 / 우 cols20-25 (갭 cols4-5·cols12-19)
+ row15 ##################........   바닥 cols0-17
+```
+- home=(10,6) 중앙 플랫폼(표면 row7) 위. candy=(22,5)=우측 overhang(row6) 꼭대기 보행면 row5.
+- **spawn_direction=−1(좌향)**, 9마리, candy_hp=7. 인벤토리 blocker2/bridge2/floater1/sand_mound2.
+- **리스크 시퀀스**: ① 좌측 절벽(col6→col5 좌향, 물갭 cols4-5) — 좌향 spawn이라 *먼저* 도달, 물 익사. 해결=
+  blocker(reverse, candy 쪽 우향 전환). ② 우측 갭(col11→col12, 갭 8칸). 해결=bridge(cross). ③ 우측 overhang
+  climb(bridge 끝 col14서 col15 row6 **벽**, candy 보행면은 그 위 row5). 해결=(추정) sand_mound climb.
+- **실측 failure(trace)**: blocker(col6)+bridge(col11) → 개미가 **col6↔col14 무한왕복**(`(6,6)…(14,6)…(6,6)`),
+  best_min_y=row6.8 고정, picked=0, time_out. blocker+bridge+sand_mound@(14,6)도 동일(climb 미작동).
+- **현 솔버**(트리아지): best plan=`['blocker','sand_mound']` reached=0 — ①blocker는 옳으나 **②에서 bridge 대신
+  sand_mound로 mis-commit**. = bridge(cross)가 ②에서 burial/mis-commit된 직접 증거.
+
+**1. 진단 — 5e D2가 안 잡는 두 결함**
+- **(A) cross-class burial(5e D2 범위 밖)**: 5e `_class_prefix_protect`는 **`up_cell`만** 보호(impl: `if "up_cell"
+  not in classes…`). S23 ②는 **cross(bridge)** 가 **reverse(blocker, 물-우선 water_w)** 에 _w로 눌리는 *다른*
+  class 쌍 → 5e 미보호. burial은 up_cell 한정이 아니라 **임의 class 경쟁**에서 발생.
+- **(B) 다중-리스크 합성**: 3+순차 리스크(①②③)에서 한 리스크 mis-commit이 하행 리스크를 trace에서 가린다
+  (reached=0→②③ 안 보임). 닫힌-루프 점진 노출은 원리상 되나 (A) burial이 차단. **(A) 해소가 (B)의 상당 부분
+  자동 해결**(엔진이 전진 도구 선택).
+
+**2. 설계 (5e D1~D3 위 가산 — 신규 계약면 0)**
+- **F1 · 5e D2 `_class_prefix_protect` 일반화**: up_cell 전용 게이트를 **generic non-top class 보호**로 확장 —
+  한 라운드 절단(top-max_n)에서 밀린 *어느* applicable intervention class(cross·safe_fall·up_cell)의 evaluated-
+  prefix를 보호. 엔진 verdict가 도구 결정.
+  - **⚠ 그룹핑 = `risk × class` (R2-HIGH-2)**: 5e quota는 `_src_rank`(risk)만으로 그룹화·off↑ 정렬이라, 같은
+    risk에 여러 class가 경쟁하면(S23 한 절벽에 safe_fall+cross+up_cell) off-우선 정렬이 **한 class에 quota를 몰아주고
+    다른 class를 prefix 밖에 남길 수 있다**(cross starve). → 보호 quota를 **(risk, class) 2-키 그룹**으로 묶고,
+    **각 (risk, applicable class)가 off=0 슬롯 1개를 먼저 받은 뒤** 라운드-로빈으로 off를 깊게 — *같은 risk의 모든
+    class가 최소 1 prefix 평가*를 보장(class 간 공정).
+    - **⚠ overflow 규칙 (R3-MED-2)**: "모든 class 최소 1 prefix" + "bounded ≤max_n"은 **전제: 활성 (risk×class)
+      슬롯 수 ≤ max_n**일 때만 동시 성립한다. **초과 시**(슬롯>max_n) 모든 class에 1 prefix 불가 → 절대보장
+      아님: **fail-closed = cap 부족 명시 경고(CHECKPOINT, F-pre3)·해당 라운드 미보장 class 정직 표기**,
+      필요 시 사용자 cap 상향 승인(5e R8 cap contract). 즉 보장은 *조건부*이고 위반은 silent 아님.
+    - bounded quota ≤max_n·결정론((risk좌표, class키, off↑) 사전식)·5e 라운드-로빈은 유지. **F-pre0 selfcheck가
+      `reverse+safe_fall+cross` 합성 경쟁에서 cross가 실제 평가 prefix에 듦을 단언**(off-우선만이면 FAIL = prove-it).
+  - **⚠ 메타데이터 선결(R1-HIGH-1)**: 현 보호 함수는 `_src_rank`/`_off`에 의존하고 그 필드는 **up_cell 후보만**
+    보유(model.py:544). ①(reverse/safe_fall/cross) 후보는 `_class`/`_w`만(model.py:442). → **F-pre0(바인딩
+    요구)**: ①·② 후보에도 `_risk`(=가장자리 좌표·종류)/`_off`(backpath offset)/`_src_rank`(diagnose 정렬순)
+    부여 후에만 generic 보호 가능. 부여 전에는 보호 대상에서 제외(현 up_cell 한정과 동일 = inert).
+  - **⚠ inert 좁히기(R1-HIGH-2)**: 5e inert는 "up_cell 없으면 보호 완전 off"(model.py:570) 가드에 기댄다.
+    class-agnostic화는 S13/S14/S20(multi-class·up_cell-absent: reverse+up_armed)을 보호 발동 대상으로 만들 수
+    있어 byte-identical과 충돌. → **보호 발동 조건을 명시 협소화**: ⓐ ≥2개 *서로 다른 applicable class*가 경쟁
+    AND ⓑ 그중 한 class의 후보가 **전부** top-max_n 절단 밖(=완전 burial)일 때만. carry-chain(up_armed)이 자기
+    _w로 절단 안에 들면 보호 무발동. **이래도 S13/S14/S20에서 발동하면 설계 오류** → F-pre2가 합성 selfcheck +
+    solve.json git diff로 강제 검출(발동 시 plan 재설계, silent 통과 금지).
+  - 5e 3중 가드(절단 없음/단일 class/대상 부재)를 class-agnostic으로 유지.
+- **F2 · 다중-리스크 cap (구체화, R1-MEDIUM-2)**: 3+도구 합성(S13 26롤·S14 40롤 선례)을 위해 S23 hard-gate의
+  **고정 command·cap**을 §5 Acceptance에 못박는다(탄력 cap 금지 — 회귀 게이트 성립). cap은 S14 선례
+  **max_rollouts=40 상한**으로 고정; 그 안에 풀려야 게이트 PASS(초과 필요 시 = cap 부족 입증 후 사용자 승인,
+  silent 상향 금지). F1로 mis-commit 제거 후 잔여가 순수 cap이면 입증, 휴리스틱/capability 갭이면 §3 escalate.
+- **F3 · 다양-해**: 5b/5c forbid 그대로(신규 0). 풀린 스테이지 `diverse --save`.
+
+**3. ⚠ 미확정 = overhang climb capability (정직 박제, 5f 핵심 리스크)**
+S23 ③(bridge 끝 col14 row6 → overhang 꼭대기 row5 climb)이 **현 sand_mound cell-up routing으로 표현 가능한지
+미검증**. 손배치 sand_mound@(14,6) 개미 미상승(best_min_y 불변). 두 갈래: **(가) 배치/메커니즘 문제**(witness
+존재 → F1만으로 충분, S23 정준 게이트) / **(나) capability 갭**(witness 부재 → overhang 진입은 신규 routing
+필요 = F1 밖, **본 plan STOP·사용자 escalate**). 현 솔버가 cap40서도 reached=0인 게 (나) 가능성을 배제 못 함.
+
+**4. 구현 1단계 = S23 witness de-risk (하드 선결, falsifiable matrix — R1-HIGH-3)**
+witness 확립을 impl **첫 작업**으로. 검색은 **유한 matrix**로 못박아 "불가"가 falsifiable하게 한다(엔진 변경 0,
+`try_solve.py replay` 손배치):
+- **고정 액션**: blocker reverse @ 좌측 절벽(`select=min_x`, `ant_reaches_x le x=312`=col6) + bridge cross @
+  우측 절벽(`select=max_x`, `ant_reaches_x ge x=528`=col11). (de-risk로 발화·동선 확인됨: 개미 col6↔col14 왕복.)
+- **스윕 변수 = sand_mound 배치 (결정론 finite set, R2-MED-1)**:
+  - **단일 30변형**: cell `(col,row)` for `col ∈ {11,12,…,20}` × `row ∈ {5,6,7}`, **(col asc, row asc) 사전식**,
+    at_frame 0.
+  - **2-조합 12쌍**(단일 30 전부 `no-reach`/`no-save`일 때, 인벤토리=sand_mound2): `(c1,6)+(c2,6)` for
+    **`c1 ∈ {13,14,15}` × `c2 ∈ {16,17,18,19}`**(데카르트곱 = 정확히 12쌍, `c1<c2` 항상 성립), `(c1 asc, c2 asc)`
+    사전식. (c1=bridge 끝 부근 ladder1, c2=overhang 진입 ladder2 — T2 우향. row6 고정.) **총 42변형**(30+12) 고정.
+- **고정 예산**: `deadline_frames=9000`, 변형당 replay 1회.
+- **결과 exhaustive 분기 (R2-HIGH-1)** — 변형마다 엔진 verdict를 4-way 분류(붕 뜨는 케이스 0):
+  - **`saved-witness`**: `saved≥1`(이상적 7/7) → **(가) 확정**. 첫 발견 변형을 hard-gate witness로(§5).
+  - **`reach-only`**: `picked_total>0 AND saved=0` → overhang 진입은 *되나* 완주(귀환) 미확립 = **hard-gate 미충족
+    이되 capability 갭 아님**. → silent 통과·STOP 둘 다 금지: **부분 진척으로 보고 + 사용자 escalate**(추가 도구/
+    배치 필요 판단은 사용자).
+  - **`no-reach`**: `picked_total=0`(현 baseline과 동일) → 이 변형에서 capability 미입증.
+  - **`engine/error`**: replay 비정상(비-PASS·크래시) → fail-closed(재시도 1회, 지속 시 abort·보고).
+- **종합 판정 (engine/error 격리 — R3-HIGH-1)**: 우선순위 순:
+  1. 한 변형이라도 `saved-witness` → **(가) 확정**.
+  2. `engine/error`가 **1개라도** 남으면(재시도 1회 후에도) → capability gap 판정 **금지**: **fail-closed abort +
+     사용자 escalate**(미완 측정이 (나)로 둔갑 차단). gap 결론은 **42개 모두 정상 replay**가 전제.
+  3. (42개 모두 정상 replay 전제) `saved-witness` 0 AND `reach-only` ≥1 → 부분 capability 입증·완주 미확립 →
+     사용자 escalate.
+  4. (42개 모두 정상 replay 전제) **42변형 전부 `no-reach`** → **(나) capability 갭 입증** → silent defer 금지
+     (5d② R1) → 사용자 STOP·escalate(overhang routing 신설/재스코프/취소는 사용자 결정).
+- **artifact**: 각 변형 `scratchpad/s23_witness_<spec>.plan.json` + 결과표(변형·saved·picked·reason·분류)
+  `phases/solver/reviews/phase05-impl-review.md`(`## 5f witness de-risk` 헤더)에 전수 박제(투명).
+
+**5. Acceptance (falsifiable)**
+- **하드 게이트(고정 command·cap, R1-MEDIUM-2)**: §4 witness `(가)` 확정 후 **`try_solve.py search 23
+  --max-rollouts 40`** → `solve.solve(23)` **saved=7/7**(F1 burial-fix 자동발견, cap40 상한 내) →
+  `stage23.solve.json` 영속 + **selftest EXPECTED에 23 편입**(frame byte-identical) + **rediscover[23]**(재발견
+  cleared+액션 시그니처 일치). witness 미확립 시 §3 escalate(게이트 보류, 사용자 결정).
+- **stretch(게이트 아님)**: S21/24/25 자동발견 + 다양-해(F3). 미해결은 정직 보고(reached/picked·burial vs cap vs
+  capability 구별).
+- **inert(회귀 0, F1 협소화 검증)**: 기존 S11~S22 solve.json **byte-identical**(F1 발동 조건 ⓐⓑ 미충족 → 무발동).
+  특히 **S13/S14/S20(multi-class·up_cell-absent)에서 F1 무발동을 명시 검증**(R1-HIGH-2). selftest/analyze/diverse/
+  rediscover 전 게이트 그린·EXIT 0. 5e inert 실측(S19 8롤·S13 26·S14 40·S20 31 git diff 0) 재확인.
+
+**6. 구현 바인딩 요구 (plan-review 산출 선반영)**
+- **F-pre0(메타데이터+공정성, R1-HIGH-1·R2-HIGH-2)**: ①(reverse/safe_fall/cross)·② 후보에 `_risk`/`_off`/
+  `_src_rank` 부여 후에만 generic 보호 적용(메타 부재면 보호 불가 = inert). **fail-closed selfcheck 2종**:
+  ⓐ S23 synthetic(cross가 reverse _w에 눌려 top-max_n 밖)에서 cross의 risk/off prefix가 **실제 평가 프리픽스에
+  듦** 단언(메타 부여 전엔 FAIL = prove-it). ⓑ **3-class 공정성**: 같은 risk에 `reverse+safe_fall+cross`가
+  경쟁하고 cross가 _w 꼴찌일 때, `risk × class` 그룹핑이 cross에 off=0 슬롯을 보장(off-우선 정렬만이면 cross
+  starve = FAIL). 두 selfcheck PASS가 F1 구현의 acceptance 일부.
+- **F-pre1(witness)**: §4 finite matrix(**42변형 = 30단+12쌍**)를 impl 1단계 강제. **판정은 §4 4-way 종합 판정**
+  (saved-witness/reach-only/no-reach/engine-error)을 그대로 따른다(요약하지 않음 — reach-only·engine/error 보존).
+  witness JSON + 엔진 verdict 첨부. saved-witness 0 시 §4 종합 판정대로 escalate/STOP(hypothetical acceptance
+  HIGH 선반영, falsifiable).
+- **F-pre2(F1 inert prove-it, R1-HIGH-2)**: 일반화가 byte-identical 안 깸 — ⓐⓑ 발동 조건 합성 입력 selfcheck
+  (단일-class·carry-chain 절단-안 케이스 무발동) + **S11~S22 solve.json git diff 0**(특히 S13/S14/S20 multi-class·
+  up_cell-absent 무발동 명시). **발동 검출 시 plan 재설계**(silent 통과 금지). up_cell→generic 확장이라 회귀 표면 큼.
+- **F-pre3(bounded quota 충분성)**: 다중-class·다중-risk 동시 경쟁 cap 부족 명시 경고(5e R8 cap contract), starve
+  합성 입력 selfcheck 박제.
+
+**정직 경계**: break/down/jump cell 디바이스 미커버 유지. S18(별 휴리스틱 트랙)·S20(carry-mirror latent) 무관.
+5f는 5e 계약면(model.py/solve.py/selftest) 동일 — 엔진/게임 무변경.
+
+### 5g 계약 — 탐험-보상 plateau-crossing 검색 (S23 anti-greedy 해 자동발견) **[구현 de-risk 후 S23 재스코프 — 2026-06-28]**
+> **⚠ 재스코프 배너 (2026-06-28, 사용자 결정 — de-risk 6회 후)**: plan-stage는 R1→R3 STOP→사용자 "완화 후 구현
+> 진입"으로 종결. 구현 1단계(S23 자동발견 de-risk)에서 ②+③ beam(skill-diverse + progress-aware stepping-stone rank)
+> + placement refinement를 6회 정련했으나 **S23 정확한 생존-배치 witness 자동발견 실패**(picked=7 전원 candy 도달
+> "모양"엔 도달하나 picked=7-alive 정확 배치 미조립, picked=7-die 국소최적 지배 = 솔버 capability 한계). **레벨은
+> 풀림**(witness `stage23.witness.json` 엔진검증 saved=7/7). → **사용자 결정 = S23 hard-gate 철회·재스코프**:
+> ① **S23 = stretch(자동발견 open 하드문제), hard-gate 아님**. 오라클 목적("풀리는가")엔 witness 채택으로 충분.
+> ② **②+③ beam 개선은 보존**(inert: Phase A clear 스테이지는 Phase B 미진입 → byte-identical, 다른 미해결
+> 스테이지엔 도움 가능). ③ 트레일 = `reviews/phase05-impl-review.md ## 5g de-risk 진행`(6회 progression 박제).
+> 아래 §1~6 설계 본문은 *시도된 메커니즘의 이력*으로 보존(특히 §5 "하드 게이트"는 철회됨 — S23은 stretch).
+> 5f F1(burial 일반화)은 **필요·불충분**으로 판명(스파이크: 후보 생성 ≠ 병목, greedy score 근시안이 병목, plan
+> §"5f F1 스파이크"·STATUS). 사용자 결정(AskUserQuestion 2026-06-27) = 검색 전략 재설계 중 **"② 구조-탐험 보상
+> score"**. 5g는 그 ②의 정식 계약이다. `model.py`/`solve.py`/selftest만 — 엔진/PlanRunner/게임 무변경(5e/5f 계약면 동일).
+> **타깃 = `data/solutions/stage23.witness.json`**(엔진 검증 saved=7/7, anti-greedy 5액션 — floater→blocker→
+> sand_mound×2→bridge)을 솔버가 자동 발견.
+
+**0. 실측 grounding (de-risk 스파이크, 엔진 D4 — 2026-06-27, 가설 아닌 재현된 측정)**
+S23 baseline `search 23`(무seed): 솔버가 표면 경로 `blocker(6,6)+bridge(11,6)`에 greedy-commit 후 정지
+(reached=0). ⚠ **이 경로에서 제안된 sand_mound 후보는 전부 좌측/중앙 표면(col2~11)** — witness 셀 (15,14)·
+(19,10)은 **미노출**. 추가 seed 스파이크 2건(임시 env-gated seed, 측정 후 revert·solve.py git clean):
+- **(S0) floater seed → 닫힌-루프가 witness 셀 전부 노출**: `search 23`에 floater seed 시 rollout 17에
+  `sand_mound@(15,14)`, rollout 23에 `sand_mound@(19,10)`, rollout 6에 `blocker@(0,14)` **전부 제안**. → **후보
+  생성은 floater 분기 위에서 완비**(STATUS "후보 완비"는 witness 분기 한정이 맞음; greedy 표면 분기에선 미노출).
+- **(S1) witness prefix gradient (cells_explored = visited cell 합집합 크기)**:
+  | prefix | picked | saved | goal_dist | highest_row | **cells_explored** |
+  |---|---|---|---|---|---|
+  | `[]` | 0 | 0 | 13 | 6 | 14 |
+  | `floater` | 0 | 0 | **13(평평)** | 6 | **24** |
+  | `floater,blocker` | 0 | 0 | **13(평평)** | 6 | **30** |
+  | `+sand(15,14)` | 0 | 0 | 8 | 6 | **42** |
+  | `+sand(19,10)` | **7** | 0 | 5 | **5** | **74** |
+  → **`goal_dist`는 첫 2단계(floater·blocker) 평평(13) → greedy·LA2(frontier=goal_dist) 거부**. 반면
+  **`cells_explored`는 단조 증가**(14→24→30→42→74) = witness 체인을 가리키는 결정론 gradient. **②의 신호 = 탐험
+  프론티어**임이 실증.
+- **(S2) 분기점 문제**: floater는 round 7에서 blocker(국소 goal_dist 우월)에 밀려 거부; 일단 표면 blocker로
+  commit하면 개미가 좌측 갭(cols4-5)에 도달 못 해 **floater 경로가 영영 차단**(surface-commit 분기는 좌측-하강
+  route 미도달). → **stall-only-from-best 복구 불가**(stall 시점 best=표면 분기). floater를 *분기에서* 살리려면
+  greedy를 벗어난 **breadth(백트래킹/best-first)**가 필요.
+
+**1. 진단 = 3중 결함 (5f F1로 안 풀리는 이유)**
+- **(A) plateau**: witness는 goal_dist 평평한 **2-step 구간**(floater→blocker)을 건너야 gradient(sand)가 나타남.
+  greedy(1-step)·LA2(2-step, frontier=goal_dist)로는 평평 구간을 못 넘음.
+- **(B) 분기 commit**: floater는 stall이 아니라 **정상 greedy 진행 중** blocker에 밀려 거부됨(round 7) →
+  stall-시점 복구로는 도달 불가. 분기를 살리는 breadth 필요.
+- **(C) 신호 부재**: 현 score(saved>retired>picked>trapped>goal_dist)·LA frontier(goal_dist)는 **탐험 진척
+  (frontier 확장)을 0 보상** → 평평 구간의 디딤돌과 헛 배치를 구별 못 함.
+
+**2. 설계 — 탐험-우선 fallback 검색 (inert overlay, 2-phase)**
+> 핵심 = **메인 greedy+LA2 루프 불변**(Phase A, solved 스테이지 byte-identical) + **clear 없이 종료 시에만**
+> 발동하는 **탐험-우선 best-first fallback**(Phase B). 5e/5f의 "기존 경로 inert + 신규 조건부 층"과 동형.
+- **탐험 신호 `frontier(trace)`**(model.py 신규, 순수): 트레이스 전 개미 visited cell `{(cx,cy)}` 합집합 크기.
+  결정론·좌표 비의존. ⚠ **격하(R1-LOW)**: frontier는 *전역 품질 metric이 아니라* **S23 de-risk에서 유효성이
+  실증된(§0 단조 14→24→30→42→74) Phase B 전용 bounded tie-break 신호**다 — `score`를 대체·우선하지 않으며
+  Phase A는 frontier를 **전혀 안 본다**(inert). 왕복/루프가 frontier를 키울 수 있음은 알려진 한계(§5 stretch 구별
+  보고) → Phase B의 *탐색 순서* heuristic이지 해의 *품질* 판정이 아님(품질=엔진 verdict).
+- **Phase A (decision/rollout semantics 불변 + passive harvest, R3-HIGH-1 해소)**: ⚠ R3-HIGH-1 정확 — Phase B
+  seed 풀은 Phase A가 평가한 미채택 후보(frontier 확장분)를 **수집(harvest)**해야 하므로 "literally 코드 미변경"은
+  불가능한 과장(seed harvest와 모순). → 정직한 계약 = **Phase A의 *결정·롤아웃 의미*(후보 생성·순서·tie-break·
+  accept 조건·rollout 수·채택 plan·`_main_cap`·`LA2_RESERVE`·`tried`·`break`)는 byte-identical로 불변**하되, 그 위에
+  **read-only passive harvest side-channel** 허용: `eval_cands`가 **이미 계산한** `res`에 대해 `frontier(res.trace)`를
+  *읽어* seed 풀에 append만 한다(추가 롤아웃 0, Phase A 어떤 분기·순서·채택에도 영향 0). harvest는 부수효과 없는
+  순수 관찰 → byte-identical은 "코드 미변경 trivially"가 아니라 **G-pre1 solve.json git diff 0으로 실증**(엄밀화).
+  clear면 `_Clear`.
+- **Phase A → Phase B 인계 (예산 = 별도 가산, R1-HIGH-2 + R2-HIGH-1 해소)**: ⚠ R2-HIGH-1이 정확히 지적 —
+  Phase A를 `max_rollouts - PHASE_B_RESERVE`로 **split하면** `_main_cap`/`LA2_RESERVE`(solve.py:39~67)와 이중
+  차감·잠식 충돌해 solved stage Phase A 거동이 바뀐다(inert 깨짐). → **split 폐기. Phase B는 Phase A와 분리된
+  *별도 가산 예산* `PHASE_B_BUDGET`(고정 상수, §5)**: Phase A는 종전대로 `max_rollouts`를 **그대로** 쓰고(어떤
+  종료 경로든 — (i) no-progress break solve.py:408 OR (ii) `rollouts>=max_rollouts` 소진), **clear 없이 끝나면**
+  Phase B가 **별도 `PHASE_B_BUDGET` 롤아웃**으로 이어받는다. → `_main_cap`/`LA2_RESERVE`와 **무간섭**(Phase A 산식
+  불변), Phase A는 **byte-identical trivially**(코드 미변경). 총 롤아웃 상한 = `max_rollouts + PHASE_B_BUDGET`
+  (콘솔에 두 phase 예산 분리 보고 — `--max-rollouts`는 종전 의미[Phase A cap] 유지, Phase B는 신규 상수). solved
+  스테이지는 Phase A서 `_Clear` → Phase B 미진입(예산 0 소비).
+- **Phase B (신규, fallback best-first)**: `PHASE_B_BUDGET` 예산 내 탐험-우선 검색. **node = `(plan, trace,
+  frontier_size, score, local_excluded)`**:
+  - **seed 풀 = novel-reject + baseline**: "novel-reject" 정의 명확화(R1-HIGH-5) = **Phase A의 `eval_cands`가
+    평가했으나 `score`로 미채택된 후보** 중 **`frontier(res.trace) > frontier(그 평가 시점 base.trace)`**(=프론티어
+    확장)인 것을 `(base_plan, action, res_frontier, score)`로 기록. floater(round7)는 base=[] 대비 frontier 14→24
+    확장이라 **반드시 기록됨**(G-pre4 prove-it로 박제). 기록은 main eval·LA2 eval 양쪽(평가된 전 후보 대상).
+  - **seed pool deterministic bound (R2-MED-2 — pool noise 억제)**: novel-reject는 unsolved stage의 루프/왕복
+    trace로도 부풀 수 있다. → **`SEED_POOL_CAP` = `(base_plan_sig, _class)`별 frontier desc 상위 K**(고정값 §5,
+    결정론 정렬: frontier desc·score asc·action 사전식)만 seed 풀에 보존. floater 같은 고-frontier 디딤돌은 보존
+    되는 경향이나 **"항상 살림"을 수학 증명하지 않는다(R3 격하)** — 대신 **G-pre4가 S23 floater 시드 부재 시 FAIL**로
+    박제. noise tail은 cap. seed count·class histogram을 G-pre4 산출물에 박제(pool 폭발 가시화).
+  - **best-first 큐**: 우선순위 = ⓐ clear ⓑ frontier_size desc ⓒ score asc ⓓ 결정론 tie-break(plan-signature 사전식).
+  - **expand**: pop → 그 plan 재진단 → propose·평가(엔진 D4, 1롤/후보, `PHASE_B_BUDGET` 차감) → clear면 즉시
+    save·종료 / 아니면 frontier 확장 후보만 큐 push(확장 0 미push).
+  - **branch-local exclude (R1-HIGH-3)**: Phase B는 **Phase A 전역 `tried`를 상속하지 않는다**(다른 branch 동일
+    label suppress 방지). 각 node가 자체 `local_excluded`(그 plan에서 이미 expand한 action label) 보유 + **canonical
+    plan-signature memo**(전역, 순서무관 multiset sig)로 **중복 plan expand 차단**(loop 방지 근거를 `tried`가 아닌
+    plan-sig memo로 이전). Phase A `tried`는 Phase B에서 seed provenance로만(미상속).
+    - **⚠ memo vs floater-first signature 비충돌 (R2-MED-1)**: memo는 순서무관 multiset이라 "같은 multiset이 다른
+      order로 먼저 memo 처리되면 floater-first가 suppress될까" 우려가 있으나 — best-first 큐가 **frontier desc 우선**
+      이고 floater seed가 base=[]에서 frontier 최고 디딤돌이라 **floater-first 노드가 등가 multiset의 다른 order보다
+      먼저 pop·expand**된다(클리어 발견 시 그 노드의 construction provenance가 저장). memo는 *재방문*만 막지 *첫
+      발견 경로*를 못 바꾼다. → floater-first signature는 construction artifact가 아니라 best-first 탐색 순서의 산물
+      (G-pre5가 provenance로 단언).
+  - **종료성 (R1-HIGH-4, frontier ≠ 주 증거)**: 3중 경계 — (1) **`PHASE_B_BUDGET` 롤아웃 cap**(주 경계, 단독으로
+    유한 종료 성립) (2) **explicit depth cap `MAX_PLAN_LEN`**(= Σ inventory action 수, plan 길이 상한 — completeness/
+    sequence 폭발 억제) (3) **canonical plan-sig memo**(중복 expand 0). frontier 단조는 push *pruning heuristic*이지
+    종료 증거 아님(R1-HIGH-4 직시). (1) 단독으로 유한 보장, (2)(3)은 효율·완전성.
+  - **결정론**: 큐 우선순위·tie-break·propose·memo·seed-cap 순서 전부 결정론(5e/5f 동일 기준).
+- **inert 불변식**: Phase B는 Phase A가 **clear 없이 종료**(break OR max_rollouts 소진)할 때만 발동. 기존 solved
+  스테이지(S11~S22)는 Phase A서 `_Clear` → Phase B 미진입 → **solve.json byte-identical**. ⚠ **R2-HIGH-1 해소**:
+  예산 split 없음(별도 가산) → `_main_cap`/`LA2_RESERVE` 무간섭(이중차감 부재). **R3-HIGH-1 해소**: harvest는
+  read-only(Phase A 결정·순서·롤아웃 불변)라 byte-identical 유지 — 단 "trivially"가 아니라 **G-pre1 solve.json git
+  diff 0으로 실증**(harvest가 결정에 누출되면 git diff로 검출 → STOP). Phase A의 frontier 읽기는 채택에 미참여.
+
+**3. ⚠ 미확정 = Phase B가 cap 내 witness를 조립하는가 (5g 핵심 리스크, 정직 박제)**
+de-risk가 입증한 것: ① witness 존재(saved=7/7) ② 후보 완비(floater 분기) ③ frontier 단조 gradient. **미입증**:
+best-first가 **유한 cap 내** floater→blocker→sand(15,14)→sand(19,10)→bridge **조합을 실제 조립**하는지(프론티어
+풀 폭발 가능성). → **구현 1단계 = S23 자동발견 de-risk(하드 선결)**: 합리적 cap(아래 §5 고정값)에서 saved=7/7
+재현. 불가 판명 시 **silent defer 금지**(5d② R1 정책) → 실측 입증(어느 단계서 cap·풀 폭발) 후 **사용자 STOP·
+escalate**(beam 폭·cap·휴리스틱 재설계는 사용자 결정).
+
+**4. 구현 1단계 = S23 자동발견 de-risk (하드 선결, falsifiable)**
+- `try_solve.py search 23 --max-rollouts <N>`(N = §5 고정) → `solve.solve(23)` **saved=7/7** 자동발견.
+  Phase B가 frontier-우선으로 floater 분기를 살려 witness(또는 동치 클리어 해) 조립. 콘솔에 Phase B 진입·
+  frontier 풀 크기·채택 경로 박제.
+- **결과 분기(정직)**: ⓐ saved=7/7 → 하드 게이트 충족(§5). ⓑ saved<7 cap 소진 → §3 escalate(프론티어 풀
+  크기·미조립 단계 트레이스 첨부). ⓒ engine/error → fail-closed(재시도 1회, 지속 시 abort·보고).
+- artifact: 자동발견 해 + 엔진 verdict를 `phases/solver/reviews/phase05-impl-review.md`(`## 5g …` 헤더)에 박제.
+
+**5. Acceptance (falsifiable)**
+- **고정 상수 (구현 전 명시 — R2-HIGH-1·R2-MED-2)**: `PHASE_B_BUDGET = 60`(Phase A `max_rollouts`와 별도 가산;
+  witness 5액션 best-first 조립 여유, S23 de-risk로 충분성 입증 — impl 1단계가 falsify) / `SEED_POOL_CAP = 8`
+  ((base_sig,_class)별 frontier-top K) / `MAX_PLAN_LEN = Σ inventory action 수`(S23=blocker2+bridge2+floater1+
+  sand_mound2 = 7). 전부 falsifiable gate 상수 — 부족 입증 시 사용자 승인(silent 상향 금지).
+- **⚠ S23 하드 게이트 = 철회됨(2026-06-28 재스코프, §5g 헤더 배너)**: 아래 "하드 게이트" 서술은 de-risk 전 설계
+  의도이며 **S23은 stretch로 강등**(자동발견 미달, witness로 풀림 입증). 실제 구현 상수도 de-risk로 갱신됨(PHASE_B_BUDGET
+  360·BEAM_WIDTH 10·REFINE_BUDGET 160 — 위 60은 초기 추정). beam은 **inert 보존 자산**(아래 inert 항목)으로 잔류.
+- **(이력) 하드 게이트(고정 command)**: `try_solve.py search 23 --max-rollouts 40` **+ Phase B 별도 가산** → saved=7/7.
+  cap = **product acceptance threshold이지 설계 충분성 근거 아님(R1-MEDIUM-2)** — de-risk가 falsify(needle 미조립).
+  - **메커니즘 signature 단언(R1-MEDIUM-1·R2-MED-1 — 우연 greedy clear 오인 차단, 결정론 predicate)**: 단순
+    "saved=7/7"이 아니라 코드-판정 가능 predicate 동시 충족 — **(a) `phase_b_entered == true`**(Phase A clear 실패 후
+    Phase B가 푼 것, 결과 dict flag) AND **(b) Phase B seed provenance: 채택 해의 Phase B 시드 노드가
+    `seed.plan == [] AND seed.action.skill == "floater"`**(=floater-first 디딤돌에서 출발) AND **(c) 최종 plan
+    multiset = `{floater:1, sand_mound:2, bridge:≥1}` 포함**. **(b)는 construction order가 아니라 best-first 시드
+    provenance**(memo-suppression 무관, R2-MED-1) — floater가 *어느* bottom-route보다 앞임을 시드 출발점으로 박제.
+    byte-동일 불요(5d②/5e 선례, witness=존재증명·회귀 기준)이나 메커니즘 signature는 필수(plateau-crossing 검증).
+  - 영속: `stage23.solve.json` + **selftest EXPECTED[23]**(frame byte-identical) + **rediscover-verify[23]**(재발견
+    cleared + 위 (a)(b)(c) signature 단언).
+- **inert(회귀 0)**: 기존 S11~S22 solve.json **byte-identical**(Phase B 미발동). selftest/analyze/diverse/
+  rediscover 전 게이트 그린·EXIT 0. 5e/5f inert 실측(S19 8롤·S13 26·S14 40·S20 31·S22 16 git diff 0) 재확인.
+- **종료성(falsifiable, R1-HIGH-4)**: Phase B가 **3중 경계**(PHASE_B_BUDGET 롤아웃 cap·MAX_PLAN_LEN depth cap·
+  canonical plan-sig memo)로 유한 종료 — frontier 단조는 push pruning일 뿐 종료 주증거 아님. **selfcheck**: ⓐ
+  frontier 확장 0인 합성 입력서 push 없이 즉시 종료 + ⓑ depth cap 합성 입력서 MAX_PLAN_LEN 초과 plan 미expand +
+  ⓒ memo가 중복 plan-sig 재expand 차단.
+- **실패 시 최소 진단(R1-MEDIUM-2)**: saved<7 cap 소진 시 **Phase B seed count·popped nodes·depth별 frontier max·
+  witness-prefix 최근접 node·cap 소진 위치**를 로그·박제(§3 escalate 근거). silent defer 금지(§4 ⓑ).
+- **stretch(게이트 아님)**: S21/24/25 자동발견 + 다양-해(5b/5c forbid 재사용, 신규 0). 미해결은 정직 보고
+  (frontier 풀 폭발 vs cap vs capability 구별).
+
+**6. 구현 바인딩 요구 (plan-review 산출 선반영 슬롯)**
+- **G-pre0(frontier 함수 결정론·일반성)**: `frontier(trace)` 순수·결정론 selfcheck(동일 trace → 동일 set;
+  좌표 비의존). S23 비특화 — 합성 trace로 단조성 단언.
+- **G-pre1(inert prove-it, R1-HIGH-2·R2-HIGH-1·R3-HIGH-1)**: Phase B 미발동 + harvest read-only = byte-identical —
+  ⓐ Phase A clear 합성 입력서 Phase B 미진입 selfcheck + ⓑ **S11~S22 solve.json git diff 0**(특히 다중-액션
+  S13/S14/S20/S22). ⚠ 예산 split 없음(별도 가산)이라 `_main_cap`/`LA2_RESERVE` 무간섭(R2-HIGH-1); harvest는
+  read-only라 Phase A 결정·롤아웃 불변(R3-HIGH-1) — 단 **"trivially" 주장 폐기, ⓑ git diff 0이 byte-identical의
+  유일 권위 증거**(harvest가 결정에 누출되면 diff로 검출). drift 검출 시 plan 재설계(silent 통과 금지).
+- **G-pre2(종료성 3중 경계, R1-HIGH-4)**: §5 종료성 selfcheck ⓐⓑⓒ(frontier 확장 0 즉시 종료 / MAX_PLAN_LEN
+  depth cap / canonical plan-sig memo 중복 차단) + cap 경계 박제.
+- **G-pre3(branch-local state 계약, R1-HIGH-3)**: Phase B node가 **branch-local exclude + canonical plan-sig
+  memo**를 쓰고 **Phase A 전역 `tried` 미상속**임을 selfcheck로 박제 — 합성: 두 branch가 같은 label 후보를 각자
+  expand 가능(전역 `tried` 상속이면 한 branch가 suppress = FAIL) + 같은 plan-sig 재방문은 memo가 차단.
+- **G-pre4(floater seed prove-it, R1-HIGH-5)**: "novel-reject" 정의(§2: Phase A 평가됐으나 score 미채택 AND
+  frontier 확장)가 **S23 floater(round7, base=[] 대비 14→24)를 실제 pool에 넣음**을 **S23 de-risk 로그로 단언**
+  (합성 trace보다 실패 모드 직격) — Phase B seed pool에 floater action 부재 시 FAIL. §4 de-risk 산출물에 pool 내용 박제.
+- **G-pre5(witness de-risk + 메커니즘 signature predicate, R1-MEDIUM-1·R2-MED-1)**: §4 하드 선결을 impl 1단계
+  강제. saved=7/7 + §5 메커니즘 signature 결정론 predicate (a)`phase_b_entered` (b)Phase B 시드 provenance
+  `seed.plan==[] AND seed.action.skill=="floater"` (c)multiset `{floater:1,sand_mound:2,bridge≥1}` 동시 충족.
+  (b)는 best-first 시드 provenance라 memo-suppression 무관(construction order 아님). 미달 시 §3·§4 종합 판정대로
+  escalate/STOP(hypothetical acceptance HIGH 선반영, falsifiable).
+
+**정직 경계**: break/down/jump cell 디바이스 미커버 유지. S18(별 휴리스틱)·S20(carry-mirror latent) 무관. 5g는
+5e/5f 계약면(model.py/solve.py/selftest) 동일 — 엔진/PlanRunner/게임 무변경. **5f F1(burial 일반화)과의 관계**:
+5f는 *후보가 절단에 밀리는* burial을 풀고, 5g는 *후보는 평가되나 score가 평평 구간서 거부하는* 근시안을 푼다 —
+직교(5f는 본 스파이크로 burial≠병목 확인돼 보류, 5g가 실병목 타깃). 둘 다 동일 계약면이라 충돌 없음.
+
+---
+
+## Phase R — 정식 RL 솔버 (병행 실험 트랙) **[설계 · plan-review 대상, 2026-07-03]**
+
+> **배경(사용자 결정 2026-06-24)**: 휴리스틱 closed-loop 솔버(Phase 2~5)와 별개로 **정식 강화학습(RL)** 경로를
+> 연다. 목적 = **학습/실험 그 자체**(비효율 감수) — 오라클 생산 실용성은 Phase 5 휴리스틱 트랙이 계속 담당하고,
+> Phase R은 "이 도메인에서 학습이 되는가/어떻게 되는가"를 실험한다. LLM-기반·경량 셀시뮬 재구현은 검토 후 기각
+> (sim-to-real gap = D1 위반). 환경 관문(throughput)은 spike로 해소 완료: **persistent Godot 환경(커밋
+> `f637a24`)** — `tests/PlanServerHarness.gd`(TCP NDJSON 서버) + `tools/solver/env.py`(`GodotEnv` reset/step),
+> persistent 6회+단발 byte-identical · warm 0.46s/롤아웃 · free-port+pid격리 save = 병렬 env 구조 확보.
+
+### 계약면 (기존 자산 보존 — Phase 5와 직교)
+- **신규 = `tools/solver/rl/` 전용 패키지**(학습 코드). **엔진/PlanRunner/게임/env.py 무변경**(env.py 가산이
+  꼭 필요하면 byte-identical 회귀 조건으로 최소 허용).
+- `model.py`/`solve.py`/`try_solve.py`/게이트(verify 프론트매터) **무변경** — RL은 휴리스틱 솔버와 코드·게이트
+  커플링 0. 단, 레이아웃 파싱은 `model.py`의 파서를 **read-only import 재사용**(중복 구현 금지).
+- RL 산출 plan은 `data/solutions/stageNN.rl.json`(witness 계열 명명) — selftest glob(`*.solve.json`) **비대상**.
+  학습은 확률적이라 게이트 편입 부적합; 산출 best plan의 결정론 replay 검증은 R0 acceptance에 포함하되 게이트 밖.
+- 의존성: **PyTorch**(2.12.1, Python 3.14 설치 확인 완료) — auto-solver 트랙 한정 dev 의존성(게임 빌드 무관).
+  `rl/`은 torch를 **lazy import**(미설치 환경에서 기존 도구 무영향).
+
+### MDP 정의 (R0 확정)
+**에피소드 = plan 구성(construction) MDP.** 스텝마다 partial plan에 액션 1개를 추가하거나 SUBMIT을 고른다
+(스텝 0의 SUBMIT은 마스킹 = 최소 plan 길이 1 — 빈 plan은 유효 해가 아니며, 보상 0의 빈 plan이 음수-보상
+탐험을 이기는 collapse attractor가 됨을 스모크로 실측).
+SUBMIT(또는 인벤토리 소진·길이 상한) 시 완성 plan을 GodotEnv 롤아웃 1회로 평가 → **terminal reward**. 중간
+스텝은 Godot 호출 0 (에피소드당 롤아웃 1회 = warm 0.46s → 단일 env ~7k eps/h, N병렬 ×N).
+
+- **관측 s_t**: ① 레이아웃 그리드 one-hot(H×W×C — 타일 종류 + candy/home/spawn 마커) ② 인벤토리 잔량 벡터
+  ③ partial plan 인코딩(슬롯 K × 액션 피처). 단일 스테이지 오버핏에선 ①이 상수지만 R1(일반화) 대비 아키텍처에 포함.
+- **액션 a_t (factored discrete)**: `(skill, trigger_type, cmp, param, y_row, select, state)` 독립 categorical
+  head + SUBMIT. R0 어휘(의도적 축소, D5 트리거-추상 유지): skill ∈ 스테이지 인벤토리 / trigger ∈
+  {`ant_reaches_x`(x=col×48+24 — **셀 센터**; known S11·S12 해의 x값 4개 전부 이 격자에 정확 일치, 구현 시 확인)
+  , `picked_ge`(n)} / **cmp ∈ {ge, le}**(R1-H2 — S12 해가 le×2 요구) / param ∈
+  col 0..W-1 또는 n 1..hp_stage / **y_row ∈ {any} ∪ {0..H-1}**(row→`y_min/y_max` 밴드 변환; S12 해가 3개 밴드
+  요구) / select ∈ {max_x, min_x} / **state ∈ {any, walker, carrying}**(PlanRunner 기본 state=walker 정합).
+  **ant-target 스킬만**(cell-target·나머지 트리거 어휘 = R1). joint log-prob = Σ head log-prob(parameterized
+  action space 표준 처리). 무효 조합(발화 실패)은 페널티가 아니라 낮은 reward로 자연 도태(엔진이 안전 무시 —
+  golden 음성 플랜 선례). y_row 밴드 변환식 = `y_min=row×48, y_max=(row+1)×48`(1행 밴드). 기존 임의 밴드 →
+  row 변환은 결정론(R3-M): **원 밴드와 겹침(overlap) 최대 row, 동률이면 낮은 row** 선택 + 선택 row 기록.
+  **문법 커버리지
+  검사(R1-H2·R2 정밀화)**: known S11·S12 해(solve.json)를 이 문법의 **가장 가까운 격자 인코딩**으로 변환한 plan이
+  엔진 리플레이에서 **클리어(saved==hp_stage)** 되는지 검증(스테이지당 롤아웃 1회 — known 해의 y밴드가 문법
+  격자와 정확히 일치하지 않을 수 있으므로 byte-단위 인코딩이 아니라 엔진-등가로 판정). 미클리어 = 문법이 목표
+  해를 표현 못 함 = 학습 이전에 FAIL.
+- **보상(terminal — 형태 확정, 계수만 R0 튜닝 자유; acceptance는 결과로만 판정)**:
+  `R = 2·cleared + (saved + 0.3·picked_total − 0.2·lost)/hp_stage − 0.02·len(plan)`, timeout/error verdict 시
+  cleared·saved 항 0 + 고정 timeout 페널티(−0.1), picked shaping은 유지.
+  **정규화 분모 = `hp_stage`(스테이지 상수, env 셋업 시 StageData에서 1회 확정) — result의 `hp` 필드 미사용**
+  (R1-H1: PlanRunner가 deadline verdict를 `hp=-1`로 보고 → 음수 분모 오염 차단).
+  saved/picked_total/lost는 SOLVER_RESULT 필드 그대로(trace 불요 = 롤아웃 경량 유지). 주의(R1-M1): 이는
+  `solve.score`의 신호 계열과 **유사하나 등가 아님** — score()는 trace 파생 `retired`/`goal_dist`를 쓰고,
+  `lost`(ScoreSystem 카운터)는 retired/trapped와 다른 집계다. R0는 의도적으로 trace-free 경량 신호만 쓴다.
+- **알고리즘**: **REINFORCE + 러닝 평균 baseline**(손수 구현 — 학습 목적에 부합) → 불안정 실측 시 PPO-clip 승격
+  (fallback 명시, 사전 결정). 네트워크 = MLP(그리드 flatten + 벡터 concat)로 시작, CNN 인코더는 R1.
+  seed 기록(환경은 결정론이므로 같은 seed → 학습 곡선 재현).
+- **병렬화**: `GodotEnv` N개(free-port 격리) + 스레드 수집(step이 소켓 블로킹 I/O라 GIL 무관).
+  **병렬 preflight(R1-M3, spike 미증명 갭)**: spike는 단일 persistent env 반복만 증명 → R0 구현 1단계에서
+  N=4 env 동시 부팅 + 동일 plan 각 2회 = **전부 byte-identical** 확인 후에만 병렬 수집 사용. `_free_port`
+  race(소켓 close 후 Godot re-bind)는 부팅 실패(listen err → quit(2) → `exited during boot`) 감지 시
+  **클라이언트-측 새 포트 재시도**(env.py 무변경, rl/ 쪽 wrapper)로 흡수. preflight 실패 시 N=1 폴백(정직 보고).
+
+### R0 — 파이프라인 증명 (S11 오버핏 + S12 stretch) **[✅ 완료 2026-07-03 — S11 3/3 seed 오버핏(`d7d3352`), S12 stretch 0/3 정직 FAIL(`dc68a47`) → §R1]**
+- 산출: `tools/solver/rl/`(mdp/정책/학습 루프 — 파일 분할은 구현 재량, 과분할 금지) + **`requirements.txt`**
+  (torch 핀, R1-L1) + 학습 곡선(json), `data/solutions/stage11.rl.json`(best plan + expect + seed·하이퍼·에피소드 수).
+- 학습용 `deadline_frames`는 축소 cap(S11 clear=1562f → 3000f) — 무의미 plan이 deadline까지 도는 낭비 절감.
+  주의: cap은 **학습 중에만** — acceptance 판정 replay는 표준 deadline(7000f)으로 실행(축소 cap 거짓음성 차단).
+- **Acceptance (falsifiable — 고정 커맨드/설정, R1-H3·R2 정밀화)**:
+  1. **무힌트**(휴리스틱 `model.propose` 미사용 — 후보 시드 0) RL 학습이 **S11 클리어 정책** 도달.
+     **고정 실행(단일 커맨드, R2-H)**: `python tools/solver/rl/train.py --stage 11 --seeds 0,1,2 --envs 4
+     --max-episodes 20000 --max-wall 7200` — seed당 순차 학습(예산은 **seed당** 각각 적용) + 집계 판정까지
+     train.py가 수행해 pass/fail exit code로 보고. **pass predicate**: 3 seed 중 **≥2**가 예산 내에서
+     greedy(argmax) 정책 plan이 엔진 verdict **saved==hp_stage(=4)** 도달. 미달 = FAIL(원인 분석 후 사용자
+     보고 — silent 재스코프 금지).
+     **effective-config manifest(R2-M1)**: 학습 산출물(`stage11.rl.json`)에 seed·envs·에피소드 수·wall과
+     **전체 하이퍼파라미터(effective config)** 를 동봉 — train.py 기본값이 바뀌면 manifest가 달라져 산출물로
+     추적 가능(acceptance 타깃의 silent drift 차단).
+     **N 폴백 계약(R2-M2)**: `--envs 4`는 상한 — preflight 실패 시 train.py가 **자동 N=1 강등**(동일 seed당
+     예산 유지)하고 manifest에 `envs_effective` 기록. R0 pass는 N과 무관(병렬성은 처리량 편의지 acceptance
+     대상 아님) — 단 강등 발생은 정직 보고.
+  2. **자체 검증 커맨드(fail-closed, R1-M2·R2-M3 확장)**: `python tools/solver/rl/train.py --verify-r0` =
+     ① `stage11.rl.json` 존재 + **manifest 완전성**(seeds 3개·seed별 예산 준수·no-hint 플래그·envs_effective·
+     effective config 전체) ② manifest의 seed별 결과로 **3-seed ≥2 predicate 재판정** ③ best plan replay ×2
+     **byte-identical** + **saved==hp_stage**(try_solve replay의 saved≥1보다 강함). 하나라도 미달 = exit 1.
+     메인 verify 게이트엔 **비편입 유지**(커플링 0 원칙 — RL 트랙 로컬 게이트).
+  3. 문법 커버리지 검사 PASS(known S11·S12 해의 격자 인코딩이 엔진 리플레이 클리어 — MDP 정의 참조).
+  4. 병렬 preflight PASS(N=4 × 각 2회 byte-identical) 또는 N=1 강등 manifest 기록.
+  5. 기존 verify 게이트 전체 그린(엔진 무변경 → 회귀 0).
+  6. (stretch — 실패해도 R0 자체는 성공) S12(blocker×3, 다단 credit assignment) 동일 예산·동일 predicate
+     (saved==hp_stage(=5)) 오버핏.
+- **정직 경계**: R0는 "파이프라인이 학습한다"의 증명이지 휴리스틱 대비 성능 주장이 아니다. 일반화(미학습
+  스테이지) 주장 없음. S11은 1-액션 레벨이라 사실상 bandit — 다단 신뢰할당 증거는 S12 stretch부터.
+
+### R1 — trace-피드백 보상 shaping (S12 다단 credit assignment 돌파) **[구현 대상, 2026-07-03]**
+
+> **배경(R0 stretch 실증, `dc68a47` 박제)**: S12(blocker×3 계단)는 pinned 예산 3 seed 전부 20k eps 소진
+> 미클리어, **bestR=-0.02 = 양성 신호(픽업 1회조차) 0**. 원인 = terminal 보상의 신호원(saved/picked/lost)이
+> 전부 "3개가 다 맞아야" 비로소 0에서 벗어나는 계단 구조 → 보상이 **plan 공간에서 flat** → REINFORCE
+> 기울기 부재(정책은 "1액션+SUBMIT" 최소-페널티로 수렴). 주의: 이건 에피소드 *내* 시간적 credit assignment
+> 문제가 아니다(에피소드=plan 구성, 평가는 어차피 terminal 롤아웃 1회) — **보상 함수의 정보 부족**이다.
+> 따라서 R1 = 보상에 **trace-파생 진척 신호**를 가산해 "부분적으로 맞은 plan"이 구별되게 만든다.
+
+**핵심 근거(가설 아님 — 휴리스틱 트랙 실증)**: 휴리스틱 솔버는 S12를 greedy 11롤에 풀었고, 그 score가 쓴
+신호가 정확히 trace-파생 `best_goal_dist`(픽업 전=candy·픽업 후=home 접근 최소 맨해튼)와 `count_retired`다
+(solve.score, model.py). 즉 **S12에서 blocker 1개가 맞을 때마다 단조 개선되는 *합성* 신호(goal_dist+retired —
+단독 아님, 아래 probe)의 존재가 이미 실증**돼 있다 — R1은 그 신호를 greedy 대신 정책 기울기에 먹인다.
+**prefix 단조성 실측(2026-07-03 probe, 엔진 D4 — known 해 prefix별 표준 deadline 롤아웃)**: S12(W=32 H=17
+D0=49 ants=8) shaped bonus가 엄격 단조: 빈 plan `goal_d=19 retired=8 → +0.206` / blocker#1 `goal_d=6
+retired=7 → +0.351` / #1+#2 `goal_d=6 retired=0 → +0.439` / #1+#2+#3 `goal_d=1 → +0.490 + cleared`.
+주목: #2 구간은 goal_d 정체(6→6)를 **retired(7→0)가 구별** — `w_retired` 항은 옵션이 아니라 **필수**
+(goal 단독이면 #2에서 plateau 재발). 두 신호 합으로 기울기 사다리가 3단 전 구간에 존재.
+
+**설계 (엔진/PlanRunner/게이트 무변경 — R0 계약면 유지)**
+- **trace 획득 = 기존 opt-in**: 학습 롤아웃 plan에 `"trace": true`(PlanRunner D10 가산 경로, 셀-변화 압축
+  샘플이라 payload 경량 — PlanServerHarness는 plan dict를 그대로 PlanRunner에 전달하므로 신규 배선 0).
+  trace 파싱은 `model.best_goal_dist`/`model.count_retired` **read-only import 재사용**(중복 구현 금지).
+- **shaped 보상 (형태 확정 — 계수만 튜닝 자유, R0 보상 계약과 동일 방식)**:
+  `R_r1 = R_r0 + w_goal·(1 − min(goal_d, D0)/D0) − w_retired·(retired_total/ants_total)`
+  - `goal_d = model.best_goal_dist(trace, layout)` / `retired_total = model.count_retired(trace, layout)["total"]`.
+  - **분모 = 레이아웃/스테이지 상수**: `D0 = W+H`(셀 맨해튼 상한), `ants_total = stage_meta.total_ants`
+    — R0 H1(hp=-1 음수 분모 오염) 교훈 계승, result 파생 분모 금지.
+  - **fail-safe**: trace 부재/빈 trace(개미 스폰 전 종료 등) → `goal_d=D0`(shaping 0)·`retired=0`. error
+    verdict도 동일(기존 timeout 페널티 경로 불변).
+  - 기본 계수 `w_goal=0.5, w_retired=0.1` — **shaping 총합 상한 < cleared(2.0)** 유지(클리어 지배 불변).
+    effective config manifest에 전량 박제(R2-M1 계약 계승).
+  - **acceptance 왜곡 없음**: shaping은 학습 신호만 바꾼다 — pass 판정은 여전히 엔진 verdict
+    `saved==hp_stage`의 표준 deadline replay(보상 해킹이 있어도 게이트를 못 통과).
+- **opt-in 플래그**: `train.py --shaping {none,trace}` 기본 `none` → **R0 고정 커맨드 의미·verify-r0 재현성
+  불변**. `--shaping trace`일 때만 학습 plan에 trace 요청(none 경로 payload 불변). manifest에 `shaping` 기록.
+- **greedy 평가·acceptance replay는 trace 불요**(verdict만 판정) — 기존 경로 그대로.
+- **학습 deadline 상향(자기-발견 함정, 2026-07-03 실측)**: 격자-인코딩 S12 해의 클리어 frame=2981 —
+  R0 학습 cap 3000f와 19프레임 차. 근사-해 변형이 학습 중 timeout으로 읽혀 **최적점 근방에서 cleared
+  보너스가 굶는다** → `--train-deadline`(학습-전용 knob, CLI 노출) 신설, R1 pinned 커맨드는 `4500` 사용.
+  acceptance replay deadline은 표준 7000f 불변(판정 계약 무관 — R0 "축소 cap은 학습 중에만" 원칙 유지).
+- **trace-on preflight (R1-M2 — 처리량·결정론을 주장 아닌 실측으로)**: `--shaping trace`일 때 병렬
+  preflight를 **trace:true plan으로 실행**(digest + trace 필드까지 전부 identical 요구 — trace 자체의
+  결정론도 게이트) + preflight wall을 manifest에 `preflight_trace_wall_s`로 기록. 학습 로그에 배치당
+  eps/s 포함(기존 wall 로그) — trace payload가 처리량을 눈에 띄게 깎으면 산출물에서 정직하게 보인다.
+  wall 예산(7200s/seed)은 pinned 그대로 — 예산 내 미클리어면 FAIL(하드웨어-민감성은 R0과 동일 지위,
+  wall이 아니라 에피소드 예산이 주 경계: S11 실측 0.13s/eps×trace 오버헤드 여유 큼).
+- **엔트로피 스케줄 = R0 그대로 (R1-M3 — 사전 결정 박제)**: 0.03→0.005 감쇠 유지. shaped bonus 규모
+  (probe 실측 +0.21~+0.49)는 len_penalty(−0.02)·timeout(−0.1)보다 크고 러닝 baseline이 평균 흡수 —
+  스케일 재조정은 fallback 1(계수 튜닝) 관할, 선제 튜닝 금지. 진단 가시성: 배치 로그에 **base 보상과
+  shaped bonus 평균을 분리 출력**(meanR 외 meanShape) — 신호가 죽었는지/포화했는지 산출물로 판별.
+
+**Acceptance (falsifiable — 고정 커맨드/설정, R0 스타일)**
+1. **S12 무힌트 오버핏**: `python tools/solver/rl/train.py --stage 12 --seeds 0,1,2 --envs 4
+   --max-episodes 20000 --max-wall 1800 --shaping trace --train-deadline 4500` — pass predicate: 3 seed 중 **≥2**가 예산 내
+   greedy plan 표준 deadline(7000f) replay에서 **saved==hp_stage(=5)**. 미달 = FAIL(원인 분석 후 사용자
+   보고, silent 재스코프 금지). **wall 예산 = 1800s/seed(사용자 지시 2026-07-04: "최대 30분 기준" —
+   R0의 7200s에서 하향; 에피소드 예산 20000은 유지, wall이 주 경계로 교체)**. **음성 대조**: 동일
+   `shaping none` 0/3 FAIL 박제(`dc68a47`)가 대비 실험 — 단 그 실행은 wall 7200s였으므로 "예산 동일"
+   주장은 하지 않는다(20k eps 소진 기준으로는 동일 — seed당 48분에 20k eps 완주였음. 1800s에서 눈금은
+   에피소드 수로 비교, 정직 표기).
+2. **`--verify-r1`(fail-closed 로컬 게이트)**: `stage12.rl.json` 존재 + **R1_PIN 명시 상수 전량 강제
+   (R1-H1 — R0_PIN 교훈 계승)**: `stage_id=12`·`seeds=[0,1,2]`·`envs_requested=4`·`max_episodes=20000`·
+   `max_wall=1800`(사용자 지시 2026-07-04)·`replay_deadline=7000`·`shaping="trace"`·**shaping 계수 `{goal:0.5, retired:0.1}`**·
+   **`train_deadline=4500`(R2-H — 3000f cap이 최적점 근방을 굶긴다고 본 plan이 명시했으므로 material
+   학습 파라미터; stale 3000f 산출물이 통과하면 안 됨)**
+   (계수 튜닝은 fallback 1에서만 — 그때 R1_PIN도 같은 커밋에서 갱신 = drift가 산출물·코드 diff로 가시화)
+   + manifest 완전성(seed별 예산 준수·no_hint·envs_effective·effective config 전량 + **trace preflight
+   증거 `preflight_trace` 필드(R2-M): `{ok, wall_s, runs}` 존재 필수, `envs_effective>1`이면 `ok=true`
+   강제** — N=1 강등 시 ok=false 허용은 R0 N-폴백 계약과 동형·정직 기록) + 3-seed ≥2 predicate
+   재판정 + best plan replay ×2 byte-identical + saved==hp_stage. 메인 verify 게이트 비편입 유지(커플링 0).
+   pinned 검증 커맨드: `python tools/solver/rl/train.py --verify-r1 --stage 12`.
+3. **S11 shaping 비파괴 스모크**: `--stage 11 --seeds 0 --envs 4 --max-episodes 5000 --max-wall 1800
+   --shaping trace --no-save` greedy 클리어(S11은 shaping 하에서도 학습됨 — shaping이 기존 성공 사례를
+   퇴행시키지 않음의 저비용 반증 시도). **`--no-save` = 산출물 미저장**(stage11.rl.json·verify-r0 보존;
+   판정은 stdout 집계줄).
+4. **verify-r0 여전히 PASS**(stage11.rl.json 불변) + **기존 verify 게이트 전체 그린**(엔진 무변경 → 회귀 0).
+5. 문법 커버리지는 R0 item 3에서 S12 포함 기검증(재실행만 확인).
+
+**⚠ 1차 실행 FAIL → 진단-기반 수정 (2026-07-04, plan-approve 후 amendment — impl-리뷰 대상)**
+r0.1 문법+entropy_min 0.005로 pinned 실행 = **0/3 FAIL**(bestR=0.231 = "b1+SUBMIT" 길이-1 국소최적의
+정확한 값 — 1단은 발견됐으나 2단 탐험 사멸). probe 실측(세션 로그 F4): 마지막 단 needle = **#3 y밴드만
+필수**, b1/b2 밴드 불요, 중간신호(b3 col5 = picked5 +0.376) 존재. 수정 2건(F5):
+① **문법 r1.1** — y_row 어휘 = any + layout-파생 surface rows(S12 head 18→5; D7-충실·어휘 무손실,
+  커버리지 PASS 재확인). GRAMMAR_VERSION 승격 → 기존 stage11.rl.json(r0.1) stale = **R0 pinned 커맨드로
+  재생성**(verify-r0 grammar pin의 정직 절차).
+② **entropy_min 0.005→0.02**(fallback 1 관할 하이퍼 — 길이-1 수렴 차단, manifest 추적).
+acceptance predicate·pinned 커맨드·R1_PIN 불변(하이퍼·문법은 pin 비대상 — grammar_version은 manifest
+기록으로 추적). 상세 = `codex-worklog/solver/2026-07-04-rl-r1-campaign.md` F4·F5.
+**→ fallback 1 probe FAIL**(bestR 0.447 정체 = 희소 고보상 에피소드가 배치 평균에 희석, 로그 F6) →
+**fallback 2 = self-imitation 채택·실증**(`--sil`: top-8 buffer, (R−baseline)+ 가중 재모방, sil_coef 0.1
+— seed0 probe **S12 클리어 saved 5/5 frame 2130(known 해 2981보다 빠름), 4320 eps**, 로그 F7). 계약대로
+**pinned 커맨드에 `--sil` 편입 + R1_PIN에 sil/sil_buffer/sil_coef 동일-커밋 갱신**. fallback 3(per-prefix
+dense)·4(PPO)는 미사용 잔여 사다리로 보존.
+
+**fallback 사다리 (사전 명시 — R0 "PPO 승격" 계약 계승, 순서 고정·건너뛰기 금지)**
+1. 계수 튜닝(형태 불변, manifest로 시도 추적) →
+2. self-imitation(최고-보상 에피소드 buffer 재사용 — 발견 희소성 완화, off-policy 가산) →
+3. per-prefix dense shaping(각 prefix 롤아웃 Δφ 중간보상 + **결정론 memo 캐시**(같은 prefix=같은 결과) —
+   에피소드당 롤아웃 ≤ len+1로 비용 상한) →
+4. PPO-clip 승격.
+전 단계 실패 시 정직 FAIL 박제 + 사용자 STOP(에스컬레이션).
+
+**정직 경계**: R1은 "trace-shaped 보상이 다단 조합을 발견 가능하게 한다"의 증명이다. S12는 **합성 신호
+(goal_dist+retired)의 known-prefix 단조성**이 실증된 스테이지(goal 단독은 #2에서 plateau — probe 참조) —
+신호가 비단조/기만적인 스테이지(S23류 placement-needle)에 대한 주장 없음. 탐험 경로 전반의 단조성 주장
+없음(known 해 prefix 한정 실측). 휴리스틱 대비 성능 주장 없음(20k eps vs greedy 11롤 — 학습/실험 목적).
+일반화 주장 없음.
+
+### R1-스윕 — 캠페인 S13~S25 순차 공략 (사용자 지시 2026-07-04, 탐사·비게이트) **[⛔ S20~S25 취소 — 2026-07-04 후속 세션 사용자 결정]**
+> **⛔ 재스코프 배너(2026-07-04 후속)**: 캠페인 스테이지는 **단계별 학습을 전제로 설계된 커리큘럼**이라
+> from-scratch per-stage 스윕은 구조적으로 불리한 시험 — "전체 스테이지" 성능 시험은 §R2(curriculum)의
+> 관할로 이관(사용자). 스윕은 **S18 재실행까지만** 완료하고 S20~S25는 취소(4/6은 sand_mound 필수 = 문법
+> 비표현 기지). 실측된 S13~S18 결과는 §R2의 from-scratch 베이스라인으로 유효(잔여는 온디맨드 재측정).
+> 사용자 방향: "stage25까지 클리어 할 수 있도록 계속 진행". S12 acceptance와 별개의 **탐사 트랙** —
+> per-stage `--seeds 0 --max-wall 1800 --shaping trace`(단일 seed, 30분 cap)로 순차 시도하고 결과를
+> **세션 로그(`codex-worklog/solver/2026-07-04-rl-r1-campaign.md`)에 스테이지별 박제**(클리어/에피소드
+> 수/실패 모드/문법 비표현 여부). 산출 plan은 `stageNN.rl.json`(클리어 시, pinned 예산과 다르므로
+> verify-r1 비대상 — sweep 여부는 manifest의 `seeds=[0]`·예산 기록으로 식별, 별도 플래그 없음).
+- **문법 한계 정직 선언**: R0/R1 어휘 = **ant-target 스킬만**. cell-target(sand_mound SIGN·leaf_jump
+  DEVICE 등)이 필수인 스테이지는 **표현 불가 = 시도 전 SKIP 기록**(어휘 확장은 R2 후보). 인벤토리에
+  cell-target이 있어도 ant-target만으로 풀리면 클리어 가능 — 시도는 한다. **구현**: StageMDP가 스킬
+  head를 메타 덤프(target=="ant", D7 하드코딩 0) 기반으로 필터 — ant-target 0이면 명시 에러(=SKIP 근거).
+  전부-ant 스테이지(S11~S18 등)는 필터 no-op = 기존 산출물·verify 영향 0.
+- **`--max-len` 슬롯 상한 CLI**: 기본 6(R0 그대로 — R1_PIN 비대상, S12 known=3). S14(known 해 8액션)·
+  S15(7)·S18(8)·S20(7)·S25(ant 8)처럼 인벤토리 합>6 스테이지는 기본 cap이 known-해 길이를 **표현 못
+  하는 함정** → 스윕에서 스테이지별 `min(ant 인벤토리 합, 8)`로 상향(manifest 기록).
+- **휴리스틱 트랙 실증 대비**: S21/23/24/25는 휴리스틱 beam도 미돌파(witness 수기)·S24 needle은
+  sand_mound 필수 — RL 30분 단일 seed가 못 풀어도 기대 위반 아님(정직 기록이 산출물).
+- 게이트 무관(메인 verify·verify-r0/r1 비커플링). 실패는 FAIL이 아니라 데이터.
+
+### R2 — 영속 학습: 체크포인트 + 스테이지-불변 정책 + curriculum + cell-target **[설계 초안 · plan-review 대상, 2026-07-04]**
+
+> **사용자 지시 2건(2026-07-04)이 스코프의 뼈대**: ① "강화학습 결과를 저장/로드하지 않으면 제대로 된
+> 강화학습이 아니다" — **가중치 영속화 = R2 필수 요건**. ② "스테이지는 단계별 학습을 전제로 설계 —
+> 전체 스테이지를 풀어보는 시험은 R2 이후" — 캠페인 수준 시험은 R2 curriculum의 관할.
+> **R1 실증이 남긴 병목과 처방의 대응**(전부 실측 근거): 5액션+ carry 연쇄 미조립(S13/S14/S15, 30분
+> from-scratch) ← curriculum·영속화 / cell-target 비표현(S19 SKIP·S23/S24 needle) ← 어휘 확장.
+> **현 구조의 정직 진단**: R0/R1 정책망은 obs_dim·head 크기가 스테이지 파생(레이아웃·인벤토리) —
+> 가중치를 저장해도 **타 스테이지 로드가 차원 불일치로 불가능**. 영속화가 자산이 되려면 스테이지-불변
+> 아키텍처가 선결. 이것이 P1(저장)과 P2(불변화)를 한 phase로 묶는 이유다.
+
+**선결 계약 — 레거시 게이트 격리 (plan-R1 CRITICAL-2)**
+R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1의 grammar pin을 모듈 상수에서 리터럴
+`"r1.1"`로 동결**하고 StageMDP를 **버전 인자로 구성 가능**하게 유지(r1.1 경로 보존) — stage11/12 pinned
+산출물은 r1.1 문법으로 영원히 검증 가능(r0.1→r1.1 때처럼 재생성 강제하는 stale 처리 금지; 이번엔 인증
+이력이 게이트 자산이므로). verify-r0/r1은 정책 가중치를 로드하지 않음(산출물=plan JSON) — 체크포인트
+포맷 변경과 무관. 신규 산출물/체크포인트는 verify-r2 관할.
+**§R1 원칙 개정 명시(plan-R2 LOW-1)**: §R1의 "학습-전용 knob는 pin 비대상, grammar/hyper는 manifest
+추적" 문구 중 **grammar_version은 R2부터 이 동결 계약이 우선**(우선순위: §R2 선결 계약 > §R1 해당 문구).
+§R1 텍스트는 이력으로 보존하되 구현 기준은 여기다.
+
+**구조 4축 (P1~P4 — 세부 설계는 구현 전 확정, 아래는 계약 수준)**
+- **P1 · 체크포인트(영속화, 사용자 필수 요건)**: **로드 2모드 분리(plan-R2 HIGH-2 — 동일-스테이지 재개와
+  스테이지-간 전이는 다른 계약)**:
+  - `--resume-ckpt`(**exact resume, 동일 스테이지**): 전 상태 복원 — stage_id·레이아웃 digest·문법·모델
+    shape **전부 일치 요구**(불일치 = fail-closed 거부). 재개 등가성(acceptance 1)의 대상.
+  - `--transfer-ckpt`(**curriculum 전이, 타 스테이지**): policy+optimizer 가중치만 이월, 스테이지-파생
+    상태(마스크·entropy 스케줄=리셋·SIL buffer=비움)는 새 스테이지에서 재구성, RNG는 새 seed 계약.
+    **digest 계약 분리(plan-R3 HIGH-1)**: 레이아웃·per-stage 마스크 digest는 **면제**(불일치가 전이의
+    정의)이되, **전역 어휘/head-시맨틱 digest**(전역 스킬 사전 순서·트리거 어휘·격자 어휘 크기·at_frame
+    bin — head 인덱스→의미 매핑의 전부)는 **fail-closed 일치 요구** — shape만 같고 시맨틱이 다른
+    가중치의 silent 오매핑 차단. manifest 재개 사슬에 mode 기록.
+  **직렬화 대상 전수(plan-R1 MED-1)**: policy state_dict + optimizer + entropy 스케줄 카운터(batch_i) +
+  **학습이 사용하는 모든 RNG**(현 코드 = torch 단일; 구현에서 python random/numpy 사용 추가 시 그것도 —
+  "사용하는 RNG 전수" 가 계약) + **SIL buffer 내용·순서** + 누적 에피소드/배치 카운터 + grammar_version +
+  stage_id·**레이아웃 digest**·어휘/마스크 digest + 모델 config(hidden 등)·dtype. **verify-r2가 재개 전
+  비호환을 mode별 규칙으로 fail-closed 거부**. manifest에 **재개 사슬**(ckpt 출처 해시·mode·
+  구간별 에피소드/배치) 기록 — **예산 회계는 구간별(plan-R2 MED-4): 각 acceptance의 예산은 해당 스테이지
+  구간에만 적용**되고 verify-r2가 구간 카운터로 검증(사슬 전체 합산 아님).
+- **P2 · 스테이지-불변 정책**: 공유 CNN 인코더(가변 H×W 그리드 → 고정 임베딩) + **액션 어휘 통일**.
+  **정규화 아님 — 이산 전역 어휘 + per-stage 마스킹**(plan-R1 MED-2: 연속 정규화는 셀-센터/表面행 시맨틱의
+  정확한 역변환이 불가해 기존 유효 plan을 충실히 방출 못 함): skill head = 전역 스킬 사전(SkillRegistry
+  메타 파생, D7 하드코딩 0) + 인벤토리 마스크 / col·row 계열 head = 전역 최대 격자 크기 + 스테이지 범위
+  마스크. **전역 최대 W/H의 권위(plan-R2 MED-1) = campaign_manifest 등재 스테이지 레이아웃 전수 스캔
+  파생**(하드코딩 0); 이후 등재 스테이지가 최대를 초과하면 **명시 에러 + 어휘 버전 승격**(silent 확장
+  금지 — 기존 체크포인트와 head shape 비호환이므로). **행 head 이원화**: ant의 y_row 마스크 = surface
+  rows(r1.1 계승), cell의 row 마스크 = 스테이지 전 행(설치 후보) — 같은 전역 row head를 kind별 다른
+  마스크로 공유. **r2 문법 커버리지 게이트**: known S11·S12(ant)·S19(cell) 해가 r2 인코딩→디코드→엔진
+  클리어(R0 coverage 패턴 계승) — 같은 가중치 파일이 임의 스테이지에 로드 가능해야 P1이 의미를 갖는다.
+- **P3 · cell-target 어휘 — sum-type 액션 계약(plan-R1 HIGH-2)**: 액션에 **`target_kind ∈ {ant, cell}`
+  1급 판별자 head** 신설. kind별 유효 head를 **마스킹으로 강제**(무효 조합은 페널티가 아니라 표현 불가):
+  ant → (select, state, y_row) + trigger / cell → **(col, row) head** + trigger. **트리거 직교 계약
+  (plan-R2 MED-2)**: 트리거는 "언제"·target은 "무엇에"로 직교 — **cell도 ant와 동일 트리거 어휘 전부
+  유효**(PlanRunner 시맨틱 그대로: 트리거 발화 시 셀에 적용; `picked_ge`+cell = "n개 픽업 시점에 설치").
+  kind별 마스크 대상은 target 계열 head(select/state/y_row vs col/row)뿐, 트리거 head는 공용. **트리거
+  어휘에 `at_frame` 추가** — S19 known 해(`sand_mound cell(10,14)/(11,10) @ at_frame 0`,
+  stage19.solve.json 실측)가 요구. **at_frame head(plan-R2 MED-1) = 양자화 격자**(0 포함, 상한 =
+  train_deadline 마스크; 격자 간격 상수는 impl 확정하되 head 존재·마스킹·라운드트립 포함이 계약).
+  JSON lowering 규칙(head → PlanRunner 액션) 명문화 + encode/decode 라운드트립 검사를 r2에도 유지
+  (verify-r2 편입).
+- **P4 · curriculum**: **`data/campaign_manifest.tres`가 순서 SoT**(plan-R1 HIGH-4 — 챕터별 ordered
+  stage id; 솔버는 read-only 파싱, 하드코딩 0). 클리어한 스테이지의 체크포인트에서 다음 스테이지
+  **이어서 학습**(from-scratch 금지). **entropy 스케줄은 스테이지 경계에서 리셋**(plan-R1 MED-3 —
+  전 스테이지의 감쇠된 entropy가 새 스테이지 탐험을 질식시키는 것 차단; 전역 카운터(누적 에피소드)는
+  계속 누적, 체크포인트에 둘 다 보존). 회귀 방지(mixed replay 등)는 P4 구현 시 확정(미확정 명시).
+  verify-r2는 curriculum 산출물의 스테이지가 manifest에 없거나 순서 모순이면 FAIL.
+
+**Acceptance (falsifiable — 고정 커맨드·predicate, plan-R1 CRITICAL-1·HIGH-1·HIGH-3 반영)**
+1. **재개 등가성(P1)**: 같은 seed·**배치 수 기준**(wall 아님 — wall은 운영 한도일 뿐 등가성 판정 밖):
+   `--max-batches 2N 무중단` vs `--max-batches N --save-ckpt` 후 `--resume-ckpt --max-batches N` 의
+   **최종 정책 파라미터·학습 곡선(배치별 meanR 시퀀스) 일치**. **결정론 배치 계약(plan-R2 MED-3)**:
+   ⓐ 에피소드 샘플링 = 메인 스레드 순차·단일 RNG 스트림(현 구조 유지) ⓑ 평가 결과 = pool.evaluate
+   인덱스-순서 보존(현 계약) ⓒ env 부팅/포트 재시도는 학습 RNG 비소비(현 구조) ⓓ **등가성 시험 중
+   wall 조기중단 비활성**(--max-batches 모드는 배치 수만 종료 조건). 성립 조건 = 사용 RNG 전수 직렬화 +
+   SIL 내용·순서 직렬화 — env 결정론 위에서 성립. 불일치 = P1 FAIL(부분 직렬화 은폐 금지).
+2. **curriculum 최소 증명(P4)**: **체크포인트 출처 pin(plan-R2 HIGH-1) + per-seed 실행 계약(plan-R3
+   HIGH-2)** — acceptance는 **seed별 독립 커맨드 ×3**으로 실행(복수 --seeds에 단수 ckpt를 주는 실행
+   불능 pin 금지; seed→ckpt 해석이 커맨드 라인에 명시적). **공통 구간 예산(plan-R3 MED — 사슬 전 구간
+   동일 pin)**: `--envs 4 --max-episodes 20000 --max-wall 1800 --shaping trace --train-deadline 4500
+   --sil` (S11/S12/S13 구간 각각 적용). seed s ∈ {0,1,2}별 **pinned 사슬**:
+   - ① `--stage 11 --seeds s <공통 예산> --save-ckpt` (r2 문법, from-scratch) 클리어 → ckpt_s11(s)
+   - ② `--stage 12 --seeds s <공통 예산> --transfer-ckpt ckpt_s11(s) --save-ckpt` 클리어 → ckpt_s12(s)
+   - ③ **acceptance**: `--stage 13 --seeds s <공통 예산> --transfer-ckpt ckpt_s12(s)`
+   cherry-pick 불가(각 seed는 자기 사슬의 ckpt만 — 재개 사슬 manifest가 출처 해시로 무결 증명·verify-r2
+   검증). 사슬 앞단(①②)이 미클리어인 seed는 그 seed FAIL로 집계(사슬 자체가 결과). **predicate =
+   3 seed 중 ≥2가 ③에서 greedy 클리어(saved==hp)**(R1과 동일 형식). 예산은 구간별 회계(P1). 대조 =
+   from-scratch 동일 예산 실측(R1-스윕 S13 seed0 FAIL bestR 0.660; seeds 1,2 from-scratch 추가 측정으로
+   3-seed 대조 완성). "유의 상회" 같은 통계 술어 금지 — 클리어 predicate가 유일 판정. FAIL = 정직 박제 +
+   사용자 escalate(전이가 안 되는 것도 결과 — R0 stretch 선례).
+3. **어휘 증명(P3) — 학습과 분리(plan-R1 HIGH-3)**: ⓐ **결정론 커버리지**(학습 무관): S19 known 해의
+   r2 인코딩→디코드→엔진 replay 클리어 = 어휘 계약 증명. ⓑ **학습 발견(pinned, plan-R2 LOW-2)**:
+   `--stage 19 --seeds 0,1,2 --envs 4 --max-episodes 20000 --max-wall 1800 --shaping trace
+   --train-deadline 4500 --sil` (r2 문법, **from-scratch 단독** — S19는 2-액션 cell 배치라 curriculum
+   불요 가정; predicate = ≥2/3 seed 클리어). ⓐ 실패 = 문법 결함 / ⓑ만 실패 = 탐색 문제 — 구별 가능,
+   각각 정직 박제.
+4. **verify-r2 계약(plan-R1 MED-4)**: `python tools/solver/rl/train.py --verify-r2 --stage NN` —
+   R1 게이트 전체 계승(pinned 예산·문법 라운드트립·live preflight·trace 재생·pass 시맨틱) + **체크포인트
+   메타 검증**(재개 사슬 무결 + **mode별 digest 계약 적용**(plan-R4 MED): exact resume =
+   stage/레이아웃/per-stage 마스크 digest 일치 요구, transfer = 레이아웃/마스크 면제·전역 어휘/head-시맨틱
+   digest fail-closed — P1 계약과 동일 문구, 이원 해석 금지) + curriculum manifest 정합. 세부
+   pin 상수는 impl 커밋에서 §R2에 동봉(R0/R1 선례).
+5. 기존 게이트 전체 그린(엔진/PlanRunner 무변경 유지) + **verify-r0/r1이 r1.1 동결 pin으로 계속 PASS**
+   (선결 계약 실증).
+6. (비게이트 탐사, plan-R1 LOW) acceptance 후 **R2-스윕**: curriculum 체크포인트 기준 캠페인 순차 시험
+   (S14/S15 carry-연쇄 포함) — R1-스윕 from-scratch 실측과 대비표 박제. 결과 무관 acceptance 성립.
+
+**정직 경계**: 스테이지-불변 인코더의 전이 효과는 미지 — R2는 "영속·전이가 되는가"의 실험이지 캠페인
+전 스테이지 클리어 보장이 아니다. acceptance 2/3ⓑ의 FAIL 가능성은 설계에 내재(그 경우 원인 분석 후
+사용자 보고 — silent 재스코프 금지).
+
+### 로드맵 (미확정 — 증거 후 재계획)
+- **R3 후보**: trace-피드백 refinement MDP(상태에 직전 롤아웃 trace 인코딩 = 휴리스틱 closed-loop의
+  학습판) / dense per-prefix shaping / PPO 승격. R2 증거 확보 후 선택.
+
+### 리스크
+- sparse reward: ~~클리어 희소 → shaping 항(picked/lost)으로 완화~~ **R0가 반증**(2026-07-03, `dc68a47`):
+  picked/lost 항은 S11(1액션)만 커버, S12 계단에선 전부 0으로 flat → **R1 trace-파생 shaping
+  (goal_dist+retired)이 대체**(§R1). S11 탐색 공간 ~10³ 오버핏 무난 예상은 적중(3/3 seed).
+- 학습 불안정(REINFORCE 고분산): baseline+배치 크기로 1차 방어, PPO 승격 경로 사전 명시.
+- 세션 간 재현: 학습 산출물에 seed·하이퍼파라미터·에피소드 수 동봉(재현 스크립트 1줄).
 
 ---
 
