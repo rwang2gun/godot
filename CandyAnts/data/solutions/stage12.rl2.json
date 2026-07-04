@@ -118,7 +118,7 @@
       "wall_s": 36.7,
       "cleared": true,
       "ckpt_sha": "97881e8baf0180ed929a7d4feb00e8ba34ff024abfb07954c64fb96bd7abbf72",
-      "ckpt_path": "D:\\claude\\godot\\CandyAnts\\data\\solutions\\rl_ckpt\\stage11_seed0.r2.pt"
+      "ckpt_path": "data/solutions/rl_ckpt/stage11_seed0.r2.pt"
      },
      {
       "stage_id": 12,
@@ -128,13 +128,13 @@
       "batches": 280,
       "wall_s": 1807.2,
       "cleared": false,
-      "ckpt_sha": "ade65d13f0a947196d3307a0e3cd9a961a971763ab5ba6a5cceb433e68db7356",
+      "ckpt_sha": "75a098cebbf9485eccc551480d254e3cc64aa0a473013a5876f66f4ccbde5ed6",
       "ckpt_path": "data/solutions/rl_ckpt/stage12_seed0.r2.pt"
      }
     ],
     "ckpt_saved": {
      "path": "data/solutions/rl_ckpt/stage12_seed0.r2.pt",
-     "sha256": "ade65d13f0a947196d3307a0e3cd9a961a971763ab5ba6a5cceb433e68db7356"
+     "sha256": "75a098cebbf9485eccc551480d254e3cc64aa0a473013a5876f66f4ccbde5ed6"
     },
     "ckpt_loaded": {
      "path": "data/solutions/rl_ckpt/stage11_seed0.r2.pt",
@@ -168,7 +168,7 @@
       "wall_s": 138.4,
       "cleared": true,
       "ckpt_sha": "8c8ba1e04711df4291c9c21ba7a81bc55d118e0b3193f4826e78456f5f4713de",
-      "ckpt_path": "D:\\claude\\godot\\CandyAnts\\data\\solutions\\rl_ckpt\\stage11_seed1.r2.pt"
+      "ckpt_path": "data/solutions/rl_ckpt/stage11_seed1.r2.pt"
      },
      {
       "stage_id": 12,
@@ -178,13 +178,13 @@
       "batches": 305,
       "wall_s": 1803.5,
       "cleared": false,
-      "ckpt_sha": "644c534c83954b7a9a81f28dd05cc7c76eb18f157f3ba9bf92eeaaba56660dde",
+      "ckpt_sha": "2820839a4ca67e16351a23455012b153d1b57fa5cdae6915cb9c1e6c5d3790b1",
       "ckpt_path": "data/solutions/rl_ckpt/stage12_seed1.r2.pt"
      }
     ],
     "ckpt_saved": {
      "path": "data/solutions/rl_ckpt/stage12_seed1.r2.pt",
-     "sha256": "644c534c83954b7a9a81f28dd05cc7c76eb18f157f3ba9bf92eeaaba56660dde"
+     "sha256": "2820839a4ca67e16351a23455012b153d1b57fa5cdae6915cb9c1e6c5d3790b1"
     },
     "ckpt_loaded": {
      "path": "data/solutions/rl_ckpt/stage11_seed1.r2.pt",
@@ -264,7 +264,7 @@
       "wall_s": 177.3,
       "cleared": true,
       "ckpt_sha": "53c564a0848d24e0c432c66d70bb60b7933254a1f2da7675856faa678c61e7d8",
-      "ckpt_path": "D:\\claude\\godot\\CandyAnts\\data\\solutions\\rl_ckpt\\stage11_seed2.r2.pt"
+      "ckpt_path": "data/solutions/rl_ckpt/stage11_seed2.r2.pt"
      },
      {
       "stage_id": 12,
@@ -274,13 +274,13 @@
       "batches": 150,
       "wall_s": 728.9,
       "cleared": true,
-      "ckpt_sha": "28a631d2800421eb4f5a835d0e0d53a078a31bf2e2029d2354e4fc030d0d4d88",
+      "ckpt_sha": "cf5d7b8133ab63faaa2361bf99658d941819322ff099cffcdb325b0c06c2c51d",
       "ckpt_path": "data/solutions/rl_ckpt/stage12_seed2.r2.pt"
      }
     ],
     "ckpt_saved": {
      "path": "data/solutions/rl_ckpt/stage12_seed2.r2.pt",
-     "sha256": "28a631d2800421eb4f5a835d0e0d53a078a31bf2e2029d2354e4fc030d0d4d88"
+     "sha256": "cf5d7b8133ab63faaa2361bf99658d941819322ff099cffcdb325b0c06c2c51d"
     },
     "ckpt_loaded": {
      "path": "data/solutions/rl_ckpt/stage11_seed2.r2.pt",

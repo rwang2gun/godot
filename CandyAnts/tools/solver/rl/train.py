@@ -24,7 +24,9 @@ R2 (plan §R2 — 영속 학습: r2 문법 + 체크포인트 2모드 + curriculu
 검증:
     python tools/solver/rl/train.py --verify-r0            # manifest + predicate + replay ×2 fail-closed
     python tools/solver/rl/train.py --verify-r1 --stage 12 # R1_PIN(shaping 포함) fail-closed
-    python tools/solver/rl/train.py --verify-r2 --stage 13 # R2_PIN + ckpt/chain 무결 + curriculum 정합
+    python tools/solver/rl/train.py --verify-r2 --stage 11 # R2_PIN + ckpt/chain 무결 + curriculum 정합
+    python tools/solver/rl/train.py --verify-r2 --stage 19 # (인증 산출물 게이트 — stage12/13 rl2.json은
+        # acceptance 2 FAIL의 정직 박제 기록이라 verify-r2가 거부하는 것이 기대 동작, plan §R2 실측 결과)
     python tools/solver/rl/train.py --coverage             # r1.1 커버리지(known S11·S12 → 격자 → 클리어)
     python tools/solver/rl/train.py --coverage-r2          # r2 커버리지(S11·S12 ant + S19 cell)
     python tools/solver/rl/train.py --accept-resume-equiv --grammar r2.1 --stage 11 --seeds 0 --envs 4 \
@@ -203,11 +205,13 @@ def _ckpt_compat(ckpt: dict, mdp: StageMDP, seed: int, mode: str, cfg: dict) -> 
 
 
 def _ckpt_segment(ckpt: dict) -> dict:
-    """로드한 ckpt의 현재-세그먼트를 chain 항목으로 접는다(transfer 시 완결 세그먼트로 편입)."""
+    """로드한 ckpt의 현재-세그먼트를 chain 항목으로 접는다(transfer 시 완결 세그먼트로 편입).
+    경로는 repo-상대 정규화(codex §R2-R7 HIGH — 절대경로 메타 = 비이식·비정본)."""
     return {"stage_id": ckpt["stage_id"], "seed": ckpt["seed"], "mode": ckpt["seg_mode"],
             "episodes": ckpt["episodes_seg"], "batches": ckpt["batch_i"],
             "wall_s": ckpt["wall_seg"], "cleared": bool(ckpt["cleared_seg"]),
-            "ckpt_sha": ckpt.get("_file_sha"), "ckpt_path": ckpt.get("_file_path")}
+            "ckpt_sha": ckpt.get("_file_sha"),
+            "ckpt_path": _rel(ckpt.get("_file_path") or "")}
 
 
 def _digest(r: dict) -> dict:
@@ -1145,9 +1149,16 @@ def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain,
     말단으로 포함한 사슬; codex §R2-R4 HIGH — id 축약 비교 금지) + 학습 로드 계약 실행.
     현-스테이지 저장분 / transfer 로드 출처 / 결측-seed 상류 근거 3경로가 **동일 계약**을 공유
     (codex §R2-R1 HIGH-2·R2 HIGH-1/2 — JSON-only 신뢰·부재-우회 제거)."""
-    f = ROOT / str(rec.get("path"))
+    # 저장소-정본 경로 pin(codex §R2-R7 HIGH): 경로는 (stage, seed)에서 파생된 정본만 —
+    # 절대경로·../ 이탈·임의 로컬 파일로 유효 바이트를 공급하는 우회 차단(hermetic provenance).
+    want = str(ckpt_path(sid, seed).relative_to(ROOT)).replace("\\", "/")
+    if str(rec.get("path")).replace("\\", "/") != want:
+        fails.append(f"{px}: ckpt path {rec.get('path')!r} != 저장소-정본 {want!r} — "
+                     "repo-비귀속 경로 거부(fail-closed)")
+        return
+    f = ROOT / want
     if not f.exists():
-        fails.append(f"{px}: ckpt 파일 {rec.get('path')} 없음")
+        fails.append(f"{px}: ckpt 파일 {want} 없음")
         return
     actual = _file_sha(f)
     if actual != rec.get("sha256"):
@@ -1370,6 +1381,13 @@ def verify_r2(stage_id: int) -> int:
                 fails.append(f"{spx}: 구간 wall 예산 초과(+60s 오버슛 허용 밖)")
             if i < len(chain) - 1 and not seg.get("cleared"):
                 fails.append(f"{spx}: 미클리어인데 후속 세그먼트 존재 — transfer 게이트 위반")
+            # 세그먼트 ckpt 경로도 저장소-정본만(codex §R2-R7 HIGH — 절대경로/이탈 메타 거부)
+            if seg.get("ckpt_sha") is not None:
+                want_p = str(ckpt_path(int(seg.get("stage_id") or -1),
+                                       seg.get("seed")).relative_to(ROOT)).replace("\\", "/")
+                if str(seg.get("ckpt_path")).replace("\\", "/") != want_p:
+                    fails.append(f"{spx}: 세그먼트 ckpt_path {seg.get('ckpt_path')!r} 비정본 "
+                                 f"(정본 {want_p!r})")
         if chain[-1].get("stage_id") != stage_id:
             fails.append(f"{px}: chain 말단 {chain[-1].get('stage_id')} != {stage_id}")
         if bool(chain[-1].get("cleared")) != bool(e.get("cleared")):
@@ -1384,6 +1402,10 @@ def verify_r2(stage_id: int) -> int:
                     fails.append(f"{px}: ckpt_loaded.mode {cl.get('mode')!r} != 'transfer'")
                 if cl.get("sha256") != chain[-2].get("ckpt_sha"):
                     fails.append(f"{px}: 로드 ckpt sha != 직전 세그먼트 ckpt_sha (사슬 무결 위반)")
+                want_lp = str(ckpt_path(int(chain[-2].get("stage_id") or -1),
+                                        sd).relative_to(ROOT)).replace("\\", "/")
+                if str(cl.get("path")).replace("\\", "/") != want_lp:
+                    fails.append(f"{px}: ckpt_loaded.path {cl.get('path')!r} 비정본 (정본 {want_lp!r})")
                 up_sid = chain[-2].get("stage_id") or -1
                 up_path = rl2_json_path(up_sid)
                 if not up_path.exists():

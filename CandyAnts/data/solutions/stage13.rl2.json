@@ -73,7 +73,7 @@
       "wall_s": 177.3,
       "cleared": true,
       "ckpt_sha": "53c564a0848d24e0c432c66d70bb60b7933254a1f2da7675856faa678c61e7d8",
-      "ckpt_path": "D:\\claude\\godot\\CandyAnts\\data\\solutions\\rl_ckpt\\stage11_seed2.r2.pt"
+      "ckpt_path": "data/solutions/rl_ckpt/stage11_seed2.r2.pt"
      },
      {
       "stage_id": 12,
@@ -83,8 +83,8 @@
       "batches": 150,
       "wall_s": 728.9,
       "cleared": true,
-      "ckpt_sha": "28a631d2800421eb4f5a835d0e0d53a078a31bf2e2029d2354e4fc030d0d4d88",
-      "ckpt_path": "D:\\claude\\godot\\CandyAnts\\data\\solutions\\rl_ckpt\\stage12_seed2.r2.pt"
+      "ckpt_sha": "cf5d7b8133ab63faaa2361bf99658d941819322ff099cffcdb325b0c06c2c51d",
+      "ckpt_path": "data/solutions/rl_ckpt/stage12_seed2.r2.pt"
      },
      {
       "stage_id": 13,
@@ -94,17 +94,17 @@
       "batches": 209,
       "wall_s": 1807.8,
       "cleared": false,
-      "ckpt_sha": "5e82c2425b635c4d0d372e0010b3024897a6312b7113c7fdc29edfe1aca6e367",
+      "ckpt_sha": "46428d3807caabc5639df3e40f968e9058d05e6d33e6444f5aa2102b174ec973",
       "ckpt_path": "data/solutions/rl_ckpt/stage13_seed2.r2.pt"
      }
     ],
     "ckpt_saved": {
      "path": "data/solutions/rl_ckpt/stage13_seed2.r2.pt",
-     "sha256": "5e82c2425b635c4d0d372e0010b3024897a6312b7113c7fdc29edfe1aca6e367"
+     "sha256": "46428d3807caabc5639df3e40f968e9058d05e6d33e6444f5aa2102b174ec973"
     },
     "ckpt_loaded": {
      "path": "data/solutions/rl_ckpt/stage12_seed2.r2.pt",
-     "sha256": "28a631d2800421eb4f5a835d0e0d53a078a31bf2e2029d2354e4fc030d0d4d88",
+     "sha256": "cf5d7b8133ab63faaa2361bf99658d941819322ff099cffcdb325b0c06c2c51d",
      "mode": "transfer"
     },
     "preflight_trace": {

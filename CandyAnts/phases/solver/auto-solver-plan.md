@@ -1474,6 +1474,11 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
   R3 trace-피드백·dense shaping 선행 / 사슬 예산 상향 pin 개정 — 워크로그 §escalate).
 - 운영 발견: torch intra-op 스레드 1 고정(병렬 env 오버서브스크립션이 처리량 ~20x 붕괴 — 공정 시험은
   무경합 순차 실행) / rl2 병합 lockfile / ckpt 개당 ~2.5MB×7 커밋.
+- **산출물 상태 명시(codex §R2-R7 CRITICAL 정합)**: stage11/19 rl2.json = **인증**(verify-r2 PASS 게이트
+  대상) / stage12/13 rl2.json = **acceptance 2 FAIL의 정직 박제 기록**(rl_meta.pass=false —
+  verify-r2가 거부하는 것이 기대 동작이며 게이트 결함이 아님; 재생성 강제·박제 삭제는 "silent 재스코프
+  금지"에 반함). 메인 execute 게이트(frontmatter verify)에 verify-r2는 미편입 — R2 게이트는 인증
+  산출물(11/19) 한정 로컬 게이트.
 
 ### 로드맵 (미확정 — 증거 후 재계획)
 - **R3 후보**: trace-피드백 refinement MDP(상태에 직전 롤아웃 trace 인코딩 = 휴리스틱 closed-loop의

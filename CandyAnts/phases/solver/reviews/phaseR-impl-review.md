@@ -371,3 +371,32 @@ Verdict: needs-attention
   대조를 pin 전 키 루프로 일반화(누락 위험 제거), 오버슛 상수 = pin["batch"]·+60s.
 - 픽스처(R6-N1: config.batch 999999 + 예산 초과 세그먼트) → pin 대조와 예산 검사 이중 검출, 복원
   PASS. → HIGH 0, clean.
+
+## Round 7 (codex adversarial-review --base HEAD~7)
+Verdict: needs-attention
+
+- [critical] Pinned stage13 R2 artifact cannot pass its own verifier
+  → 커밋된 stage13.rl2.json이 pass=false·actions=null인데 독스트링이 `--verify-r2 --stage 13`을
+  검증 커맨드로 광고 — 정직 FAIL 실험과 shippable 산출물의 구별 부재. (참고: 메인 execute 게이트
+  (frontmatter verify)에는 verify-r2 미편입 — CI 차단은 없음.)
+- [high] Checkpoint provenance is byte-backed but not repository-pinned
+  → rec['path']를 그대로 resolve — 절대경로/저장소 밖 경로 허용, chain 메타에 절대 D:\ 경로 잔존
+  (비이식). 권고: `ckpt_path(sid,seed)` repo-상대 정본 경로 강제 + 기존 메타 정규화.
+
+## Round 7 hot-fix (적용)
+- [critical] 광고/문서 정합: 독스트링 verify 예시를 `--stage {11,19}`(인증 산출물)로 교정 +
+  stage12/13 rl2.json = acceptance 2 FAIL의 **정직 박제 기록**(verify-r2 거부가 기대 동작)임을
+  독스트링·plan §R2 실측 결과에 명시. FAIL 조작(재생성 강제·박제 삭제)은 plan "silent 재스코프
+  금지"에 반하므로 채택하지 않음 — 구별은 문서+rl_meta.pass가 담당.
+- [high] `_validate_ckpt_file`에 **정본 경로 pin**(rec.path == ckpt_path(sid,seed) repo-상대,
+  이탈 거부) + chain 세그먼트·ckpt_loaded의 ckpt_path 정본 검사 + `_ckpt_segment` 경로 _rel 정규화
+  (forward) + **기존 ckpt/rl2 메타 마이그레이션**(절대경로 → repo-상대, sha 연쇄 재계산: S12 ckpt
+  3개 → S13 ckpt → 산출물 사슬 기록).
+
+## Self-Review Round 7 (hot-fix 자체 적대 리뷰)
+- 정본 경로 pin이 3경로(rec 해석·chain 세그먼트 메타·ckpt_loaded)를 전부 커버 — 절대경로/이탈/임의
+  로컬 파일 공급 우회 차단. 마이그레이션 후 stage12/13 정직 FAIL의 사유가 predicate/pass/actions
+  **만**임을 실측(무결-오류 0 = sha 연쇄 재계산 정합; stage12 seed2 클리어는 replay-실증 1/3 반영).
+- CRITICAL 처리 방식 검토: FAIL 산출물 재생성/삭제는 plan 정직-박제 원칙 위반 — 문서 정합(독스트링
+  게이트 예시 교정 + plan 산출물 상태 명시)이 정공법. 메인 verify 게이트 비편입 재확인(CI 차단 없음).
+- 픽스처(R7-N1 절대경로) 검출·복원 PASS, stage11/19 PASS. → HIGH 0, clean.
