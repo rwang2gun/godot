@@ -436,3 +436,14 @@ Verdict: needs-attention
 - set/restore 왕복이 로더와 동일 계약(실측: 1바이트 위조 → "size 5056 기대" RuntimeError 거부),
   finally 복원으로 검증자 전역 RNG 무오염(verify는 어차피 학습 RNG 미사용이지만 위생 유지).
 - 픽스처 거부·복원 PASS, stage11/19 PASS. → HIGH 0, clean.
+
+## Round 10 (codex adversarial-review --base HEAD~10)
+Verdict: **approve** — "No ship-blocking fail-open, forgery, or verifier-bypass path found."
+(codex 권고 런타임 확인 = verify-r2 --stage 11/19: 검증자 측에서 기실행 PASS — 아래 종결 스윕.)
+
+## §R2 impl 리뷰 루프 종결 (2026-07-04)
+- 경로: codex R1(2H+1M) → R2(2H) → R3(1H) → R4(1H) → R5(1H) → R6(1H) → R7(1C+1H) → R8(1H) →
+  R9(1H) → **R10 approve**. 누적 = CRITICAL 1·HIGH 11·MED 1 전부 hot-fix(9커밋), 매 라운드
+  자체리뷰 clean + 음성 픽스처 실증(누적 ~20종).
+- 종결 스윕(전부 그린): verify-r0(3/3)·verify-r1(2/3)·verify-r2 stage11(3/3)/stage19(3/3)·
+  coverage r1.1·coverage r2.1 — stage12/13은 정직 FAIL 박제(무결-오류 0, 사유=predicate/pass/actions).

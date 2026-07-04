@@ -1336,3 +1336,9 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 ### 다음
 - impl-stage 리뷰 루프(자체 → codex adversarial-review → HIGH hot-fix → clean) 진행.
 - R3 방향 = 사용자 결정 대기(escalate 참조).
+
+### §R2 impl 리뷰 루프 종결 (2026-07-04 후속)
+- codex 10R(R1~R9 finding → **R10 approve**): C1(R7 정직-FAIL 산출물 문서 정합)·H11·M1 전부 hot-fix
+  9커밋(결측-seed 근거/byte-backed·정본경로 provenance/로드 계약 동일화/내부사슬 전체-메타 결속/
+  seed별 replay predicate/knob 전량 pin/optimizer 슬롯/RNG 실왕복) + 자체리뷰 매 라운드 clean +
+  음성 픽스처 ~20종. 종결 스윕 그린(verify-r0/r1/r2(11·19)·coverage×2). 상세=세션 로그 + 트레일.
