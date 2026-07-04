@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Phase R (RL 솔버) R0 — REINFORCE 학습 루프 + 병렬 GodotEnv + acceptance 검증.
+Phase R (RL 솔버) R0/R1/R2 — REINFORCE 학습 루프 + 병렬 GodotEnv + acceptance 검증.
 
 plan SoT = auto-solver-plan.md §Phase R. 무힌트(model.propose 미사용 — 이 모듈은 propose를 import하지
-않는다), 엔진/PlanRunner/게이트 무변경(로컬 RL 게이트 = --verify-r0).
+않는다), 엔진/PlanRunner/게이트 무변경(로컬 RL 게이트 = --verify-r0/r1/r2).
 
 고정 acceptance 커맨드 (plan §R0):
     python tools/solver/rl/train.py --stage 11 --seeds 0,1,2 --envs 4 --max-episodes 20000 --max-wall 7200
@@ -13,17 +13,32 @@ plan SoT = auto-solver-plan.md §Phase R. 무힌트(model.propose 미사용 — 
 R1-스윕 (S13~S25 탐사, plan §R1-스윕 — 비게이트, 단일 seed 30분 cap):
     python tools/solver/rl/train.py --stage NN --seeds 0 --envs 4 --max-episodes 20000 --max-wall 1800 \
         --shaping trace --train-deadline 4500 --sil --max-len 8
+R2 (plan §R2 — 영속 학습: r2 문법 + 체크포인트 2모드 + curriculum. per-seed 사슬 커맨드, seed s∈{0,1,2}):
+    python tools/solver/rl/train.py --grammar r2.1 --stage 11 --seeds s --envs 4 --max-episodes 20000 \
+        --max-wall 1800 --shaping trace --train-deadline 4500 --sil --save-ckpt
+    python tools/solver/rl/train.py --grammar r2.1 --stage 12 --seeds s <공통 예산> --sil \
+        --transfer-ckpt data/solutions/rl_ckpt/stage11_seed{s}.r2.pt --save-ckpt
+    python tools/solver/rl/train.py --grammar r2.1 --stage 13 --seeds s <공통 예산> --sil \
+        --transfer-ckpt data/solutions/rl_ckpt/stage12_seed{s}.r2.pt --save-ckpt      # acceptance ③
+    python tools/solver/rl/train.py --grammar r2.1 --stage 19 --seeds 0,1,2 <공통 예산> --sil  # 어휘 증명 ⓑ
 검증:
     python tools/solver/rl/train.py --verify-r0            # manifest + predicate + replay ×2 fail-closed
     python tools/solver/rl/train.py --verify-r1 --stage 12 # R1_PIN(shaping 포함) fail-closed
-    python tools/solver/rl/train.py --coverage             # 문법 커버리지(known S11·S12 해 → 격자 → 엔진 클리어)
+    python tools/solver/rl/train.py --verify-r2 --stage 13 # R2_PIN + ckpt/chain 무결 + curriculum 정합
+    python tools/solver/rl/train.py --coverage             # r1.1 커버리지(known S11·S12 → 격자 → 클리어)
+    python tools/solver/rl/train.py --coverage-r2          # r2 커버리지(S11·S12 ant + S19 cell)
+    python tools/solver/rl/train.py --accept-resume-equiv --grammar r2.1 --stage 11 --seeds 0 --envs 4 \
+        --max-batches 6 --shaping trace --train-deadline 4500 --sil   # P1 재개 등가성(acceptance 1)
     python tools/solver/rl/train.py --preflight-only --envs 4   # 병렬 결정론 preflight만
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import sys
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -41,7 +56,8 @@ for _s in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-from mdp import StageMDP, GRAMMAR_VERSION, REWARD, SHAPING  # noqa: E402
+from mdp import (StageMDP, GRAMMAR_VERSION, GRAMMAR_R2, REWARD, SHAPING,  # noqa: E402
+                 global_vocab, manifest_stage_ids)
 from env import GodotEnv                           # noqa: E402  (tools/solver/env.py)
 import solve                                       # noqa: E402  (run_plan 단발 리플레이 — 권위 경로)
 
@@ -56,13 +72,17 @@ DEFAULTS = dict(batch=16, lr=3e-3, entropy=0.03, entropy_min=0.02, entropy_decay
                 hidden=128, greedy_every=5,
                 baseline_decay=0.9, max_len=6, train_deadline=TRAIN_DEADLINE,
                 replay_deadline=REPLAY_DEADLINE, shaping="none",
-                sil=False, sil_buffer=8, sil_coef=0.1)
+                sil=False, sil_buffer=8, sil_coef=0.1,
+                conv_channels=32, max_batches=0)   # r2: CNN 채널 / 등가성 시험용 배치-수 종료(0=비활성)
 
 # R0 고정 acceptance 계약(plan §R0) — verify-r0가 manifest에 강제(impl-R1 HIGH: pinned 계약 미검증 차단).
 # replay_deadline도 pin(impl-R2 HIGH: manifest 자기-일관성만 보면 느슨한 deadline 재생성이 통과) —
 # 판정 replay가 인증의 실체이므로 그 deadline은 상수 고정. 학습-전용 knob(train_deadline 등)은 pin 비대상.
+# grammar: §R2 선결 계약 — verify-r0/r1의 문법 pin은 모듈 상수가 아니라 **리터럴 "r1.1" 동결**
+# (r2 승격과 무관하게 stage11/12 pinned 산출물은 r1.1 문법으로 영원히 검증).
 R0_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=7200,
-              replay_deadline=REPLAY_DEADLINE, max_len=DEFAULTS["max_len"])
+              replay_deadline=REPLAY_DEADLINE, max_len=DEFAULTS["max_len"],
+              grammar="r1.1")
 
 # R1 고정 acceptance 계약(plan §R1) — R0_PIN + shaping 상수(plan-R1-H1: 계수까지 fail-closed;
 # 계수 튜닝은 fallback 1에서만, 그때 이 pin도 같은 커밋에서 갱신). train_deadline=4500은 "학습-전용
@@ -73,7 +93,101 @@ R0_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=7200,
 R1_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=1800,
               replay_deadline=REPLAY_DEADLINE, shaping="trace", shaping_coeffs=dict(SHAPING),
               train_deadline=4500, sil=True, sil_buffer=8, sil_coef=0.1,
-              max_len=DEFAULTS["max_len"])   # post-commit codex R1 HIGH: 문법 길이도 인증 실체 — pin
+              max_len=DEFAULTS["max_len"],   # post-commit codex R1 HIGH: 문법 길이도 인증 실체 — pin
+              grammar="r1.1")                # §R2 선결 계약: 리터럴 동결
+
+# R2 고정 acceptance 계약(plan §R2 acceptance 2/3ⓑ — 공통 구간 예산, plan-R3 MED: 사슬 전 구간 동일 pin).
+# grammar=r2.1(전역 어휘+마스킹+cell-target). 예산 회계는 **구간별**(plan-R2 MED-4) — verify-r2가
+# chain의 각 세그먼트에 이 예산을 독립 적용한다(사슬 합산 아님).
+R2_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=1800,
+              replay_deadline=REPLAY_DEADLINE, shaping="trace", shaping_coeffs=dict(SHAPING),
+              train_deadline=4500, sil=True, sil_buffer=8, sil_coef=0.1,
+              max_len=DEFAULTS["max_len"], grammar=GRAMMAR_R2)
+# pinned 사슬(체크포인트 출처 pin, plan-R2 HIGH-1): stage → 기대 chain 스테이지 열.
+# S11=from-scratch 시점 / S12·S13=transfer 사슬 / S19=from-scratch 단독(어휘 증명 ⓑ, curriculum 불요 가정).
+R2_CHAINS = {11: [11], 12: [11, 12], 13: [11, 12, 13], 19: [19]}
+
+# ---------- r2 체크포인트 (P1 — plan §R2: 영속화 = 사용자 필수 요건) ----------
+CKPT_FORMAT = "candyants-rl2-ckpt-v1"
+CKPT_DIR = ROOT / "data" / "solutions" / "rl_ckpt"
+
+
+def ckpt_path(stage_id: int, seed: int) -> Path:
+    return CKPT_DIR / f"stage{stage_id:02d}_seed{seed}.r2.pt"
+
+
+def _file_sha(path: Path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _model_cfg(mdp: StageMDP, cfg: dict) -> dict:
+    """모델 shape 계약(ckpt 호환 검사 대상) — 전역 어휘라 스테이지 무관 동일해야 transfer 가능."""
+    return {"hidden": cfg["hidden"], "conv_channels": cfg["conv_channels"],
+            "max_len": mdp.max_len, "flat_dim": mdp.flat_dim,
+            "heads": dict(mdp.heads)}
+
+
+def save_ckpt(path: Path, state: dict) -> str:
+    torch, _ = _torch()
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(state, path)
+    return _file_sha(path)
+
+
+def load_ckpt(path: str | Path) -> dict:
+    torch, _ = _torch()
+    p = Path(path)
+    ckpt = torch.load(p, map_location="cpu", weights_only=True)
+    ckpt["_file_sha"] = _file_sha(p)          # 사슬 provenance(manifest 기록·verify 대조)
+    ckpt["_file_path"] = str(p)
+    return ckpt
+
+
+def _ckpt_compat(ckpt: dict, mdp: StageMDP, seed: int, mode: str, cfg: dict) -> None:
+    """로드 2모드 fail-closed 계약(plan-R2 HIGH-2 / plan-R3 HIGH-1):
+    - resume(동일 스테이지 exact): stage/레이아웃/마스크 digest + seed까지 전부 일치.
+    - transfer(타 스테이지 curriculum): 레이아웃/마스크 **면제**(불일치가 전이의 정의)하되
+      전역 어휘/head-시맨틱 digest + 모델 shape는 일치 — silent 오매핑 차단."""
+    fails: list[str] = []
+    if ckpt.get("format") != CKPT_FORMAT:
+        fails.append(f"format {ckpt.get('format')!r} != {CKPT_FORMAT!r}")
+    if ckpt.get("grammar_version") != mdp.grammar_version:
+        fails.append(f"grammar {ckpt.get('grammar_version')!r} != {mdp.grammar_version!r}")
+    if ckpt.get("vocab_digest") != mdp.vocab_digest:
+        fails.append("전역 어휘/head-시맨틱 digest 불일치 — shape만 같은 가중치의 silent 오매핑 차단")
+    if ckpt.get("dtype") != "float32":
+        fails.append(f"dtype {ckpt.get('dtype')!r} != 'float32'")
+    mc = _model_cfg(mdp, cfg)
+    if ckpt.get("model_cfg") != mc:
+        fails.append(f"model_cfg 불일치: ckpt={ckpt.get('model_cfg')} != now={mc}")
+    if mode == "resume":
+        if ckpt.get("stage_id") != mdp.stage_id:
+            fails.append(f"exact resume stage 불일치: {ckpt.get('stage_id')} != {mdp.stage_id}")
+        if ckpt.get("layout_digest") != mdp.layout_digest():
+            fails.append("exact resume 레이아웃 digest 불일치")
+        if ckpt.get("mask_digest") != mdp.mask_digest():
+            fails.append("exact resume 마스크 digest 불일치")
+        if ckpt.get("seed") != seed:
+            fails.append(f"exact resume seed 불일치: {ckpt.get('seed')} != {seed}")
+    elif mode == "transfer":
+        if ckpt.get("stage_id") == mdp.stage_id:
+            fails.append("transfer인데 동일 스테이지 — exact resume(--resume-ckpt)을 쓸 것")
+        if not ckpt.get("cleared_seg"):
+            fails.append("미클리어 세그먼트 ckpt에서 transfer 금지 — curriculum은 클리어한 "
+                         "스테이지의 ckpt에서만 이어서 학습(plan §R2 P4)")
+    else:
+        fails.append(f"unknown ckpt mode {mode!r}")
+    if fails:
+        raise RuntimeError("ckpt 비호환(fail-closed):\n  - " + "\n  - ".join(fails))
+
+
+def _ckpt_segment(ckpt: dict) -> dict:
+    """로드한 ckpt의 현재-세그먼트를 chain 항목으로 접는다(transfer 시 완결 세그먼트로 편입)."""
+    return {"stage_id": ckpt["stage_id"], "seed": ckpt["seed"], "mode": ckpt["seg_mode"],
+            "episodes": ckpt["episodes_seg"], "batches": ckpt["batch_i"],
+            "wall_s": ckpt["wall_seg"], "cleared": bool(ckpt["cleared_seg"]),
+            "ckpt_sha": ckpt.get("_file_sha"), "ckpt_path": ckpt.get("_file_path")}
 
 
 def _digest(r: dict) -> dict:
@@ -189,6 +303,11 @@ def build_pool(envs_requested: int, stage_scene: str,
 def _torch():
     import torch
     import torch.nn as nn
+    # CPU 스레드 1 고정: 모델이 작아 멀티스레드 이득 0인데, 기본값(코어 수)은 병렬 env/사슬과
+    # OpenMP busy-wait 오버서브스크립션으로 롤아웃 처리량을 붕괴시킴(2026-07-04 S12 사슬 실측 —
+    # 12 env 경합에서 배치 처리량 ~20x 저하). 단일 스레드는 reduction 순서도 고정(결정론 강화).
+    if torch.get_num_threads() != 1:
+        torch.set_num_threads(1)
     return torch, nn
 
 
@@ -209,6 +328,115 @@ def make_policy(mdp: StageMDP, hidden: int):
             return {h: self.heads[h](z) for h in mdp.head_names}
 
     return Policy()
+
+
+def make_policy_r2(mdp: StageMDP, cfg: dict):
+    """r2 스테이지-불변 정책(plan §R2 P2): 공유 CNN 인코더(가변 H×W×5 그리드 → adaptive pool 고정
+    임베딩) + 전역-어휘 head. 모든 파라미터 shape가 스테이지 무관 — 같은 가중치 파일이 임의 등재
+    스테이지에 로드 가능(P1의 전제)."""
+    torch, nn = _torch()
+    ch = cfg["conv_channels"]
+
+    class PolicyR2(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv = nn.Sequential(
+                nn.Conv2d(5, ch, 3, padding=1), nn.ReLU(),
+                nn.Conv2d(ch, ch, 3, padding=1), nn.ReLU(),
+                nn.AdaptiveMaxPool2d((4, 4)))
+            self.torso = nn.Sequential(
+                nn.Linear(ch * 16 + mdp.flat_dim, cfg["hidden"]), nn.Tanh(),
+                nn.Linear(cfg["hidden"], cfg["hidden"]), nn.Tanh())
+            self.heads = nn.ModuleDict(
+                {h: nn.Linear(cfg["hidden"], n) for h, n in mdp.heads.items()})
+
+        def forward(self, grid, flat):
+            z = self.conv(grid).flatten(1)
+            z = self.torso(torch.cat([z, flat], dim=1))
+            return {h: self.heads[h](z) for h in mdp.head_names}
+
+    return PolicyR2()
+
+
+def _grid_tensor(mdp: StageMDP):
+    """스테이지 상수 그리드 → CNN 입력 텐서(1×5×H×W). mdp._grid 레이아웃 = (r*W+c)*5+ch."""
+    torch, _ = _torch()
+    return (torch.tensor(mdp._grid, dtype=torch.float32)
+            .view(1, mdp.H, mdp.W, 5).permute(0, 3, 1, 2).contiguous())
+
+
+def _masked(lg, allowed: list[int], size: int):
+    """허용 인덱스 밖 logits = -inf (무효 조합은 페널티가 아니라 표현 불가, plan §R2 P3).
+    Categorical.entropy는 -inf logits를 finfo.min으로 clamp해 p=0 항이 0이 됨 — NaN 없음."""
+    if len(allowed) >= size:
+        return lg
+    torch, _ = _torch()
+    m = torch.full_like(lg, float("-inf"))
+    m[allowed] = 0.0
+    return lg + m
+
+
+def _sample_episode_r2(mdp: StageMDP, policy, grid_t, greedy: bool = False):
+    """r2 조건부 factored 샘플링: skill → (SUBMIT면 종료) → kind(스킬 메타로 단일 유효) → trigger →
+    트리거-의존 head → kind-의존 head. 활성 head만 logp/entropy에 기여(비활성 head는 미샘플).
+    스텝 0 SUBMIT 마스킹·인벤토리 동적 마스크는 mdp.head_mask가 담당."""
+    torch, _ = _torch()
+    partial: list[dict[str, int]] = []
+    used: dict[str, int] = {}
+    logps, ents = [], []
+    for _t in range(mdp.max_len):
+        flat = torch.tensor(mdp.obs_flat_r2(partial), dtype=torch.float32).unsqueeze(0)
+        logits = policy(grid_t, flat)
+        idx: dict[str, int] = {}
+        step_logp, step_ent = [], []
+
+        def _pick(h: str) -> None:
+            lg = _masked(logits[h][0], mdp.head_mask(h, _t, used, idx), mdp.heads[h])
+            dist = torch.distributions.Categorical(logits=lg)
+            a = torch.argmax(lg) if greedy else dist.sample()
+            idx[h] = int(a)
+            step_logp.append(dist.log_prob(a))
+            step_ent.append(dist.entropy())
+
+        _pick("skill")
+        if idx["skill"] == mdp.SUBMIT:
+            logps.append(step_logp[0])
+            ents.append(step_ent[0])
+            break
+        _pick("kind")
+        _pick("trigger")
+        for h in mdp.active_heads(idx)[2:]:       # kind·trigger 이후 의존 head
+            _pick(h)
+        sid = mdp.skills[idx["skill"]]
+        used[sid] = used.get(sid, 0) + 1
+        logps.append(sum(step_logp))
+        ents.append(sum(step_ent))
+        partial.append(idx)
+    zero = torch.tensor(0.0)
+    return partial, (sum(logps) if logps else zero), (sum(ents) if ents else zero)
+
+
+def _episode_logp_r2(mdp: StageMDP, policy, grid_t, partial: list[dict[str, int]]):
+    """저장 에피소드의 현행-정책 log-prob 재계산(SIL) — 샘플링 경로와 동일한 조건부 head·마스킹."""
+    torch, _ = _torch()
+    total = torch.tensor(0.0)
+    used: dict[str, int] = {}
+    for t, a in enumerate(partial):
+        flat = torch.tensor(mdp.obs_flat_r2(partial[:t]), dtype=torch.float32).unsqueeze(0)
+        logits = policy(grid_t, flat)
+        for h in ["skill"] + mdp.active_heads(a):
+            lg = _masked(logits[h][0], mdp.head_mask(h, t, used, a), mdp.heads[h])
+            total = total + torch.distributions.Categorical(logits=lg).log_prob(
+                torch.tensor(a[h]))
+        sid = mdp.skills[a["skill"]]
+        used[sid] = used.get(sid, 0) + 1
+    if len(partial) < mdp.max_len:                # 종료 SUBMIT 선택까지 포함(샘플링과 동일 마스킹)
+        flat = torch.tensor(mdp.obs_flat_r2(partial), dtype=torch.float32).unsqueeze(0)
+        lg = _masked(policy(grid_t, flat)["skill"][0],
+                     mdp.head_mask("skill", len(partial), used, {}), mdp.heads["skill"])
+        total = total + torch.distributions.Categorical(logits=lg).log_prob(
+            torch.tensor(mdp.SUBMIT))
+    return total
 
 
 def _sample_episode(mdp: StageMDP, policy, greedy: bool = False):
@@ -269,30 +497,80 @@ def _episode_logp(mdp: StageMDP, policy, partial: list[dict[str, int]]):
 
 # ---------- 학습 (seed 1개) ----------
 
-def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict) -> dict:
+def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
+               ckpt_in: dict | None = None, ckpt_mode: str | None = None):
+    """학습 1 seed. 반환 = (result, state) — state는 r2 체크포인트-가능 전체 상태(r1.1은 None).
+
+    체크포인트 로드 2모드(plan §R2 P1): resume = 전 상태 복원(같은 세그먼트 계속, RNG·SIL·entropy
+    카운터·baseline·curve까지 — 재개 등가성의 대상) / transfer = policy+optimizer 가중치만 이월,
+    스테이지-파생 상태(entropy 스케줄·SIL buffer·baseline)는 리셋, RNG는 새 seed."""
     torch, _ = _torch()
+    r2 = mdp.grammar_version == GRAMMAR_R2
     torch.manual_seed(seed)
-    policy = make_policy(mdp, cfg["hidden"])
+    policy = make_policy_r2(mdp, cfg) if r2 else make_policy(mdp, cfg["hidden"])
     opt = torch.optim.Adam(policy.parameters(), lr=cfg["lr"])
+    grid_t = _grid_tensor(mdp) if r2 else None
     baseline, baseline_init = 0.0, False
-    episodes, batch_i = 0, 0
-    t0 = time.monotonic()
+    episodes, batch_i = 0, 0                  # 세그먼트 카운터 — 예산 회계는 구간별(plan-R2 MED-4)
+    wall_prev = 0.0                           # exact resume 시 같은 세그먼트의 이전 invocation 누적 wall
+    seg_mode = "transfer" if ckpt_mode == "transfer" else "scratch"
+    chain: list[dict] = []                    # 이전 스테이지의 완결 세그먼트들(재개 사슬, plan-R1 MED-1)
+    ep_prior = bat_prior = 0                  # 사슬 누적 카운터(현 세그먼트 이전)
     curve: list[float] = []
-    result = {"seed": seed, "cleared": False, "episodes": 0, "wall_s": 0.0,
-              "best_reward": float("-inf"), "greedy_plan": None, "curve": curve}
-
-    def _budget_left() -> bool:
-        return episodes < cfg["max_episodes"] and (time.monotonic() - t0) < cfg["max_wall"]
-
-    use_trace = cfg["shaping"] == "trace"                 # plan §R1 — trace-shaped 보상
     # self-imitation buffer (plan §R1 fallback 2): top-K (reward, partial), plan-sig 중복 제거.
     # 희소한 고보상 에피소드가 배치 평균에 희석돼 정책을 못 끌어올리는 병목(S12 bestR 0.447 정체 실측)
     # 을 (R−baseline)+ 가중 재모방으로 해소.
     sil_buf: list[tuple[float, list[dict[str, int]]]] = []
     sil_sigs: set[str] = set()
-    while _budget_left():
+    result = {"seed": seed, "cleared": False, "episodes": 0, "wall_s": 0.0, "batches": 0,
+              "best_reward": float("-inf"), "greedy_plan": None, "curve": curve}
+    if ckpt_in is not None:
+        if not r2:
+            raise RuntimeError("체크포인트는 r2 문법 전용(plan §R2)")
+        _ckpt_compat(ckpt_in, mdp, seed, ckpt_mode, cfg)     # fail-closed 비호환 거부
+        policy.load_state_dict(ckpt_in["policy"])
+        opt.load_state_dict(ckpt_in["optimizer"])
+        if ckpt_mode == "resume":
+            torch.set_rng_state(ckpt_in["torch_rng"])
+            batch_i = int(ckpt_in["batch_i"])
+            episodes = int(ckpt_in["episodes_seg"])
+            wall_prev = float(ckpt_in["wall_seg"])
+            baseline = float(ckpt_in["baseline"])
+            baseline_init = bool(ckpt_in["baseline_init"])
+            curve.extend(ckpt_in["curve_seg"])
+            sil_buf = [(float(r), list(p)) for r, p in ckpt_in["sil_buf"]]
+            sil_sigs = {json.dumps(p, sort_keys=True) for _, p in sil_buf}
+            seg_mode = ckpt_in["seg_mode"]
+            chain = list(ckpt_in["chain"])
+            ep_prior, bat_prior = int(ckpt_in["episodes_prior"]), int(ckpt_in["batches_prior"])
+            if bool(ckpt_in["cleared_seg"]):     # 클리어로 끝난 세그먼트의 resume = no-op(터미널)
+                result.update(cleared=True, greedy_plan=ckpt_in.get("greedy_plan"))
+        else:                                    # transfer: 스테이지-파생 상태 리셋(plan §R2 P1/P4)
+            chain = list(ckpt_in["chain"]) + [_ckpt_segment(ckpt_in)]
+            ep_prior = int(ckpt_in["episodes_prior"]) + int(ckpt_in["episodes_seg"])
+            bat_prior = int(ckpt_in["batches_prior"]) + int(ckpt_in["batch_i"])
+    t0 = time.monotonic()
+    ran_batches = 0
+
+    def _budget_left() -> bool:
+        if cfg.get("max_batches"):               # 등가성 시험 모드: 배치 수만 종료 조건(plan-R2 MED-3 ⓓ)
+            return ran_batches < cfg["max_batches"]
+        return (episodes < cfg["max_episodes"]
+                and wall_prev + (time.monotonic() - t0) < cfg["max_wall"])
+
+    def _sample(greedy: bool = False):
+        return (_sample_episode_r2(mdp, policy, grid_t, greedy) if r2
+                else _sample_episode(mdp, policy, greedy))
+
+    def _ep_logp(p):
+        return (_episode_logp_r2(mdp, policy, grid_t, p) if r2
+                else _episode_logp(mdp, policy, p))
+
+    use_trace = cfg["shaping"] == "trace"                 # plan §R1 — trace-shaped 보상
+    while not result["cleared"] and _budget_left():
         batch_i += 1
-        eps = [_sample_episode(mdp, policy) for _ in range(cfg["batch"])]
+        ran_batches += 1
+        eps = [_sample() for _ in range(cfg["batch"])]
         plans = [{"stage": mdp.stage_scene, "deadline_frames": cfg["train_deadline"],
                   **({"trace": True} if use_trace else {}),
                   "actions": mdp.decode_plan(p)} for p, _, _ in eps]
@@ -335,12 +613,12 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict) -> dict:
             for rew, p in sil_buf[cfg["sil_buffer"]:]:
                 sil_sigs.discard(json.dumps(p, sort_keys=True))
             del sil_buf[cfg["sil_buffer"]:]
-            used = [(rew, p) for rew, p in sil_buf if rew > baseline]
-            if used:
+            used_sil = [(rew, p) for rew, p in sil_buf if rew > baseline]
+            if used_sil:
                 sil_term = torch.tensor(0.0)
-                for rew, p in used:
-                    sil_term = sil_term + (rew - baseline) * (-_episode_logp(mdp, policy, p))
-                loss = loss + cfg["sil_coef"] * sil_term / len(used)
+                for rew, p in used_sil:
+                    sil_term = sil_term + (rew - baseline) * (-_ep_logp(p))
+                loss = loss + cfg["sil_coef"] * sil_term / len(used_sil)
         opt.zero_grad()
         loss.backward()
         opt.step()
@@ -352,7 +630,7 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict) -> dict:
         # greedy 평가(성공 판정 = 표준 deadline에서 saved==hp_stage)
         if batch_i % cfg["greedy_every"] == 0:
             with torch.no_grad():
-                gp, _, _ = _sample_episode(mdp, policy, greedy=True)
+                gp, _, _ = _sample(greedy=True)
             plan = mdp.decode_plan(gp)
             res = pool.envs[0].step({"stage": mdp.stage_scene,
                                      "deadline_frames": cfg["replay_deadline"], "actions": plan})
@@ -362,11 +640,33 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict) -> dict:
                       f"frame={res.get('frame')} eps={episodes}")
                 break
     result["episodes"] = episodes
-    result["wall_s"] = round(time.monotonic() - t0, 1)
+    result["batches"] = batch_i
+    result["wall_s"] = round(wall_prev + (time.monotonic() - t0), 1)
     if not result["cleared"] and result.get("best_episode") is not None:
         print(f"  [seed {seed}] FAIL bestR={result['best_reward']:.3f} best plan: "
               f"{json.dumps(result['best_episode'])}")
-    return result
+    state = None
+    if r2:
+        # 직렬화 대상 전수(plan-R1 MED-1): policy+optimizer + entropy 카운터(batch_i) + 사용 RNG 전수
+        # (현 구현 = torch 단일; python random/numpy 미사용) + SIL 내용·순서 + 누적 카운터 + 문법/
+        # digest/모델 config·dtype + 재개 사슬.
+        state = {
+            "format": CKPT_FORMAT, "grammar_version": mdp.grammar_version,
+            "vocab_digest": mdp.vocab_digest, "stage_id": mdp.stage_id,
+            "layout_digest": mdp.layout_digest(), "mask_digest": mdp.mask_digest(),
+            "model_cfg": _model_cfg(mdp, cfg), "dtype": "float32",
+            "seed": seed, "seg_mode": seg_mode,
+            "batch_i": batch_i, "episodes_seg": episodes,
+            "wall_seg": result["wall_s"], "cleared_seg": bool(result["cleared"]),
+            "baseline": baseline, "baseline_init": baseline_init,
+            "curve_seg": list(curve),
+            "episodes_prior": ep_prior, "batches_prior": bat_prior,
+            "sil_buf": [[r, p] for r, p in sil_buf],
+            "torch_rng": torch.get_rng_state(),
+            "policy": policy.state_dict(), "optimizer": opt.state_dict(),
+            "chain": chain, "greedy_plan": result["greedy_plan"],
+        }
+    return result, state
 
 
 # ---------- acceptance 오케스트레이션 (--seeds 집계, R2-H) ----------
@@ -375,26 +675,66 @@ def rl_json_path(stage_id: int) -> Path:
     return ROOT / "data" / "solutions" / f"stage{stage_id:02d}.rl.json"
 
 
+def rl2_json_path(stage_id: int) -> Path:
+    """r2 산출물은 별도 파일 — r0/r1 pinned 산출물(stageNN.rl.json)은 영구 보존(§R2 선결 계약)."""
+    return ROOT / "data" / "solutions" / f"stage{stage_id:02d}.rl2.json"
+
+
 def run_training(args) -> int:
-    mdp = StageMDP(args.stage, max_len=args.max_len)
+    r2 = args.grammar == GRAMMAR_R2
     seeds = [int(s) for s in args.seeds.split(",")]
+    if (args.save_ckpt or args.resume_ckpt or args.transfer_ckpt) and not r2:
+        print("체크포인트 플래그는 --grammar r2.1 전용(plan §R2 P1)")
+        return 2
+    if args.resume_ckpt and args.transfer_ckpt:
+        print("--resume-ckpt와 --transfer-ckpt는 배타(로드 2모드 분리, plan-R2 HIGH-2)")
+        return 2
+    if (args.resume_ckpt or args.transfer_ckpt) and len(seeds) != 1:
+        print("ckpt 로드는 seed 1개 커맨드 전용(per-seed 사슬 계약, plan-R3 HIGH-2)")
+        return 2
+    mdp = StageMDP(args.stage, max_len=args.max_len, grammar=args.grammar,
+                   at_frame_cap=args.train_deadline)
     cfg = dict(DEFAULTS, max_episodes=args.max_episodes, max_wall=args.max_wall,
                shaping=args.shaping, train_deadline=args.train_deadline, max_len=args.max_len,
-               sil=bool(args.sil))
+               sil=bool(args.sil), max_batches=args.max_batches)
+    ckpt_in, ckpt_mode = None, None
+    if args.resume_ckpt:
+        ckpt_in, ckpt_mode = load_ckpt(args.resume_ckpt), "resume"
+    elif args.transfer_ckpt:
+        ckpt_in, ckpt_mode = load_ckpt(args.transfer_ckpt), "transfer"
+    dim_note = f"obs_dim={mdp.obs_dim}" if not r2 else f"flat_dim={mdp.flat_dim} grid={mdp.H}x{mdp.W}"
     print(f"=== Phase R 학습: stage {args.stage} (hp={mdp.hp}, inv={mdp.inventory}, "
-          f"max_len={mdp.max_len}, obs_dim={mdp.obs_dim}) seeds={seeds} "
-          f"shaping={cfg['shaping']} train_deadline={cfg['train_deadline']} ===")
+          f"max_len={mdp.max_len}, {dim_note}) grammar={args.grammar} seeds={seeds} "
+          f"shaping={cfg['shaping']} train_deadline={cfg['train_deadline']} "
+          f"ckpt={ckpt_mode or 'none'} ===")
     pool, envs_effective, pf_info = build_pool(
         args.envs, mdp.stage_scene, with_trace=(cfg["shaping"] == "trace"))
     try:
-        seed_results = [train_seed(mdp, pool, s, cfg) for s in seeds]
+        outs = [train_seed(mdp, pool, s, cfg, ckpt_in, ckpt_mode) for s in seeds]
     finally:
         pool.close()
+    seed_results = [r for r, _ in outs]
     n_clear = sum(1 for r in seed_results if r["cleared"])
     need = (len(seeds) + (len(seeds) % 2) + 1) // 2         # ≥2/3 (일반화: 과반) — verify와 동일식
     passed = n_clear >= need
     print(f"=== 집계: {n_clear}/{len(seeds)} seed 클리어 (필요 ≥{need}) → {'PASS' if passed else 'FAIL'} ===")
-    # 산출물: 최소 에피소드 성공 seed의 greedy plan + manifest(effective config 전량, R2-M1)
+    if r2:
+        # 체크포인트 저장(P1 — 영속화). 클리어 여부 무관 저장(FAIL 세그먼트도 exact resume 대상;
+        # transfer는 _ckpt_compat이 미클리어 ckpt를 거부).
+        saved: dict[int, dict] = {}
+        if args.save_ckpt:
+            for (res, state), s in zip(outs, seeds):
+                p = ckpt_path(args.stage, s)
+                sha = save_ckpt(p, state)
+                saved[s] = {"path": str(p.relative_to(ROOT)).replace("\\", "/"), "sha256": sha}
+                print(f"ckpt 저장: {p} sha256={sha[:16]}…")
+        if not args.no_save:
+            _write_r2_artifact(mdp, args, cfg, outs, seeds, envs_effective, pf_info,
+                               saved, ckpt_in, ckpt_mode)
+        else:
+            print("--no-save: 산출물 미저장(판정은 위 집계줄)")
+        return 0 if passed else 1
+    # ---- r1.1 산출물 경로(기존 그대로) ----
     ok = [r for r in seed_results if r["cleared"]]
     if ok and not args.no_save:
         best = min(ok, key=lambda r: r["episodes"])
@@ -431,11 +771,129 @@ def run_training(args) -> int:
     return 0 if passed else 1
 
 
+# ---------- r2 산출물 (seed-단위 병합 — per-seed 사슬 커맨드 계약, plan-R3 HIGH-2) ----------
+
+def _rel(p: str | Path) -> str:
+    try:
+        return str(Path(p).resolve().relative_to(ROOT)).replace("\\", "/")
+    except ValueError:
+        return str(p).replace("\\", "/")
+
+
+def _write_r2_artifact(mdp: StageMDP, args, cfg: dict, outs, seeds, envs_effective: int,
+                       pf_info: dict, saved: dict, ckpt_in: dict | None,
+                       ckpt_mode: str | None) -> None:
+    """stageNN.rl2.json — seed별 항목을 병합 누적(같은 stage·config·어휘일 때만). FAIL seed도 기록
+    (predicate는 pinned seed 3개가 모이면 재계산 — 사슬 자체가 결과, plan §R2 acceptance 2)."""
+    path = rl2_json_path(mdp.stage_id)
+    # 병렬 per-seed 사슬이 같은 파일을 병합-쓰기 — read-merge-write를 lockfile로 직렬화(유실 차단).
+    lock = path.with_suffix(".lock")
+    fd = None
+    for _ in range(600):
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            time.sleep(0.1)
+    if fd is None:
+        raise RuntimeError(f"artifact lock 획득 실패(60s): {lock} — stale lock이면 수동 삭제")
+    try:
+        _merge_write_r2(path, mdp, args, cfg, outs, seeds, envs_effective, pf_info,
+                        saved, ckpt_in, ckpt_mode)
+    finally:
+        os.close(fd)
+        os.unlink(lock)
+
+
+def _merge_write_r2(path: Path, mdp: StageMDP, args, cfg: dict, outs, seeds,
+                    envs_effective: int, pf_info: dict, saved: dict,
+                    ckpt_in: dict | None, ckpt_mode: str | None) -> None:
+    cfg_pub = {**cfg, "reward": REWARD, "shaping_coeffs": dict(SHAPING)}
+    prev_seeds: dict[int, dict] = {}
+    curves: dict[str, list] = {}
+    if path.exists():
+        try:
+            old = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            old = None
+        om = (old or {}).get("rl_meta") or {}
+        if (old and old.get("stage_id") == mdp.stage_id
+                and om.get("grammar_version") == mdp.grammar_version
+                and om.get("vocab_digest") == mdp.vocab_digest
+                and om.get("config") == cfg_pub):
+            prev_seeds = {e["seed"]: e for e in om.get("seeds", [])}
+            curves = dict(om.get("curves", {}))
+        elif old is not None:
+            print(f"[r2 artifact] 기존 {path.name}와 stage/config/어휘 불일치 — "
+                  "seed 병합 없이 새로 시작(혼합-config 집계 차단, fail-closed)")
+    loaded = None
+    if ckpt_in is not None:
+        loaded = {"path": _rel(ckpt_in["_file_path"]), "sha256": ckpt_in["_file_sha"],
+                  "mode": ckpt_mode}
+    for (res, state), s in zip(outs, seeds):
+        seg = {"stage_id": mdp.stage_id, "seed": s, "mode": state["seg_mode"],
+               "episodes": res["episodes"], "batches": res["batches"],
+               "wall_s": res["wall_s"], "cleared": bool(res["cleared"]),
+               "ckpt_sha": (saved.get(s) or {}).get("sha256"),
+               "ckpt_path": (saved.get(s) or {}).get("path")}
+        br = res["best_reward"]
+        prev_seeds[s] = {
+            "seed": s, "cleared": bool(res["cleared"]), "episodes": res["episodes"],
+            "batches": res["batches"], "wall_s": res["wall_s"],
+            "best_reward": (br if br != float("-inf") else None),
+            "greedy_plan": res["greedy_plan"],
+            "envs_requested": args.envs, "envs_effective": envs_effective,
+            "chain": state["chain"] + [seg],
+            "ckpt_saved": saved.get(s), "ckpt_loaded": loaded,
+        }
+        if cfg["shaping"] == "trace":
+            prev_seeds[s]["preflight_trace"] = pf_info
+        curves[str(s)] = res["curve"]
+    entries = [prev_seeds[k] for k in sorted(prev_seeds)]
+    pinned = R2_PIN["seeds"]
+    need = (len(pinned) + (len(pinned) % 2) + 1) // 2
+    # 사슬 앞단 미클리어로 이 스테이지에 미도달한 seed = FAIL 집계(plan §R2 acceptance 2 —
+    # 결측 seed는 not-cleared와 동치이므로 predicate는 기록된 클리어 수만으로 판정).
+    n_clear = sum(1 for s in pinned if s in prev_seeds and prev_seeds[s]["cleared"])
+    passed = n_clear >= need
+    budget_pinned = (args.envs == R2_PIN["envs"] and not cfg.get("max_batches")
+                     and all(cfg_pub.get(k) == R2_PIN[k]
+                             for k in ("max_episodes", "max_wall", "shaping", "shaping_coeffs",
+                                       "train_deadline", "sil", "sil_buffer", "sil_coef",
+                                       "max_len", "replay_deadline")))
+    cleared_entries = [e for e in entries if e["cleared"] and e.get("greedy_plan")]
+    best = min(cleared_entries, key=lambda e: e["episodes"]) if cleared_entries else None
+    out = {
+        "stage": mdp.stage_scene, "stage_id": mdp.stage_id,
+        "deadline_frames": cfg["replay_deadline"],
+        "inventory": mdp.inventory,
+        "actions": best["greedy_plan"] if best else None,
+        "expect": {"cleared": True, "saved": mdp.hp},
+        "rl_meta": {
+            "grammar_version": mdp.grammar_version, "no_hint": True,
+            "vocab_digest": mdp.vocab_digest, "layout_digest": mdp.layout_digest(),
+            "config": cfg_pub,
+            "pass": passed,
+            "pass_rule": f">={need}/{len(pinned)} pinned seeds greedy clear "
+                         "within per-segment budget",
+            "mode": "pinned-acceptance" if budget_pinned else "exploratory-sweep",
+            "seeds": entries,
+            "curves": curves,
+            "best_seed": best["seed"] if best else None,
+        },
+    }
+    path.write_text(json.dumps(out, indent=1), encoding="utf-8")
+    state_note = ("전 seed 집계" if all(s in prev_seeds for s in pinned)
+                  else f"부분 집계({sorted(prev_seeds)})")
+    print(f"산출물 저장: {path} — {state_note}, pinned pass={passed}")
+
+
 # ---------- --verify-r0/--verify-r1 (fail-closed 로컬 게이트, R1-M2·R2-M3 / plan §R1) ----------
 
 _BASE_CFG_KEYS = ("batch", "lr", "entropy", "entropy_min", "entropy_decay", "hidden",
                   "max_episodes", "max_wall", "train_deadline", "replay_deadline", "reward")
-_PIN_STD_KEYS = ("seeds", "envs", "max_episodes", "max_wall", "replay_deadline")
+# grammar는 config 키가 아니라 rl_meta.grammar_version pin(§R2 선결 계약: 리터럴 동결) — std로 분류.
+_PIN_STD_KEYS = ("seeds", "envs", "max_episodes", "max_wall", "replay_deadline", "grammar")
 
 
 def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
@@ -447,7 +905,8 @@ def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
     d = json.loads(path.read_text(encoding="utf-8"))
     meta = d.get("rl_meta") or {}
     cfg = meta.get("config") or {}
-    mdp = StageMDP(stage_id, max_len=pin["max_len"])   # pinned 문법(길이 포함)이 검증 기준
+    # pinned 문법(리터럴 grammar + 길이)이 검증 기준 — §R2 선결 계약: r0/r1은 r1.1로 영원히 검증.
+    mdp = StageMDP(stage_id, max_len=pin["max_len"], grammar=pin["grammar"])
     # ① manifest 완전성 + 스테이지 바인딩 + pinned 계약(impl-R1 HIGH: 다른 config/스테이지 산출물 차단)
     if d.get("stage_id") != stage_id:
         fails.append(f"stage_id {d.get('stage_id')} != {stage_id}")
@@ -461,8 +920,8 @@ def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
         fails.append(f"expect.saved != hp_stage {mdp.hp}")
     if meta.get("no_hint") is not True:
         fails.append("no_hint != true")
-    if meta.get("grammar_version") != GRAMMAR_VERSION:
-        fails.append(f"grammar_version {meta.get('grammar_version')} != {GRAMMAR_VERSION}")
+    if meta.get("grammar_version") != pin["grammar"]:
+        fails.append(f"grammar_version {meta.get('grammar_version')} != pinned {pin['grammar']}")
     if meta.get("pass") is not True:
         fails.append("rl_meta.pass != true")
     if meta.get("envs_requested") != pin["envs"]:
@@ -605,32 +1064,337 @@ def verify_r1(stage_id: int) -> int:
     return _verify_pinned(stage_id, R1_PIN, "verify-r1")
 
 
+# ---------- --verify-r2 (plan §R2 acceptance 4 — R1 게이트 계승 + ckpt/사슬/curriculum) ----------
+
+def _check_preflight_evidence(pf, envs_req: int, envs_eff: int, fails: list[str], px: str) -> None:
+    """preflight_trace 증거 구조 검사(r1 로직 계승 — runs=2*envs_req, wall>0, ok↔effective 정합)."""
+    if not isinstance(pf, dict) or any(k not in pf for k in ("ok", "wall_s", "runs")):
+        fails.append(f"{px}: preflight_trace {{ok,wall_s,runs}} 누락")
+        return
+    if pf.get("runs") != 2 * envs_req:
+        fails.append(f"{px}: preflight_trace.runs {pf.get('runs')!r} != 2*envs_requested "
+                     f"{2 * envs_req} (위조/무의미 증거)")
+    w = pf.get("wall_s")
+    if not (isinstance(w, (int, float)) and not isinstance(w, bool) and w > 0):
+        fails.append(f"{px}: preflight_trace.wall_s {w!r} — 양수 실측치 아님")
+    if envs_eff > 1 and pf.get("ok") is not True:
+        fails.append(f"{px}: envs_effective>1인데 preflight_trace.ok != true")
+    if envs_eff <= 1 and pf.get("ok") is True:
+        fails.append(f"{px}: envs_effective<=1(N=1 강등)인데 ok == true — 모순 manifest")
+
+
+def verify_r2(stage_id: int) -> int:
+    """r2 산출물 fail-closed 게이트: R1 게이트 전체 계승(pinned 예산·문법 라운드트립·live preflight·
+    trace 재생·pass 시맨틱) + 체크포인트 메타(mode별 digest 계약·재개 사슬 무결) + curriculum
+    manifest 정합(plan §R2 acceptance 4)."""
+    label, pin = "verify-r2", R2_PIN
+    fails: list[str] = []
+    path = rl2_json_path(stage_id)
+    if not path.exists():
+        print(f"[{label}] FAIL: {path} 없음")
+        return 1
+    d = json.loads(path.read_text(encoding="utf-8"))
+    meta = d.get("rl_meta") or {}
+    cfg = meta.get("config") or {}
+    mdp = StageMDP(stage_id, max_len=pin["max_len"], grammar=pin["grammar"],
+                   at_frame_cap=pin["train_deadline"])
+    # ① 바인딩 + manifest 완전성 + pinned 계약
+    if d.get("stage_id") != stage_id:
+        fails.append(f"stage_id {d.get('stage_id')} != {stage_id}")
+    if d.get("stage") != mdp.stage_scene:
+        fails.append(f"stage {d.get('stage')} != {mdp.stage_scene}")
+    if d.get("deadline_frames") != pin["replay_deadline"]:
+        fails.append(f"deadline_frames != pinned {pin['replay_deadline']}")
+    if (d.get("expect") or {}).get("saved") != mdp.hp:
+        fails.append(f"expect.saved != hp_stage {mdp.hp}")
+    if meta.get("no_hint") is not True:
+        fails.append("no_hint != true")
+    if meta.get("grammar_version") != pin["grammar"]:
+        fails.append(f"grammar_version {meta.get('grammar_version')} != pinned {pin['grammar']}")
+    if meta.get("vocab_digest") != mdp.vocab_digest:
+        fails.append("전역 어휘/head-시맨틱 digest 불일치 — 어휘 드리프트 산출물(재생성 필요)")
+    if meta.get("layout_digest") != mdp.layout_digest():
+        fails.append("layout_digest 불일치 — 레이아웃 변경 후 stale 산출물")
+    if meta.get("pass") is not True:
+        fails.append("rl_meta.pass != true")
+    if cfg.get("max_batches"):
+        fails.append("config.max_batches 사용 — 배치-수 종료는 등가성 시험 전용(pinned 예산 위장 차단)")
+    for k in _BASE_CFG_KEYS:
+        if k not in cfg:
+            fails.append(f"config.{k} 누락")
+    for k in ("max_episodes", "max_wall", "shaping", "shaping_coeffs", "train_deadline",
+              "sil", "sil_buffer", "sil_coef", "max_len", "replay_deadline"):
+        if cfg.get(k) != pin[k]:
+            fails.append(f"config.{k} {cfg.get(k)!r} != pinned {pin[k]!r}")
+    # ② per-seed 항목 + predicate + 사슬/curriculum/ckpt (plan §R2 P1/P4)
+    # 결측 seed = 사슬 앞단 미클리어(FAIL 집계, plan acceptance 2) — 전원 기록을 요구하지 않되
+    # pinned 밖 seed·중복은 거부(predicate 물타기 차단). 결측은 not-cleared와 동치.
+    entries = meta.get("seeds") or []
+    entry_seeds = [e.get("seed") for e in entries]
+    if len(set(entry_seeds)) != len(entry_seeds) or not set(entry_seeds) <= set(pin["seeds"]):
+        fails.append(f"seeds {entry_seeds} ⊄ pinned {pin['seeds']} (중복/비-pinned seed)")
+    n_seeds = len(pin["seeds"])
+    need = (n_seeds + (n_seeds % 2) + 1) // 2
+    n_clear = sum(1 for e in entries if e.get("cleared"))
+    if n_clear < need:
+        fails.append(f"{n_seeds}-seed predicate 미달: cleared {n_clear}/{n_seeds} "
+                     f"(≥{need} 필요; 결측 seed {sorted(set(pin['seeds']) - set(entry_seeds))} = FAIL 집계)")
+    man_pos = {sid: i for i, sid in enumerate(manifest_stage_ids())}
+    expected_chain = R2_CHAINS.get(stage_id)
+    for e in entries:
+        sd = e.get("seed")
+        px = f"seed {sd}"
+        if e.get("envs_requested") != pin["envs"]:
+            fails.append(f"{px}: envs_requested != {pin['envs']} (pinned)")
+        _check_preflight_evidence(e.get("preflight_trace"), pin["envs"],
+                                  int(e.get("envs_effective") or 0), fails, px)
+        chain = e.get("chain") or []
+        if not chain:
+            fails.append(f"{px}: 재개 사슬(chain) 기록 없음")
+            continue
+        stages = [seg.get("stage_id") for seg in chain]
+        if expected_chain is not None and stages != expected_chain:
+            fails.append(f"{px}: chain {stages} != pinned {expected_chain} "
+                         "(체크포인트 출처 pin, plan-R2 HIGH-1)")
+        unknown = [s for s in stages if s not in man_pos]
+        if unknown:
+            fails.append(f"{px}: chain 스테이지 {unknown}가 campaign_manifest에 없음")
+        elif any(man_pos[a] >= man_pos[b] for a, b in zip(stages, stages[1:])):
+            fails.append(f"{px}: chain {stages}가 manifest 순서와 모순(curriculum 정합 위반)")
+        for i, seg in enumerate(chain):
+            spx = f"{px} chain[{i}](S{seg.get('stage_id')})"
+            if seg.get("seed") != sd:
+                fails.append(f"{spx}: 세그먼트 seed {seg.get('seed')} != {sd} — per-seed 사슬 위반")
+            want = "scratch" if i == 0 else "transfer"
+            if seg.get("mode") != want:
+                fails.append(f"{spx}: mode {seg.get('mode')!r} != {want!r}")
+            # 구간별 예산 회계(plan-R2 MED-4) — 오버슛 허용은 r0/r1과 동일(배치 1개 / +60s)
+            if seg.get("episodes", 10**9) > pin["max_episodes"] + cfg.get("batch", 0):
+                fails.append(f"{spx}: 구간 에피소드 예산 초과")
+            if seg.get("wall_s", 10**9) > pin["max_wall"] + 60:
+                fails.append(f"{spx}: 구간 wall 예산 초과(+60s 오버슛 허용 밖)")
+            if i < len(chain) - 1 and not seg.get("cleared"):
+                fails.append(f"{spx}: 미클리어인데 후속 세그먼트 존재 — transfer 게이트 위반")
+        if chain[-1].get("stage_id") != stage_id:
+            fails.append(f"{px}: chain 말단 {chain[-1].get('stage_id')} != {stage_id}")
+        if bool(chain[-1].get("cleared")) != bool(e.get("cleared")):
+            fails.append(f"{px}: 말단 세그먼트/엔트리 cleared 모순")
+        # ckpt 무결 — 로드 출처(사슬 len>1이면 필수: transfer의 증거) + 저장 파일(기록 시 검증)
+        if len(chain) > 1:
+            cl = e.get("ckpt_loaded")
+            if not isinstance(cl, dict):
+                fails.append(f"{px}: transfer 사슬인데 ckpt_loaded 기록 없음")
+            else:
+                if cl.get("mode") != "transfer":
+                    fails.append(f"{px}: ckpt_loaded.mode {cl.get('mode')!r} != 'transfer'")
+                if cl.get("sha256") != chain[-2].get("ckpt_sha"):
+                    fails.append(f"{px}: 로드 ckpt sha != 직전 세그먼트 ckpt_sha (사슬 무결 위반)")
+                up_path = rl2_json_path(chain[-2].get("stage_id") or -1)
+                if not up_path.exists():
+                    fails.append(f"{px}: 직전 스테이지 산출물 {up_path.name} 없음 — 출처 검증 불가")
+                else:
+                    up = json.loads(up_path.read_text(encoding="utf-8"))
+                    ue = next((x for x in (up.get("rl_meta") or {}).get("seeds", [])
+                               if x.get("seed") == sd), None)
+                    if not ue or not isinstance(ue.get("ckpt_saved"), dict):
+                        fails.append(f"{px}: 직전 산출물에 seed {sd} ckpt_saved 기록 없음")
+                    elif ue["ckpt_saved"].get("sha256") != cl.get("sha256"):
+                        fails.append(f"{px}: 출처 ckpt sha 불일치 — cherry-pick 차단(plan §R2 acceptance 2)")
+        cs = e.get("ckpt_saved")
+        if isinstance(cs, dict):
+            f = ROOT / str(cs.get("path"))
+            if not f.exists():
+                fails.append(f"{px}: ckpt 파일 {cs.get('path')} 없음")
+            elif _file_sha(f) != cs.get("sha256"):
+                fails.append(f"{px}: ckpt 파일 sha != manifest 기록(변조/드리프트)")
+            else:
+                try:
+                    ck = load_ckpt(f)
+                except Exception as ex:
+                    fails.append(f"{px}: ckpt 로드 불가({type(ex).__name__}: {ex})")
+                else:
+                    if ck.get("grammar_version") != pin["grammar"]:
+                        fails.append(f"{px}: ckpt grammar {ck.get('grammar_version')!r} != pinned")
+                    if ck.get("vocab_digest") != mdp.vocab_digest:
+                        fails.append(f"{px}: ckpt 전역 어휘 digest 불일치")
+                    if ck.get("stage_id") != stage_id:
+                        fails.append(f"{px}: ckpt stage_id {ck.get('stage_id')} != {stage_id}")
+                    if ck.get("layout_digest") != mdp.layout_digest():
+                        fails.append(f"{px}: ckpt layout_digest 불일치")
+                    if ck.get("seed") != sd:
+                        fails.append(f"{px}: ckpt seed {ck.get('seed')} != {sd}")
+                    if bool(ck.get("cleared_seg")) != bool(e.get("cleared")):
+                        fails.append(f"{px}: ckpt cleared_seg/엔트리 cleared 모순")
+                    ck_stages = ([seg.get("stage_id") for seg in (ck.get("chain") or [])]
+                                 + [ck.get("stage_id")])
+                    if ck_stages != stages:
+                        fails.append(f"{px}: ckpt 내부 사슬 {ck_stages} != manifest 사슬 {stages}")
+    # ③ 문법 라운드트립 + 표현 가능 길이 (r1 ③ 계승 — r2 문법)
+    actions = d.get("actions") or []
+    max_repr = min(sum(mdp.inventory.get(s, 0) for s in mdp.skills), pin["max_len"])
+    canon: list[dict] = []
+    grammar_fails = 0
+    if len(actions) > max_repr:
+        fails.append(f"actions {len(actions)}개 > 표현 가능 길이 {max_repr} — 문법 밖")
+        grammar_fails += 1
+    if not actions:
+        fails.append("actions 비어 있음 — 유효 해 아님(스텝0 SUBMIT 마스킹 계약)")
+        grammar_fails += 1
+    used_repr: dict[str, int] = {}
+    for i, a in enumerate(actions):
+        try:
+            enc = mdp.encode_action(a)
+            rt = mdp.decode(enc)
+        except Exception as ex:
+            fails.append(f"action[{i}] r2 인코딩 불가({type(ex).__name__}: {ex}) — grammar 밖 액션")
+            grammar_fails += 1
+            continue
+        if rt != a:
+            fails.append(f"action[{i}] encode→decode 라운드트립 불일치(문법 밖 액션): {a} != {rt}")
+            grammar_fails += 1
+        # 마스크-표현 가능성(라운드트립보다 강한 검사): 각 활성 head 값이 per-stage 마스크 안 —
+        # 인벤토리 초과·at_frame cap 초과·비-surface ant row 등 "정책이 산출 불가능한 plan" 거부.
+        for h in ["skill"] + mdp.active_heads(enc):
+            if enc[h] not in mdp.head_mask(h, i, used_repr, enc):
+                fails.append(f"action[{i}] head {h}={enc[h]} — per-stage 마스크 밖(정책 산출 불가 plan)")
+                grammar_fails += 1
+        sid_used = mdp.skills[enc["skill"]]
+        used_repr[sid_used] = used_repr.get(sid_used, 0) + 1
+        canon.append(rt)
+    # ④ 독립 replay ×2 + ⑤ trace 재생 (r1 ④⑤ 계승 — canonical plan이 replay 권위)
+    digests = []
+    for i in range(2 if grammar_fails == 0 else 0):
+        res = solve.run_plan(d["stage"], canon, d["deadline_frames"], trace=False)
+        if "error" in res:
+            fails.append(f"replay {i + 1} 에러: {res['error']}")
+            break
+        digests.append(_digest(res))
+    if len(digests) == 2:
+        if digests[0] != digests[1]:
+            fails.append(f"replay ×2 불일치: {digests[0]} != {digests[1]}")
+        if not digests[0].get("cleared"):
+            fails.append("replay 미클리어")
+        if int(digests[0].get("saved") or 0) != mdp.hp:
+            fails.append(f"saved {digests[0].get('saved')} != hp_stage {mdp.hp}")
+        res_t = solve.run_plan(d["stage"], canon, d["deadline_frames"], trace=True)
+        if "error" in res_t:
+            fails.append(f"trace replay 에러: {res_t['error']}")
+        else:
+            if _digest(res_t) != digests[0]:
+                fails.append(f"trace replay digest 불일치: {_digest(res_t)} != {digests[0]}")
+            if not _trace_valid(res_t.get("trace")):
+                fails.append("actions의 trace replay에서 trace 부재/기형 — 수집 회귀")
+    # ⑥ 검증자 측 live trace preflight (r1 계승 — 자기-보고 아닌 실측이 권위)
+    live_pool = None
+    try:
+        live_pool = EnvPool(pin["envs"])
+        live = preflight(live_pool, mdp.stage_scene, with_trace=True)
+        if (live["ok"] is not True or live["runs"] != 2 * pin["envs"]
+                or live.get("trace_present") is not True):
+            fails.append(f"검증자 측 trace preflight 실측 FAIL: {live}")
+    except Exception as ex:
+        fails.append(f"검증자 측 trace preflight 실행 불가({type(ex).__name__}: {ex}) — fail-closed")
+    finally:
+        if live_pool is not None:
+            live_pool.close()
+    if fails:
+        print(f"[{label}] FAIL:")
+        for f in fails:
+            print("  -", f)
+        return 1
+    print(f"[{label}] PASS — manifest 완전 · predicate {n_clear}/{n_seeds} · 사슬/ckpt 무결 · "
+          f"replay ×2 identical {digests[0]}")
+    return 0
+
+
 # ---------- --coverage (문법 커버리지: known 해 → 격자 인코딩 → 엔진 클리어, R1-H2) ----------
 
-def coverage(stage_ids: list[int]) -> int:
+def coverage(stage_ids: list[int], grammar: str = GRAMMAR_VERSION) -> int:
+    label = f"coverage:{grammar}"
     fails = []
     for sid in stage_ids:
         src = ROOT / "data" / "solutions" / f"stage{sid:02d}.solve.json"
         known = json.loads(src.read_text(encoding="utf-8"))
-        mdp = StageMDP(sid)
+        mdp = StageMDP(sid, grammar=grammar)
         encoded = [mdp.encode_action(a) for a in known["actions"]]
         plan = mdp.decode_plan(encoded)
         res = solve.run_plan(known["stage"], plan, known["deadline_frames"], trace=False)
         ok = bool(res.get("cleared")) and int(res.get("saved") or 0) == mdp.hp
-        print(f"[coverage] S{sid}: encoded={json.dumps(plan)}")
-        print(f"[coverage] S{sid}: cleared={res.get('cleared')} saved={res.get('saved')}/{mdp.hp} "
+        print(f"[{label}] S{sid}: encoded={json.dumps(plan)}")
+        print(f"[{label}] S{sid}: cleared={res.get('cleared')} saved={res.get('saved')}/{mdp.hp} "
               f"frame={res.get('frame')} → {'PASS' if ok else 'FAIL'}")
         if not ok:
             fails.append(sid)
     if fails:
-        print(f"[coverage] FAIL: {fails} — 문법이 known 해를 엔진-등가로 표현 못 함")
+        print(f"[{label}] FAIL: {fails} — 문법이 known 해를 엔진-등가로 표현 못 함")
         return 1
-    print("[coverage] PASS — 문법이 known 해 전부 커버")
+    print(f"[{label}] PASS — 문법이 known 해 전부 커버")
+    return 0
+
+
+# ---------- --accept-resume-equiv (P1 acceptance 1 — 재개 등가성, plan §R2) ----------
+
+def accept_resume_equiv(args) -> int:
+    """같은 seed·배치 수 기준(wall 아님): 2N 무중단 vs (N + ckpt 저장) 후 (resume + N)의
+    최종 정책 파라미터(비트 동일)·학습 곡선(배치별 meanR 시퀀스) 일치. 결정론 배치 계약
+    (plan-R2 MED-3): --max-batches 모드는 배치 수만 종료 조건(wall 조기중단 비활성)."""
+    torch, _ = _torch()
+    if args.grammar != GRAMMAR_R2:
+        print("--accept-resume-equiv는 --grammar r2.1 전용")
+        return 2
+    n = args.max_batches
+    if not n:
+        print("--max-batches N 필수(등가성 기준 배치 수)")
+        return 2
+    seed = int(args.seeds.split(",")[0])
+    mdp = StageMDP(args.stage, max_len=args.max_len, grammar=args.grammar,
+                   at_frame_cap=args.train_deadline)
+    base = dict(DEFAULTS, max_episodes=10**9, max_wall=10**9, shaping=args.shaping,
+                train_deadline=args.train_deadline, max_len=args.max_len, sil=bool(args.sil))
+    print(f"=== P1 재개 등가성: stage {args.stage} seed {seed} N={n} "
+          f"(A: 2N 무중단 / B: N→ckpt→resume→N) ===")
+    pool, _eff, _pf = build_pool(args.envs, mdp.stage_scene,
+                                 with_trace=(args.shaping == "trace"))
+    tmp = Path(tempfile.gettempdir()) / f"candyants_rl2_equiv_{os.getpid()}.pt"
+    try:
+        res_a, st_a = train_seed(mdp, pool, seed, dict(base, max_batches=2 * n))
+        res_b1, st_b1 = train_seed(mdp, pool, seed, dict(base, max_batches=n))
+        save_ckpt(tmp, st_b1)
+        ck = load_ckpt(tmp)
+        res_b2, st_b2 = train_seed(mdp, pool, seed, dict(base, max_batches=n), ck, "resume")
+    finally:
+        pool.close()
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+    fails: list[str] = []
+    pa, pb = st_a["policy"], st_b2["policy"]
+    if pa.keys() != pb.keys():
+        fails.append("정책 파라미터 키 불일치")
+    else:
+        diff = [k for k in pa if not torch.equal(pa[k], pb[k])]
+        if diff:
+            fails.append(f"정책 파라미터 불일치({len(diff)}개 텐서): {diff[:4]}…")
+    ca, cb1, cb2 = res_a["curve"], res_b1["curve"], res_b2["curve"]
+    if cb2[:len(cb1)] != cb1:
+        fails.append(f"B2 곡선 앞부분 != B1 곡선 (len {len(cb1)}/{len(cb2)})")
+    if ca != cb2:
+        fails.append(f"곡선 불일치: A(len {len(ca)}) != B(len {len(cb2)})")
+    if res_a["episodes"] != res_b2["episodes"]:
+        fails.append(f"에피소드 수 불일치: {res_a['episodes']} != {res_b2['episodes']}")
+    if fails:
+        print("[accept-resume-equiv] FAIL (부분 직렬화 은폐 금지 — P1 FAIL):")
+        for f in fails:
+            print("  -", f)
+        return 1
+    print(f"[accept-resume-equiv] PASS — 파라미터 비트동일 + 곡선 {len(ca)}개 배치 일치 "
+          f"(eps {res_a['episodes']})")
     return 0
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Phase R R0 — RL plan-구성 학습(무힌트)")
+    ap = argparse.ArgumentParser(description="Phase R — RL plan-구성 학습(무힌트, r0/r1/r2)")
     ap.add_argument("--stage", type=int, default=11)
     ap.add_argument("--seeds", type=str, default="0,1,2")
     ap.add_argument("--envs", type=int, default=4)
@@ -639,24 +1403,45 @@ def main() -> int:
     ap.add_argument("--shaping", choices=("none", "trace"), default="none",
                     help="R1 trace-shaped 보상(기본 none = R0 커맨드 의미 불변)")
     ap.add_argument("--train-deadline", type=int, default=TRAIN_DEADLINE,
-                    help="학습 롤아웃 deadline cap(R1 pinned 커맨드=4500; 판정 replay는 7000 고정)")
+                    help="학습 롤아웃 deadline cap(R1/R2 pinned 커맨드=4500; 판정 replay는 7000 고정)")
     ap.add_argument("--no-save", action="store_true",
-                    help="산출물(rl.json) 미저장 — plan §R1 S11 스모크 격리용")
+                    help="산출물(rl.json/rl2.json) 미저장 — plan §R1 S11 스모크 격리용")
     ap.add_argument("--max-len", type=int, default=DEFAULTS["max_len"],
-                    help="plan 슬롯 상한(R1-스윕: 인벤토리 큰 스테이지용; 실효값=min(ant-target 인벤토리 합, 이 값))")
+                    help="plan 슬롯 상한(r1.1 실효값=min(ant-target 인벤토리 합, 이 값); r2=전역 고정 슬롯)")
     ap.add_argument("--sil", action="store_true",
                     help="self-imitation(plan §R1 fallback 2): top-K 에피소드 (R−baseline)+ 가중 재모방")
+    ap.add_argument("--grammar", choices=(GRAMMAR_VERSION, GRAMMAR_R2), default=GRAMMAR_VERSION,
+                    help="문법 버전(기본 r1.1 = 기존 커맨드 의미 불변; R2 커맨드는 r2.1 명시)")
+    ap.add_argument("--save-ckpt", action="store_true",
+                    help="r2: 학습 종료 시 체크포인트 저장(data/solutions/rl_ckpt/, P1 영속화)")
+    ap.add_argument("--resume-ckpt", type=str, default=None,
+                    help="r2: exact resume(동일 스테이지 — stage/레이아웃/마스크/seed digest 일치 요구)")
+    ap.add_argument("--transfer-ckpt", type=str, default=None,
+                    help="r2: curriculum 전이(타 스테이지 — 가중치만 이월, 전역 어휘 digest fail-closed)")
+    ap.add_argument("--max-batches", type=int, default=0,
+                    help="이 invocation의 배치-수 종료 조건(등가성 시험 전용; wall/에피소드 예산 비활성)")
     ap.add_argument("--verify-r0", action="store_true")
     ap.add_argument("--verify-r1", action="store_true")
+    ap.add_argument("--verify-r2", action="store_true")
     ap.add_argument("--coverage", action="store_true")
+    ap.add_argument("--coverage-r2", action="store_true",
+                    help="r2 문법 커버리지: known S11·S12(ant)+S19(cell) 해 → 격자 → 엔진 클리어")
+    ap.add_argument("--accept-resume-equiv", action="store_true",
+                    help="P1 재개 등가성 acceptance(2N 무중단 vs N+ckpt+N — 파라미터·곡선 일치)")
     ap.add_argument("--preflight-only", action="store_true")
     args = ap.parse_args()
     if args.verify_r0:
         return verify_r0(args.stage)
     if args.verify_r1:
         return verify_r1(args.stage)
+    if args.verify_r2:
+        return verify_r2(args.stage)
     if args.coverage:
         return coverage([11, 12])
+    if args.coverage_r2:
+        return coverage([11, 12, 19], grammar=GRAMMAR_R2)
+    if args.accept_resume_equiv:
+        return accept_resume_equiv(args)
     if args.preflight_only:
         mdp = StageMDP(args.stage)
         pool, n, _ = build_pool(args.envs, mdp.stage_scene)

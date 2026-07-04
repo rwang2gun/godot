@@ -9,6 +9,9 @@ reward). 문법(R0 어휘)·보상·관측 인코딩의 단일 출처. plan SoT 
 """
 from __future__ import annotations
 
+import hashlib
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -47,6 +50,73 @@ STATE_VOCAB = ("any", "walker", "carrying")
 # 있는 행만 — solid 위 빈 셀). 18행 전수 → ~6개로 needle 축소. D7-충실: 레이아웃 관측 파생(해 힌트 아님).
 GRAMMAR_VERSION = "r1.1"
 
+# ---------- r2 문법 어휘 (plan §R2 P2/P3 — 전역 어휘 + per-stage 마스킹) ----------
+# r2.1: 스테이지-불변 정책의 액션 어휘. skill head = 전역 스킬 사전(SkillRegistry 메타 파생, D7) +
+# 인벤토리 마스크 / target_kind ∈ {ant, cell} 1급 판별자(sum-type, 무효 조합은 마스킹으로 표현 불가) /
+# col·row head = campaign_manifest 등재 스테이지 전수 스캔 파생 전역 최대 격자 + 스테이지 범위 마스크 /
+# 트리거에 at_frame 추가(S19 known 해 요구) — head = 양자화 격자(0 포함, 상한 = at_frame_cap 마스크).
+GRAMMAR_R2 = "r2.1"
+KIND_VOCAB = ("ant", "cell")
+TRIGGER_VOCAB_R2 = ("ant_reaches_x", "picked_ge", "at_frame")
+AT_FRAME_QUANT = 300          # at_frame head 양자화 간격(프레임) — plan §R2 P3(간격 상수는 impl 확정)
+AT_FRAME_MAX = 7000           # head 크기 상한 = 판정 replay deadline pin(train.REPLAY_DEADLINE)과 정합
+FRAME_BINS = AT_FRAME_MAX // AT_FRAME_QUANT + 1   # 24 bins: frame 0, 300, ..., 6900
+# head 샘플링/슬롯 인코딩 순서(고정) — 조건부 활성: SUBMIT이면 skill만, 이후 kind→trigger→의존 head.
+R2_HEAD_ORDER = ("skill", "kind", "trigger", "cmp", "param", "frame",
+                 "select", "state", "col", "row")
+R2_TRIGGER_HEADS = {"ant_reaches_x": ("cmp", "param"), "picked_ge": ("param",),
+                    "at_frame": ("frame",)}
+
+
+def _sha(obj) -> str:
+    return hashlib.sha256(json.dumps(obj, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def manifest_stage_ids() -> list[int]:
+    """campaign_manifest.tres의 챕터 순서대로 평탄화한 stage id 리스트 — curriculum 순서 SoT
+    (plan §R2 P4, plan-R1 HIGH-4: read-only 파싱, 하드코딩 0)."""
+    text = (ROOT / "data" / "campaign_manifest.tres").read_text(encoding="utf-8")
+    ids: list[int] = []
+    for m in re.finditer(r'"stage_ids"\s*:\s*\[([^\]]*)\]', text):
+        ids += [int(x) for x in re.findall(r"-?\d+", m.group(1))]
+    if not ids:
+        raise ValueError("campaign_manifest.tres에서 stage_ids를 못 읽음 — curriculum SoT 파싱 실패")
+    return ids
+
+
+_VOCAB_CACHE: dict | None = None
+
+
+def global_vocab() -> dict:
+    """r2 전역 어휘(P2) — 전역 최대 W/H/hp의 권위 = campaign_manifest 등재 스테이지 레이아웃 전수 스캔
+    (plan-R2 MED-1, 하드코딩 0). digest = 전역 어휘/head-시맨틱 전부(스킬 사전 순서·트리거 어휘·격자
+    어휘 크기·at_frame bin)의 해시 — transfer-ckpt fail-closed 일치 대상(plan-R3 HIGH-1)."""
+    global _VOCAB_CACHE
+    if _VOCAB_CACHE is None:
+        skills = tuple(sorted(skill_metas().keys()))
+        w_max = h_max = hp_max = 0
+        for sid in manifest_stage_ids():
+            lay = model.parse_layout(ROOT / "data" / "stage_layouts" / f"stage{sid:02d}_layout.tres")
+            cells = set(lay["occupied"]) | set(lay["hazard"])
+            for v in (lay["candy"], lay["home"]):
+                if v:
+                    cells.add(v)
+            w_max = max(w_max, max(c for c, _ in cells) + 1)
+            h_max = max(h_max, max(r for _, r in cells) + 1)
+            hp_max = max(hp_max, int(solve.stage_meta(sid)["candy_hp"]))
+        heads = {"skill": len(skills) + 1, "kind": len(KIND_VOCAB),
+                 "trigger": len(TRIGGER_VOCAB_R2), "cmp": len(CMP_VOCAB),
+                 "param": max(w_max, hp_max), "frame": FRAME_BINS,
+                 "select": len(SELECT_VOCAB), "state": len(STATE_VOCAB),
+                 "col": w_max, "row": h_max + 1}
+        spec = {"grammar": GRAMMAR_R2, "skills": list(skills), "kinds": list(KIND_VOCAB),
+                "triggers": list(TRIGGER_VOCAB_R2), "cmp": list(CMP_VOCAB),
+                "select": list(SELECT_VOCAB), "state": list(STATE_VOCAB),
+                "at_frame_quant": AT_FRAME_QUANT, "at_frame_max": AT_FRAME_MAX,
+                "w_max": w_max, "h_max": h_max, "hp_max": hp_max, "heads": heads}
+        _VOCAB_CACHE = {**spec, "digest": _sha(spec)}
+    return _VOCAB_CACHE
+
 # 보상 계수 (plan: 형태 확정·계수 튜닝 자유 — effective config로 manifest에 박제)
 REWARD = {"cleared": 2.0, "saved": 1.0, "picked": 0.3, "lost": -0.2,
           "len_penalty": -0.02, "timeout_penalty": -0.1}
@@ -57,10 +127,15 @@ SHAPING = {"goal": 0.5, "retired": 0.1}
 
 
 class StageMDP:
-    """스테이지 1개에 대한 plan-구성 MDP: 관측 인코딩 / factored 액션 decode·encode / terminal 보상."""
+    """스테이지 1개에 대한 plan-구성 MDP: 관측 인코딩 / factored 액션 decode·encode / terminal 보상.
 
-    def __init__(self, stage_id: int, max_len: int = 6):
+    grammar 인자(plan §R2 선결 계약): "r1.1"(기본 — 기존 경로 보존, stage11/12 pinned 산출물 영구 검증)
+    / "r2.1"(전역 어휘 + per-stage 마스킹 + cell-target sum-type). r1.1 경로는 R2에서 무변경."""
+
+    def __init__(self, stage_id: int, max_len: int = 6, grammar: str = GRAMMAR_VERSION,
+                 at_frame_cap: int = 4500):
         self.stage_id = stage_id
+        self.grammar_version = grammar
         self.stage_scene = f"res://scenes/stages/Stage{stage_id:02d}.tscn"
         meta = solve.stage_meta(stage_id)
         self.inventory: dict[str, int] = meta["inventory"]
@@ -76,6 +151,27 @@ class StageMDP:
         self.W = max(c for c, _ in cells) + 1
         self.H = max(r for _, r in cells) + 1
         self.D0 = self.W + self.H                             # 셀 맨해튼 상한(레이아웃 상수) — shaping 분모
+        # surface rows = 개미가 설 수 있는 행(빈 셀 (c,r) 아래 (c,r+1)이 solid). r1.1 y_row 어휘이자
+        # r2 ant-row 마스크(같은 전역 row head를 kind별 다른 마스크로 공유, plan §R2 P2 행 head 이원화).
+        occ = set(self.layout["occupied"])
+        self.y_rows: list[int] = sorted({r for (c, r1) in occ
+                                         for r in ((r1 - 1),) if r >= 0 and (c, r) not in occ})
+        if grammar == GRAMMAR_R2:
+            self._init_r2(max_len, at_frame_cap)
+        elif grammar == GRAMMAR_VERSION:
+            self._init_r1(max_len)
+        else:
+            raise ValueError(f"unknown grammar {grammar!r} (지원: {GRAMMAR_VERSION!r}, {GRAMMAR_R2!r})")
+        # 관측 레이아웃(고정 스테이지 = 상수지만 일반화 대비 포함, plan §관측)
+        self._grid = self._encode_grid()
+        self._slot_dim = 1 + sum(self.heads[h] for h in self.head_names)
+        if grammar == GRAMMAR_VERSION:
+            self.obs_dim = len(self._grid) + len(self.skills) + self.max_len * self._slot_dim + 1
+        else:
+            # r2: grid는 CNN 입력(가변 H×W), flat 부는 전역 고정 차원 — 스테이지-불변(plan §R2 P2).
+            self.flat_dim = len(self.skills) + self.max_len * self._slot_dim + 1
+
+    def _init_r1(self, max_len: int) -> None:
         # R1-스윕: 문법 = ant-target 스킬만(plan §R1-스윕 정직 선언). cell-target(sand_mound 등)은
         # 스킬 head에서 제외 — 메타 덤프 기반(D7, 하드코딩 0). 전부 cell-target이면 비표현 스테이지.
         metas = skill_metas()
@@ -84,14 +180,9 @@ class StageMDP:
             if str((metas.get(sid) or {}).get("target", "")) == "ant")   # 결정론 순서
         if not self.skills:
             raise ValueError(
-                f"stage {stage_id}: ant-target 스킬 0 (inventory={sorted(self.inventory)}) — "
-                "R0/R1 문법 비표현(cell-target 어휘는 R2 후보)")
+                f"stage {self.stage_id}: ant-target 스킬 0 (inventory={sorted(self.inventory)}) — "
+                "R0/R1 문법 비표현(cell-target 어휘는 r2)")
         self.max_len = min(sum(self.inventory[s] for s in self.skills), max_len)
-        # r1.1: surface rows = 개미가 설 수 있는 행(빈 셀 (c,r) 아래 (c,r+1)이 solid). y밴드는 개미
-        # y-선택이므로 이 행들만 의미 있음(비표면 행 밴드는 공집합 매칭) — 어휘 손실 없는 축소.
-        occ = set(self.layout["occupied"])
-        self.y_rows: list[int] = sorted({r for (c, r1) in occ
-                                         for r in ((r1 - 1),) if r >= 0 and (c, r) not in occ})
         # factored head 크기 — skill 마지막 인덱스 = SUBMIT.
         self.heads: dict[str, int] = {
             "skill": len(self.skills) + 1,
@@ -104,10 +195,69 @@ class StageMDP:
         }
         self.head_names = list(self.heads)
         self.SUBMIT = len(self.skills)
-        # 관측 레이아웃(고정 스테이지 = 상수지만 R1 일반화 대비 포함, plan §관측)
-        self._grid = self._encode_grid()
-        self._slot_dim = 1 + sum(self.heads[h] for h in self.head_names)
-        self.obs_dim = len(self._grid) + len(self.skills) + self.max_len * self._slot_dim + 1
+
+    def _init_r2(self, max_len: int, at_frame_cap: int) -> None:
+        vocab = global_vocab()
+        self.vocab_digest: str = vocab["digest"]
+        if self.W > vocab["w_max"] or self.H > vocab["h_max"] or self.hp > vocab["hp_max"]:
+            raise ValueError(
+                f"stage {self.stage_id}: 레이아웃/hp가 전역 어휘 상한 초과 "
+                f"(W {self.W}/{vocab['w_max']}, H {self.H}/{vocab['h_max']}, "
+                f"hp {self.hp}/{vocab['hp_max']}) — silent 확장 금지, 어휘 버전 승격 필요(plan §R2 P2)")
+        self.skills = list(vocab["skills"])                   # 전역 스킬 사전(결정론 정렬)
+        metas = skill_metas()
+        self._skill_kind: dict[str, str] = {
+            s: str((metas.get(s) or {}).get("target", "")) for s in self.skills}
+        if not any(self.inventory.get(s, 0) > 0 for s in self.skills):
+            raise ValueError(f"stage {self.stage_id}: 어휘 표현 가능 인벤토리 0 "
+                             f"(inventory={sorted(self.inventory)})")
+        # r2: 슬롯 수 = 전역 고정(스테이지-불변 obs 차원). 실제 plan 길이는 인벤토리 마스크가 제한.
+        self.max_len = int(max_len)
+        self.at_frame_cap = int(at_frame_cap)
+        self._frame_bins: list[int] = [b for b in range(FRAME_BINS)
+                                       if b * AT_FRAME_QUANT <= self.at_frame_cap]
+        self.heads = {h: vocab["heads"][h] for h in R2_HEAD_ORDER}
+        self.head_names = list(R2_HEAD_ORDER)
+        self.SUBMIT = len(self.skills)
+
+    # ----- r2 마스킹 (plan §R2 P2/P3 — 무효 조합은 페널티가 아니라 표현 불가) -----
+    def head_mask(self, head: str, t: int, used: dict[str, int], ctx: dict[str, int]) -> list[int]:
+        """head별 허용 인덱스(r2 전용). ctx = 이 스텝에서 이미 샘플된 head 인덱스(skill/kind/trigger).
+        used = partial의 스킬별 사용 수(인벤토리 동적 마스크)."""
+        if head == "skill":
+            ok = [i for i, s in enumerate(self.skills)
+                  if used.get(s, 0) < self.inventory.get(s, 0)]
+            # 스텝 0 SUBMIT 마스킹(빈-plan collapse attractor 차단, R0 교훈). 인벤토리 소진 시 SUBMIT만.
+            if t > 0 or not ok:
+                ok.append(self.SUBMIT)
+            return ok
+        if head == "kind":       # sum-type 판별자: 스킬 메타 target이 유일 유효값(plan-R1 HIGH-2)
+            return [KIND_VOCAB.index(self._skill_kind[self.skills[ctx["skill"]]])]
+        if head == "trigger":    # 트리거 직교 계약(plan-R2 MED-2): cell도 전 트리거 어휘 유효
+            return list(range(len(TRIGGER_VOCAB_R2)))
+        if head == "cmp":
+            return list(range(len(CMP_VOCAB)))
+        if head == "param":
+            if TRIGGER_VOCAB_R2[ctx["trigger"]] == "ant_reaches_x":
+                return list(range(self.W))                    # x-셀: 스테이지 폭 마스크
+            return list(range(self.hp))                       # picked_ge n-1: 스테이지 hp 마스크
+        if head == "frame":      # at_frame 양자화 격자(0 포함), 상한 = at_frame_cap(plan-R2 MED-1)
+            return list(self._frame_bins)
+        if head == "col":
+            return list(range(self.W))
+        if head == "row":        # 행 head 이원화: ant = any+surface rows / cell = 스테이지 전 행
+            if KIND_VOCAB[ctx["kind"]] == "ant":
+                return [0] + [r + 1 for r in self.y_rows]
+            return [r + 1 for r in range(self.H)]
+        if head in ("select", "state"):
+            return list(range(self.heads[head]))
+        raise KeyError(head)
+
+    def active_heads(self, a: dict[str, int]) -> list[str]:
+        """완성된 스텝 idx(skill != SUBMIT)에 대해 skill 이후 활성 head 순서(샘플링·SIL replay 공용)."""
+        heads = ["kind", "trigger", *R2_TRIGGER_HEADS[TRIGGER_VOCAB_R2[a["trigger"]]]]
+        heads += ["select", "state", "row"] if KIND_VOCAB[a["kind"]] == "ant" else ["col", "row"]
+        return heads
 
     # ----- 관측 -----
     def _encode_grid(self) -> list[float]:
@@ -130,8 +280,33 @@ class StageMDP:
             put(*lay["home"], 4)
         return g
 
+    def obs_flat_r2(self, partial: list[dict[str, int]]) -> list[float]:
+        """r2 flat 관측(전역 고정 차원 = flat_dim): 전역 스킬 사전 순 잔여 인벤토리 + 슬롯 one-hot
+        (활성 head만 — 비활성 head는 0) + 진행도. grid 부는 CNN 입력(self._grid, H×W×5)."""
+        out: list[float] = []
+        used: dict[str, int] = {}
+        for a in partial:
+            sid = self.skills[a["skill"]]
+            used[sid] = used.get(sid, 0) + 1
+        for sid in self.skills:
+            cap = self.inventory.get(sid, 0)
+            out.append(max(0.0, (cap - used.get(sid, 0)) / cap) if cap else 0.0)
+        for i in range(self.max_len):
+            if i < len(partial):
+                a = partial[i]
+                out.append(1.0)
+                for h in self.head_names:
+                    one = [0.0] * self.heads[h]
+                    if h in a:
+                        one[a[h]] = 1.0
+                    out.extend(one)
+            else:
+                out.extend([0.0] * self._slot_dim)
+        out.append(len(partial) / max(1, self.max_len))
+        return out
+
     def obs(self, partial: list[dict[str, int]]) -> list[float]:
-        """partial = head-인덱스 dict의 리스트(디코드 전 표현)."""
+        """partial = head-인덱스 dict의 리스트(디코드 전 표현). (r1.1 전용 — r2는 obs_flat_r2+grid.)"""
         out = list(self._grid)
         used: dict[str, int] = {}
         for a in partial:
@@ -155,6 +330,8 @@ class StageMDP:
 
     # ----- 액션 decode (head 인덱스 → PlanRunner 액션) -----
     def decode(self, a: dict[str, int]) -> dict:
+        if self.grammar_version == GRAMMAR_R2:
+            return self._decode_r2(a)
         skill = self.skills[a["skill"]]
         target: dict = {"mode": "ant", "select": SELECT_VOCAB[a["select"]],
                         "state": STATE_VOCAB[a["state"]]}
@@ -173,8 +350,87 @@ class StageMDP:
     def decode_plan(self, partial: list[dict[str, int]]) -> list[dict]:
         return [self.decode(a) for a in partial]
 
+    # ----- r2 decode/encode (JSON lowering 규칙 — plan §R2 P3, 라운드트립 = verify-r2 편입) -----
+    def _decode_r2(self, a: dict[str, int]) -> dict:
+        skill = self.skills[a["skill"]]
+        kind = KIND_VOCAB[a["kind"]]
+        ttype = TRIGGER_VOCAB_R2[a["trigger"]]
+        if ttype == "ant_reaches_x":
+            trigger = {"type": ttype, "cmp": CMP_VOCAB[a["cmp"]],
+                       "x": float(min(a["param"], self.W - 1) * self.cs + self.cs // 2)}  # 셀 센터
+        elif ttype == "picked_ge":
+            trigger = {"type": ttype, "n": (a["param"] % self.hp) + 1}
+        else:                                   # at_frame: bin → frame(양자화 격자 그대로)
+            trigger = {"type": "at_frame", "frame": int(a["frame"]) * AT_FRAME_QUANT}
+        if kind == "cell":
+            col = min(a["col"], self.W - 1)
+            row = max(1, min(a["row"], self.H))                 # cell row 도메인 = [1..H] (0=any는 ant 전용)
+            return {"skill": skill, "target": {"mode": "cell", "cell": [col, row - 1]},
+                    "trigger": trigger}
+        target: dict = {"mode": "ant", "select": SELECT_VOCAB[a["select"]],
+                        "state": STATE_VOCAB[a["state"]]}
+        if a["row"] > 0:                        # r2 row head = 절대 행(전역) — 마스크가 surface로 제한
+            r = a["row"] - 1
+            target["y_min"] = float(r * self.cs)
+            target["y_max"] = float((r + 1) * self.cs)
+        return {"skill": skill, "target": target, "trigger": trigger}
+
+    def _encode_r2(self, action: dict) -> dict[str, int]:
+        skill_id = action["skill"]
+        skill = self.skills.index(skill_id)                     # 어휘 밖 스킬 = ValueError(fail-closed)
+        t = action.get("target", {})
+        kind_s = str(t.get("mode", self._skill_kind.get(skill_id) or "ant"))
+        trig = action.get("trigger", {})
+        ttype = trig.get("type", "ant_reaches_x")
+        a: dict[str, int] = {"skill": skill, "kind": KIND_VOCAB.index(kind_s),
+                             "trigger": TRIGGER_VOCAB_R2.index(ttype)}
+        if ttype == "ant_reaches_x":
+            a["cmp"] = CMP_VOCAB.index(trig.get("cmp", "ge"))
+            a["param"] = max(0, min(self.W - 1, round((float(trig["x"]) - self.cs / 2) / self.cs)))
+        elif ttype == "picked_ge":
+            a["param"] = max(0, min(self.hp - 1, int(trig.get("n", 1)) - 1))
+        else:                                   # at_frame → 가장 가까운 bin (0은 정확 인코딩)
+            a["frame"] = max(0, min(FRAME_BINS - 1,
+                                    round(int(trig.get("frame", 0)) / AT_FRAME_QUANT)))
+        if kind_s == "cell":
+            c = t["cell"]
+            a["col"] = max(0, min(self.W - 1, int(c[0])))
+            a["row"] = max(1, min(self.H, int(c[1]) + 1))
+        else:
+            row = 0
+            if "y_min" in t and "y_max" in t:
+                lo, hi = float(t["y_min"]), float(t["y_max"])
+                best, best_ov = 0, float("-inf")
+                for r in self.y_rows:           # surface rows 중 겹침 최대, 동률=낮은 행(r1.1 규칙 계승)
+                    ov = min(hi, (r + 1) * self.cs) - max(lo, r * self.cs)
+                    if ov > best_ov:
+                        best, best_ov = r, ov
+                row = best + 1
+            a["row"] = row
+            a["select"] = SELECT_VOCAB.index(t.get("select", "max_x"))
+            a["state"] = STATE_VOCAB.index(t.get("state", "walker"))
+        return a
+
+    # ----- 디제스트 (P1 체크포인트 fail-closed 계약 — plan §R2) -----
+    def layout_digest(self) -> str:
+        lay = self.layout
+        return _sha({"cell_size": lay["cell_size"],
+                     "occupied": sorted(lay["occupied"]), "ladder": sorted(lay["ladder"]),
+                     "kinds": sorted((list(k), v) for k, v in lay.get("kinds", {}).items()),
+                     "hazard": sorted((list(k), v) for k, v in lay["hazard"].items()),
+                     "candy": lay["candy"], "home": lay["home"]})
+
+    def mask_digest(self) -> str:
+        """per-stage 마스크의 시맨틱 전부(r2) — exact resume 일치 요구 / transfer 면제(plan-R3 HIGH-1)."""
+        return _sha({"stage_id": self.stage_id, "W": self.W, "H": self.H, "hp": self.hp,
+                     "inventory": sorted(self.inventory.items()),
+                     "surface_rows": self.y_rows, "frame_bins": self._frame_bins,
+                     "max_len": self.max_len})
+
     # ----- 액션 encode (known 해 → 가장 가까운 격자, 커버리지 검사용) -----
     def encode_action(self, action: dict) -> dict[str, int]:
+        if self.grammar_version == GRAMMAR_R2:
+            return self._encode_r2(action)
         t = action.get("target", {})
         trig = action.get("trigger", {})
         skill = self.skills.index(action["skill"])

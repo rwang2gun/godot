@@ -1430,6 +1430,51 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
 전 스테이지 클리어 보장이 아니다. acceptance 2/3ⓑ의 FAIL 가능성은 설계에 내재(그 경우 원인 분석 후
 사용자 보고 — silent 재스코프 금지).
 
+#### §R2 impl 동봉 — pin 상수·고정 커맨드 (2026-07-04, R0/R1 선례)
+- **문법 `r2.1`** (`tools/solver/rl/mdp.py`): 전역 어휘 = SkillRegistry 메타 전 스킬(11종, 정렬) +
+  `target_kind{ant,cell}` + 트리거 `{ant_reaches_x, picked_ge, at_frame}` + 전역 격자
+  `w_max=33/h_max=18/hp_max=7`(campaign_manifest 등재 스테이지 전수 스캔 파생, 하드코딩 0) +
+  **at_frame 양자화 `AT_FRAME_QUANT=300`f**(bins 0..6900, 상한=`REPLAY_DEADLINE` 정합; 마스크 상한 =
+  `at_frame_cap`=train_deadline). row head = `h_max+1`(0=any는 ant 전용) — ant 마스크 = surface rows,
+  cell 마스크 = 스테이지 전 행. r2 슬롯 수 = 전역 고정 `max_len`(obs 차원 스테이지-불변; 실 길이는
+  인벤토리 동적 마스크가 제한). **어휘 digest** = 위 시맨틱 전부의 sha256(`global_vocab()["digest"]`).
+- **정책**: 공유 CNN(5ch→32→32 conv + AdaptiveMaxPool 4×4) + flat(전역 인벤토리+슬롯 one-hot 816) →
+  MLP(hidden 128) → 전역 head. 모든 파라미터 shape 스테이지-무관(`_model_cfg`가 ckpt 호환 검사 대상).
+- **체크포인트**(`data/solutions/rl_ckpt/stage{NN}_seed{S}.r2.pt`, format `candyants-rl2-ckpt-v1`):
+  직렬화 = policy+optimizer state_dict + torch RNG(사용 RNG 전수 — python random/numpy 미사용) +
+  entropy 카운터(batch_i) + SIL buffer 내용·순서 + baseline(+init) + 세그먼트/사슬 카운터 + grammar/
+  vocab·layout·mask digest + model_cfg·dtype + chain + greedy_plan. **클리어 세그먼트의 exact resume =
+  no-op(터미널)**. transfer는 미클리어 ckpt 거부.
+- **r2 산출물 = `stageNN.rl2.json`**(r0/r1 `stageNN.rl.json`과 분리 — pinned 산출물 영구 보존).
+  per-seed 커맨드가 seed 항목을 **병합 누적**(stage/config/어휘 digest 일치 시에만; lockfile 직렬화).
+  `pass` = pinned seed {0,1,2} 전원 기록 후 ≥2/3 재계산.
+- **R2_PIN** = seeds[0,1,2]·envs 4·max_episodes 20000·max_wall 1800·replay_deadline 7000·shaping trace
+  (계수 pin)·train_deadline 4500·sil(8, 0.1)·max_len 6·grammar r2.1. **R2_CHAINS**(체크포인트 출처 pin) =
+  {11:[11], 12:[11,12], 13:[11,12,13], 19:[19]}.
+- **고정 커맨드**: 헤더 독스트링(train.py) = SoT. 요약 —
+  - acceptance 1: `--accept-resume-equiv --grammar r2.1 --stage 11 --seeds 0 --envs 4 --max-batches 6
+    --shaping trace --train-deadline 4500 --sil`
+  - acceptance 2(seed s별): `--grammar r2.1 --stage {11,12,13} --seeds s <공통 예산> --sil
+    [--transfer-ckpt <직전 ckpt>] --save-ckpt`
+  - acceptance 3ⓐ: `--coverage-r2`(S11·S12 ant + S19 cell) / 3ⓑ: `--grammar r2.1 --stage 19
+    --seeds 0,1,2 <공통 예산> --sil`
+  - acceptance 4: `--verify-r2 --stage {13,19}` — R1 게이트 계승 + ckpt/사슬 무결(파일 sha·내부 digest·
+    직전-산출물 출처 대조 = cherry-pick 차단) + curriculum manifest 정합 + config.max_batches 금지.
+
+#### §R2 실측 결과 (2026-07-04 — 상세 = `codex-worklog/solver/2026-07-04-rl-r2-impl.md`)
+- **PASS**: acceptance 1(재개 등가성 — 파라미터 비트동일+곡선 일치, greedy-clear 경계 포함) /
+  3ⓐ(r2 커버리지 S11·S12·S19) / **3ⓑ(S19 cell-target 무힌트 학습 발견 3/3, 80/80/160 eps —
+  known 해보다 짧은 sand_mound 1개 신해)** / 4(verify-r2: stage11·19 PASS + 음성 7종 검출,
+  stage12·13은 미인증 산출물 정직 거부) / 5(기존 게이트 8/8 + verify-r0/r1 r1.1 동결 pin PASS).
+- **FAIL(정직 박제)**: acceptance 2 curriculum 사슬 **0/3** — S11 3/3 → S12 transfer seed2만
+  클리어(2400eps, r1.1 seed2 3200보다 빠름 = 전이 가속 단일 사례; seed0/1은 bestR 3.72~3.73으로
+  클리어 에피소드 발견하고도 greedy 미수렴) → S13 seed2 FAIL(bestR 0.660 = from-scratch 대조
+  3-seed 전부와 동일 고원 — **S13 고원은 전이-불변**, curriculum만으론 S12→S13 갭 불가).
+  acceptance 6 대조 = r1.1 S13 from-scratch 0/3 완성. → 사용자 escalate(방향 후보 = S12 수렴 보강 /
+  R3 trace-피드백·dense shaping 선행 / 사슬 예산 상향 pin 개정 — 워크로그 §escalate).
+- 운영 발견: torch intra-op 스레드 1 고정(병렬 env 오버서브스크립션이 처리량 ~20x 붕괴 — 공정 시험은
+  무경합 순차 실행) / rl2 병합 lockfile / ckpt 개당 ~2.5MB×7 커밋.
+
 ### 로드맵 (미확정 — 증거 후 재계획)
 - **R3 후보**: trace-피드백 refinement MDP(상태에 직전 롤아웃 trace 인코딩 = 휴리스틱 closed-loop의
   학습판) / dense per-prefix shaping / PPO 승격. R2 증거 확보 후 선택.

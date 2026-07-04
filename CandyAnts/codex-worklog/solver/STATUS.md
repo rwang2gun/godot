@@ -1306,3 +1306,33 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   20000eps/1800s/trace/SIL) / sum-type 액션(`target_kind` head + 트리거 직교 + `at_frame` 어휘) / 재개
   등가성 = **배치-수 기준** 결정론 배치 계약(ⓐ~ⓓ) / verify-r2 = R1 게이트 계승+체크포인트 메타+manifest 정합.
 - 다음 = **R2 구현**(사용자 go 대기). plan.md는 선례대로 로컬 working doc(cross-PC SoT = 본 항목).
+
+## Phase R §R2 구현 — 영속 학습(ckpt 2모드)+스테이지-불변 정책+cell-target+curriculum (2026-07-04)
+
+> 사용자 go → 당일 구현·acceptance 실측 완료. **세션 로그(구현 상세·이슈 I-R2-1~4·escalate SoT) =
+> [2026-07-04-rl-r2-impl.md](2026-07-04-rl-r2-impl.md)**. plan §R2에 impl 동봉(pin 상수·고정 커맨드)+
+> 실측 결과 박제.
+
+### 구현 요약 (엔진/PlanRunner/기존 게이트 무변경)
+- **mdp.py r2.1**: 전역 어휘(스킬 11종+kind{ant,cell} sum-type+at_frame 양자화 300f)+per-stage 마스킹
+  (인벤토리 동적/surface-row 이원화/격자 범위), campaign_manifest 전수 스캔 파생(w33/h18/hp7, 하드코딩 0),
+  digest 3종(vocab/layout/mask). **r1.1 경로 보존**(grammar 인자) — verify-r0/r1 pin은 리터럴 "r1.1" 동결.
+- **train.py**: CNN 스테이지-불변 정책(AdaptiveMaxPool 고정 임베딩+flat 816) / ckpt 2모드(resume=전상태
+  exact·digest 전부 일치, transfer=가중치만+어휘 digest fail-closed·미클리어 거부·스테이지-파생 상태
+  리셋) / 직렬화 전수(RNG·SIL 순서·entropy 카운터·baseline·사슬) / stageNN.rl2.json per-seed 병합
+  (lockfile)+chain provenance / verify-r2(사슬/ckpt 무결·cherry-pick 차단·curriculum manifest 정합·
+  마스크-표현 가능성) / --accept-resume-equiv 러너 / torch 스레드 1 고정(I-R2-1).
+
+### Acceptance (plan §R2 — PASS 5 / FAIL 1 정직 박제)
+- **1 재개 등가성 PASS**(파라미터 비트동일+곡선 일치, 최종 코드 재확인) · **3ⓐ 커버리지 PASS** ·
+  **3ⓑ S19 cell-target 무힌트 학습 발견 3/3 PASS(80/80/160eps, known보다 짧은 1-mound 신해)** ·
+  **4 verify-r2 PASS**(stage11/19 + 음성 7종; stage12/13은 미인증 정직 거부) · **5 기존 게이트 8/8 +
+  verify-r0/r1 PASS**.
+- **2 curriculum 사슬 FAIL 0/3**: S11 3/3 → S12 transfer seed2만(2400eps < r1.1 3200 = 전이 가속 1사례;
+  seed0/1 bestR 3.73 = 발견-후-미수렴) → S13 seed2 bestR 0.660 = from-scratch 대조 0/3과 동일 고원
+  (**전이-불변**). 진단: r2 문법 확장의 credit assignment 부담 + S13은 shaping 신호 부족(curriculum
+  관할 밖) → **사용자 escalate**(S12 수렴 보강 / R3 dense·refinement 선행 / 예산 pin 개정).
+
+### 다음
+- impl-stage 리뷰 루프(자체 → codex adversarial-review → HIGH hot-fix → clean) 진행.
+- R3 방향 = 사용자 결정 대기(escalate 참조).
