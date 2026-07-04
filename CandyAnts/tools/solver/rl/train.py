@@ -80,9 +80,17 @@ DEFAULTS = dict(batch=16, lr=3e-3, entropy=0.03, entropy_min=0.02, entropy_decay
 # 판정 replay가 인증의 실체이므로 그 deadline은 상수 고정. 학습-전용 knob(train_deadline 등)은 pin 비대상.
 # grammar: §R2 선결 계약 — verify-r0/r1의 문법 pin은 모듈 상수가 아니라 **리터럴 "r1.1" 동결**
 # (r2 승격과 무관하게 stage11/12 pinned 산출물은 r1.1 문법으로 영원히 검증).
+# 실효 학습 knob 값-pin(codex §R2-R6 HIGH — 자기-보고 config 신뢰 금지; 예산 오버슛 상수의 출처):
+# batch/lr/entropy 스케줄/hidden/greedy_every/baseline_decay/reward. r0/r1/r2 공통 편입 —
+# stage11/12 pinned 산출물은 DEFAULTS와 일치하므로 PASS 불변.
+_KNOB_PIN = dict(batch=DEFAULTS["batch"], lr=DEFAULTS["lr"], entropy=DEFAULTS["entropy"],
+                 entropy_min=DEFAULTS["entropy_min"], entropy_decay=DEFAULTS["entropy_decay"],
+                 hidden=DEFAULTS["hidden"], greedy_every=DEFAULTS["greedy_every"],
+                 baseline_decay=DEFAULTS["baseline_decay"], reward=dict(REWARD))
+
 R0_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=7200,
               replay_deadline=REPLAY_DEADLINE, max_len=DEFAULTS["max_len"],
-              grammar="r1.1")
+              grammar="r1.1", **_KNOB_PIN)
 
 # R1 고정 acceptance 계약(plan §R1) — R0_PIN + shaping 상수(plan-R1-H1: 계수까지 fail-closed;
 # 계수 튜닝은 fallback 1에서만, 그때 이 pin도 같은 커밋에서 갱신). train_deadline=4500은 "학습-전용
@@ -94,7 +102,7 @@ R1_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=1800,
               replay_deadline=REPLAY_DEADLINE, shaping="trace", shaping_coeffs=dict(SHAPING),
               train_deadline=4500, sil=True, sil_buffer=8, sil_coef=0.1,
               max_len=DEFAULTS["max_len"],   # post-commit codex R1 HIGH: 문법 길이도 인증 실체 — pin
-              grammar="r1.1")                # §R2 선결 계약: 리터럴 동결
+              grammar="r1.1", **_KNOB_PIN)   # §R2 선결 계약: 리터럴 동결 / knob=§R2-R6
 
 # R2 고정 acceptance 계약(plan §R2 acceptance 2/3ⓑ — 공통 구간 예산, plan-R3 MED: 사슬 전 구간 동일 pin).
 # grammar=r2.1(전역 어휘+마스킹+cell-target). 예산 회계는 **구간별**(plan-R2 MED-4) — verify-r2가
@@ -102,7 +110,8 @@ R1_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=1800,
 R2_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=1800,
               replay_deadline=REPLAY_DEADLINE, shaping="trace", shaping_coeffs=dict(SHAPING),
               train_deadline=4500, sil=True, sil_buffer=8, sil_coef=0.1,
-              max_len=DEFAULTS["max_len"], grammar=GRAMMAR_R2)
+              max_len=DEFAULTS["max_len"], grammar=GRAMMAR_R2,
+              conv_channels=DEFAULTS["conv_channels"], **_KNOB_PIN)
 # pinned 사슬(체크포인트 출처 pin, plan-R2 HIGH-1): stage → 기대 chain 스테이지 열.
 # S11=from-scratch 시점 / S12·S13=transfer 사슬 / S19=from-scratch 단독(어휘 증명 ⓑ, curriculum 불요 가정).
 R2_CHAINS = {11: [11], 12: [11, 12], 13: [11, 12, 13], 19: [19]}
@@ -993,10 +1002,11 @@ def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
     # 예산 게이트 시맨틱: _budget_left()는 배치 **시작 전** 검사 → 마지막 배치/greedy 평가가 경계를
     # 넘길 수 있다(S12 실측: wall 1804/1800). 허용 오버슛 = 배치 1개(에피소드 +batch) / wall +60s —
     # 이 밖은 진짜 예산 위반(fail-closed 유지).
+    # 오버슛 허용치는 **pinned 상수**에서(codex §R2-R6 — 자기-보고 config.batch 신뢰 금지)
     for s in seeds:
-        if s.get("episodes", 10**9) > cfg.get("max_episodes", 0) + cfg.get("batch", 0):
+        if s.get("episodes", 10**9) > pin["max_episodes"] + pin["batch"]:
             fails.append(f"seed {s.get('seed')}: 에피소드 예산 초과")
-        if s.get("wall_s", 10**9) > cfg.get("max_wall", 0) + 60:
+        if s.get("wall_s", 10**9) > pin["max_wall"] + 60:
             fails.append(f"seed {s.get('seed')}: wall 예산 초과(+60s 오버슛 허용 밖)")
     # ② predicate 재판정
     n_seeds = len(pin["seeds"])
@@ -1262,8 +1272,11 @@ def verify_r2(stage_id: int) -> int:
     for k in _BASE_CFG_KEYS:
         if k not in cfg:
             fails.append(f"config.{k} 누락")
-    for k in ("max_episodes", "max_wall", "shaping", "shaping_coeffs", "train_deadline",
-              "sil", "sil_buffer", "sil_coef", "max_len", "replay_deadline"):
+    # pin의 config 키 전량 값-대조(codex §R2-R6 — 실효 knob 자기-보고 금지; seeds/envs/grammar는
+    # config가 아닌 별도 필드로 검증)
+    for k in pin:
+        if k in ("seeds", "envs", "grammar"):
+            continue
         if cfg.get(k) != pin[k]:
             fails.append(f"config.{k} {cfg.get(k)!r} != pinned {pin[k]!r}")
     # ② per-seed 항목 + predicate + 사슬/curriculum/ckpt (plan §R2 P1/P4)
@@ -1349,8 +1362,9 @@ def verify_r2(stage_id: int) -> int:
             want = "scratch" if i == 0 else "transfer"
             if seg.get("mode") != want:
                 fails.append(f"{spx}: mode {seg.get('mode')!r} != {want!r}")
-            # 구간별 예산 회계(plan-R2 MED-4) — 오버슛 허용은 r0/r1과 동일(배치 1개 / +60s)
-            if seg.get("episodes", 10**9) > pin["max_episodes"] + cfg.get("batch", 0):
+            # 구간별 예산 회계(plan-R2 MED-4) — 오버슛 허용 = **pinned batch**(codex §R2-R6:
+            # 자기-보고 config.batch 부풀림으로 예산 우회 차단)
+            if seg.get("episodes", 10**9) > pin["max_episodes"] + pin["batch"]:
                 fails.append(f"{spx}: 구간 에피소드 예산 초과")
             if seg.get("wall_s", 10**9) > pin["max_wall"] + 60:
                 fails.append(f"{spx}: 구간 wall 예산 초과(+60s 오버슛 허용 밖)")

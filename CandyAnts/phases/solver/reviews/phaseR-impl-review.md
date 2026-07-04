@@ -347,3 +347,27 @@ Verdict: needs-attention
   시에만(비어 있으면 별도 fail 기존재). helper 공용화로 top-level/seed-plan 계약 드리프트 0.
 - 음성 픽스처 2종(R5-N1 cleared 위조=미클리어 plan replay 실측 거부 / R5-N2 top-level actions 출처
   결속 위반) 검출·복원 PASS. → HIGH 0, clean.
+
+## Round 6 (codex adversarial-review --base HEAD~6)
+Verdict: needs-attention
+
+- [high] R2 verifier trusts unpinned config.batch for episode-budget enforcement
+  → 구간 에피소드 예산 오버슛 허용치(+batch)가 산출물 자기-보고 config.batch — 부풀리면 예산 초과
+  세그먼트 통과. 권고: 실효 knob 전량(batch/lr/entropy 스케줄/hidden/conv/greedy_every/
+  baseline_decay) 값-pin + 오버슛은 pinned 상수로.
+
+## Round 6 hot-fix (적용)
+- R2_PIN에 실효 학습 knob 전량 편입(batch/lr/entropy/entropy_min/entropy_decay/hidden/
+  conv_channels/greedy_every/baseline_decay/reward) — verify-r2가 pin 전 키를 값-대조(비-config
+  키 seeds/envs/grammar 제외). 오버슛 허용 = pin["batch"](자기-보고 config 비신뢰).
+- 동일 결함류 선제 봉합: R0_PIN/R1_PIN에도 같은 knob 편입(기존 extra_cfg 값-대조 메커니즘이 자동
+  강제 — stage11/12 pinned 산출물은 DEFAULTS와 일치라 PASS 불변) + _verify_pinned 오버슛도
+  pin 상수화.
+- 픽스처: config.batch 부풀림 → pin 대조 FAIL 실증.
+
+## Self-Review Round 6 (hot-fix 자체 적대 리뷰)
+- _KNOB_PIN(batch/lr/entropy 3종/hidden/greedy_every/baseline_decay/reward)을 r0/r1/r2 pin에 공통
+  편입 — 기존 pinned 산출물 DEFAULTS 일치로 4게이트 PASS 불변(강화-무회귀 실증). verify-r2 config
+  대조를 pin 전 키 루프로 일반화(누락 위험 제거), 오버슛 상수 = pin["batch"]·+60s.
+- 픽스처(R6-N1: config.batch 999999 + 예산 초과 세그먼트) → pin 대조와 예산 검사 이중 검출, 복원
+  PASS. → HIGH 0, clean.
