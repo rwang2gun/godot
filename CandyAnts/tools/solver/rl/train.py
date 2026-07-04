@@ -465,6 +465,21 @@ def _verify_pinned(stage_id: int, pin: dict, label: str) -> int:
                 fails.append("envs_effective>1인데 preflight_trace.ok != true")
             if eff <= 1 and pf.get("ok") is True:
                 fails.append("envs_effective<=1(N=1 강등)인데 preflight_trace.ok == true — 모순 manifest")
+        # post-commit codex R2 MEDIUM: manifest의 preflight_trace는 자기-보고라 증거가 아니라 참고 —
+        # **검증자 측 실행이 권위**. verify가 pinned env 수로 trace preflight를 직접 재실행해 병렬
+        # trace 결정론을 실측한다(preflight/build_pool/EnvPool.evaluate 회귀를 JSON 편집으로 은폐 불가).
+        # wall_s는 진단 출력일 뿐 신뢰 증거 아님.
+        live_pool = None
+        try:
+            live_pool = EnvPool(pin["envs"])
+            live = preflight(live_pool, mdp.stage_scene, with_trace=True)
+            if live["ok"] is not True or live["runs"] != 2 * pin["envs"]:
+                fails.append(f"검증자 측 trace preflight 실측 FAIL: {live}")
+        except Exception as e:
+            fails.append(f"검증자 측 trace preflight 실행 불가({type(e).__name__}: {e}) — fail-closed")
+        finally:
+            if live_pool is not None:
+                live_pool.close()
     seeds = meta.get("seeds") or []
     if [s.get("seed") for s in seeds] != pin["seeds"]:
         fails.append(f"seeds {[s.get('seed') for s in seeds]} != pinned {pin['seeds']}")

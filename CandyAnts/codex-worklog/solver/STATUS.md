@@ -1291,4 +1291,6 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   preflight_trace 자기위조 가능) → hot-fix: **encode→decode 라운드트립 자기재생산 검사** + max_len pin
   (R0/R1) + 실효 길이 검사 + canonical plan replay + preflight runs==2*envs·wall>0·강등-모순 거부.
   음성 실증 6종(오프그리드 x·비정렬 y밴드·길이 초과·max_len 변조·runs=0·wall=0) 전부 FAIL + 복원 PASS,
-  verify-r0/r1 회귀 0 → Self-R1 clean → codex 재리뷰 진행.
+  verify-r0/r1 회귀 0 → Self-R1 clean → codex R2(MED: preflight 자기-보고는 증거 아님 — 검증자 실행
+  요구) → **verify-r1에 검증자 측 live trace preflight**(pinned envs 직접 실행, ok+runs 실측, 예외
+  fail-closed) → verify-r0/r1 PASS → Self-R2 clean → codex R3 진행.

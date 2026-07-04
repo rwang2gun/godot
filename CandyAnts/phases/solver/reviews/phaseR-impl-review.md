@@ -110,3 +110,26 @@
 - replay 생략 게이트(grammar_fails>0)는 fails 비어있지 않은 FAIL 확정 경로 — 거짓 통과 불가. PASS 경로
   digests[0] 접근 안전(fails 없으면 replay 2회 보장).
 - 학습 경로(run_training/train_seed)·mdp.py·--coverage 무변경 — 게이트 강화만. HIGH 0.
+
+## Round 2 (2026-07-04) — needs-attention (MEDIUM 1 · HIGH 0)
+
+- **[medium] preflight_trace remains self-forgeable because verify-r1 only validates claimed fields**
+  (train.py:450-467) — 구조 검사(runs==8, wall>0, ok 일관성)는 위조 *값*을 좁힐 뿐, verify가 trace
+  preflight를 재실행하거나 검증자 측 실측에 바인딩하지 않음 → `{"ok":true,"runs":8,"wall_s":0.01}`
+  위조가 통과. preflight()/build_pool()/EnvPool.evaluate() 회귀를 JSON 편집으로 은폐 가능.
+
+### 처리 (수정 — MEDIUM이지만 defer 대신 즉시 해소: 비용 낮고 finding의 원리(자기-보고≠증거)가 정당)
+- `_verify_pinned` trace 블록에 **검증자 측 live preflight** 추가 — pinned env 수(4)로 EnvPool 구성 →
+  `preflight(with_trace=True)` 직접 실행 → `ok==True AND runs==2*pin.envs` 실측 강제. 부팅/실행 예외는
+  catch → fail-closed. finally에서 pool.close()(Godot 누수 0). manifest preflight_trace 구조 검사는
+  *정직성 검사*로 유지하되 권위는 live 실행. wall_s는 진단 출력.
+- 실측: verify-r1 PASS(live preflight envs=4 runs=8 identical wall=0.60s) + verify-r0 PASS(회귀 0 —
+  R0 pin은 shaping 없음 → live preflight 비대상).
+
+## Self-Review Round 2 (2026-07-04) — clean (HIGH 0)
+
+- live preflight의 fail-closed 완결성: EnvPool 부팅 실패(RuntimeError)·preflight 내부 예외 전부 catch →
+  fails 등재(크래시로 인한 미판정 없음). finally close로 부분 실패에도 프로세스 정리.
+- 위조 관점 재점검: 이제 preflight 경로 회귀는 검증자 실행에서 직접 드러남 — manifest 편집으로 은폐
+  불가. 남은 자기-신뢰 = seed별 episodes/wall 수치(R0 때 LOW 수용 — 독립 replay+예산 pin이 보완) 동일.
+- 학습 경로 무변경. verify 실행 비용 +4 env 부팅(~0.6s) — 게이트 성격상 무시 가능.
