@@ -324,3 +324,26 @@ Verdict: needs-attention
 - 남은 신뢰 루트 = 산출물 JSON ↔ ckpt 바이트가 링크마다 상호-앵커(사슬 sha 교차 + 내부 세그먼트 전
   키 + 자기-세그먼트 결속 + state_dict 실로드) — 위조하려면 pinned shape의 실 학습 상태를 재구성해야
   하는 수준. 음성 픽스처 2종(R4-N1/N2) 검출·복원 PASS. → HIGH 0, clean.
+
+## Round 5 (codex adversarial-review --base HEAD~5)
+Verdict: needs-attention
+
+- [high] S19 cleared-seed predicate can be forged without per-seed evidence
+  → predicate가 JSON cleared 불리언 자기-보고 — ckpt 비대상(S19)에선 seed별 증거 0, top-level
+  actions만 replay(출처 미결속). 권고: 클리어 seed의 greedy_plan을 seed별 replay 실증 후에만
+  predicate 가산 + actions=best_seed greedy_plan 결속 + 픽스처.
+
+## Round 5 hot-fix (적용)
+- 문법 검사 helper(`_grammar_canon`) 공용화 — top-level actions와 seed별 greedy_plan이 동일
+  계약(라운드트립+마스크-표현 가능성+길이).
+- **predicate = 검증된 클리어만**: cleared seed마다 greedy_plan 존재 요구 + 문법 canon + 엔진
+  replay(pinned deadline, cleared & saved==hp 실측) — 실패 시 그 seed는 predicate 비가산 + FAIL.
+- top-level `actions` == `best_seed`의 greedy_plan(검증-클리어 seed) 결속 — 출처 불명 plan 차단.
+- 픽스처: stage19 cleared 불리언 위조(+무관 top-level actions) 거부 실증.
+
+## Self-Review Round 5 (hot-fix 자체 적대 리뷰)
+- predicate가 seed별 replay 실측으로만 가산 — stage13 정직 FAIL 불변(검증-클리어 0), stage11/19
+  PASS(클리어 seed 전원 replay 실증, 스테이지당 +3 replay 비용 수용). best_seed 결속은 actions 존재
+  시에만(비어 있으면 별도 fail 기존재). helper 공용화로 top-level/seed-plan 계약 드리프트 0.
+- 음성 픽스처 2종(R5-N1 cleared 위조=미클리어 plan replay 실측 거부 / R5-N2 top-level actions 출처
+  결속 위반) 검출·복원 PASS. → HIGH 0, clean.

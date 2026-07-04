@@ -1099,6 +1099,33 @@ _SEG_KEYS = ("stage_id", "seed", "mode", "episodes", "batches", "wall_s", "clear
              "ckpt_sha", "ckpt_path")
 
 
+def _grammar_canon(mdp: StageMDP, actions: list, max_repr: int, fails: list[str],
+                   px: str) -> list[dict]:
+    """plan의 r2 문법 검사(공용 — top-level actions와 seed별 greedy_plan 동일 계약): 길이 +
+    encode→decode 라운드트립 자기재생산 + **마스크-표현 가능성**(인벤토리 초과·at_frame cap 초과·
+    비-surface ant row 등 정책이 산출 불가능한 plan 거부). 반환 = canonical plan(replay 권위)."""
+    canon: list[dict] = []
+    if len(actions) > max_repr:
+        fails.append(f"{px}: {len(actions)}개 > 표현 가능 길이 {max_repr} — 문법 밖")
+    used: dict[str, int] = {}
+    for i, a in enumerate(actions):
+        try:
+            enc = mdp.encode_action(a)
+            rt = mdp.decode(enc)
+        except Exception as ex:
+            fails.append(f"{px}[{i}] r2 인코딩 불가({type(ex).__name__}: {ex}) — grammar 밖 액션")
+            continue
+        if rt != a:
+            fails.append(f"{px}[{i}] encode→decode 라운드트립 불일치(문법 밖 액션): {a} != {rt}")
+        for h in ["skill"] + mdp.active_heads(enc):
+            if enc[h] not in mdp.head_mask(h, i, used, enc):
+                fails.append(f"{px}[{i}] head {h}={enc[h]} — per-stage 마스크 밖(정책 산출 불가 plan)")
+        sid_used = mdp.skills[enc["skill"]]
+        used[sid_used] = used.get(sid_used, 0) + 1
+        canon.append(rt)
+    return canon
+
+
 def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain,
                         pin: dict, vocab_digest: str, fails: list[str], px: str,
                         expect_sha: str | None = None) -> None:
@@ -1293,10 +1320,8 @@ def verify_r2(stage_id: int) -> int:
                          "cherry-pick 의심(fail-closed)")
     n_seeds = len(pin["seeds"])
     need = (n_seeds + (n_seeds % 2) + 1) // 2
-    n_clear = sum(1 for e in entries if e.get("cleared"))
-    if n_clear < need:
-        fails.append(f"{n_seeds}-seed predicate 미달: cleared {n_clear}/{n_seeds} "
-                     f"(≥{need} 필요; 결측 seed {sorted(set(pin['seeds']) - set(entry_seeds))} = FAIL 집계)")
+    max_repr = min(sum(mdp.inventory.get(s, 0) for s in mdp.skills), pin["max_len"])
+    verified_clear: set[int] = set()      # predicate는 replay-실증된 클리어만(codex §R2-R5 HIGH)
     for e in entries:
         sd = e.get("seed")
         px = f"seed {sd}"
@@ -1377,38 +1402,47 @@ def verify_r2(stage_id: int) -> int:
                 fails.append(f"{px}: ckpt_saved sha != 말단 세그먼트 ckpt_sha(사슬 기록 모순)")
             _validate_ckpt_file(cs, stage_id, sd, bool(e.get("cleared")), chain,
                                 pin, mdp.vocab_digest, fails, px)
-    # ③ 문법 라운드트립 + 표현 가능 길이 (r1 ③ 계승 — r2 문법)
+        # predicate 증거(codex §R2-R5 HIGH): cleared는 자기-보고 불리언으로 인정하지 않는다 —
+        # seed별 greedy_plan의 문법 canon + **엔진 replay 실측**(pinned deadline, saved==hp)만
+        # predicate에 가산. ckpt 비대상 스테이지(S19)에서도 클리어 위조 불가.
+        if e.get("cleared"):
+            gp = e.get("greedy_plan") or []
+            if not gp:
+                fails.append(f"{px}: cleared인데 greedy_plan 없음 — 증거 부재(fail-closed)")
+            else:
+                pre = len(fails)
+                gcanon = _grammar_canon(mdp, gp, max_repr, fails, f"{px} greedy_plan")
+                if len(fails) == pre:
+                    gres = solve.run_plan(mdp.stage_scene, gcanon, pin["replay_deadline"],
+                                          trace=False)
+                    if "error" in gres:
+                        fails.append(f"{px}: greedy_plan replay 에러: {gres['error']}")
+                    elif not (gres.get("cleared") and int(gres.get("saved") or 0) == mdp.hp):
+                        fails.append(f"{px}: greedy_plan replay 미클리어({_digest(gres)}) — "
+                                     "cleared 자기-보고 위조(fail-closed)")
+                    else:
+                        verified_clear.add(sd)
+    n_clear = len(verified_clear)
+    if n_clear < need:
+        fails.append(f"{n_seeds}-seed predicate 미달: 검증-클리어 {n_clear}/{n_seeds} "
+                     f"(≥{need} 필요; 결측 seed {sorted(set(pin['seeds']) - set(entry_seeds))} = FAIL 집계)")
+    # ③ 문법 라운드트립 + 표현 가능 길이 + 마스크-표현 가능성 (공용 helper — seed별 plan과 동일 계약)
     actions = d.get("actions") or []
-    max_repr = min(sum(mdp.inventory.get(s, 0) for s in mdp.skills), pin["max_len"])
+    grammar_pre = len(fails)
     canon: list[dict] = []
-    grammar_fails = 0
-    if len(actions) > max_repr:
-        fails.append(f"actions {len(actions)}개 > 표현 가능 길이 {max_repr} — 문법 밖")
-        grammar_fails += 1
     if not actions:
         fails.append("actions 비어 있음 — 유효 해 아님(스텝0 SUBMIT 마스킹 계약)")
-        grammar_fails += 1
-    used_repr: dict[str, int] = {}
-    for i, a in enumerate(actions):
-        try:
-            enc = mdp.encode_action(a)
-            rt = mdp.decode(enc)
-        except Exception as ex:
-            fails.append(f"action[{i}] r2 인코딩 불가({type(ex).__name__}: {ex}) — grammar 밖 액션")
-            grammar_fails += 1
-            continue
-        if rt != a:
-            fails.append(f"action[{i}] encode→decode 라운드트립 불일치(문법 밖 액션): {a} != {rt}")
-            grammar_fails += 1
-        # 마스크-표현 가능성(라운드트립보다 강한 검사): 각 활성 head 값이 per-stage 마스크 안 —
-        # 인벤토리 초과·at_frame cap 초과·비-surface ant row 등 "정책이 산출 불가능한 plan" 거부.
-        for h in ["skill"] + mdp.active_heads(enc):
-            if enc[h] not in mdp.head_mask(h, i, used_repr, enc):
-                fails.append(f"action[{i}] head {h}={enc[h]} — per-stage 마스크 밖(정책 산출 불가 plan)")
-                grammar_fails += 1
-        sid_used = mdp.skills[enc["skill"]]
-        used_repr[sid_used] = used_repr.get(sid_used, 0) + 1
-        canon.append(rt)
+    else:
+        canon = _grammar_canon(mdp, actions, max_repr, fails, "action")
+        # actions ↔ best_seed 결속(codex §R2-R5): top-level plan은 검증-클리어된 best_seed의
+        # greedy_plan과 동일해야 한다 — 출처 불명 plan이 predicate와 무관하게 실리는 것 차단.
+        bs = meta.get("best_seed")
+        be = next((x for x in entries if x.get("seed") == bs), None)
+        if be is None or bs not in verified_clear:
+            fails.append(f"best_seed {bs!r}가 검증-클리어 seed 아님 — actions 출처 불명")
+        elif actions != (be.get("greedy_plan") or []):
+            fails.append("top-level actions != best_seed greedy_plan — 출처 결속 위반")
+    grammar_fails = len(fails) - grammar_pre
     # ④ 독립 replay ×2 + ⑤ trace 재생 (r1 ④⑤ 계승 — canonical plan이 replay 권위)
     digests = []
     for i in range(2 if grammar_fails == 0 else 0):
