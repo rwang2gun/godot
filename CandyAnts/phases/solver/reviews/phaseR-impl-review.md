@@ -420,3 +420,19 @@ Verdict: needs-attention
   step 존재 + 파라미터-범위 + lr pinned. 빈-state 위조는 기능적으로 재개 가능하므로 이 검사의 관할
   아님(학습-됨 여부는 카운터·사슬 결속이 별도 강제) — 근거 코드 주석 박제.
 - 픽스처(R8-N1 exp_avg shape 오염+sha 정합 재기록) 거부·복원 PASS, stage11/19 PASS. → HIGH 0, clean.
+
+## Round 9 (codex adversarial-review --base HEAD~9)
+Verdict: needs-attention
+
+- [high] Malformed torch RNG state can pass checkpoint verification but break exact resume
+  → torch_rng 검사가 uint8·non-empty만 — 1바이트 텐서로 교체(+sha 재기록)하면 verify 통과 후
+  --resume-ckpt의 set_rng_state에서 즉사. 권고: set/restore 왕복(전역 RNG 복원) 또는 정확 길이 대조.
+
+## Round 9 hot-fix (적용)
+- _validate_ckpt_file이 **set_rng_state 실왕복** 실행: old 저장 → set(tr) try/except → finally
+  restore(old) — 로더와 동일 계약, 전역 RNG 무오염. 픽스처(1바이트 uint8 RNG) 거부 실증.
+
+## Self-Review Round 9 (hot-fix 자체 적대 리뷰)
+- set/restore 왕복이 로더와 동일 계약(실측: 1바이트 위조 → "size 5056 기대" RuntimeError 거부),
+  finally 복원으로 검증자 전역 RNG 무오염(verify는 어차피 학습 RNG 미사용이지만 위생 유지).
+- 픽스처 거부·복원 PASS, stage11/19 PASS. → HIGH 0, clean.

@@ -1265,6 +1265,17 @@ def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain,
     tr = ck.get("torch_rng")
     if not (torch.is_tensor(tr) and tr.dtype == torch.uint8 and tr.numel() > 0):
         fails.append(f"{px}: ckpt torch_rng가 유효한 RNG 상태 텐서 아님")
+    else:
+        # RNG 로드 계약 실왕복(codex §R2-R9 HIGH): resume은 set_rng_state를 호출한다 — 타입만 맞는
+        # 위조 상태(잘못된 길이 등)는 여기서 거부. 전역 RNG는 finally 복원으로 무오염.
+        _old_rng = torch.get_rng_state()
+        try:
+            torch.set_rng_state(tr)
+        except Exception as ex:
+            fails.append(f"{px}: torch_rng set 계약 불이행({type(ex).__name__}: {ex}) — "
+                         "재개-불능 RNG 상태(fail-closed)")
+        finally:
+            torch.set_rng_state(_old_rng)
 
 
 def verify_r2(stage_id: int) -> int:
