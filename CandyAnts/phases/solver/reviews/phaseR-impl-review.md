@@ -251,3 +251,31 @@ Verdict: needs-attention
   cap(4500)·max_len(6)으로 학습 config와 정합(stage11/19 PASS 실증).
 - 음성 실증 3종(P1 결측 무근거/P2 상류 ckpt 바이트 변조/P3 mask_digest+sha 정합 위조) 전부 검출,
   복원 PASS. verify-r0/r1 비접촉(코드 경로 분리). → HIGH 0, clean.
+
+## Round 2 (codex adversarial-review --base HEAD~2)
+Verdict: needs-attention
+
+- [high] Missing ckpt_saved bypasses the mask_digest and byte-backed checkpoint checks
+  → ckpt_saved가 dict일 때만 검증 — 항목 자체를 생략하면 파일/sha/digest/내부사슬 검사 전부 스킵
+  (MED-3 픽스가 부재-fail-open). 권고: --save-ckpt가 pinned 계약인 스테이지(11/12/13)는 부재 = FAIL.
+- [high] Missing-seed evidence still trusts unverified upstream JSON
+  → 결측 근거로 상류 rl_meta.seeds[].cleared==false를 raw JSON에서 읽음 — 스테일/편집된 상류
+  JSON으로 합성 실패 기록을 만들어 seed 생략 가능. 권고: 상류 검증을 fail-closed 공용 검사로 —
+  최소한 상류 stage/config/grammar 정합 + 해당 실패 기록의 byte-backed ckpt 증거 요구.
+
+## Round 2 hot-fix (적용)
+- ckpt 파일 byte-backed 검증을 공용 helper(`_validate_ckpt_file`)로 통합(현-스테이지/transfer 출처/
+  결측-근거 3경로 동일 계약): 실존+sha 실측(+대조 sha)+load 후 grammar/vocab·stage·seed·layout/mask
+  digest·cleared_seg·내부 사슬.
+- `R2_SAVE_CKPT_STAGES = {11,12,13}` pin 신설 — pinned 커맨드에 --save-ckpt 포함 스테이지는
+  ckpt_saved **부재 = FAIL**(부재-fail-open 봉합; S19는 pinned 커맨드에 저장 없음 = 비대상).
+- 결측-seed 근거 강화: 상류 산출물의 stage 바인딩/grammar/vocab digest/config 정합 + seed 중복 거부 +
+  해당 seed 실패 기록의 **byte-backed ckpt 증거**(cleared_seg==False 실측) 요구 — raw JSON 신뢰 제거.
+
+## Self-Review Round 2 (hot-fix 자체 적대 리뷰)
+- 결측-근거 루프 제어흐름 검증: 상류 클리어 → 다음 상류로 continue / 기록 없음·pin 비정합 → 근거
+  불인정 fail. 근거 위조는 여전히 predicate 부풀림 불가(결측=FAIL 집계 불변).
+- helper 통합으로 3경로(현-스테이지/transfer 출처/결측 근거)가 동일 계약 — 계약 드리프트 원천 제거.
+  expect_sha 배선(transfer=ckpt_loaded sha, 현-스테이지=말단 세그먼트 sha 별도 대조) 확인.
+- 음성 실증 3종(Q1 ckpt_saved 생략/Q2 상류 근거 sha 위조/Q3 상류 config 위조) 전부 검출, stage11/19
+  PASS·stage13 정직 FAIL(결측 근거는 byte-backed 인정, predicate만 미달) 회귀 확인. → HIGH 0, clean.

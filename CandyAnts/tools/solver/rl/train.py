@@ -106,6 +106,10 @@ R2_PIN = dict(seeds=[0, 1, 2], envs=4, max_episodes=20000, max_wall=1800,
 # pinned 사슬(체크포인트 출처 pin, plan-R2 HIGH-1): stage → 기대 chain 스테이지 열.
 # S11=from-scratch 시점 / S12·S13=transfer 사슬 / S19=from-scratch 단독(어휘 증명 ⓑ, curriculum 불요 가정).
 R2_CHAINS = {11: [11], 12: [11, 12], 13: [11, 12, 13], 19: [19]}
+# pinned 커맨드에 --save-ckpt가 포함된 스테이지(헤더 독스트링 SoT) — 이들의 산출물에서 ckpt_saved
+# **부재 = verify FAIL**(codex §R2-R2 HIGH-1: 항목 생략으로 byte-backed 검증 전체를 우회하는
+# 부재-fail-open 차단). S19는 pinned 커맨드에 저장이 없어 비대상(기록돼 있으면 검증은 한다).
+R2_SAVE_CKPT_STAGES = frozenset({11, 12, 13})
 
 # ---------- r2 체크포인트 (P1 — plan §R2: 영속화 = 사용자 필수 요건) ----------
 CKPT_FORMAT = "candyants-rl2-ckpt-v1"
@@ -1083,6 +1087,54 @@ def _check_preflight_evidence(pf, envs_req: int, envs_eff: int, fails: list[str]
         fails.append(f"{px}: envs_effective<=1(N=1 강등)인데 ok == true — 모순 manifest")
 
 
+def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain_stages,
+                        pin: dict, vocab_digest: str, fails: list[str], px: str,
+                        expect_sha: str | None = None) -> None:
+    """ckpt 기록({path,sha256})의 **byte-backed** 검증 — 파일 실존 + sha 실측(기록·대조 sha 양쪽) +
+    load 후 내용 계약(grammar/전역 어휘·stage·seed·layout/mask digest·cleared_seg·내부 사슬).
+    현-스테이지 저장분 / transfer 로드 출처 / 결측-seed 상류 근거 3경로가 **동일 계약**을 공유
+    (codex §R2-R1 HIGH-2·R2 HIGH-1/2 — JSON-only 신뢰·부재-우회 제거)."""
+    f = ROOT / str(rec.get("path"))
+    if not f.exists():
+        fails.append(f"{px}: ckpt 파일 {rec.get('path')} 없음")
+        return
+    actual = _file_sha(f)
+    if actual != rec.get("sha256"):
+        fails.append(f"{px}: ckpt 파일 sha 실측 불일치 — byte-backed provenance 위반(스테일/변조)")
+        return
+    if expect_sha is not None and actual != expect_sha:
+        fails.append(f"{px}: ckpt 파일 sha != 대조 sha(사슬 기록과 불일치)")
+        return
+    try:
+        ck = load_ckpt(f)
+        m = StageMDP(sid, max_len=pin["max_len"], grammar=pin["grammar"],
+                     at_frame_cap=pin["train_deadline"])
+    except Exception as ex:
+        fails.append(f"{px}: ckpt/mdp 검증 불가({type(ex).__name__}: {ex}) — fail-closed")
+        return
+    if ck.get("format") != CKPT_FORMAT:
+        fails.append(f"{px}: ckpt format {ck.get('format')!r} != {CKPT_FORMAT!r}")
+    if ck.get("grammar_version") != pin["grammar"]:
+        fails.append(f"{px}: ckpt grammar {ck.get('grammar_version')!r} != pinned")
+    if ck.get("vocab_digest") != vocab_digest:
+        fails.append(f"{px}: ckpt 전역 어휘 digest 불일치")
+    if ck.get("stage_id") != sid:
+        fails.append(f"{px}: ckpt stage_id {ck.get('stage_id')} != {sid}")
+    if ck.get("seed") != seed:
+        fails.append(f"{px}: ckpt seed {ck.get('seed')} != {seed}")
+    if ck.get("layout_digest") != m.layout_digest():
+        fails.append(f"{px}: ckpt layout_digest 불일치")
+    # exact-resume 계약 이행 가능성(codex §R2-R1 MED-3): 마스크 시맨틱 드리프트 거부.
+    if ck.get("mask_digest") != m.mask_digest():
+        fails.append(f"{px}: ckpt mask_digest 불일치(exact-resume 계약 비이행)")
+    if expect_cleared is not None and bool(ck.get("cleared_seg")) != bool(expect_cleared):
+        fails.append(f"{px}: ckpt cleared_seg {ck.get('cleared_seg')} != 기대 {expect_cleared}")
+    if expect_chain_stages is not None:
+        ck_stages = ([g.get("stage_id") for g in (ck.get("chain") or [])] + [ck.get("stage_id")])
+        if ck_stages != list(expect_chain_stages):
+            fails.append(f"{px}: ckpt 내부 사슬 {ck_stages} != 기대 {list(expect_chain_stages)}")
+
+
 def verify_r2(stage_id: int) -> int:
     """r2 산출물 fail-closed 게이트: R1 게이트 전체 계승(pinned 예산·문법 라운드트립·live preflight·
     trace 재생·pass 시맨틱) + 체크포인트 메타(mode별 digest 계약·재개 사슬 무결) + curriculum
@@ -1140,21 +1192,43 @@ def verify_r2(stage_id: int) -> int:
         if not expected_chain or len(expected_chain) <= 1:
             fails.append(f"결측 pinned seed {s}: from-scratch 스테이지는 전원 기록 필수(cherry-pick 차단)")
             continue
-        excuse = None
+        # 결측 근거 = raw JSON 신뢰 금지(codex §R2-R2 HIGH-2): 상류 산출물의 stage 바인딩·grammar·
+        # 어휘 digest·config가 이 산출물과 정합하고(전이적 pin), seed 중복이 없으며, 해당 seed의
+        # 미클리어 기록이 **byte-backed ckpt 증거**(cleared_seg==False 실측)로 뒷받침될 때만 인정.
+        excuse = False
         for up_sid in expected_chain[:-1]:
             up_p = rl2_json_path(up_sid)
             if not up_p.exists():
                 break
             up_doc = json.loads(up_p.read_text(encoding="utf-8"))
-            ue = next((x for x in (up_doc.get("rl_meta") or {}).get("seeds", [])
-                       if x.get("seed") == s), None)
+            um = up_doc.get("rl_meta") or {}
+            up_entries = um.get("seeds") or []
+            up_seed_ids = [x.get("seed") for x in up_entries]
+            if (up_doc.get("stage_id") != up_sid
+                    or um.get("grammar_version") != pin["grammar"]
+                    or um.get("vocab_digest") != mdp.vocab_digest
+                    or um.get("config") != cfg
+                    or len(set(up_seed_ids)) != len(up_seed_ids)):
+                fails.append(f"결측 pinned seed {s}: 상류 S{up_sid} 산출물이 pin 비정합/중복 seed — "
+                             "근거로 사용 불가(fail-closed)")
+                break
+            ue = next((x for x in up_entries if x.get("seed") == s), None)
             if ue is None:
                 break                                  # 이 상류에도 기록 없음 → 근거 없음
             if not ue.get("cleared"):
-                excuse = up_sid                        # 상류 미클리어 실증 = 결측 근거
+                if not isinstance(ue.get("ckpt_saved"), dict):
+                    fails.append(f"결측 pinned seed {s}: 상류 S{up_sid} 실패 기록에 byte-backed "
+                                 "ckpt 증거 없음(fail-closed)")
+                else:
+                    pre = len(fails)
+                    _validate_ckpt_file(ue["ckpt_saved"], up_sid, s, False,
+                                        [g.get("stage_id") for g in (ue.get("chain") or [])],
+                                        pin, mdp.vocab_digest, fails,
+                                        f"결측 seed {s} 근거(S{up_sid})")
+                    excuse = len(fails) == pre         # 증거 검증 전부 통과 시에만 근거 인정
                 break
-        if excuse is None:
-            fails.append(f"결측 pinned seed {s}: 상류 산출물에 미클리어 근거 없음 — "
+        if not excuse:
+            fails.append(f"결측 pinned seed {s}: 검증된 상류 미클리어 근거 없음 — "
                          "cherry-pick 의심(fail-closed)")
     n_seeds = len(pin["seeds"])
     need = (n_seeds + (n_seeds % 2) + 1) // 2
@@ -1223,78 +1297,24 @@ def verify_r2(stage_id: int) -> int:
                     elif ue["ckpt_saved"].get("sha256") != cl.get("sha256"):
                         fails.append(f"{px}: 출처 ckpt sha 불일치 — cherry-pick 차단(plan §R2 acceptance 2)")
                     else:
-                        # byte-backed provenance(codex §R2-R1 HIGH-2): JSON 교차만으론 위조/스테일
-                        # manifest로 임의 출처 위장 가능 — 상류 ckpt "파일"을 실측(실존+sha)하고
-                        # 내용(stage/seed/cleared/문법/digest/내부 사슬)까지 검증해야 출처가 증거다.
-                        up_file = ROOT / str(ue["ckpt_saved"].get("path"))
-                        if not up_file.exists():
-                            fails.append(f"{px}: 상류 ckpt 파일 {ue['ckpt_saved'].get('path')} 없음")
-                        elif _file_sha(up_file) != cl.get("sha256"):
-                            fails.append(f"{px}: 상류 ckpt 파일 sha 실측 불일치 — byte-backed "
-                                         "provenance 위반(스테일/변조)")
-                        else:
-                            try:
-                                uck = load_ckpt(up_file)
-                                up_mdp = StageMDP(up_sid, max_len=pin["max_len"],
-                                                  grammar=pin["grammar"],
-                                                  at_frame_cap=pin["train_deadline"])
-                            except Exception as ex:
-                                fails.append(f"{px}: 상류 ckpt/mdp 검증 불가"
-                                             f"({type(ex).__name__}: {ex}) — fail-closed")
-                            else:
-                                if uck.get("grammar_version") != pin["grammar"]:
-                                    fails.append(f"{px}: 상류 ckpt grammar 불일치")
-                                if uck.get("vocab_digest") != mdp.vocab_digest:
-                                    fails.append(f"{px}: 상류 ckpt 전역 어휘 digest 불일치")
-                                if uck.get("stage_id") != up_sid:
-                                    fails.append(f"{px}: 상류 ckpt stage_id {uck.get('stage_id')} "
-                                                 f"!= {up_sid}")
-                                if uck.get("seed") != sd:
-                                    fails.append(f"{px}: 상류 ckpt seed {uck.get('seed')} != {sd}")
-                                if not uck.get("cleared_seg"):
-                                    fails.append(f"{px}: 상류 ckpt 미클리어 — transfer 게이트 위반")
-                                if uck.get("layout_digest") != up_mdp.layout_digest():
-                                    fails.append(f"{px}: 상류 ckpt layout_digest 불일치")
-                                if uck.get("mask_digest") != up_mdp.mask_digest():
-                                    fails.append(f"{px}: 상류 ckpt mask_digest 불일치")
-                                uck_stages = ([g.get("stage_id") for g in (uck.get("chain") or [])]
-                                              + [uck.get("stage_id")])
-                                if uck_stages != stages[:-1]:
-                                    fails.append(f"{px}: 상류 ckpt 내부 사슬 {uck_stages} != "
-                                                 f"manifest 사슬 앞단 {stages[:-1]}")
+                        # byte-backed provenance(codex §R2-R1 HIGH-2): 상류 ckpt "파일"을 실측하고
+                        # 내용 계약까지 검증(공용 helper) — 위조/스테일 manifest로 출처 위장 불가.
+                        _validate_ckpt_file(ue["ckpt_saved"], up_sid, sd, True, stages[:-1],
+                                            pin, mdp.vocab_digest, fails,
+                                            f"{px} transfer 출처(S{up_sid})",
+                                            expect_sha=cl.get("sha256"))
         cs = e.get("ckpt_saved")
-        if isinstance(cs, dict):
-            f = ROOT / str(cs.get("path"))
-            if not f.exists():
-                fails.append(f"{px}: ckpt 파일 {cs.get('path')} 없음")
-            elif _file_sha(f) != cs.get("sha256"):
-                fails.append(f"{px}: ckpt 파일 sha != manifest 기록(변조/드리프트)")
-            else:
-                try:
-                    ck = load_ckpt(f)
-                except Exception as ex:
-                    fails.append(f"{px}: ckpt 로드 불가({type(ex).__name__}: {ex})")
-                else:
-                    if ck.get("grammar_version") != pin["grammar"]:
-                        fails.append(f"{px}: ckpt grammar {ck.get('grammar_version')!r} != pinned")
-                    if ck.get("vocab_digest") != mdp.vocab_digest:
-                        fails.append(f"{px}: ckpt 전역 어휘 digest 불일치")
-                    if ck.get("stage_id") != stage_id:
-                        fails.append(f"{px}: ckpt stage_id {ck.get('stage_id')} != {stage_id}")
-                    if ck.get("layout_digest") != mdp.layout_digest():
-                        fails.append(f"{px}: ckpt layout_digest 불일치")
-                    # codex §R2-R1 MED-3: mask_digest까지 대조 — exact-resume 계약이 실제로
-                    # 이행 가능한 ckpt임을 게이트가 증명(인벤토리/surface-row/at_frame cap 드리프트 거부).
-                    if ck.get("mask_digest") != mdp.mask_digest():
-                        fails.append(f"{px}: ckpt mask_digest 불일치(exact-resume 계약 비이행)")
-                    if ck.get("seed") != sd:
-                        fails.append(f"{px}: ckpt seed {ck.get('seed')} != {sd}")
-                    if bool(ck.get("cleared_seg")) != bool(e.get("cleared")):
-                        fails.append(f"{px}: ckpt cleared_seg/엔트리 cleared 모순")
-                    ck_stages = ([seg.get("stage_id") for seg in (ck.get("chain") or [])]
-                                 + [ck.get("stage_id")])
-                    if ck_stages != stages:
-                        fails.append(f"{px}: ckpt 내부 사슬 {ck_stages} != manifest 사슬 {stages}")
+        if not isinstance(cs, dict):
+            # 부재-fail-open 차단(codex §R2-R2 HIGH-1): pinned 계약이 --save-ckpt인 스테이지는
+            # ckpt_saved 생략 = byte-backed 검증 우회이므로 부재 자체가 FAIL.
+            if stage_id in R2_SAVE_CKPT_STAGES:
+                fails.append(f"{px}: ckpt_saved 기록 없음 — pinned 계약(--save-ckpt) 위반, "
+                             "byte-backed 검증 우회 차단(fail-closed)")
+        else:
+            if cs.get("sha256") != chain[-1].get("ckpt_sha"):
+                fails.append(f"{px}: ckpt_saved sha != 말단 세그먼트 ckpt_sha(사슬 기록 모순)")
+            _validate_ckpt_file(cs, stage_id, sd, bool(e.get("cleared")), stages,
+                                pin, mdp.vocab_digest, fails, px)
     # ③ 문법 라운드트립 + 표현 가능 길이 (r1 ③ 계승 — r2 문법)
     actions = d.get("actions") or []
     max_repr = min(sum(mdp.inventory.get(s, 0) for s in mdp.skills), pin["max_len"])
