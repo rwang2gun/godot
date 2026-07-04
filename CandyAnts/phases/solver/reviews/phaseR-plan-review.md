@@ -128,3 +128,89 @@ The four R2 fixes are sufficient. Sanity: hp_stage aligns with StageData.candy_h
 - **wall 예산 하향**: pinned 커맨드·R1_PIN `max_wall 7200→1800`(사용자 "최대 30분 기준"). 설계 불변 —
   예산 상수만 교체. 음성 대조(dc68a47, wall 7200에서 20k eps 완주)와의 비교 눈금은 에피소드 수로(plan 정직 표기).
 - **§R1-스윕 신설**: S13~S25 순차 탐사(단일 seed·30분 cap·비게이트·세션 로그 박제). acceptance 무관.
+
+---
+
+# §R2 (영속 학습: 체크포인트+스테이지-불변 정책+curriculum+cell-target) plan-review
+
+## Round 1 (2026-07-04) — Request Changes (CRITICAL 2 · HIGH 4 · MEDIUM 4 · LOW 1)
+
+- **[critical] 재개 등가성이 서술대로는 불성립** — 병렬 수집·포트 재시도·SIL 순서·비-torch RNG·wall 회계
+  하에서 "정확 일치"는 torch RNG만 저장해선 불가. → **배치-수 기준 판정**(wall 제외) + 사용 RNG 전수·SIL
+  내용/순서 직렬화 + 인덱스-순서 수집 계약 명시로 재정의.
+- **[critical] P2 문법 승격이 기존 verify-r0/r1 산출물을 검증 불능화** → **선결 계약 신설**: verify-r0/r1
+  grammar pin을 리터럴 "r1.1"로 동결 + StageMDP 버전 인자 구성(레거시 경로 보존). 가중치는 애초에 게이트
+  비대상(산출물=plan JSON) 명문화.
+- **[high] curriculum acceptance 비falsifiable("유의 상회")** → 고정 커맨드+predicate(≥2/3 seed 클리어,
+  R1 형식)로 교체, 통계 술어 금지. from-scratch 대조 3-seed 완성 옵션 명시.
+- **[high] cell-target이 sum-type 계약 없이 모호** → `target_kind` 1급 판별자 head + kind별 유효 head
+  마스킹 + JSON lowering 규칙 + **at_frame 트리거 추가**(S19 known 해 실측이 요구 — 리뷰 중 확인).
+- **[high] S19 클리어가 어휘 증명과 학습 성공을 혼동** → ⓐ 결정론 커버리지(known 해 r2 라운드트립 replay)
+  / ⓑ 학습 발견 분리 — 실패 원인 구별 가능화.
+- **[high] campaign_manifest SoT 미정의** → `data/campaign_manifest.tres` 명시(read-only 파싱, 하드코딩 0)
+  + verify-r2 manifest 정합 검사.
+- **[medium] 체크포인트 직렬화 목록 불충분** → 전수 목록(RNG 전수·SIL·digest들·모델 config·dtype) +
+  verify-r2 비호환 재개 거부.
+- **[medium] param/y_row "정규화"가 r1.1 시맨틱 파괴 위험** → 정규화 기각, **이산 전역 어휘+마스킹** 확정
+  + r2 커버리지 게이트(S11/S12/S19).
+- **[medium] entropy 스케줄 영속 vs curriculum 탐험 충돌** → 스테이지 경계 리셋 + 전역 카운터 별도 보존
+  결정.
+- **[medium] verify-r2 무계약** → 커맨드+검사 항목 계약 신설(pin 상수는 impl 커밋 동봉 — R0/R1 선례).
+- **[low] S14/S15 동기가 acceptance에 없음** → 비게이트 R2-스윕(curriculum 체크포인트 기반, 대비표 박제)
+  항목 추가.
+
+전 항목 §R2 v2에 반영 완료 → Round 2 재리뷰.
+
+## Round 2 (2026-07-04) — HIGH 2 · MEDIUM 4 · LOW 2 (R1 전 항목 해소 인정)
+
+- **[high] S12-커리큘럼-ckpt 출처 미정의(cherry-pick 가능)** → **per-seed pinned 사슬**(S11 from-scratch
+  → S12 transfer → S13 acceptance, 각 seed는 자기 사슬 ckpt만; 재개 사슬 manifest+verify-r2가 무결 증명;
+  사슬 앞단 미클리어 seed = FAIL 집계).
+- **[high] 레이아웃 digest fail-closed가 curriculum 전이와 모순** → **로드 2모드 분리**: `--resume-ckpt`
+  (동일-스테이지 exact, digest 일치 요구) / `--transfer-ckpt`(타 스테이지, 가중치+optimizer만 이월·
+  스테이지-파생 상태 재구성·문법/shape 호환만 요구). manifest에 mode 기록.
+- **[medium] 전역 격자 상한·양축·at_frame head 미정의** → 전역 W/H = campaign_manifest 등재 레이아웃
+  전수 스캔 파생(초과 = 명시 에러+어휘 버전 승격, silent 확장 금지) / 행 head 이원 마스크(ant=surface,
+  cell=전 행) / at_frame = 양자화 격자 head+train_deadline 마스크.
+- **[medium] cell 트리거 어휘 미정** → **트리거 직교 계약**: cell도 전 트리거 유효(트리거="언제"·
+  target="무엇에"), kind 마스크는 target 계열 head만.
+- **[medium] 병렬 수집 하 배치 순서 미계약** → 결정론 배치 계약 ⓐ~ⓓ(메인 스레드 순차 샘플링·인덱스-순서
+  수집·부팅 재시도 RNG 비소비·등가성 시험 중 wall 중단 비활성).
+- **[medium] 재개 사슬 예산 회계 미정** → **구간별 회계**(acceptance 예산은 해당 스테이지 구간에만,
+  verify-r2가 구간 카운터 검증).
+- **[low] §R1 "pin 비대상" 문구와 충돌** → §R2 선결 계약에 개정 우선순위 명시(§R2 > §R1 해당 문구).
+- **[low] S19 학습 acceptance 미pin** → from-scratch 단독 pinned 커맨드+≥2/3 predicate 고정.
+
+전 항목 §R2 v3에 반영 → Round 3 (최종) 재리뷰.
+
+## Round 3 (2026-07-04) — HIGH 2 · MEDIUM 1 → **정책상 STOP·사용자 보고** (3-round cap)
+
+- **[high] transfer 호환성이 과소 축소** — `--transfer-ckpt` 요구를 "문법 버전+모델 shape"로 좁힌 게
+  과교정: shape가 같아도 **전역 어휘 digest**(스킬 id 순서·트리거 id·격자 어휘·at_frame bin)가 다르면
+  가중치가 다른 시맨틱에 silent 매핑. → digest 계약 분리 필요(transfer는 레이아웃/per-stage 마스크
+  digest 무시 OK, **전역 어휘/head-시맨틱 digest는 fail-closed**).
+- **[high] acceptance 2 커맨드가 실행 불능 pin** — `--seeds 0,1,2`(복수)에 단수 `--transfer-ckpt <ckpt>`
+  하나: seed별 ckpt 해석이 암묵적 → 한 seed의 ckpt를 전 seed에 쓰는 오구현 여지. → seed→ckpt 매핑
+  (사슬 manifest 인자) 또는 per-seed 단일 커맨드 ×3으로 pin 필요.
+- **[medium] 사슬 앞단(S11/S12) 예산 미pin** — "R1 계열 예산" 문구뿐, S12 구간 커맨드/예산 미고정 →
+  S13 구간 회계만으로는 curriculum 증명이 비재현(운영자 재량 S12 구간 허용).
+
+R2 fix들은 실질 해소로 인정("boundary gaps introduced by fixes, not repeats"). 위 3건 처리 방향은
+사용자 결정 대기(계속 수정+R4 / 반영 후 종결 / 취소).
+
+## Round 4 (2026-07-04, user-extended cap — 사용자 승인 "3건 반영 + R4 재리뷰")
+
+R3 3건 반영:
+- HIGH-1 → transfer digest 계약 분리: 레이아웃/per-stage 마스크 digest 면제, **전역 어휘/head-시맨틱
+  digest fail-closed**(스킬 사전 순서·트리거 어휘·격자 크기·at_frame bin).
+- HIGH-2 → acceptance 2를 **seed별 독립 커맨드 ×3**으로 재작성(①S11 from-scratch → ②S12 transfer →
+  ③S13 acceptance, seed→ckpt 명시).
+- MED → 사슬 전 구간 공통 예산 pin(--envs 4 --max-episodes 20000 --max-wall 1800 --shaping trace
+  --train-deadline 4500 --sil).
+
+**Round 4 결과 — HIGH 0 · MEDIUM 1 → plan 내 처리 종결**
+- R3 3건 전부 실질 해소 판정(H1 fixed with MED wording cleanup / H2 fixed / M fixed).
+- [medium] acceptance 4의 verify-r2 문구("문법/레이아웃 digest 일치")가 P1 mode별 계약과 모순 →
+  **mode별 digest 계약 명문**(exact=전부 일치 / transfer=레이아웃·마스크 면제+전역 어휘 digest
+  fail-closed)으로 재작성, P1과 동일 문구 강제. **§R2 plan-stage 종결** (R1 11건 → R2 8건 → R3 3건 →
+  R4 MED 1건 in-plan — 사용자 승인 user-extended cap 경로).

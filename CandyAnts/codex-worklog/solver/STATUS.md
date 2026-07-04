@@ -1294,3 +1294,15 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   verify-r0/r1 회귀 0 → Self-R1 clean → codex R2(MED: preflight 자기-보고는 증거 아님 — 검증자 실행
   요구) → **verify-r1에 검증자 측 live trace preflight**(pinned envs 직접 실행, ok+runs 실측, 예외
   fail-closed) → verify-r0/r1 PASS → Self-R2 clean → codex R3(MED: trace 부재 시 공허 통과) → **preflight trace 유효성 fail-closed**(trace_present 필드+live 검사 요구, 누락/빈/기형 거부, probe 3종 실증) → Self-R3 clean → codex R4(MED: 액션 롤아웃 trace 소실을 shaped_bonus fail-safe가 침묵) → **롤아웃별 trace 검증(위반=run 정직 크래시) + verify-r1 trace 재생 replay(digest 비교란 실측)** + ActionTraceDropPool probe 실증 → Self-R4 clean → codex R5(MED: 단일-seed 스윕 산출물이 ">=2/3" 라벨 과대표시) → **pass_rule 실seed 기반+mode 필드(pinned-acceptance/exploratory-sweep), S17 메타 다운그레이드** → Self-R5 clean → **codex R6 approve — R1 impl 리뷰 루프 종결**(hot-fix 5커밋: cd826dd/cc9f1f4/7d1ae6d/9a06f6e/93f58a5).
+
+### §R2 plan-review 종결 (2026-07-04, 트레일 `reviews/phaseR-plan-review.md` § §R2)
+- 사용자 지시 2건이 스코프 뼈대: **가중치 저장/로드 필수** + **캠페인 전수 시험은 curriculum(R2) 관할**
+  (R1-스윕 S20~S25 취소, S18 재실행만 마저).
+- 리뷰 경로: R1(C2·H4·M4·L1) → R2(H2·M4·L2) → R3(H2·M1 = 3-round cap **STOP** → 사용자 승인 "3건 반영+
+  R4") → **R4(H0·M1 in-plan) 종결**.
+- 확정 핵심 계약: 레거시 게이트 grammar pin **r1.1 리터럴 동결**(stage11/12 산출물 영구 검증) / 체크포인트
+  로드 2모드(`--resume-ckpt` exact=digest 전부 일치 / `--transfer-ckpt`=레이아웃·마스크 면제+**전역 어휘/
+  head-시맨틱 digest fail-closed**) / acceptance 2 = **per-seed pinned 사슬**(S11→S12→S13, 공통 구간 예산
+  20000eps/1800s/trace/SIL) / sum-type 액션(`target_kind` head + 트리거 직교 + `at_frame` 어휘) / 재개
+  등가성 = **배치-수 기준** 결정론 배치 계약(ⓐ~ⓓ) / verify-r2 = R1 게이트 계승+체크포인트 메타+manifest 정합.
+- 다음 = **R2 구현**(사용자 go 대기). plan.md는 선례대로 로컬 working doc(cross-PC SoT = 본 항목).

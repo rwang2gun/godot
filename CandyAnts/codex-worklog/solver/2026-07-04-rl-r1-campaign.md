@@ -134,3 +134,41 @@
 
 - 휴리스틱 트랙 대비 기대치: S21/23/24/25는 beam 미돌파(witness 수기·S24 needle은 sand_mound 필수 =
   현 문법 비표현). RL 30분 단일 seed가 못 풀어도 기대 위반 아님.
+
+---
+
+## 후속 세션 (2026-07-04 오후) — impl 리뷰 종결 · 스윕 재스코프 · R2 방향 확정
+
+### impl-stage 사후 리뷰 종결 (재개 지점 ①)
+- codex R1(HIGH: verify-r1 문법 인코딩 미검증 + MED: preflight 위조)→R2(MED)→R3(MED)→R4(MED)→R5(MED)→
+  **R6 approve**. hot-fix 5커밋(`cd826dd`/`cc9f1f4`/`7d1ae6d`/`9a06f6e`/`93f58a5`), 매 라운드 자체리뷰
+  clean. 상세 = `phases/solver/reviews/phaseR-impl-review.md` §R1. 게이트 최종 형태: 문법 라운드트립 +
+  live trace preflight + 롤아웃 trace 검증 + trace 재생 replay + pass 시맨틱(mode 필드).
+
+### 스윕 재스코프 (재개 지점 ② — 사용자 결정으로 축소)
+- **S20~S25 취소**: 사용자 지적 — 캠페인 스테이지는 단계별 학습(curriculum)을 전제로 설계된 시퀀스라
+  from-scratch 전수 스윕은 구조적으로 불리한 시험이고, "전체 스테이지" 성능 시험은 R2 이후가 맞다.
+  잔여 6개 중 4개(S21/23/24/25)는 sand_mound 필수 = 현 문법 비표현 기지이기도 함. from-scratch
+  베이스라인은 R2 설계 확정 후 필요 스테이지만 온디맨드 재측정(스테이지당 30분).
+- **S18만 재실행**(지난 세션 중단 재측정 채무): 드라이버 스윕 시작 ~10분 시점에 사용자 결정 → 드라이버
+  트리 kill(I7 순서 준수, godot/train 잔존 0 확인) 후 **단독 프로세스로 처음부터 재기동**(부분 측정 오염
+  제거). 결과는 표의 S18 행을 대체한다.
+
+### R2 방향 (재개 지점 ③ — 사용자 지시 2026-07-04)
+- **가중치 저장/로드 = R2 필수 요건**: "학습 결과를 저장/로드하지 않으면 제대로 된 강화학습이 아니다"
+  (사용자). 현 구조의 정직 진단 — 산출물은 plan(해)뿐, 정책망은 프로세스 종료 시 폐기·재실행 시 0에서
+  재학습. 단 현 아키텍처는 obs_dim/head가 스테이지 파생이라 가중치를 저장해도 **타 스테이지 로드 자체가
+  불가능** → 영속화가 의미 있으려면 스테이지-불변 아키텍처(공유 인코더+통일 어휘)가 선결 = R2 본체.
+- R2 스코프 축 4개(초안, plan §R2로): ① 가중치/optimizer/RNG 체크포인트(1급 산출물) ② 스테이지-불변
+  정책(공유 CNN 인코더, 액션 어휘 통일+스테이지 마스킹) ③ cell-target 어휘(S19/S23/S24 열쇠) ④
+  campaign-순서 curriculum(이전 체크포인트에서 계속 학습).
+
+### S18 재실행 결과 (2026-07-04 후속 세션) — FAIL (완주 측정, 표의 S18 행 대체)
+- 단독 프로세스, pinned 스윕 커맨드(`--seeds 0 --max-wall 1800 --shaping trace --train-deadline 4500
+  --sil --max-len 8`): **12,000 eps/1800s 완주, bestR 0.358 정체**(batch ~100대부터 종료까지 불변) —
+  지난 세션 중단 관측(18분 시점 0.358)과 동일 프로파일의 완주 확정.
+- best plan 덤프 = **floater 1개**(safe_fall, max_x/le 1080/row11) — S15와 동일한 "생존 신호 길이-1
+  국소최적에 SIL 커밋" 실패 계열. blocker2+climber5+floater1 조합(다단 carry 포함)은 30분 from-scratch
+  예산 밖 재확인.
+- **R1-스윕 최종 스코어보드**: S12 acceptance PASS(2/3) / S17 CLEAR / S13·S14·S15·S16·S18 FAIL /
+  S19 SKIP(문법) / S20~S25 취소(사용자 — curriculum 관할). 이 표가 §R2의 from-scratch 베이스라인.
