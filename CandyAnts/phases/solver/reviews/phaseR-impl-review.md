@@ -208,3 +208,15 @@
   [0,1,2]를 쓰면 pinned-acceptance로 표기되나 그 경우 예산/shaping pin은 verify가 잡음 — mode는
   가독 라벨이지 인증 필드가 아님(인증 권위=verify pin 검사 전체).
 - S17 hand-edit 범위 = 서술 메타 2필드만, actions/seeds/curves 등 측정치 무변경 — 위조 아님(다운그레이드).
+
+## Round 6 (2026-07-04) — **approve**
+
+> Ship: no material fail-open path found in the scoped RL solver diff. The R5 evidence-label fix is
+> present in the writer and S17 artifact; pinned certification still relies on independent
+> seed/config/grammar/preflight/replay checks rather than the readability labels. **No material findings.**
+
+**R1 impl-stage 종결(사후 경로)**: R1(HIGH 1·MED 1) → hot-fix `cd826dd`+음성 6종 → Self-R1 clean →
+R2(MED: 검증자 실행 요구) → `cc9f1f4` live preflight → Self-R2 clean → R3(MED: trace 부재 공허 통과) →
+`7d1ae6d` trace_present fail-closed+probe → Self-R3 clean → R4(MED: 롤아웃 trace 소실 침묵) →
+`9a06f6e` 롤아웃 검증+trace 재생 replay+probe → Self-R4 clean → R5(MED: 스윕 라벨 과대표시) →
+`93f58a5` pass 시맨틱 정직화+S17 다운그레이드 → Self-R5 clean → **R6 approve**.
