@@ -1236,6 +1236,29 @@ def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain,
         pol.load_state_dict(ck["policy"])
         opt = torch.optim.Adam(pol.parameters(), lr=cfg_v["lr"])
         opt.load_state_dict(ck["optimizer"])
+        # optimizer 슬롯 검증(codex §R2-R8 HIGH): attach는 shape를 안 본다 — **존재하는 슬롯**의
+        # Adam 모멘트 텐서가 대응 파라미터와 shape/dtype 일치 + step 존재 + lr pinned여야 첫 재개
+        # opt.step()이 실행 가능하다(오염-슬롯 = 재개 크래시 = fail-closed). 슬롯 "부재"는 결함이
+        # 아님: Adam은 lazy 초기화라 스테이지에서 활성 불가능한 head(예: ant-전용 스테이지의 col)는
+        # 그래프에 못 들어가 슬롯이 없는 게 정상이고, 그 상태의 resume은 lazy 재초기화로 기능한다
+        # (실측: stage11 ckpt들 — cell 스킬 無 인벤토리 → col head 슬롯 없음). 학습 여부 자체는
+        # batch_i/에피소드 카운터·사슬 결속이 별도 강제.
+        ost = opt.state_dict()
+        if any(g.get("lr") != cfg_v["lr"] for g in ost.get("param_groups", [])):
+            fails.append(f"{px}: optimizer lr != pinned {cfg_v['lr']}")
+        params = list(pol.parameters())
+        for pi, sl in (ost.get("state") or {}).items():
+            if not isinstance(sl, dict) or "step" not in sl or not (0 <= int(pi) < len(params)):
+                fails.append(f"{px}: optimizer state[{pi}] 슬롯 구조 불량(step 부재/파라미터 밖)")
+                break
+            prm = params[int(pi)]
+            bad = [k for k in ("exp_avg", "exp_avg_sq")
+                   if not (torch.is_tensor(sl.get(k)) and sl[k].shape == prm.shape
+                           and sl[k].dtype == prm.dtype)]
+            if bad:
+                fails.append(f"{px}: optimizer 슬롯 {bad}[param {pi}] shape/dtype != 파라미터 — "
+                             "재개-불능 ckpt(fail-closed)")
+                break
     except Exception as ex:
         fails.append(f"{px}: ckpt state_dict 로드 계약 불이행({type(ex).__name__}: {ex}) — "
                      "재개/전이 불가능한 위조·손상 ckpt")

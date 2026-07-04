@@ -400,3 +400,23 @@ Verdict: needs-attention
 - CRITICAL 처리 방식 검토: FAIL 산출물 재생성/삭제는 plan 정직-박제 원칙 위반 — 문서 정합(독스트링
   게이트 예시 교정 + plan 산출물 상태 명시)이 정공법. 메인 verify 게이트 비편입 재확인(CI 차단 없음).
 - 픽스처(R7-N1 절대경로) 검출·복원 PASS, stage11/19 PASS. → HIGH 0, clean.
+
+## Round 8 (codex adversarial-review --base HEAD~8)
+Verdict: needs-attention
+
+- [high] Checkpoint verification does not prove optimizer state is usable
+  → opt.load_state_dict는 attach만 — Adam 슬롯 텐서(exp_avg/exp_avg_sq) shape/dtype 오염 ckpt가
+  통과하고 첫 재개 opt.step()에서 크래시. 권고: 파라미터별 슬롯 검증 또는 dummy step + 픽스처.
+
+## Round 8 hot-fix (적용)
+- _validate_ckpt_file에 **optimizer 슬롯 전수 검증**: 파라미터별 exp_avg/exp_avg_sq shape·dtype
+  일치 + step 카운터 존재 + param_groups lr == pinned — attach-만 통과하는 재개-불능 위조 거부.
+- 픽스처: exp_avg shape 오염(+정합 sha 재기록) ckpt → 거부 실증.
+
+## Self-Review Round 8 (hot-fix 자체 적대 리뷰)
+- 최초 구현("슬롯 부재=위조")이 **실 ckpt에서 거짓양성** — Adam lazy 초기화: 스테이지에서 활성
+  불가능한 head(S11의 col 등)는 그래프 밖 = 슬롯 없음이 정상이고 그 resume은 lazy 재초기화로 기능
+  (실측으로 잡음). 계약 정정 = **존재 슬롯의 shape/dtype 정합**(진짜 재개-크래시 위험)만 fail-closed +
+  step 존재 + 파라미터-범위 + lr pinned. 빈-state 위조는 기능적으로 재개 가능하므로 이 검사의 관할
+  아님(학습-됨 여부는 카운터·사슬 결속이 별도 강제) — 근거 코드 주석 박제.
+- 픽스처(R8-N1 exp_avg shape 오염+sha 정합 재기록) 거부·복원 PASS, stage11/19 PASS. → HIGH 0, clean.
