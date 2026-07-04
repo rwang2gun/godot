@@ -279,3 +279,26 @@ Verdict: needs-attention
   expect_sha 배선(transfer=ckpt_loaded sha, 현-스테이지=말단 세그먼트 sha 별도 대조) 확인.
 - 음성 실증 3종(Q1 ckpt_saved 생략/Q2 상류 근거 sha 위조/Q3 상류 config 위조) 전부 검출, stage11/19
   PASS·stage13 정직 FAIL(결측 근거는 byte-backed 인정, predicate만 미달) 회귀 확인. → HIGH 0, clean.
+
+## Round 3 (codex adversarial-review --base HEAD~3)
+Verdict: needs-attention
+
+- [high] Checkpoint validator does not enforce the same load contract as training
+  → _validate_ckpt_file이 메타데이터 필드만 검사 — dtype/model_cfg/policy·optimizer state_dict
+  실재·shape 미검증. 메타데이터-온리 위조 .pt(+JSON sha 정합)가 결측 근거/transfer 출처로 통과 가능.
+  권고: 검증자가 학습 로드 계약을 재사용(state_dict 실로드) + resume 직렬화 전수 필드 요구 +
+  메타-온리 .pt 거부 회귀 픽스처.
+
+## Round 3 hot-fix (적용)
+- `CKPT_REQUIRED_KEYS`(직렬화 전수 계약) 상수화 — train_seed state와 validator가 같은 목록 공유,
+  누락 필드 = FAIL.
+- _validate_ckpt_file이 **학습과 동일한 로드 계약을 실행**: dtype·model_cfg(pinned DEFAULTS 파생)
+  대조 + pinned 정책/옵티마이저 인스턴스에 `load_state_dict` 실로드(shape/key 불일치 = 예외 =
+  FAIL) + torch_rng uint8 텐서 검증. 메타-온리 위조 .pt 음성 픽스처로 거부 실증.
+
+## Self-Review Round 3 (hot-fix 자체 적대 리뷰)
+- CKPT_REQUIRED_KEYS = train_seed state 구성과 대조(greedy_plan만 비필수 — 게이트 판정에 미사용,
+  위조 이득 0). model_cfg 기준값 = DEFAULTS 파생(hidden/conv는 CLI 비노출 = pin의 실체) — 인증
+  산출물 3종으로 정합 실증. 검증자는 전역 RNG 비오염(set_rng_state 미호출, 타입/shape 검사만).
+- 음성 픽스처 2종(R3-N1 메타-온리 .pt + sha 정합 위장 / R3-N2 hidden-64 shape 위조 state_dict)
+  전부 거부 + 복원 PASS. stage11/19 PASS 회귀 0. → HIGH 0, clean.

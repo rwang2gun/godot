@@ -114,6 +114,13 @@ R2_SAVE_CKPT_STAGES = frozenset({11, 12, 13})
 # ---------- r2 체크포인트 (P1 — plan §R2: 영속화 = 사용자 필수 요건) ----------
 CKPT_FORMAT = "candyants-rl2-ckpt-v1"
 CKPT_DIR = ROOT / "data" / "solutions" / "rl_ckpt"
+# 직렬화 전수 계약(plan-R1 MED-1) — train_seed의 state 구성과 verify의 필드-완전성 검사가 이 목록을
+# 공유(계약 드리프트 차단). 메타데이터-온리 위조 .pt 거부의 근거(codex §R2-R3 HIGH).
+CKPT_REQUIRED_KEYS = (
+    "format", "grammar_version", "vocab_digest", "stage_id", "layout_digest", "mask_digest",
+    "model_cfg", "dtype", "seed", "seg_mode", "batch_i", "episodes_seg", "wall_seg",
+    "cleared_seg", "baseline", "baseline_init", "curve_seg", "episodes_prior", "batches_prior",
+    "sil_buf", "torch_rng", "policy", "optimizer", "chain")
 
 
 def ckpt_path(stage_id: int, seed: int) -> Path:
@@ -1114,6 +1121,10 @@ def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain_
         return
     if ck.get("format") != CKPT_FORMAT:
         fails.append(f"{px}: ckpt format {ck.get('format')!r} != {CKPT_FORMAT!r}")
+    missing_keys = [k for k in CKPT_REQUIRED_KEYS if k not in ck]
+    if missing_keys:
+        fails.append(f"{px}: ckpt 직렬화 전수 필드 누락 {missing_keys} — 메타-온리/부분 위조 거부")
+        return
     if ck.get("grammar_version") != pin["grammar"]:
         fails.append(f"{px}: ckpt grammar {ck.get('grammar_version')!r} != pinned")
     if ck.get("vocab_digest") != vocab_digest:
@@ -1133,6 +1144,29 @@ def _validate_ckpt_file(rec: dict, sid: int, seed, expect_cleared, expect_chain_
         ck_stages = ([g.get("stage_id") for g in (ck.get("chain") or [])] + [ck.get("stage_id")])
         if ck_stages != list(expect_chain_stages):
             fails.append(f"{px}: ckpt 내부 사슬 {ck_stages} != 기대 {list(expect_chain_stages)}")
+    # 학습 로드 계약 실행(codex §R2-R3 HIGH — 검증자와 로더의 계약 동일화): dtype·model_cfg 대조 +
+    # pinned 정책/옵티마이저 인스턴스에 state_dict **실로드**(shape/key 불일치 = 예외 = FAIL).
+    # 메타데이터만 갖춘 위조 .pt는 여기서 반드시 죽는다. torch_rng는 uint8 상태 텐서여야 함
+    # (전역 RNG는 오염시키지 않음 — set_rng_state 미호출).
+    torch, _ = _torch()
+    cfg_v = dict(DEFAULTS)               # hidden/conv_channels는 CLI 비노출 = DEFAULTS가 pin의 실체
+    if ck.get("dtype") != "float32":
+        fails.append(f"{px}: ckpt dtype {ck.get('dtype')!r} != 'float32'")
+    mc = _model_cfg(m, cfg_v)
+    if ck.get("model_cfg") != mc:
+        fails.append(f"{px}: ckpt model_cfg 불일치: {ck.get('model_cfg')} != pinned {mc}")
+        return
+    try:
+        pol = make_policy_r2(m, cfg_v)
+        pol.load_state_dict(ck["policy"])
+        opt = torch.optim.Adam(pol.parameters(), lr=cfg_v["lr"])
+        opt.load_state_dict(ck["optimizer"])
+    except Exception as ex:
+        fails.append(f"{px}: ckpt state_dict 로드 계약 불이행({type(ex).__name__}: {ex}) — "
+                     "재개/전이 불가능한 위조·손상 ckpt")
+    tr = ck.get("torch_rng")
+    if not (torch.is_tensor(tr) and tr.dtype == torch.uint8 and tr.numel() > 0):
+        fails.append(f"{px}: ckpt torch_rng가 유효한 RNG 상태 텐서 아님")
 
 
 def verify_r2(stage_id: int) -> int:
