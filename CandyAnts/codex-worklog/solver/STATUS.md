@@ -1334,8 +1334,9 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   관할 밖) → **사용자 escalate**(S12 수렴 보강 / R3 dense·refinement 선행 / 예산 pin 개정).
 
 ### 다음
-- impl-stage 리뷰 루프(자체 → codex adversarial-review → HIGH hot-fix → clean) 진행.
-- R3 방향 = 사용자 결정 대기(escalate 참조).
+- ~~impl-stage 리뷰 루프~~ 종결(codex 10R approve — 아래 항목).
+- **R3 = (b) trace-피드백 refinement MDP·dense shaping 선행(사용자 결정 2026-07-04)** — 다음 세션에서
+  §R3 plan 작성부터.
 
 ### §R2 impl 리뷰 루프 종결 (2026-07-04 후속)
 - codex 10R(R1~R9 finding → **R10 approve**): C1(R7 정직-FAIL 산출물 문서 정합)·H11·M1 전부 hot-fix
