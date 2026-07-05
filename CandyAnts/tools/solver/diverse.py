@@ -1,0 +1,905 @@
+#!/usr/bin/env python3
+"""
+auto-solver Phase 5b — 가능성-공간 다양-해 발견 + 풀이법 보고서 (revised 계약, 2026-06-24 사용자).
+
+솔버 산출물의 단위 질문 = "해가 몇 개"가 아니라 **"어디에 놓으면 클리어되나(가능성 공간)"**. 좌표 ±1타일
+시프트를 별개 해로 오보하던 naive distinctness를 **검증된 연속 구역(range) + 4요소 solution-class 동치**로
+교체한다(plan §"5b 계약"). 의도 판단·조절 제안 없음 — 중립 발견·보고만(designer-in-the-loop).
+
+핵심:
+  - **표현 = 검증된 연속 구역(range)**: 스킬 배치를 좌표가 아니라 *연속 클리어 셀 구간*으로 보고. "연속"은
+    선언된 `gap_check_stride`로 검증(gap_verified)된 구간일 때만 병합 근거(미검증 = provisional, 병합 금지).
+  - **solution-class 동치(병합) = 4요소 모두 동일**: (i) 스킬 multiset (ii) 각 슬롯이 같은 검증 구역 내
+    (iii) target role/state(select·state·mode) (iv) trigger/timing(trigger type·cmp·picked_ge 서수·subgoal).
+    넷 다 같을 때만 한 해(구역 내부 시프트만 무시). 하나라도 다르면 분리.
+  - **범위 발견 = 독립 축 스윕**: 각 cell_x 슬롯의 placement를 *나머지를 한 클리어 기준배치로 고정*한 채
+    스윕, 엔진 검증(D4) → intervals/gaps/gap_verified. 슬롯 정체성 = 좌→우 정렬 순서. axis_independent
+    (각 축 cross-section, 곱공간 joint 미주장).
+  - **분리-해 탐색 = plan-level completion forbid**(codex R2): 발견 class를 forbid에 누적해 재탐색하되,
+    `base+[action]`이 그 class를 *정확히 완성*할 때만 후보를 막는다(action-level이 아님). 슬롯 하나를
+    공유하되 다른 슬롯에서 갈라지는 distinct class는 절대 억제 안 됨 → 그대로 발견.
+
+게이트(5c): `diverse-verify` — 저장된 `stageNN.diverse.json`의 각 class를 결정론 리플레이로 fail-closed
+검증(reference_plan clear + 각 cell_x 슬롯 interval **경계+내부**=clear / 양 끝 밖·gap=fail, analyze.py
+--verify와 동형). gap_verified 구간만 경계 fail 단언(sampled는 보고만).
+
+Usage:
+    GODOT_BIN=... python tools/solver/try_solve.py diverse 12 [--save]
+    GODOT_BIN=... python tools/solver/try_solve.py diverse-verify [12]
+"""
+from __future__ import annotations
+
+import json
+import math
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(HERE))
+
+import analyze  # noqa: E402  (Rollouter·is_full_clear·_verdict_check 재사용 — 엔진 롤아웃·tri-state)
+import knowledge  # noqa: E402  (위기 어휘 — 보고서 맥락)
+import model  # noqa: E402
+import solve  # noqa: E402
+
+SOLUTIONS_DIR = ROOT / "data" / "solutions"
+# diverse.json 스키마 버전 — 의미 변경 시 bump. verify가 정확 일치를 강제해 stale schema 거부(analyze R11 선례).
+# v2(codex R5): 슬롯 intervals = c_star 포함 **단일 연속 구역**(비연속=별개 class). swept_intervals=정보용 전체.
+DIVERSE_SCHEMA_VERSION = 2
+# placement 스윕 셀 예산(슬롯당). 도메인(그리드 폭)이 이보다 넓으면 stride 샘플링 + provisional 표기.
+SWEEP_CELL_CAP = 40
+
+
+# ============================================================ 4요소 시그니처 (순수)
+
+def _placement_cell(action: dict, cs: int):
+    """액션의 공간 placement 셀(ant_reaches_x 트리거의 x → 셀). 공간 축이 없으면 None(picked_ge carry·
+    immediate·at_frame 등 — placement가 좌표가 아니라 타이밍/서수로 결정되는 슬롯)."""
+    trg = action.get("trigger", {})
+    if trg.get("type") == "ant_reaches_x" and "x" in trg:
+        return int(float(trg["x"]) // cs)
+    return None
+
+
+def _role_sig(action: dict) -> dict:
+    """target role/state 시그니처(4요소 iii) — select·state·mode + **y-band**. state 없으면 'any'.
+
+    y_min/y_max(model.propose가 backpath row에서 산출)는 *층/레인 선택 수단*이라 같은 x·다른 y-band는 다른
+    floor를 노리는 실질 다른 해다(codex R1-HIGH). range-sweep은 x(cell_x)만 스윕하므로 y는 정체성에 포함하지
+    않으면 스윕에도·정체성에도 없이 완전히 누락된다(placement 차원 상실 → 거짓 병합·forbid 차단). y는 미스윕
+    축이므로 **검증 안 된 구역으로 보고 비병합**(다른 band=다른 class, 보수적·정직). band 없으면 키 생략."""
+    t = action.get("target", {})
+    sig = {"mode": t.get("mode"), "select": t.get("select"), "state": t.get("state") or "any"}
+    if "y_min" in t or "y_max" in t:
+        sig["band"] = [t.get("y_min"), t.get("y_max")]
+    return sig
+
+
+def _timing_sig(action: dict) -> dict:
+    """trigger/timing 시그니처(4요소 iv) — trigger type·cmp·picked_ge 서수(n)·frame·subgoal. ant_reaches_x의
+    x는 **placement(range 축)라 제외**(같은 방향·다른 위치는 같은 timing). 그 외 trigger 파라미터는 timing."""
+    trg = action.get("trigger", {})
+    sig: dict = {"trigger_type": trg.get("type")}
+    if "cmp" in trg:
+        sig["cmp"] = trg["cmp"]
+    if "n" in trg:                      # picked_ge 서수
+        sig["n"] = trg["n"]
+    if "frame" in trg:                  # at_frame / at_frame_exact
+        sig["frame"] = trg["frame"]
+    if "subgoal" in action:
+        sig["subgoal"] = action["subgoal"]
+    return sig
+
+
+def _skill_multiset(plan: list) -> dict:
+    ms: dict = {}
+    for a in plan:
+        s = a.get("skill")
+        ms[s] = ms.get(s, 0) + 1
+    return ms
+
+
+# ============================================================ 범위 발견 (placement range-sweep, D4)
+
+def _make_sweep_plan(reference: list, ref_index: int, cell: int, cs: int) -> list:
+    """reference 플랜에서 액션 ref_index의 trigger.x만 셀 중심((cell+0.5)*cs)으로 치환(나머지 불변). 측정·
+    게이트가 동일 함수를 써 결정론 리플레이 byte-identical. model.propose의 x=(col+0.5)*cs와 동일 규약."""
+    plan = [dict(a) for a in reference]
+    act = dict(reference[ref_index])
+    trg = dict(act.get("trigger", {}))
+    trg["x"] = (cell + 0.5) * cs
+    act["trigger"] = trg
+    plan[ref_index] = act
+    return plan
+
+
+def _runs(sampled: list, clears: dict) -> tuple[list, list]:
+    """샘플된 셀들의 clear/fail 맵에서 연속 run을 복원 → (intervals[clear], gaps[fail]). [최초 clear,
+    최후 clear] 구간 내부의 인접 샘플로 run을 만든다(양 끝 fail은 구간 밖이라 제외). stride==1이면 인접 =
+    연속 정수라 intervals/gaps가 권위, stride>1이면 그 해상도의 sampled 추정."""
+    clear_cells = [c for c in sampled if clears.get(c)]
+    if not clear_cells:
+        return [], []
+    lo_c, hi_c = clear_cells[0], clear_cells[-1]
+    span = [c for c in sampled if lo_c <= c <= hi_c]
+    intervals: list = []
+    gaps: list = []
+    cur_val = clears.get(span[0])
+    start = prev = span[0]
+    for c in span[1:]:
+        v = clears.get(c)
+        if v == cur_val:
+            prev = c
+            continue
+        (intervals if cur_val else gaps).append([start, prev])
+        cur_val = v
+        start = prev = c
+    (intervals if cur_val else gaps).append([start, prev])
+    return intervals, gaps
+
+
+def _sweep_placement(roll: "analyze.Rollouter", reference: list, ref_index: int, cs: int,
+                     c_star: int, grid_cols: int, cap: int) -> dict:
+    """슬롯(ref_index, ant_reaches_x)의 placement 셀을 *나머지 고정* 스윕 → 검증된 연속 구역. 도메인이
+    cap 이하면 전 셀(stride 1, gap_verified) 스윕, 넘으면 stride 샘플(gap_verified=False·provisional)."""
+    lo_dom, hi_dom = 0, max(grid_cols - 1, c_star + 1)
+    n_cells = hi_dom - lo_dom + 1
+    if n_cells <= cap:
+        stride = 1
+        sampled = list(range(lo_dom, hi_dom + 1))
+    else:
+        stride = math.ceil(n_cells / cap)
+        sampled = sorted(set(range(lo_dom, hi_dom + 1, stride)) | {c_star})
+    plans = [_make_sweep_plan(reference, ref_index, c, cs) for c in sampled]
+    results = roll.batch_results(plans)
+    clears = {c: analyze.is_full_clear(r, roll.required) for c, r in zip(sampled, results)}
+    swept_intervals, swept_gaps = _runs(sampled, clears)
+    gap_verified = (stride == 1)
+    # 이 class의 region = c_star를 포함하는 **단일 연속 구역**(codex R5-HIGH1: 비연속 구역은 별개 class다 —
+    # "연속 클리어 구역=range" 계약). 스윕이 찾은 다른 disjoint 구역은 다른 anchor의 class(솔버가 별도 발견).
+    containing = next(([lo, hi] for lo, hi in swept_intervals if lo <= c_star <= hi), None)
+    in_region = containing is not None
+    return {
+        "intervals": ([containing] if in_region else []), "gaps": [], "range_sampled": True,
+        # 정보용(전체 스윕 — 다른 disjoint 클리어 구역 포함, class region 아님). authoritative=intervals만.
+        "swept_intervals": swept_intervals, "swept_gaps": swept_gaps,
+        "gap_check_stride": stride, "gap_verified": gap_verified,
+        "gap_coverage": ("full@1" if stride == 1 else "sampled@%d" % stride),
+        # joint 미검증(R2-HIGH 정직 경계): 보고 range는 *나머지 고정 시* 각 축 cross-section이며 모든 조합의
+        # 곱공간 클리어를 주장하지 않는다(전수 joint = 조합 폭발).
+        "axis_independent": True,
+        # provisional(R2-HIGH): stride>1(미검증) 또는 c_star가 구역에 없으면 확정 병합 금지 표기.
+        "provisional": (not gap_verified) or (not in_region),
+        "domain": [lo_dom, hi_dom], "sampled_points": sampled, "rollouts": len(sampled),
+    }
+
+
+# ============================================================ solution-class 빌드 + forbid
+
+def _build_class(roll: "analyze.Rollouter", plan: list, cs: int, grid_cols: int,
+                 inventory: dict, axis: str, sweep_cap: int) -> dict:
+    """클리어 플랜 → solution-class(슬롯 좌→우 정렬, cell_x 슬롯은 range-sweep). 4요소 = skill_multiset +
+    슬롯별 (role,timing,검증구역)."""
+    slots_raw = []
+    for ref_index, a in enumerate(plan):
+        slots_raw.append({
+            "ref_index": ref_index, "skill": a.get("skill"),
+            "role": _role_sig(a), "timing": _timing_sig(a), "cell": _placement_cell(a, cs),
+        })
+    # 슬롯 정체성 = 좌→우 정렬(공간 슬롯 먼저 셀 오름차순, 비공간 슬롯은 원본 순서 유지하며 뒤).
+    slots_raw.sort(key=lambda s: (s["cell"] is None, s["cell"] if s["cell"] is not None else 0, s["ref_index"]))
+    slots = []
+    for slot_i, s in enumerate(slots_raw):
+        slot = {"slot": slot_i, "ref_index": s["ref_index"], "skill": s["skill"],
+                "role": s["role"], "timing": s["timing"]}
+        if s["cell"] is None:
+            slot.update({"placement_axis": "none", "fixed_cell": None, "intervals": [], "gaps": [],
+                         "range_sampled": False, "gap_check_stride": None, "gap_verified": False,
+                         "gap_coverage": "none", "axis_independent": True, "provisional": False})
+        else:
+            sw = _sweep_placement(roll, plan, s["ref_index"], cs, s["cell"], grid_cols, sweep_cap)
+            slot.update({"placement_axis": "cell_x", "fixed_cell": s["cell"], **sw})
+        slots.append(slot)
+    return {"skill_multiset": _skill_multiset(plan), "axis": axis, "reference_plan": plan,
+            "inventory": {k: v for k, v in inventory.items() if v > 0}, "slots": slots}
+
+
+def _class_sig(cls: dict) -> tuple:
+    """클래스 동치 시그니처(dedup) — skill_multiset + 슬롯별 (skill, role, timing, 구역키)의 **순서 무관**
+    multiset. 슬롯 순서(좌→우 배치)는 4요소 동치 차원이 아니므로(같은 셀 tiebreak ref_index=솔버 plan 순서일
+    뿐, codex R3-HIGH) parts를 canonical 정렬해 순서 의존 false-positive를 제거한다. parts는 json 문자열로
+    직렬화 후 정렬(타입 혼합 비교 회피).
+
+    구역키(cell_x):
+      - **gap_verified(stride==1)**: intervals = *검증된 연속 구역*. 구역 내 ±시프트는 같은 해로 병합(계약).
+      - **provisional(stride>1·미검증)**: intervals가 sampled 추정이라 병합 근거 못 됨("미검증=병합 금지",
+        codex R1-HIGH). → ['provisional', fixed_cell]로 키잉해 다른 실제 셀은 비병합. 같은 셀만 동일.
+    none 슬롯은 ['none']."""
+    parts = []
+    for s in cls["slots"]:
+        if s.get("placement_axis") == "cell_x":
+            if s.get("gap_verified"):
+                region = [list(iv) for iv in s.get("intervals", [])]
+            else:
+                region = ["provisional", s.get("fixed_cell")]
+        else:
+            region = ["none"]
+        parts.append(json.dumps([s.get("skill"), s["role"], s["timing"], region], sort_keys=True))
+    return (json.dumps(cls["skill_multiset"], sort_keys=True), tuple(sorted(parts)))
+
+
+def _matches_slot(action: dict, slot: dict, cs: int, exact: bool = False) -> bool:
+    """액션이 한 solution-class 슬롯에 부합하는가(forbid 매칭용). skill·role·timing 일치 + placement:
+      - cell_x: `exact`(또는 provisional)면 **fixed_cell 정확 일치**, 아니면(gap_verified·단일슬롯) 검증 구역
+        membership. `exact`는 다중 cell_x 슬롯 class에서 set됨(codex R8): interval은 *나머지 고정* axis-
+        independent cross-section이라, 여러 슬롯의 interval을 동시 만족하는 joint 조합은 **미검증**이다 →
+        forbid에 interval-membership을 쓰면 미검증 Cartesian 곱을 '포함'으로 오판해 distinct class를 억제.
+        단일 cell_x 슬롯 class는 그 1D 스윕이 곧 joint 검증이라 membership 안전.
+      - none: 액션도 비공간(placement_cell None)."""
+    if slot.get("skill") != action.get("skill"):
+        return False
+    if slot.get("role") != _role_sig(action) or slot.get("timing") != _timing_sig(action):
+        return False
+    cell = _placement_cell(action, cs)
+    ax = slot.get("placement_axis")
+    if ax == "none":
+        return cell is None
+    if ax == "cell_x":
+        if cell is None:
+            return False
+        if exact or not slot.get("gap_verified"):
+            return cell == slot.get("fixed_cell")    # 정확 셀만(다중슬롯 joint 미검증 / provisional)
+        return any(lo <= cell <= hi for lo, hi in slot.get("intervals", []))
+    return False
+
+
+def _saturates(plan: list, slots: list, cs: int, flex: int) -> bool:
+    """plan이 slots 전체를 *서로 다른* 액션에 동시 매칭(saturate)하는가 — 슬롯 `flex`만 interval-membership,
+    나머지 cell_x 슬롯은 fixed_cell exact. **진짜 이분매칭(Kuhn augmenting-path)**(greedy는 겹치는 매칭집합서
+    유효 매칭을 놓침, codex R7)."""
+    def _m(a, si):
+        s = slots[si]
+        exact = (s.get("placement_axis") == "cell_x" and si != flex)
+        return _matches_slot(a, s, cs, exact)
+    match_action = [-1] * len(plan)
+    def _augment(si: int, visited: list) -> bool:
+        for ai, a in enumerate(plan):
+            if visited[ai] or not _m(a, si):
+                continue
+            visited[ai] = True
+            if match_action[ai] == -1 or _augment(match_action[ai], visited):
+                match_action[ai] = si
+                return True
+        return False
+    for si in range(len(slots)):
+        if not _augment(si, [False] * len(plan)):
+            return False
+    return True
+
+
+def _plan_contains_class(plan: list, cls: dict, cs: int) -> bool:
+    """plan이 cls의 **검증된 same-class 변형**을 sub-multiset 포함하는가(forbid 판정). 검증된 변형 =
+    reference(전 cell_x 슬롯 fixed_cell exact) ∪ {한 cell_x 슬롯만 interval, 나머지 exact}.
+
+    근거(codex R8): range-sweep은 *나머지 고정* 한 슬롯씩 스윕 → "한 슬롯 이동(나머지 reference)"만 joint
+    검증됨. 여러 슬롯 동시 이동(Cartesian joint)은 미검증이라 forbid 대상이 아니다(미검증 조합을 '포함'으로
+    오판하면 distinct class를 억제). 따라서 유연 슬롯을 **최대 1개**(flex∈{없음}∪cell_x슬롯)만 허용해 검증된
+    plus-형 영역만 막는다.
+
+    soundness: 막히는 plan P는 검증된 변형 V(클리어)를 포함 → P⊇V라 P의 잉여는 redundant → P는 최소화 시
+    V(=cls와 같은 region)로 collapse = distinct 아님. ∴ 단일슬롯 shift(+superset)만 막고 distinct class는 절대
+    미차단. 효과: shift churn 제거(uncapped 종료 가능) + 미검증 joint 조합은 발견 허용(완전성)."""
+    slots = cls.get("slots", [])
+    if not slots:
+        return True
+    cellx_idx = [i for i, s in enumerate(slots) if s.get("placement_axis") == "cell_x"]
+    for flex in [None] + cellx_idx:            # None=전부 exact(reference), i=슬롯 i만 interval
+        if _saturates(plan, slots, cs, flex):
+            return True
+    return False
+
+
+def _plan_multiset_sig(plan: list) -> tuple:
+    """플랜의 순서 무관 액션 multiset 시그니처(json 직렬화·정렬). raw 플랜 반복 판정용."""
+    return tuple(sorted(json.dumps(a, sort_keys=True) for a in plan))
+
+
+def _plan_submultiset(small: list, big: list) -> bool:
+    """small의 액션 multiset이 big의 sub-multiset인가(big이 small을 정확히 포함, 중복도 고려)."""
+    pool = [json.dumps(a, sort_keys=True) for a in big]
+    for a in small:
+        sig = json.dumps(a, sort_keys=True)
+        if sig in pool:
+            pool.remove(sig)
+        else:
+            return False
+    return True
+
+
+def _make_forbid(classes: list, dead_exact: list, cs: int):
+    """forbid 술어 `(action, base)->bool`. `base+[action]`이 ① 발견 class의 **검증된 plus-형 변형**을 포함
+    (`_plan_contains_class`) 또는 ② `dead_exact`(검증된 same-class joint 변형)를 **정확히 sub-multiset 포함**
+    하면 금지.
+
+    ①은 reference+단일슬롯shift+superset만 막아 distinct class 미차단(R8 soundness 증명). ②는 plus-형이
+    의도적으로 허용하는 미검증 joint 변형이 *클리어해 기존 class로 dedup*된 경우(=검증된 same-class duplicate,
+    미발견 class 증거 아님, codex R9)를 그 정확 plan+superset만 sound하게 막아 재발견 churn/false-capped를
+    없앤다(joint도 클리어→superset redundant→최소화 시 cls로 collapse=distinct 아님, 동일 증명). Cartesian
+    곱 전체가 아니라 *발견된 정확 변형*만 막으므로 soundness 불변."""
+    def forbidden(action: dict, base: list) -> bool:
+        cand_plan = list(base) + [action]
+        if any(_plan_contains_class(cand_plan, cls, cs) for cls in classes):
+            return True
+        return any(_plan_submultiset(dp, cand_plan) for dp in dead_exact)
+    return forbidden
+
+
+# ============================================================ 오케스트레이터: diverse 보고서
+
+def _slot_summary(slot: dict) -> str:
+    role = slot["role"]
+    tim = slot["timing"]
+    where = ""
+    if slot["placement_axis"] == "cell_x":
+        ivs = "·".join("[%d–%d]" % (lo, hi) for lo, hi in slot["intervals"]) or "[]"
+        flag = "" if slot["gap_verified"] else "(sampled@%s)" % slot["gap_check_stride"]
+        where = " col%s%s" % (ivs, flag)
+    extra = ""
+    if "n" in tim:
+        extra = " picked_ge%s" % tim["n"]
+    return "%s[%s/%s %s%s]%s" % (slot["skill"], role.get("select"), role.get("state"),
+                                 tim.get("trigger_type"), tim.get("cmp", ""), where) + extra
+
+
+def diverse_report(stage_id: int, max_rollouts: int, extra_cap: int, save: bool = False,
+                   workers: int = 4) -> int:
+    """한 스테이지의 **구별되는 solution-class**를 자동 발견해 가능성-공간(검증된 range) 보고서로 출력.
+
+    탐색: ① 전략 축 — 전체 인벤토리로 발견 class를 4요소 forbid에 누적·재탐색(첫 해 이후 롤아웃만 extra_cap
+    예산). ② 인벤토리 축 — 변형(수량/종류 감소). 각 class는 cell_x 슬롯 range-sweep으로 검증 구역 산출.
+    좌표 ±시프트는 같은 구역 → 같은 class(naive 결함 해소)."""
+    notes = knowledge.load_vault()
+    meta = solve.stage_meta(stage_id)
+    base_inv = meta["inventory"]
+    hp = int(meta["candy_hp"])
+    deadline = int(round(meta["time_limit_seconds"] * 60)) + 1500
+    stage_scene = f"res://scenes/stages/Stage{stage_id:02d}.tscn"
+    layout = model.parse_layout(ROOT / "data" / "stage_layouts" / f"stage{stage_id:02d}_layout.tres")
+    cs = int(layout["cell_size"])
+    grid_cols = max((c for c, _ in layout["occupied"]), default=24) + 1
+    roll = analyze.Rollouter(stage_scene, deadline, hp, workers)
+
+    print(f"=== diverse stage{stage_id:02d} (가능성-공간 다양-해) === 인벤토리={base_inv} hp={hp} "
+          f"cs={cs} grid_cols={grid_cols} cap={max_rollouts}/탐색")
+    base = solve.run_plan(stage_scene, [], deadline)
+    diag = model.diagnose(base.get("trace", {}), layout, hp)
+    retired = model.count_retired(base.get("trace", {}), layout)
+    ct, tt = model.count_trapped(base.get("trace", {}))
+    crises = knowledge.resolve(notes, diag, retired, {"carry": ct, "total": tt})
+    print(f"  스테이지 위기(볼트): {[c['crisis'] for c in crises] or '없음'}")
+
+    classes: list = []
+    seen_sigs: set = set()
+    seen_minimal: set = set()    # 이미 기록한 *최소 플랜* multiset sig — superset 재발화 시 비싼 sweep 생략
+    extra_rollouts = 0
+    capped = False
+
+    def _record(plan: list, inv: dict, axis: str) -> bool:
+        """클리어 플랜 → **최소화**(잉여/inert 액션 제거) → class 빌드·dedup. 새 class면 True. 빈 플랜([])=
+        무도구 해도 유효 class.
+
+        최소화 필수(codex R2 후속): completion-only forbid은 발견 class의 *정확한* 재구성만 막으므로, 솔버가
+        같은 해에 잉여 액션을 덧붙인 superset(예: 인벤토리 budget 소진으로 inert인 4·5번째 blocker)을 별개
+        class로 과대보고할 수 있다. analyze deletion-minimal로 정규화하면 superset이 원 class로 collapse→dedup
+        (잉여 없는 최소 해만 class 정체성)."""
+        minimal, _redundant = analyze.minimize(roll, plan) if plan else ([], [])
+        # 비싼 range-sweep 전에 cheap 최소-플랜 pre-filter: 정확히 같은 최소 플랜이 이미 기록됐으면(superset이
+        # collapse한 흔한 경우) sweep 생략(codex R4 예산 절약). ±shift 병합은 sweep 후 _class_sig가 잡는다.
+        msig = _plan_multiset_sig(minimal)
+        if msig in seen_minimal:
+            return False
+        seen_minimal.add(msig)
+        cls = _build_class(roll, minimal, cs, grid_cols, inv, axis, SWEEP_CELL_CAP)
+        sig = _class_sig(cls)
+        if sig in seen_sigs:
+            return False
+        seen_sigs.add(sig)
+        cls["class"] = len(classes) + 1
+        classes.append(cls)
+        return True
+
+    def _discover(inv: dict, axis: str) -> None:
+        """한 인벤토리(inv)로 클리어되는 구별 class를 **subset-forbid** 반복으로 발견. 전략 축·인벤토리 축이
+        동일 루프(인벤토리 변형도 다수 class 발견, codex R3). forbid는 공유 classes 전체 대상 — 다른 multiset
+        class는 스킬 multiset 불일치로 포함 불가라 무해.
+
+        subset-forbid이 발견 class와 그 superset(inert-padding)을 직접 차단 → 솔버는 class-미포함 plan(=genuine
+        distinct minimal)만 찾거나 no-clear로 **자연 소진**(uncapped 종료 가능). dead_raw/dry-limit 불요(codex
+        R4~R6 churn 근절). 예산 = solve 롤아웃 + `_record` minimize/sweep(roll.count 델타) 모두 계상.
+
+        종료 = ⓐ no-clear(forbid 하 자연 소진, capped 미set = 완전) ∨ ⓑ extra_cap(capped) ∨ ⓒ seen_raw 반복
+        (정체 안전망, capped). codex R9: plus-형 forbid이 허용하는 미검증 joint 변형이 클리어해 기존 class로
+        dedup되면(=검증된 same-class duplicate, 미발견 증거 아님) 정확 plan을 dead_exact에 넣어 forbid하고
+        **계속**(false-capped 방지) — 단일슬롯 shift와 달리 joint는 plus-형이 안 막으므로 별도 정확-forbid 필요."""
+        nonlocal extra_rollouts, capped
+        seen_raw: set = set()        # 이미 처리한 raw 플랜 sig(솔버 반복 안전망)
+        dead_exact: list = []        # 검증된 same-class joint duplicate(정확 plan) — 재발견 차단(R9)
+        while True:
+            if classes and extra_rollouts >= extra_cap:
+                capped = True
+                print(f"  [추가 탐색 캡 도달] {extra_rollouts}/{extra_cap}롤 — {axis} 탐색 중단.")
+                return
+            charge = bool(classes)   # 첫 class 발견 이후의 탐색만 extra_rollouts로 계상
+            roll0 = roll.count
+            s = {}                   # solve.solve가 stats.update로 cleared/rollouts/final_plan을 채움
+            pred = _make_forbid(classes, dead_exact, cs) if (classes or dead_exact) else None
+            solve.solve(stage_id, max_rollouts, stats=s, save=False, inv_override=inv, forbid=pred)
+
+            def _charge():           # solve(자체 rollouter) + _record(roll: minimize+sweep) 롤아웃 합산
+                nonlocal extra_rollouts
+                if charge:
+                    extra_rollouts += int(s.get("rollouts", 0)) + (roll.count - roll0)
+
+            if not (s.get("cleared") and s.get("final_plan") is not None):
+                _charge()
+                return
+            plan = s["final_plan"]
+            if not plan:
+                _record(plan, inv, axis)   # 무도구 해(빈 플랜) — 베이스라인 클리어. 1회 기록 후 종료.
+                _charge()
+                return
+            rawsig = _plan_multiset_sig(plan)
+            if rawsig in seen_raw:
+                capped = True          # 솔버가 같은 raw 플랜 반복 = 정체(미소진 — 정직하게 capped 표기)
+                _charge()
+                return
+            seen_raw.add(rawsig)
+            is_new = _record(plan, inv, axis)
+            _charge()
+            if not is_new:
+                # plus-형 forbid 하 is_new=False = 검증된 same-class joint duplicate(클리어·기존 class와 동일
+                # sig). 미발견 class 증거 아님(codex R9) → 정확 plan을 dead_exact에 forbid하고 **계속**(false-
+                # capped 방지). sound: joint도 클리어→superset redundant→최소화 시 cls로 collapse=distinct 아님.
+                dead_exact.append(plan)
+                continue
+
+    # ── 축 1: 전략(전체 인벤토리). ── 축 2: 인벤토리 변형(다른 multiset = 다른 class). 둘 다 동일 발견 루프.
+    _discover(base_inv, "strategy")
+    for variant in _inv_variants(base_inv)[1:]:
+        if classes and extra_rollouts >= extra_cap:
+            capped = True
+            print(f"  [추가 탐색 캡 도달] {extra_rollouts}/{extra_cap}롤 — 인벤토리 변형 중단.")
+            break
+        _discover(variant, "inventory")
+
+    # ── 보고서.
+    print(f"\n=== 풀이법 보고서: stage{stage_id:02d} — 구별되는 solution-class {len(classes)}개 ===")
+    for cls in classes:
+        axis_label = {"strategy": "같은 인벤토리·다른 배치/전략", "inventory": "인벤토리 변형"}.get(cls["axis"], cls["axis"])
+        print(f"\n  [class {cls['class']}] {cls['skill_multiset']} (인벤토리 {cls['inventory']}, 축={axis_label})")
+        for slot in cls["slots"]:
+            print(f"      슬롯{slot['slot']}: {_slot_summary(slot)}"
+                  + ("" if not slot.get("provisional") else " ⚠provisional"))
+    if capped:
+        print(f"\n  ⚠ 추가 탐색이 캡({extra_cap}롤)에서 중단 — 미탐색 변형 잔존 가능(search_capped).")
+
+    report = _build_report(stage_id, stage_scene, deadline, base_inv, hp, cs, grid_cols,
+                           [c["crisis"] for c in crises], classes, capped, extra_rollouts)
+    print(f"\nDIVERSE_REPORT {json.dumps(report, ensure_ascii=False)}")
+    if save and classes:
+        out = SOLUTIONS_DIR / f"stage{stage_id:02d}.diverse.json"
+        out.parent.mkdir(exist_ok=True)
+        out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"  diverse 보고서 저장 → {out.relative_to(ROOT)}")
+    return 0
+
+
+def _inv_variants(base: dict) -> list[dict]:
+    """인벤토리 변형(수량/종류 줄임). full + 각 도구 카운트 감소 + (다중이면) 종류 제거. 중복 제거."""
+    variants = [dict(base)]
+    for tool, cnt in base.items():
+        for n in range(cnt - 1, 0, -1):
+            v = dict(base); v[tool] = n; variants.append(v)
+        if len(base) > 1:
+            v = dict(base); v[tool] = 0; variants.append(v)
+    seen, out = set(), []
+    for v in variants:
+        key = tuple(sorted((k, c) for k, c in v.items() if c > 0))
+        if key not in seen:
+            seen.add(key); out.append(v)
+    return out
+
+
+def _build_report(stage_id, stage_scene, deadline, base_inv, hp, cs, grid_cols,
+                  crises, classes, capped, extra_rollouts) -> dict:
+    """diverse.json 스키마(range 기반, 리플레이-ready)를 조립. 각 class = skill_multiset + reference_plan
+    + 슬롯별 검증 구역(intervals/gap_verified) + expect. 게이트(diverse-verify)가 결정론 리플레이로 회귀 강제."""
+    out_classes = []
+    for cls in classes:
+        out_classes.append({
+            "class": cls["class"], "axis": cls["axis"], "skill_multiset": cls["skill_multiset"],
+            "inventory": cls["inventory"], "reference_plan": cls["reference_plan"],
+            "expect": {"cleared": True, "saved": hp},
+            "slots": cls["slots"],
+        })
+    return {
+        "schema_version": DIVERSE_SCHEMA_VERSION,
+        "stage": stage_id, "stage_scene": stage_scene, "deadline_frames": deadline,
+        "given_inventory": base_inv, "candy_hp": hp, "cell_size": cs, "grid_cols": grid_cols,
+        "crises_present": crises, "n_solution_classes": len(out_classes),
+        "search_capped": capped, "extra_rollouts_after_first": extra_rollouts,
+        "solution_classes": out_classes,
+        "note": ("가능성-공간 다양-해 보고서(중립 발견, designer-in-the-loop). class별 reference_plan은 결정론 "
+                 "리플레이-ready, 슬롯 intervals는 검증된 연속 구역(gap_verified=true일 때 병합 권위). "
+                 "axis_independent: 각 축 cross-section이며 joint 곱공간 미주장."),
+    }
+
+
+# ============================================================ (게이트) diverse-verify — 5c
+
+def _coverage_check_diverse(report: dict) -> list[str]:
+    """diverse.json 스키마 정합 선검증(fail-closed). 위반 메시지 목록(빈=통과). 권위 주장(gap_verified·
+    skill_multiset)·필드 완전성·파생 일관성을 검증해 변조/stale을 거부(analyze coverage 선례)."""
+    fails: list[str] = []
+    if report.get("schema_version") != DIVERSE_SCHEMA_VERSION:
+        fails.append("schema_version %r != %d (stale — 재생성 필요)" % (
+            report.get("schema_version"), DIVERSE_SCHEMA_VERSION))
+    cs = report.get("cell_size")
+    if not isinstance(cs, int) or cs <= 0:
+        fails.append("cell_size 양의 정수 아님 (%r)" % cs)
+    # 커밋·게이트 대상 report는 **완전(uncapped)** 이어야(codex R6-MEDIUM): search_capped=true는 budget/loop
+    # 캡으로 탐색이 중단된 것 = 미탐색 class 잔존 가능 → 권위 다양-해로 소비 금지. 완전(no-clear 자연 소진)만 통과.
+    if report.get("search_capped"):
+        fails.append("search_capped=true (불완전 — 게이트/커밋 대상은 uncapped 완전 report여야, --extra-cap 상향 재생성)")
+    classes = report.get("solution_classes")
+    if not isinstance(classes, list) or not classes:
+        fails.append("solution_classes 비어있음 (다양-해 0)")
+        return fails
+    # n_solution_classes 주장 == 실제 class 수(파생 카운트 변조/누락 차단, codex R1-MEDIUM).
+    n_claimed = report.get("n_solution_classes")
+    if n_claimed != len(classes):
+        fails.append("n_solution_classes %r != len(solution_classes) %d" % (n_claimed, len(classes)))
+    for cls in classes:
+        cl = cls.get("class")
+        ref = cls.get("reference_plan")
+        if not isinstance(ref, list) or not isinstance(cls.get("slots"), list):
+            fails.append("class %r reference_plan/slots 형식 오류" % cl)
+            continue
+        # skill_multiset가 reference_plan과 일치(파생 변조 차단).
+        exp_ms = _skill_multiset(ref)
+        if cls.get("skill_multiset") != exp_ms:
+            fails.append("class %r skill_multiset %s != reference 파생 %s" % (cl, cls.get("skill_multiset"), exp_ms))
+        exp = cls.get("expect", {})
+        if exp.get("cleared") is not True or not isinstance(exp.get("saved"), int) or isinstance(exp.get("saved"), bool) or exp.get("saved") < 1:
+            fails.append("class %r expect 부적격(cleared:true + saved 정수≥1 필요): %r" % (cl, exp))
+        if len(cls["slots"]) != len(ref):
+            fails.append("class %r slots %d != reference_plan %d" % (cl, len(cls["slots"]), len(ref)))
+        seen_slot: set = set()
+        for slot in cls["slots"]:
+            si = slot.get("slot")
+            if si in seen_slot:
+                fails.append("class %r duplicate slot %r" % (cl, si))
+            seen_slot.add(si)
+            ri = slot.get("ref_index")
+            if not isinstance(ri, int) or ri < 0 or ri >= len(ref):
+                fails.append("class %r slot %r ref_index 범위 밖 (%r)" % (cl, si, ri))
+                continue
+            # 슬롯 skill/role/timing이 reference_plan[ref_index]에서 파생된 값과 일치(변조 차단).
+            a = ref[ri]
+            if slot.get("skill") != a.get("skill"):
+                fails.append("class %r slot %r skill %r != reference %r" % (cl, si, slot.get("skill"), a.get("skill")))
+            if slot.get("role") != _role_sig(a) or slot.get("timing") != _timing_sig(a):
+                fails.append("class %r slot %r role/timing != reference 파생" % (cl, si))
+            ax = slot.get("placement_axis")
+            if ax == "cell_x":
+                st = slot.get("gap_check_stride")
+                gv, gc = slot.get("gap_verified"), slot.get("gap_coverage")
+                ivs = slot.get("intervals")
+                if isinstance(st, bool) or not isinstance(st, int) or st < 1:
+                    fails.append("class %r slot %r gap_check_stride 양의 정수 아님 (%r)" % (cl, si, st))
+                elif gv != (st == 1):
+                    fails.append("class %r slot %r gap_verified %r != (stride==1) (sampled→full 위장)" % (cl, si, gv))
+                elif gc != ("full@1" if st == 1 else "sampled@%d" % st):
+                    fails.append("class %r slot %r gap_coverage %r 불일치" % (cl, si, gc))
+                dom = slot.get("domain")
+                if not (isinstance(dom, list) and len(dom) == 2 and isinstance(dom[0], int)
+                        and isinstance(dom[1], int) and dom[0] <= dom[1]):
+                    fails.append("class %r slot %r domain 형식 오류 %r" % (cl, si, dom))
+                    dom = None
+                if not isinstance(ivs, list) or not ivs:
+                    fails.append("class %r slot %r cell_x인데 intervals 비어있음" % (cl, si))
+                elif len(ivs) != 1:
+                    # class region = 단일 연속 구역(codex R5-HIGH1). 비연속 다구역은 별개 class라 1개여야.
+                    fails.append("class %r slot %r cell_x intervals 1개 아님(비연속=별개 class) %r" % (cl, si, ivs))
+                else:
+                    for iv in ivs:
+                        if not (isinstance(iv, list) and len(iv) == 2 and isinstance(iv[0], int)
+                                and isinstance(iv[1], int) and iv[0] <= iv[1]):
+                            fails.append("class %r slot %r interval 형식 오류 %r" % (cl, si, iv))
+                        elif dom is not None and (iv[0] < dom[0] or iv[1] > dom[1]):
+                            fails.append("class %r slot %r interval %r 도메인 %r 밖" % (cl, si, iv, dom))
+                # R5 불변식 강제(codex R6-HIGH): fixed_cell이 ① reference에서 파생 ② authoritative interval에
+                # 포함 ③ 샘플됨. 미검증 시 stale/buggy v2가 틀린 clear run을 authoritative로 주장→오병합/forbid.
+                fc = slot.get("fixed_cell")
+                if isinstance(fc, bool) or not isinstance(fc, int):
+                    fails.append("class %r slot %r fixed_cell 정수 아님 (%r)" % (cl, si, fc))
+                else:
+                    exp_fc = _placement_cell(a, cs) if isinstance(cs, int) and cs > 0 else None
+                    if fc != exp_fc:
+                        fails.append("class %r slot %r fixed_cell %r != reference 파생 %r" % (cl, si, fc, exp_fc))
+                    if isinstance(ivs, list) and len(ivs) == 1 and isinstance(ivs[0], list) and len(ivs[0]) == 2 \
+                            and isinstance(ivs[0][0], int) and isinstance(ivs[0][1], int):
+                        if not (ivs[0][0] <= fc <= ivs[0][1]):
+                            fails.append("class %r slot %r fixed_cell %r이 authoritative interval %r 밖"
+                                         % (cl, si, fc, ivs[0]))
+                    sp = slot.get("sampled_points")
+                    if not isinstance(sp, list) or not all(
+                            isinstance(x, int) and not isinstance(x, bool) for x in sp):
+                        fails.append("class %r slot %r sampled_points 정수 리스트 아님 (%r)" % (cl, si, sp))
+                    elif fc not in sp:
+                        fails.append("class %r slot %r fixed_cell %r이 sampled_points에 없음" % (cl, si, fc))
+            elif ax != "none":
+                fails.append("class %r slot %r placement_axis 미상 (%r)" % (cl, si, ax))
+    # 중복 class 거부(codex R2-MEDIUM) — n==len만으론 class id만 다른 중복이 통과해 diversity 과대주장.
+    # 저장된 payload에서 _class_sig 재구성해 유일성 강제(중복=stale/변조 false-green 차단).
+    seen_sig: set = set()
+    for cls in classes:
+        if not isinstance(cls.get("slots"), list):
+            continue                                # 형식 오류는 위에서 이미 플래그
+        try:
+            sig = _class_sig(cls)
+        except Exception:
+            continue                                # 슬롯 불완전(위에서 플래그) — sig 계산 불가
+        if sig in seen_sig:
+            fails.append("class %r 중복(_class_sig 동일) — diversity 과대주장" % cls.get("class"))
+        seen_sig.add(sig)
+    return fails
+
+
+def verify_one_diverse(stage_id: int, workers: int) -> bool:
+    dpath = SOLUTIONS_DIR / f"stage{stage_id:02d}.diverse.json"
+    if not dpath.exists():
+        print("[diverse-verify] stage%02d: diverse.json 없음 — FAIL" % stage_id)
+        return False
+    report = json.loads(dpath.read_text(encoding="utf-8"))
+    # 보고서를 요청 stage에 바인딩(fail-closed, codex R1-MEDIUM) — 파일명만으로 커버리지 인정 금지.
+    # stage12 보고서를 stage13.diverse.json으로 두면 Stage12 리플레이로 false-green 되는 것을 차단.
+    expect_scene = "res://scenes/stages/Stage%02d.tscn" % stage_id
+    if report.get("stage") != stage_id or report.get("stage_scene") != expect_scene:
+        print("[diverse-verify] stage%02d: 보고서 stage/scene 불일치 (stage=%r scene=%r) — FAIL"
+              % (stage_id, report.get("stage"), report.get("stage_scene")))
+        return False
+    cov = _coverage_check_diverse(report)
+    if cov:
+        print("[diverse-verify] stage%02d: coverage FAIL" % stage_id)
+        for c in cov:
+            print("    - %s" % c)
+        return False
+    cs = int(report["cell_size"])
+    required = int(report["candy_hp"])
+    roll = analyze.Rollouter(report["stage_scene"], int(report["deadline_frames"]), required, workers)
+
+    # 재검증 체크 묶음 — class별 reference clear + 각 cell_x 슬롯 interval 경계/내부=clear, 양 끝 밖·gap=fail
+    # (gap_verified 구간만 양 끝 밖 fail 단언; sampled는 내부 clear만). analyze.py --verify와 동형.
+    checks: list = []
+    for cls in report["solution_classes"]:
+        cl = cls["class"]
+        ref = cls["reference_plan"]
+        checks.append(("class%d reference clears" % cl, ref, True))
+        for slot in cls["slots"]:
+            if slot.get("placement_axis") != "cell_x":
+                continue
+            ri = int(slot["ref_index"])
+            stride = int(slot["gap_check_stride"])
+            gv = bool(slot["gap_verified"])
+            dom_lo, dom_hi = slot["domain"]
+            for lo, hi in slot["intervals"]:
+                interior = sorted(set([lo, hi, (lo + hi) // 2] + list(range(lo, hi + 1, stride))))
+                for c in interior:
+                    checks.append(("c%d s%d cell%d=clear" % (cl, slot["slot"], c),
+                                   _make_sweep_plan(ref, ri, c, cs), True))
+                # 경계 밖 fail 단언은 **검증 구역(gap_verified) + 도메인 내부 경계**만(R: 구역이 스윕 도메인
+                # 끝에 닿으면 그 바깥은 미샘플 → fail 미보장, threshold 즉시발화 모호성도 회피). lo>dom_lo이면
+                # lo-1은 스윕된 fail 셀, hi<dom_hi이면 hi+1은 스윕된 fail 셀이라 결정론 재현된다.
+                if gv and lo > dom_lo:
+                    checks.append(("c%d s%d cell%d(下)밖=fail" % (cl, slot["slot"], lo - 1),
+                                   _make_sweep_plan(ref, ri, lo - 1, cs), False))
+                if gv and hi < dom_hi:
+                    checks.append(("c%d s%d cell%d(上)밖=fail" % (cl, slot["slot"], hi + 1),
+                                   _make_sweep_plan(ref, ri, hi + 1, cs), False))
+            for glo, ghi in slot.get("gaps", []):
+                checks.append(("c%d s%d gap[%d,%d]=fail" % (cl, slot["slot"], glo, ghi),
+                               _make_sweep_plan(ref, ri, (glo + ghi) // 2, cs), False))
+
+    results = roll.batch_results([c[1] for c in checks])
+    ok_all = True
+    for (desc, _plan, expect_clear), res in zip(checks, results):
+        why = analyze._verdict_check(res, expect_clear, required)
+        if why:
+            print("[diverse-verify] stage%02d FAIL: %s (%s)" % (stage_id, desc, why))
+            ok_all = False
+    if ok_all:
+        print("[diverse-verify] stage%02d PASS (%d 체크, %d 롤아웃)" % (stage_id, len(checks), roll.count))
+    return ok_all
+
+
+def _diverse_stage_ids() -> list[int]:
+    import re
+    ids = []
+    for p in sorted(SOLUTIONS_DIR.glob("stage*.diverse.json")):
+        m = re.match(r"stage(\d+)\.diverse\.json$", p.name)
+        if m:
+            ids.append(int(m.group(1)))
+    return ids
+
+
+def _selfcheck_diverse() -> bool:
+    """게이트 검출기(`_coverage_check_diverse`) 음성/양성 자가검증 — fail-open 회귀 방지(analyze
+    `_selfcheck_gate` 선례). 검출기가 약해지면 verify 자체가 먼저 FAIL한다."""
+    def good() -> dict:
+        ref = [
+            {"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "y_min": 1.0, "y_max": 2.0},
+             "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 24.0}},
+            {"skill": "climber", "target": {"mode": "ant", "select": "min_x", "state": "carrying"},
+             "trigger": {"type": "picked_ge", "n": 1}},
+        ]
+        return {
+            "schema_version": DIVERSE_SCHEMA_VERSION, "cell_size": 48, "n_solution_classes": 1,
+            "solution_classes": [{
+                "class": 1, "axis": "strategy", "skill_multiset": {"blocker": 1, "climber": 1},
+                "inventory": {"blocker": 1, "climber": 1}, "reference_plan": ref,
+                "expect": {"cleared": True, "saved": 5},
+                "slots": [
+                    {"slot": 0, "ref_index": 0, "skill": "blocker",
+                     "role": {"mode": "ant", "select": "min_x", "state": "any", "band": [1.0, 2.0]},
+                     "timing": {"trigger_type": "ant_reaches_x", "cmp": "le"},
+                     "placement_axis": "cell_x", "fixed_cell": 0, "intervals": [[0, 1]], "gaps": [],
+                     "range_sampled": True, "gap_check_stride": 1, "gap_verified": True,
+                     "gap_coverage": "full@1", "axis_independent": True, "provisional": False,
+                     "domain": [0, 18], "sampled_points": list(range(0, 19))},
+                    {"slot": 1, "ref_index": 1, "skill": "climber",
+                     "role": {"mode": "ant", "select": "min_x", "state": "carrying"},
+                     "timing": {"trigger_type": "picked_ge", "n": 1},
+                     "placement_axis": "none", "fixed_cell": None, "intervals": [], "gaps": [],
+                     "range_sampled": False, "gap_check_stride": None, "gap_verified": False,
+                     "gap_coverage": "none", "axis_independent": True, "provisional": False},
+                ],
+            }],
+        }
+    cases: list = [(good(), False)]
+    a = good(); del a["schema_version"]; cases.append((a, True))                          # 스키마 누락
+    a = good(); a["schema_version"] = 99; cases.append((a, True))                         # 스키마 버전 불일치
+    a = good(); a["solution_classes"] = []; cases.append((a, True))                       # 빈 class
+    a = good(); a["n_solution_classes"] = 9; cases.append((a, True))                       # n 주장 != 실제
+    a = good(); a["solution_classes"][0]["skill_multiset"] = {"blocker": 9}; cases.append((a, True))  # multiset 변조
+    a = good(); a["solution_classes"][0]["expect"] = {"cleared": True, "saved": 0}; cases.append((a, True))  # 약한 expect
+    a = good(); a["solution_classes"][0]["expect"] = {"cleared": False, "saved": 5}; cases.append((a, True))  # cleared 위장
+    a = good(); a["solution_classes"][0]["slots"][0]["gap_verified"] = False; cases.append((a, True))  # stride1인데 gv=false
+    a = good(); a["solution_classes"][0]["slots"][0]["gap_coverage"] = "full@9"; cases.append((a, True))  # coverage 불일치
+    a = good(); a["solution_classes"][0]["slots"][0]["gap_check_stride"] = 0; cases.append((a, True))  # stride 비양수
+    a = good(); a["solution_classes"][0]["slots"][0]["intervals"] = []; cases.append((a, True))  # cell_x 빈 intervals
+    a = good(); a["solution_classes"][0]["slots"][0]["ref_index"] = 9; cases.append((a, True))  # ref_index 범위 밖
+    a = good(); a["solution_classes"][0]["slots"][0]["role"] = {"mode": "ant", "select": "max_x", "state": "any"}; cases.append((a, True))  # role 변조
+    a = good(); a["solution_classes"][0]["slots"][0]["timing"] = {"trigger_type": "ant_reaches_x", "cmp": "ge"}; cases.append((a, True))  # timing 변조
+    a = good(); a["solution_classes"][0]["slots"].pop(); cases.append((a, True))          # slots count 불일치
+    a = good(); a["solution_classes"][0]["slots"][0]["placement_axis"] = "weird"; cases.append((a, True))  # 미상 axis
+    a = good()                                                                            # 중복 class(id만 다름)
+    dup = json.loads(json.dumps(a["solution_classes"][0])); dup["class"] = 2
+    a["solution_classes"].append(dup); a["n_solution_classes"] = 2
+    cases.append((a, True))
+    a = good(); a["solution_classes"][0]["slots"][0]["fixed_cell"] = 5; cases.append((a, True))  # fixed_cell이 interval[[0,1]] 밖
+    a = good(); a["search_capped"] = True; cases.append((a, True))                         # 불완전(capped) 커밋 거부
+    a = good(); del a["solution_classes"][0]["slots"][0]["sampled_points"]; cases.append((a, True))  # sampled_points 누락
+    a = good(); a["solution_classes"][0]["slots"][0]["sampled_points"] = "x"; cases.append((a, True))  # sampled_points 비-리스트
+    a = good()
+    a["solution_classes"][0]["slots"][0].update({"gap_check_stride": 3, "gap_verified": False,
+                                                 "gap_coverage": "sampled@3", "intervals": [[0, 6]], "provisional": True})
+    cases.append((a, False))                                                              # sampled(stride>1) 정합 → 통과
+    for report, should_reject in cases:
+        if bool(_coverage_check_diverse(report)) != should_reject:
+            print("[diverse-verify] GATE SELFCHECK FAIL: should_reject=%s\n  %s" % (
+                should_reject, json.dumps(report.get("solution_classes"), ensure_ascii=False)[:300]))
+            return False
+    return True
+
+
+def _selfcheck_class_sig() -> bool:
+    """`_class_sig` 동치 규칙 자가검증(codex R1-HIGH ×2 회귀 가드): ① gap_verified 같은 intervals=병합 ②
+    provisional 다른 fixed_cell=비병합(미검증 병합 금지) ③ 다른 y-band=비병합. 규칙이 약해지면 verify가 먼저 FAIL."""
+    def slot(cell, gv, intervals, band):
+        return {"placement_axis": "cell_x", "fixed_cell": cell, "gap_verified": gv,
+                "intervals": intervals, "skill": "blocker",
+                "role": {"mode": "ant", "select": "min_x", "state": "any", "band": band},
+                "timing": {"trigger_type": "ant_reaches_x", "cmp": "le"}}
+    def cls(s):
+        return {"skill_multiset": {"blocker": 1}, "slots": [s]}
+    def cls2(s_a, s_b):
+        return {"skill_multiset": {"blocker": 2}, "slots": [s_a, s_b]}
+    # ④ 같은 셀 두 슬롯의 순서 역전 → 같은 sig(순서 무관 canonical, codex R3-HIGH). role band로 구분.
+    sa = slot(4, True, [[0, 8]], [1.0, 2.0])
+    sb = slot(4, True, [[0, 8]], [4.0, 5.0])
+    checks = [
+        # ① 검증 구역 동일·셀만 다름 → 병합(같은 sig)
+        (_class_sig(cls(slot(2, True, [[0, 4]], [1.0, 2.0]))) ==
+         _class_sig(cls(slot(3, True, [[0, 4]], [1.0, 2.0])))),
+        # ② provisional·다른 셀 → 비병합(다른 sig)
+        (_class_sig(cls(slot(2, False, [[0, 6]], [1.0, 2.0]))) !=
+         _class_sig(cls(slot(5, False, [[0, 6]], [1.0, 2.0])))),
+        # ③ 다른 y-band → 비병합(다른 sig)
+        (_class_sig(cls(slot(2, True, [[0, 4]], [1.0, 2.0]))) !=
+         _class_sig(cls(slot(2, True, [[0, 4]], [4.0, 5.0])))),
+        # ④ same-cell 슬롯 순서 역전 → 같은 sig(순서 의존 false-positive 제거)
+        (_class_sig(cls2(sa, sb)) == _class_sig(cls2(sb, sa))),
+    ]
+    if not all(checks):
+        print("[diverse-verify] CLASS_SIG SELFCHECK FAIL: %s" % checks)
+        return False
+    return True
+
+
+def _selfcheck_forbid() -> bool:
+    """`_make_forbid` subset-forbid 가드: base+[action]이 발견 class를 **sub-multiset 포함**하면 금지(자신+
+    superset 차단)하되, ① 슬롯 하나만 공유(class 전체 미포함)하는 distinct class ② class 미완성 partial은 허용."""
+    cs = 48
+    def blk(cell):
+        return {"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "y_min": 1.0, "y_max": 2.0},
+                "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": (cell + 0.5) * cs}}
+    def carry():
+        return {"skill": "climber", "target": {"mode": "ant", "select": "min_x", "state": "carrying"},
+                "trigger": {"type": "picked_ge", "n": 1}}
+    cls1 = {"skill_multiset": {"blocker": 1, "climber": 1}, "slots": [
+        {"slot": 0, "skill": "blocker", "role": _role_sig(blk(2)), "timing": _timing_sig(blk(2)),
+         "placement_axis": "cell_x", "fixed_cell": 2, "gap_verified": True, "intervals": [[0, 4]]},
+        {"slot": 1, "skill": "climber", "role": _role_sig(carry()), "timing": _timing_sig(carry()),
+         "placement_axis": "none", "fixed_cell": None, "gap_verified": False, "intervals": []},
+    ]}
+    forbid = _make_forbid([cls1], [], cs)
+    # 2 cell_x 슬롯 class(codex R8 plus-형 forbid): slot0 fixed5 interval[0,10], slot1 fixed0 interval[0,4].
+    cls_ov = {"skill_multiset": {"blocker": 2}, "slots": [
+        {"slot": 0, "skill": "blocker", "role": _role_sig(blk(5)), "timing": _timing_sig(blk(5)),
+         "placement_axis": "cell_x", "fixed_cell": 5, "gap_verified": True, "intervals": [[0, 10]]},
+        {"slot": 1, "skill": "blocker", "role": _role_sig(blk(0)), "timing": _timing_sig(blk(0)),
+         "placement_axis": "cell_x", "fixed_cell": 0, "gap_verified": True, "intervals": [[0, 4]]},
+    ]}
+    forbid_ov = _make_forbid([cls_ov], [], cs)
+    # dead_exact(codex R9): 검증된 joint 변형을 정확+superset만 forbid하되 distinct는 허용.
+    dead = [blk(2), blk(8)]
+    forbid_de = _make_forbid([], [dead], cs)
+    checks = [
+        forbid(blk(2), [carry()]) is True,        # reference(slot0 exact2)+carry = 포함 → 금지
+        forbid(blk(3), [carry()]) is True,        # slot0만 interval[0,4] shift(단일 cell_x=flex) = 검증 변형 → 금지
+        forbid(blk(2), [carry(), blk(7)]) is True,  # reference 포함 + 잉여 blk@7 = superset → 금지(inert-padding 차단)
+        forbid(blk(10), [carry()]) is False,      # blocker@10(구역[0,4] 밖)=미포함 distinct → 허용
+        forbid(carry(), []) is False,             # carry만(blocker 슬롯 누락) = 미포함 → 허용
+        forbid(blk(2), []) is False,              # blocker만(none 슬롯 누락) = 미포함 → 허용
+        forbid_ov(blk(5), [blk(0)]) is True,      # reference(slot0=5,slot1=0 둘 다 exact) 포함 → 금지(Kuhn)
+        forbid_ov(blk(3), [blk(0)]) is True,      # slot0만 interval shift(slot1 exact0) = 검증 단일-shift → 금지
+        forbid_ov(blk(2), [blk(3)]) is False,     # slot0·slot1 동시 shift = 미검증 joint → 허용(over-block 안 함)
+        forbid_de(blk(8), [blk(2)]) is True,      # dead 정확 재구성 → 금지(R9 검증 joint duplicate)
+        forbid_de(blk(8), [blk(2), blk(5)]) is True,  # dead ⊆ plan(superset) → 금지
+        forbid_de(blk(9), [blk(2)]) is False,     # dead 미포함(blk8 없음) → 허용(distinct)
+    ]
+    if not all(checks):
+        print("[diverse-verify] FORBID SELFCHECK FAIL: %s" % checks)
+        return False
+    return True
+
+
+def verify_diverse(stage_ids: list[int], workers: int) -> int:
+    print("[diverse-verify] diverse.json 게이트 재검증: %s" % ["stage%02d" % s for s in stage_ids])
+    if not _selfcheck_diverse() or not _selfcheck_class_sig() or not _selfcheck_forbid():
+        return 1
+    if not stage_ids:        # fail-closed — 검증 대상 0개 = 통과 아닌 실패(빈 통과 위장 차단).
+        print("[diverse-verify] FAIL - 검증할 diverse.json 없음")
+        return 1
+    all_ok = True
+    for sid in stage_ids:
+        if not verify_one_diverse(sid, workers):
+            all_ok = False
+    if all_ok:
+        print("[diverse-verify] PASS - all %d diverse 게이트 그린" % len(stage_ids))
+        return 0
+    print("[diverse-verify] FAIL")
+    return 1

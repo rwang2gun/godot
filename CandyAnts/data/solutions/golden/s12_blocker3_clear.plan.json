@@ -1,0 +1,23 @@
+{
+  "stage": "res://scenes/stages/Stage12.tscn",
+  "deadline_frames": 7000,
+  "expect": {"cleared": true, "min_saved": 5, "actions_fired": 3},
+  "note": "ANT 대상 다중 액션(blocker x3) 양성 클리어. spike(solve_spike)가 발견한 왕복 해를 PlanRunner 스키마로 포팅 — 손드라이버가 time_out으로 못 풀던 레벨(D4). frame=2385로 spike와 바이트 동일 재현.",
+  "actions": [
+    {
+      "skill": "blocker",
+      "target": {"mode": "ant", "select": "min_x", "y_min": 584.0, "y_max": 648.0},
+      "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 72.0}
+    },
+    {
+      "skill": "blocker",
+      "target": {"mode": "ant", "select": "max_x", "y_min": 440.0, "y_max": 504.0},
+      "trigger": {"type": "ant_reaches_x", "cmp": "ge", "x": 264.0}
+    },
+    {
+      "skill": "blocker",
+      "target": {"mode": "ant", "select": "max_x", "y_min": 296.0, "y_max": 360.0},
+      "trigger": {"type": "ant_reaches_x", "cmp": "ge", "x": 312.0}
+    }
+  ]
+}

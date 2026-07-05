@@ -1,0 +1,83 @@
+{
+ "stage": "res://scenes/stages/Stage23.tscn",
+ "deadline_frames": 12000,
+ "expect": {
+  "cleared": true,
+  "saved": 7
+ },
+ "actions": [
+  {
+   "skill": "floater",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 240,
+    "y_max": 360
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 312
+   }
+  },
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 600,
+    "y_max": 99999,
+    "dir": 0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 40
+   }
+  },
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     15,
+     14
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     19,
+     10
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "bridge",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "state": "carrying",
+    "y_min": 100,
+    "y_max": 400
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 790.0
+   }
+  }
+ ],
+ "note": "사용자 의도-해(엔진 검증 saved=7/7). 레벨 (15,6) 제거 수정 반영: 귀환 bridge 트리거 col15→col16(le 790). 솔버 자동발견 아님(propose 후보는 완비, greedy score가 anti-greedy 4단계 floater 경로 미commit — 5f 재설계 타깃). 회귀 기준."
+}

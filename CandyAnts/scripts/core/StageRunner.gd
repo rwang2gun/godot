@@ -1,5 +1,11 @@
 class_name StageRunner extends Node
 
+# auto-solver Phase 1 (codex R3 HIGH) — verdict의 **인스턴스-스코프** 사본. 글로벌 EventBus.stage_cleared/
+# failed는 그대로 emit(게임/UI/SaveData/SceneFlow 의존)하되, 솔버 하니스(PlanRunner)가 *자기 스테이지의*
+# verdict만 구독해 글로벌 버스 cross-talk(같은 stage_id 동시/stale 런)를 구조적으로 차단하도록, 같은
+# 결과 dict를 이 인스턴스 시그널로도 발행한다. 판정 자체는 무수정 게임 코드가 그대로 계산(D4 불변).
+signal concluded(result: Dictionary)
+
 const GameAction := preload("res://scripts/input/GameAction.gd")
 const RR_STEP: int = 5
 
@@ -28,6 +34,9 @@ var _toolbar: Node = null
 var _spawn_parent: Node = null
 
 var _time_left: float = 0.0
+# 결정론 모드 타임아웃 — _process delta 누적 대신 begin() 시점 물리-프레임 기준 경과로 time_left 산출.
+# delta 누적은 process/physics 프레임 비대칭에서 비결정적일 수 있어, 전역 물리 프레임 카운터에서 직접 계산.
+var _begin_frame: int = 0
 var _completed: bool = false
 var _spawner_finished: bool = false
 # Phase 4 — begin() 게이트. 카드 표시 중에는 false라 _process가 타이머/종료 판정을 진행하지 않고
@@ -149,6 +158,7 @@ func begin() -> void:
 	if _begun:
 		return
 	_begun = true
+	_begin_frame = Engine.get_physics_frames()
 	if _spawner != null:
 		print("[StageRunner] begin Stage ", stage_data.id if stage_data != null else -1)
 		_spawner.start(_spawn_parent)
@@ -162,7 +172,12 @@ func _process(delta: float) -> void:
 	if not _begun or _completed or stage_data == null:
 		return
 
-	_time_left = max(0.0, _time_left - delta)
+	# 결정론 모드: 전역 물리 프레임 경과로 time_left 산출(delta 누적 비결정성 회피). 기본: 종전 delta 차감.
+	if SimConfig.deterministic:
+		var elapsed: float = float(Engine.get_physics_frames() - _begin_frame) / float(Engine.physics_ticks_per_second)
+		_time_left = max(0.0, stage_data.time_limit_seconds - elapsed)
+	else:
+		_time_left = max(0.0, _time_left - delta)
 	if _hud != null and _hud.has_method("update_time"):
 		_hud.update_time(_time_left)
 
@@ -194,12 +209,15 @@ func _conclude_stage(fail_reason: String) -> void:
 	# 클리어 = 별 1개 이상 = 사탕 조각 1개 이상 회수 (Scoring 규칙 단일 SoT, HP 무관).
 	var cleared: bool = Scoring.compute_stars(score_system.saved_pieces, score_system.original_hp) >= 1
 	# Phase 20 — sfx_request emit (id only). receiver는 phase 21에서 connect.
+	var result: Dictionary = _make_result(cleared, "" if cleared else (fail_reason if fail_reason != "" else "incomplete"))
 	if cleared:
 		EventBus.sfx_request.emit(&"stage_cleared")
-		EventBus.stage_cleared.emit(_make_result(true, ""))
+		EventBus.stage_cleared.emit(result)
 	else:
 		EventBus.sfx_request.emit(&"stage_failed")
-		EventBus.stage_failed.emit(_make_result(false, fail_reason if fail_reason != "" else "incomplete"))
+		EventBus.stage_failed.emit(result)
+	# 인스턴스-스코프 사본(auto-solver) — 같은 결과 dict. 글로벌 emit과 동시 발행(게임 동작 불변).
+	concluded.emit(result)
 	_disable_toolbar()
 
 func _disable_toolbar() -> void:
@@ -248,14 +266,16 @@ func _living_ant_count() -> int:
 			continue
 		if not _spawn_parent.is_ancestor_of(n):
 			continue
-		# 2026-06-04 — 물 표류(AdriftState)·낙하 기절(DeadState) 개미는 정상 루트 복귀 불가한 종착 상태라
-		# "남은 개미"에서 제외. 종료까지 queue_free되지 않고 그룹에 남아도 no_more_ants(스테이지 종료)
-		# 판정을 막지 않도록 한다(기절도 표류처럼 종료까지 화면에 유지되는 정책으로 통일).
+		# 종착(terminal) 개미는 "남은 개미"에서 제외 — 정상 루트로 사탕을 더 옮길 수 없어 no_more_ants
+		# (스테이지 종료) 판정을 막으면 안 된다. terminal 식별은 Ant.is_alive() 단일 진입점으로 통일한다
+		# (SavedState/DeadState/SettledState/LostState/AdriftState). 직접 상태 나열은 신규 terminal 누락을
+		# 부른다 — 2026-06-20: SettledState(floater 낙하산 분배자 정착)가 빠져 있어, 분배자가 정착한 뒤
+		# 다른 개미가 모두 종착해도 살아있는 개미로 카운트돼 no_more_ants가 발화하지 못하고 time_out까지
+		# 대기하던 버그를 수정. AdriftState(swim 표류)·DeadState(기절)·SettledState(분배자 정착)는
+		# queue_free 없이 종료까지 그룹에 남으므로 본 가드가 특히 중요(SavedState/LostState는 queue_free).
 		var a: Ant = n as Ant
-		if a != null and a.state_machine != null:
-			var st: AntState = a.state_machine.current_state
-			if st is AdriftState or st is DeadState:
-				continue
+		if a != null and a.state_machine != null and not a.is_alive():
+			continue
 		count += 1
 	return count
 

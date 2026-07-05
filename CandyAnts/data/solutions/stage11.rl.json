@@ -1,0 +1,130 @@
+{
+ "stage": "res://scenes/stages/Stage11.tscn",
+ "stage_id": 11,
+ "deadline_frames": 7000,
+ "inventory": {
+  "blocker": 1
+ },
+ "actions": [
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 528.0,
+    "y_max": 576.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "ge",
+    "x": 888.0
+   }
+  }
+ ],
+ "expect": {
+  "cleared": true,
+  "saved": 4
+ },
+ "rl_meta": {
+  "grammar_version": "r1.1",
+  "no_hint": true,
+  "envs_requested": 4,
+  "envs_effective": 4,
+  "config": {
+   "batch": 16,
+   "lr": 0.003,
+   "entropy": 0.03,
+   "entropy_min": 0.02,
+   "entropy_decay": 0.997,
+   "hidden": 128,
+   "greedy_every": 5,
+   "baseline_decay": 0.9,
+   "max_len": 6,
+   "train_deadline": 3000,
+   "replay_deadline": 7000,
+   "shaping": "none",
+   "sil": false,
+   "sil_buffer": 8,
+   "sil_coef": 0.1,
+   "max_episodes": 20000,
+   "max_wall": 7200,
+   "reward": {
+    "cleared": 2.0,
+    "saved": 1.0,
+    "picked": 0.3,
+    "lost": -0.2,
+    "len_penalty": -0.02,
+    "timeout_penalty": -0.1
+   },
+   "shaping_coeffs": {
+    "goal": 0.5,
+    "retired": 0.1
+   }
+  },
+  "pass": true,
+  "pass_rule": ">=2/3 seeds greedy clear within per-seed budget",
+  "seeds": [
+   {
+    "seed": 0,
+    "cleared": true,
+    "episodes": 80,
+    "wall_s": 12.6,
+    "best_reward": 3.28
+   },
+   {
+    "seed": 1,
+    "cleared": true,
+    "episodes": 80,
+    "wall_s": 15.3,
+    "best_reward": 3.28
+   },
+   {
+    "seed": 2,
+    "cleared": true,
+    "episodes": 320,
+    "wall_s": 49.9,
+    "best_reward": 3.28
+   }
+  ],
+  "curves": {
+   "0": [
+    -0.0325,
+    -0.0138,
+    -0.02,
+    0.23,
+    -0.02
+   ],
+   "1": [
+    -0.02,
+    0.1862,
+    0.1862,
+    -0.045,
+    0.1675
+   ],
+   "2": [
+    -0.0263,
+    -0.0387,
+    -0.0263,
+    -0.0263,
+    -0.02,
+    -0.0138,
+    -0.0138,
+    -0.0263,
+    -0.02,
+    -0.0075,
+    -0.0138,
+    -0.0263,
+    -0.0325,
+    -0.0013,
+    -0.0138,
+    -0.0075,
+    0.2112,
+    0.03,
+    0.2175,
+    0.1987
+   ]
+  },
+  "best_seed": 0
+ }
+}

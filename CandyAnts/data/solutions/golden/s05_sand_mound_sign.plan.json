@@ -1,0 +1,9 @@
+{
+  "stage": "res://scenes/stages/Stage05.tscn",
+  "deadline_frames": 9000,
+  "expect": {"cleared": false, "saved": 0, "actions_fired": 1, "reason": "incomplete", "picked": true, "max_best_min_y": 300.0},
+  "note": "CELL 대상 SIGN(sand_mound 표지판) 충실성 케이스. 하단 표면 위 셀에 사다리 표지판 설치 → 개미가 등반·픽업하나 귀환 실패로 게임 'incomplete' verdict(D4). 클리어 아님. effect-invariant(codex R1 MED-3): picked=true + best_min_y<=300 (빈 플랜 baseline=picked false·best_min_y 520) → 사다리가 실제로 작동해 개미가 candy 높이까지 등반했음을 핀. 설치/발동이 깨지면 picked false·best_min_y~520으로 FAIL.",
+  "actions": [
+    { "skill": "sand_mound", "target": {"mode": "cell", "cell": [16, 10]}, "trigger": {"type": "at_frame", "frame": 0} }
+  ]
+}

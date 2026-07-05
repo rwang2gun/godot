@@ -1,0 +1,9 @@
+{
+  "stage": "res://scenes/stages/Stage08.tscn",
+  "deadline_frames": 9000,
+  "expect": {"cleared": false, "saved": 0, "actions_fired": 1, "reason": "time_out", "max_best_min_y": 450.0},
+  "note": "CELL 대상 DEVICE(leaf_jump 점프대) 충실성 케이스. 표면 위 셀에 점프대 설치 → 개미가 점프하나 클리어 못함, 게임 time_out verdict(D4). effect-invariant(codex R1 MED-3): best_min_y<=450 (빈 플랜 baseline=472, 점프 시 380) → 점프 포물선이 실제로 발동해 개미가 상승했음을 핀. 설치/발동이 깨지면 best_min_y~472로 FAIL.",
+  "actions": [
+    { "skill": "leaf_jump", "target": {"mode": "cell", "cell": [10, 9]}, "trigger": {"type": "at_frame", "frame": 0} }
+  ]
+}

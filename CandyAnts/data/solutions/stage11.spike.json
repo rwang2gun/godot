@@ -1,0 +1,26 @@
+{
+  "stage": "res://scenes/stages/Stage11.tscn",
+  "blocker_budget": 1,
+  "actions": [
+    {
+      "sel": "max_x",
+      "cmp": "ge",
+      "x": 1032.0,
+      "y_min": 536.0,
+      "y_max": 600.0
+    }
+  ],
+  "labels": [
+    "r12:max_xge21"
+  ],
+  "result": {
+    "best_min_y": 424.424041748047,
+    "blockers_used": 1,
+    "cleared": true,
+    "frame": 1782,
+    "hp": 4,
+    "lost": 0,
+    "reason": "",
+    "saved": 4
+  }
+}

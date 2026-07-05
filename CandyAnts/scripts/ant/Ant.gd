@@ -43,6 +43,9 @@ var direction: int = 1
 # per-ant 최초 스폰 방향(spawn_direction_alternate 분기 결과 포함). Home._on_respawn_timeout에서
 # 빈손 귀가 후 재등장 시 이 값으로 복원해 스폰 방향과 동일한 방향으로 다시 나오게 한다.
 var _spawn_direction: int = 1
+# 스폰 순번(0-based) — AntSpawner._spawn_one이 add_child 전에 세팅. 결정론 셀렉터/리플레이의 안정적
+# tie-break 키(instance_id는 reload·실행 간 달라져 부적합). 미세팅(직접 생성)이면 -1.
+var spawn_index: int = -1
 var has_been_carrying: bool = false
 # state(CarryingState)와 무관하게 사탕 보유 여부를 추적. CarryingState.enter()에서 true,
 # Home에 운반 성공 시 false. Faller/Walker 전이로도 잃지 않음 — Codex review HIGH 대응.
@@ -72,7 +75,11 @@ var basher_armed: bool = false
 # (연결 덩쿨 flood-fill 일괄 절단 후 해제). 이미 식물 벽에서 부여하면 apply가 즉시 처리.
 var cutter_armed: bool = false
 var state_machine: AntStateMachine = null
+# 스폰/리스폰 grace — 스폰 위치가 Home Area2D 내부라 직후 body_entered가 즉시 발화하는 것을 차단.
+# 기본(SimConfig.deterministic=false): 벽시계 컷오프(_grace_until, 초). 결정론 모드: 물리-프레임 컷오프
+# (_grace_until_frame). arm_spawn_grace/in_spawn_grace 단일 진입점이 모드 분기를 감춘다(Home도 위임).
 var _grace_until: float = 0.0
+var _grace_until_frame: int = 0
 var _blocker_hitbox: Area2D = null
 # Phase 4 sweep round8 — overlap-lifetime idempotency (Codex round 4–7 HIGH 종합 대응):
 # (1) `_active_blocker_overlaps` (per-pair): 같은 (blocker, walker) 쌍이 active overlap
@@ -143,7 +150,7 @@ const LEAF_NO_LANDING: Vector2i = Vector2i(2147483647, 2147483647)
 var _leaf_jumping: bool = false
 
 func _ready() -> void:
-	_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
+	arm_spawn_grace()
 	_spawn_direction = direction
 	add_to_group("ants")
 	state_machine = $StateMachine
@@ -725,6 +732,20 @@ func effective_speed() -> float:
 func stun_fall_threshold() -> float:
 	# 기절 임계 낙하 거리(px). FallerState 착지 시 (착지y − 시작y) >= 이 값 + floater 미보유 → DeadState(기절).
 	return float(STUN_FALL_CELLS) * _cell_size
+
+# 스폰/리스폰 직후 grace 무장 — Home Area2D 즉시 재발화 차단. 결정론 모드는 물리-프레임 컷오프,
+# 기본은 벽시계. spawn_grace_seconds 의미 동일(time_scale=1에서 동일 프레임 수). Ant._ready + Home 리스폰 공용.
+func arm_spawn_grace() -> void:
+	if SimConfig.deterministic:
+		_grace_until_frame = Engine.get_physics_frames() + SimConfig.seconds_to_frames(spawn_grace_seconds)
+	else:
+		_grace_until = Time.get_ticks_msec() / 1000.0 + spawn_grace_seconds
+
+# grace 기간 내인지 — Home._on_body_entered가 spawn/respawn 직후 1회 발화 차단에 사용(모드 분기 캡슐화).
+func in_spawn_grace() -> bool:
+	if SimConfig.deterministic:
+		return Engine.get_physics_frames() < _grace_until_frame
+	return Time.get_ticks_msec() / 1000.0 < _grace_until
 
 func flip() -> void:
 	direction = -direction

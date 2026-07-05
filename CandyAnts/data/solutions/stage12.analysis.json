@@ -1,0 +1,260 @@
+{
+  "analysis_schema_version": 3,
+  "solution_ref": "data/solutions/stage12.solve.json",
+  "solution_sha256": "abd6b06a16a30fb4d2a75380d9cb2e7b1468ae0ee7b47d6b1c5168086843c34e",
+  "stage": "res://scenes/stages/Stage12.tscn",
+  "deadline_frames": 7500,
+  "required_saved": 5,
+  "physics_fps": 60,
+  "cell_size": 48,
+  "minimal_kind": "1-minimal",
+  "minimal_plan": [
+    {
+      "skill": "blocker",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "y_min": 568.0,
+        "y_max": 680.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "le",
+        "x": 24.0
+      }
+    },
+    {
+      "skill": "blocker",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "y_min": 424.0,
+        "y_max": 536.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "ge",
+        "x": 888.0
+      }
+    },
+    {
+      "skill": "blocker",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "y_min": 280.0,
+        "y_max": 392.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "le",
+        "x": 312.0
+      }
+    }
+  ],
+  "redundant": [],
+  "baseline": {
+    "cleared": true,
+    "saved": 5,
+    "frame": 2981
+  },
+  "per_action": [
+    {
+      "index": 0,
+      "label": "blocker#0",
+      "skill": "blocker",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 0,
+        "target_pos": [
+          22.5003032684326,
+          616.425231933594
+        ]
+      },
+      "baseline_frame": 280,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 0,
+        "state": "any"
+      },
+      "time_window": {
+        "lo": 169,
+        "hi": 301,
+        "width_frames": 133,
+        "width_s": 2.2167,
+        "intervals": [
+          [
+            169,
+            301
+          ]
+        ],
+        "gaps": [],
+        "gap_check_stride": 14,
+        "gap_verified": false,
+        "gap_coverage": "sampled@14",
+        "incomplete": false,
+        "domain": [
+          168,
+          328
+        ],
+        "rollouts": 36
+      },
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 0,
+        "x_hi": 143,
+        "cells": [
+          0,
+          2
+        ],
+        "width_cells": 3
+      },
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 1,
+      "label": "blocker#1",
+      "skill": "blocker",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 1,
+        "target_pos": [
+          888.0,
+          472.425262451172
+        ]
+      },
+      "baseline_frame": 947,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 1,
+        "state": "any"
+      },
+      "time_window": {
+        "lo": 755,
+        "hi": 969,
+        "width_frames": 215,
+        "width_s": 3.5833,
+        "intervals": [
+          [
+            755,
+            969
+          ]
+        ],
+        "gaps": [],
+        "gap_check_stride": 23,
+        "gap_verified": false,
+        "gap_coverage": "sampled@23",
+        "incomplete": false,
+        "domain": [
+          707,
+          995
+        ],
+        "rollouts": 39
+      },
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 576,
+        "x_hi": 911,
+        "cells": [
+          12,
+          18
+        ],
+        "width_cells": 7
+      },
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    },
+    {
+      "index": 2,
+      "label": "blocker#2",
+      "skill": "blocker",
+      "trigger_axis": "time",
+      "target": {
+        "kind": "ant",
+        "spawn_index": 2,
+        "target_pos": [
+          310.500061035156,
+          328.425262451172
+        ]
+      },
+      "baseline_frame": 1423,
+      "sweep_target": {
+        "mode": "ant",
+        "select": "spawn_index",
+        "spawn_index": 2,
+        "state": "any"
+      },
+      "time_window": {
+        "lo": 1358,
+        "hi": 1438,
+        "width_frames": 81,
+        "width_s": 1.35,
+        "intervals": [
+          [
+            1358,
+            1438
+          ]
+        ],
+        "gaps": [],
+        "gap_check_stride": 8,
+        "gap_verified": false,
+        "gap_coverage": "sampled@8",
+        "incomplete": false,
+        "domain": [
+          1311,
+          1439
+        ],
+        "rollouts": 36
+      },
+      "pos_hint": {
+        "authoritative": false,
+        "source": "time_window+trace (derived, not gate-verified)",
+        "x_lo": 288,
+        "x_hi": 431,
+        "cells": [
+          6,
+          8
+        ],
+        "width_cells": 3
+      },
+      "tier": "comfortable",
+      "tier_source": "default_uncalibrated",
+      "provisional_flags": []
+    }
+  ],
+  "stage_min_window_s": 1.35,
+  "stage_min_window_gap_verified": false,
+  "gap_coverage_note": "gap 검출은 gap_check_stride 간격 샘플링 — stride>1 윈도우의 intervals/width는 그 해상도의 sampled 추정(sub-stride fail-island 미배제). plan R1 가정(윈도우 단일 연속)을 거친 격자로 검출. 권위 난이도는 binding이 gap_verified일 때만.",
+  "stage_provisional_flags": [],
+  "any_incomplete": false,
+  "capabilities": {
+    "comfortable_s": 0.3,
+    "hard_s": 0.15,
+    "machine_only_s": 0.1,
+    "tier_source": "default_uncalibrated"
+  },
+  "sweep_meta": {
+    "time_cap": 80,
+    "gap_probe_budget": 8,
+    "probe_offsets": [
+      16,
+      32,
+      64,
+      128,
+      256,
+      512,
+      1024,
+      2048
+    ],
+    "total_rollouts": 116
+  }
+}

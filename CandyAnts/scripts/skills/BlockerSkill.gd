@@ -2,6 +2,17 @@ class_name BlockerSkill extends Skill
 
 const ID: String = "blocker"
 
+# 솔버 self-describing 메타 (auto-solver Phase 1, D7). 솔버는 SkillRegistry로 이걸 generic 열거해
+# 행동공간을 구성한다(스킬별 하드코딩 금지). category는 SkillAffordance.SKILL_CATEGORY와 동기
+# (SkillMetadataDriftTest가 일치를 강제). target: 적용 대상 = 개미 탭("ant") vs 표면 셀 설치("cell").
+const SOLVER_META := {
+	"target": "ant",
+	"category": "ANT_SETTLE",
+	"routing": "reverse",
+	"purpose": "앞 보행 개미를 정지시켜 벽을 만들고 뒤따르는 개미를 반전시킨다",
+	"hints": {"effect": "stop_and_reverse_walkers"},
+}
+
 # can_apply 단일 진실 출처 (phase04-review HIGH 대응).
 # 운반 중(CarryingState/has_candy)에도 적용 가능 (2026-06-17) — floater 분배자처럼 들고 있던 사탕을
 # 그 자리에 드롭한 뒤 정지한다(apply). 드롭 즉시 candy_piece_lost로 in_transit→lost 정산되므로,

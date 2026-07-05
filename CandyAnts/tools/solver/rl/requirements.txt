@@ -1,0 +1,4 @@
+# auto-solver RL 트랙(Phase R) 전용 dev 의존성 — 게임 빌드·기존 솔버 게이트와 무관.
+# 셋업 체크: python -c "import torch; print(torch.__version__)"
+torch>=2.12,<3
+numpy>=2

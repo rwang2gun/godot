@@ -2,6 +2,15 @@ class_name CutterSkill extends Skill
 
 const ID: String = "cutter"
 
+# 솔버 self-describing 메타 (D7) — SkillMetadataDriftTest가 category 동기·완전성을 강제.
+const SOLVER_META := {
+	"target": "cell",
+	"category": "SIGN",
+	"routing": "break",
+	"purpose": "앞의 식물벽을 잘라 통로를 연다",
+	"hints": {"effect": "cut_plant", "needs": "plant_wall"},
+}
+
 func can_apply(ant: Ant) -> bool:
 	if ant == null or ant.state_machine == null:
 		return false
@@ -11,11 +20,12 @@ func can_apply(ant: Ant) -> bool:
 	if ant.cutter_armed or ant.basher_armed or ant.bridge_armed or ant.builder_armed:
 		return false
 	var s: AntState = ant.state_machine.current_state
-	if not (s is WalkerState):
+	# 운반자 통일 (2026-06-20) — bridge/slide/sand_mound와 동일하게 Walker/Carrying 모두 허용. WorkerState
+	# ("cutter")는 has_candy를 변경하지 않고, 종료 시 return_to_walking()이 CarryingState로 복원한다
+	# (off-floor는 FallerState→착지 시 운반 복원) → in_transit 영구 잔존 위험 없음.
+	if not (s is WalkerState or s is CarryingState):
 		return false
 	if not ant.is_on_floor():
-		return false
-	if ant.has_candy:
 		return false
 	return true
 

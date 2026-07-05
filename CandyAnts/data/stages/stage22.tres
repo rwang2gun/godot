@@ -14,10 +14,10 @@ time_limit_seconds = 100.0
 available_skills = Array[String](["bridge", "slideR", "slideL", "floater", "sand_mound", "blocker"])
 skill_inventory = {
 "blocker": 2,
-"bridge": 2,
+"bridge": 1,
 "floater": 1,
 "sand_mound": 2,
-"slideL": 2,
-"slideR": 2
+"slideL": 1,
+"slideR": 1
 }
 release_rate_initial = 30

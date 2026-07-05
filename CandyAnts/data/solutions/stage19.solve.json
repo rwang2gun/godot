@@ -1,0 +1,69 @@
+{
+  "stage": "res://scenes/stages/Stage19.tscn",
+  "deadline_frames": 7500,
+  "inventory": {
+    "sand_mound": 2
+  },
+  "expect": {
+    "cleared": true,
+    "saved": 5
+  },
+  "search_meta": {
+    "rollouts": 8,
+    "tool": "solve.py",
+    "phase": 2,
+    "method": "predictive",
+    "retired_ants": {
+      "water": 0,
+      "fall": 0,
+      "total": 0
+    },
+    "total_ants": 5,
+    "tools_used": 2
+  },
+  "actions": [
+    {
+      "skill": "sand_mound",
+      "target": {
+        "mode": "cell",
+        "cell": [
+          10,
+          14
+        ]
+      },
+      "trigger": {
+        "type": "at_frame",
+        "frame": 0
+      }
+    },
+    {
+      "skill": "sand_mound",
+      "target": {
+        "mode": "cell",
+        "cell": [
+          11,
+          10
+        ]
+      },
+      "trigger": {
+        "type": "at_frame",
+        "frame": 0
+      }
+    }
+  ],
+  "result": {
+    "actions_fired": 2,
+    "best_carry_home_dist": 44.5960731506348,
+    "best_min_y": 328.424011230469,
+    "cell_size": 48,
+    "cleared": true,
+    "frame": 1586,
+    "hp": 5,
+    "lost": 0,
+    "picked": true,
+    "picked_total": 5,
+    "reason": "",
+    "remaining_hp": 0,
+    "saved": 5
+  }
+}

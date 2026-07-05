@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("2_tyvf1")
 id = 15
-display_name = "눈 딱 감고 낙하"
+display_name = "낙하산은 1회용"
 layout = ExtResource("1_7h0q1")
 total_ants = 7
 candy_hp = 5

@@ -1,0 +1,7 @@
+{
+  "stage": "res://scenes/stages/Stage11.tscn",
+  "deadline_frames": 7000,
+  "expect": {"cleared": false, "actions_fired": 0},
+  "note": "음성 케이스 — 빈 플랜(스킬 0). S11은 무스킬이면 개미가 하단 물에 전멸(saved=0). 트리비얼 거부 신호의 전조(D9): 스킬 없이 클리어되면 트리비얼. 하니스가 '미클리어'를 충실히 보고하는지 핀.",
+  "actions": []
+}

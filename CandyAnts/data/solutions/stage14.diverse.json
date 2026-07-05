@@ -1,0 +1,477 @@
+{
+  "schema_version": 2,
+  "stage": 14,
+  "stage_scene": "res://scenes/stages/Stage14.tscn",
+  "deadline_frames": 7500,
+  "given_inventory": {
+    "blocker": 3,
+    "climber": 5
+  },
+  "candy_hp": 5,
+  "cell_size": 48,
+  "grid_cols": 24,
+  "crises_present": [
+    "water-drowning"
+  ],
+  "n_solution_classes": 1,
+  "search_capped": false,
+  "extra_rollouts_after_first": 323,
+  "solution_classes": [
+    {
+      "class": 1,
+      "axis": "strategy",
+      "skill_multiset": {
+        "blocker": 3,
+        "climber": 5
+      },
+      "inventory": {
+        "blocker": 3,
+        "climber": 5
+      },
+      "reference_plan": [
+        {
+          "skill": "blocker",
+          "target": {
+            "mode": "ant",
+            "select": "max_x",
+            "y_min": 136.0,
+            "y_max": 248.0
+          },
+          "trigger": {
+            "type": "ant_reaches_x",
+            "cmp": "ge",
+            "x": 1080.0
+          }
+        },
+        {
+          "skill": "blocker",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "y_min": 280.0,
+            "y_max": 392.0
+          },
+          "trigger": {
+            "type": "ant_reaches_x",
+            "cmp": "le",
+            "x": 408.0
+          }
+        },
+        {
+          "skill": "blocker",
+          "target": {
+            "mode": "ant",
+            "select": "max_x",
+            "y_min": 424.0,
+            "y_max": 536.0
+          },
+          "trigger": {
+            "type": "ant_reaches_x",
+            "cmp": "ge",
+            "x": 1080.0
+          }
+        },
+        {
+          "skill": "climber",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "trigger": {
+            "type": "picked_ge",
+            "n": 1
+          }
+        },
+        {
+          "skill": "climber",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "trigger": {
+            "type": "picked_ge",
+            "n": 2
+          }
+        },
+        {
+          "skill": "climber",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "trigger": {
+            "type": "picked_ge",
+            "n": 3
+          }
+        },
+        {
+          "skill": "climber",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "trigger": {
+            "type": "picked_ge",
+            "n": 4
+          }
+        },
+        {
+          "skill": "climber",
+          "target": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "trigger": {
+            "type": "picked_ge",
+            "n": 5
+          }
+        }
+      ],
+      "expect": {
+        "cleared": true,
+        "saved": 5
+      },
+      "slots": [
+        {
+          "slot": 0,
+          "ref_index": 1,
+          "skill": "blocker",
+          "role": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "any",
+            "band": [
+              280.0,
+              392.0
+            ]
+          },
+          "timing": {
+            "trigger_type": "ant_reaches_x",
+            "cmp": "le"
+          },
+          "placement_axis": "cell_x",
+          "fixed_cell": 8,
+          "intervals": [
+            [
+              8,
+              23
+            ]
+          ],
+          "gaps": [],
+          "range_sampled": true,
+          "swept_intervals": [
+            [
+              8,
+              23
+            ]
+          ],
+          "swept_gaps": [],
+          "gap_check_stride": 1,
+          "gap_verified": true,
+          "gap_coverage": "full@1",
+          "axis_independent": true,
+          "provisional": false,
+          "domain": [
+            0,
+            23
+          ],
+          "sampled_points": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23
+          ],
+          "rollouts": 24
+        },
+        {
+          "slot": 1,
+          "ref_index": 0,
+          "skill": "blocker",
+          "role": {
+            "mode": "ant",
+            "select": "max_x",
+            "state": "any",
+            "band": [
+              136.0,
+              248.0
+            ]
+          },
+          "timing": {
+            "trigger_type": "ant_reaches_x",
+            "cmp": "ge"
+          },
+          "placement_axis": "cell_x",
+          "fixed_cell": 22,
+          "intervals": [
+            [
+              0,
+              22
+            ]
+          ],
+          "gaps": [],
+          "range_sampled": true,
+          "swept_intervals": [
+            [
+              0,
+              22
+            ]
+          ],
+          "swept_gaps": [],
+          "gap_check_stride": 1,
+          "gap_verified": true,
+          "gap_coverage": "full@1",
+          "axis_independent": true,
+          "provisional": false,
+          "domain": [
+            0,
+            23
+          ],
+          "sampled_points": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23
+          ],
+          "rollouts": 24
+        },
+        {
+          "slot": 2,
+          "ref_index": 2,
+          "skill": "blocker",
+          "role": {
+            "mode": "ant",
+            "select": "max_x",
+            "state": "any",
+            "band": [
+              424.0,
+              536.0
+            ]
+          },
+          "timing": {
+            "trigger_type": "ant_reaches_x",
+            "cmp": "ge"
+          },
+          "placement_axis": "cell_x",
+          "fixed_cell": 22,
+          "intervals": [
+            [
+              0,
+              22
+            ]
+          ],
+          "gaps": [],
+          "range_sampled": true,
+          "swept_intervals": [
+            [
+              0,
+              22
+            ]
+          ],
+          "swept_gaps": [],
+          "gap_check_stride": 1,
+          "gap_verified": true,
+          "gap_coverage": "full@1",
+          "axis_independent": true,
+          "provisional": false,
+          "domain": [
+            0,
+            23
+          ],
+          "sampled_points": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23
+          ],
+          "rollouts": 24
+        },
+        {
+          "slot": 3,
+          "ref_index": 3,
+          "skill": "climber",
+          "role": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "timing": {
+            "trigger_type": "picked_ge",
+            "n": 1
+          },
+          "placement_axis": "none",
+          "fixed_cell": null,
+          "intervals": [],
+          "gaps": [],
+          "range_sampled": false,
+          "gap_check_stride": null,
+          "gap_verified": false,
+          "gap_coverage": "none",
+          "axis_independent": true,
+          "provisional": false
+        },
+        {
+          "slot": 4,
+          "ref_index": 4,
+          "skill": "climber",
+          "role": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "timing": {
+            "trigger_type": "picked_ge",
+            "n": 2
+          },
+          "placement_axis": "none",
+          "fixed_cell": null,
+          "intervals": [],
+          "gaps": [],
+          "range_sampled": false,
+          "gap_check_stride": null,
+          "gap_verified": false,
+          "gap_coverage": "none",
+          "axis_independent": true,
+          "provisional": false
+        },
+        {
+          "slot": 5,
+          "ref_index": 5,
+          "skill": "climber",
+          "role": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "timing": {
+            "trigger_type": "picked_ge",
+            "n": 3
+          },
+          "placement_axis": "none",
+          "fixed_cell": null,
+          "intervals": [],
+          "gaps": [],
+          "range_sampled": false,
+          "gap_check_stride": null,
+          "gap_verified": false,
+          "gap_coverage": "none",
+          "axis_independent": true,
+          "provisional": false
+        },
+        {
+          "slot": 6,
+          "ref_index": 6,
+          "skill": "climber",
+          "role": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "timing": {
+            "trigger_type": "picked_ge",
+            "n": 4
+          },
+          "placement_axis": "none",
+          "fixed_cell": null,
+          "intervals": [],
+          "gaps": [],
+          "range_sampled": false,
+          "gap_check_stride": null,
+          "gap_verified": false,
+          "gap_coverage": "none",
+          "axis_independent": true,
+          "provisional": false
+        },
+        {
+          "slot": 7,
+          "ref_index": 7,
+          "skill": "climber",
+          "role": {
+            "mode": "ant",
+            "select": "min_x",
+            "state": "carrying"
+          },
+          "timing": {
+            "trigger_type": "picked_ge",
+            "n": 5
+          },
+          "placement_axis": "none",
+          "fixed_cell": null,
+          "intervals": [],
+          "gaps": [],
+          "range_sampled": false,
+          "gap_check_stride": null,
+          "gap_verified": false,
+          "gap_coverage": "none",
+          "axis_independent": true,
+          "provisional": false
+        }
+      ]
+    }
+  ],
+  "note": "가능성-공간 다양-해 보고서(중립 발견, designer-in-the-loop). class별 reference_plan은 결정론 리플레이-ready, 슬롯 intervals는 검증된 연속 구역(gap_verified=true일 때 병합 권위). axis_independent: 각 축 cross-section이며 joint 곱공간 미주장."
+}

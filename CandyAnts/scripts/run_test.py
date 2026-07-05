@@ -17,7 +17,10 @@ Fresh clone bootstrap (한 번):
     # 이후 run_test.py 실행 시 새 class_name이 인식됨.
 
 Exit code: 테스트 씬이 get_tree().quit(N)으로 emit하는 N (0=PASS, 1=FAIL).
-타임아웃은 --quit-after 3600 (60s @ 60fps) 안전망.
+안전망: --quit-after 18000 (5분 @ 60fps). ⚠ 안전망 발동 시 Godot은 exit 0(=quit(0)=PASS와 동일)으로
+종료하므로, 18000프레임을 초과하는 멀티런 테스트는 타임아웃이 PASS로 위장될 수 있다(false-green). 그런
+솔버 하니스 실행은 exit-code가 아니라 stdout 마커/SOLVER_RESULT로 판정하는 tools/solver/try_solve.py를
+거친다(run_test는 단일 테스트 씬 러너로 유지, 솔버 전용 로직을 여기 넣지 않음).
 """
 from __future__ import annotations
 

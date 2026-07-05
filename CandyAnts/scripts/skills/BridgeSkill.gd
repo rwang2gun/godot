@@ -2,6 +2,15 @@ class_name BridgeSkill extends Skill
 
 const ID: String = "bridge"
 
+# 솔버 self-describing 메타 (D7) — SkillMetadataDriftTest가 category 동기·완전성을 강제.
+const SOLVER_META := {
+	"target": "ant",
+	"category": "ANT_ARMED",
+	"routing": "cross",
+	"purpose": "낭떠러지/간격에 다리를 놓아 건너게 한다",
+	"hints": {"effect": "bridge_gap", "arms_until": "cliff"},
+}
+
 func can_apply(ant: Ant) -> bool:
 	if ant == null or ant.state_machine == null:
 		return false
