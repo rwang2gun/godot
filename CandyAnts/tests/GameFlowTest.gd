@@ -2,15 +2,15 @@ extends Node
 
 # Phase 6 통합 회귀 테스트.
 # 시나리오 A: Stage01 자연 clear → Next → Stage02 도달 (+ Result Dictionary 8키 검증, freeze/unfreeze)
-# 시나리오 B: SceneFlow.load_stage(10) → Stage10(보물찾기!) 강제 clear → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
-#   (Stage10은 손저작 복합 레벨이라 지오메트리 의존 클리어 드라이버 대신 score_system 직접 조작으로 강제 클리어 —
+# 시나리오 B: SceneFlow.load_stage(25) → Stage25(Ch2 마지막) 강제 clear → Next 비활성(last) + 강제 emit 시 go_to_menu fallback
+#   (Stage25는 손저작 레벨이라 지오메트리 의존 클리어 드라이버 대신 score_system 직접 조작으로 강제 클리어 —
 #    Scenario C의 강제 fail 기법과 동형. 본 시나리오의 목적은 자연 클리어가 아니라 마지막-스테이지 UI/라우팅 검증.)
 # 시나리오 C: load_stage(1) → 강제 fail(no_more_ants) → Next 차단(disabled + signal reject) → Replay → stage1 reload
 # 시나리오 D: A에서 freeze/unfreeze 인라인 확인.
 # PASS: get_tree().quit(0). FAIL: 즉시 print + quit(1).
 
 const SCENARIO_TIMEOUT_SECONDS: float = 90.0  # stage1 자연 clear는 spawn-cycle 동안 ant 10마리가 candy→home 왕복하므로 여유 필요
-const LAST_STAGE_ID: int = 10  # 캠페인 엔드포인트 (Stage10 발행 후). SceneFlow.LAST_STAGE_ID와 동기.
+const LAST_STAGE_ID: int = 25  # 캠페인 엔드포인트 (Ch2 마지막. Ch3~5는 under_construction="공사 중"이라 ordered 밖). SceneFlow.LAST_STAGE_ID와 동기.
 
 var _main: Node = null
 var _scene_flow: Node = null  # SceneFlow — class_name이 first-import에서 미인식되어 Node로 typed
@@ -66,10 +66,10 @@ func _ready() -> void:
 	# CampaignManifest.last_stage_id() == SceneFlow.LAST_STAGE_ID == GameFlowTest.LAST_STAGE_ID == 10.
 	# (셋이 어긋나면 last-stage Next/menu fallback 라우팅이 회귀하므로 시나리오 실행 전 게이트.)
 	var manifest_last: int = Campaign.manifest().last_stage_id() if Campaign.manifest() != null else -1
-	if not (manifest_last == SceneFlow.LAST_STAGE_ID and SceneFlow.LAST_STAGE_ID == LAST_STAGE_ID and LAST_STAGE_ID == 10):
-		_fail("last-stage convergence failed: manifest=%d SceneFlow=%d test=%d (expect all 10)" % [manifest_last, SceneFlow.LAST_STAGE_ID, LAST_STAGE_ID])
+	if not (manifest_last == SceneFlow.LAST_STAGE_ID and SceneFlow.LAST_STAGE_ID == LAST_STAGE_ID and LAST_STAGE_ID == 25):
+		_fail("last-stage convergence failed: manifest=%d SceneFlow=%d test=%d (expect all 25)" % [manifest_last, SceneFlow.LAST_STAGE_ID, LAST_STAGE_ID])
 		return
-	print("[GameFlowTest] last-stage convergence OK (manifest==SceneFlow==test==10)")
+	print("[GameFlowTest] last-stage convergence OK (manifest==SceneFlow==test==25)")
 	# Phase 13 Δ10: 기본 부트는 TITLE → load_stage(1)로 우회. boot_to_stage_id export는
 	# SceneFlowBootBypassTest 전용 (add_child 전 설정 필요해서 본 테스트에서는 사용 X).
 	if _scene_flow.current_screen != _scene_flow.ScreenState.STAGE:
@@ -127,23 +127,23 @@ func _scenario_a() -> void:
 	print("[GameFlowTest] Scenario A PASS")
 
 # -----------------------------------------------------------------------------
-# 시나리오 B: load_stage(10) → 강제 clear → Next disabled(last) → 강제 emit → go_to_menu fallback
+# 시나리오 B: load_stage(25) → 강제 clear → Next disabled(last) → 강제 emit → go_to_menu fallback
 # -----------------------------------------------------------------------------
 func _scenario_b() -> void:
-	print("[GameFlowTest] === Scenario B: Stage10 → clear → Next disabled → menu fallback ===")
+	print("[GameFlowTest] === Scenario B: Stage25(last) → clear → Next disabled → menu fallback ===")
 	_scene_flow.load_stage(LAST_STAGE_ID)
 	await get_tree().process_frame
 	await get_tree().process_frame  # stage instantiation + StageRunner._ready (헤드리스 = auto_begin)
 	if not _verify_current_stage_id(LAST_STAGE_ID, "B.start"):
 		return
 
-	# Stage10 "보물찾기!"는 손저작 복합 레벨(물 호수·식물벽·끈끈이·5스킬)이라 지오메트리 의존 자연-클리어
-	# 드라이버는 취약하다. 본 시나리오의 목적은 자연 클리어가 아니라 *마지막-스테이지* UI/라우팅 검증이므로,
+	# Stage25(Ch2 마지막)는 손저작 레벨이라 지오메트리 의존 자연-클리어 드라이버는 취약하다.
+	# 본 시나리오의 목적은 자연 클리어가 아니라 *마지막-스테이지* UI/라우팅 검증이므로,
 	# score_system을 직접 조작해 clear 조건(candy.hp==0 & in_transit==0 & saved>=1)을 강제한다
 	# (Scenario C의 강제 fail 기법과 동형 — StageRunner._process가 다음 frame에 is_cleared 감지 → stage_cleared).
 	var runner: StageRunner = _find_current_stage_runner()
 	if runner == null or runner.score_system == null:
-		_fail("B no StageRunner/score_system for Stage10 force-clear")
+		_fail("B no StageRunner/score_system for Stage25 force-clear")
 		return
 	runner.begin()  # 멱등 — 헤드리스는 이미 auto_begin이지만 _begun 보장(_process 종료 판정 진입 조건).
 	var candy_node: Candy = runner.get_node_or_null(runner.candy_path) as Candy
@@ -169,7 +169,7 @@ func _scenario_b() -> void:
 		return
 	print("[GameFlowTest] B NextButton visible+disabled OK")
 
-	# Phase 13: last-stage Next emit → load_next_stage(next_id=11 미존재) → go_to_main_menu
+	# Phase 13: last-stage Next emit → load_next_stage(next_id=0, Ch3~5 공사중이라 25가 끝) → go_to_main_menu
 	# (phase 6의 stage1 fallback 폐기, plan §3.5.4).
 	EventBus.request_next.emit()
 	await get_tree().process_frame

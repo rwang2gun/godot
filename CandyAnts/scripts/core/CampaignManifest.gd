@@ -40,14 +40,25 @@ func is_valid() -> bool:
 	return any_stage
 
 # 전 챕터 평탄화 = 캠페인 전역 순서.
+# "공사 중"(under_construction) 챕터는 진행 순서에서 제외 — 이 한 곳이 단일 SoT라
+# next/continue/published(SceneFlow)/별점cap/last 전부 자동으로 진입 차단을 따른다.
+# 재개: campaign_manifest.tres에서 해당 챕터의 under_construction 플래그만 제거하면 원복.
 func ordered_stage_ids() -> Array[int]:
 	var out: Array[int] = []
 	for ch in chapters:
+		if bool(ch.get("under_construction", false)):
+			continue
 		var ids = ch.get("stage_ids", [])
 		if typeof(ids) == TYPE_ARRAY:
 			for sid in ids:
 				out.append(int(sid))
 	return out
+
+# "공사 중" 챕터 여부(1-based). 진행 순서에선 빠지지만 ChapterSelect엔 카드로 노출(공사 중 표시).
+func is_chapter_under_construction(chapter_num: int) -> bool:
+	if chapter_num < 1 or chapter_num > chapters.size():
+		return false
+	return bool(chapters[chapter_num - 1].get("under_construction", false))
 
 func chapter_count() -> int:
 	return chapters.size()

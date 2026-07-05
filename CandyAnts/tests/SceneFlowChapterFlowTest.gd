@@ -21,11 +21,12 @@ func _ready() -> void:
 		return _fail("SceneFlow node missing in Main")
 	await get_tree().process_frame  # boot 완료
 
-	# (1) 엔드포인트 수렴: SceneFlow.LAST_STAGE_ID == manifest last == 10.
+	# (1) 엔드포인트 수렴: SceneFlow.LAST_STAGE_ID == manifest last == 25.
+	#     Ch3~5(파괴/장치/종합)는 under_construction → ordered 밖이라 캠페인은 Ch2 마지막(25)에서 끝.
 	var manifest: CampaignManifest = Campaign.manifest()
 	if manifest == null:
 		return _fail("Campaign.manifest() null")
-	_eq(manifest.last_stage_id(), 10, "manifest last_stage_id == 10")
+	_eq(manifest.last_stage_id(), 25, "manifest last_stage_id == 25 (Ch3~5 공사 중 제외)")
 	_eq(_scene_flow.LAST_STAGE_ID, manifest.last_stage_id(), "SceneFlow.LAST_STAGE_ID == manifest last")
 	if _failed: return
 
@@ -47,25 +48,25 @@ func _ready() -> void:
 	_eq(sel.current_chapter, 2, "StageSelect.current_chapter == 2 (injected)")
 	if _failed: return
 
-	# (4) load_next_stage가 매니페스트 순서 추종 — stage 8 다음은 9(전역 순서), ±1 우연 일치가 아니라
-	#     Campaign.next_stage_id(8)을 통과함을 확인(8은 Ch4 단독, 9는 Ch5 첫째).
-	_scene_flow.load_stage(8)
+	# (4) load_next_stage가 매니페스트 순서 추종 — Ch2 내부 5 다음은 19(전역 순서), ±1 우연 일치가 아니라
+	#     Campaign.next_stage_id(5)을 통과함을 확인(Ch2=[3,4,5,19,...]이라 5→19).
+	_scene_flow.load_stage(5)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_scene_flow.load_next_stage()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	_eq(_scene_flow._current_stage_id, 9, "load_next from 8 → 9 (manifest order)")
+	_eq(_scene_flow._current_stage_id, 19, "load_next from 5 → 19 (manifest order)")
 	if _failed: return
 
-	# (5) 마지막 스테이지(10) 다음 → MAIN_MENU (next=0)
-	_scene_flow.load_stage(10)
+	# (5) 마지막 스테이지(25=Ch2 끝) 다음 → MAIN_MENU (next=0). Ch3~5는 공사 중이라 25가 캠페인 종점.
+	_scene_flow.load_stage(25)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_scene_flow.load_next_stage()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	_eq(_scene_flow.current_screen, _scene_flow.ScreenState.MAIN_MENU, "after last stage(10) next → MAIN_MENU")
+	_eq(_scene_flow.current_screen, _scene_flow.ScreenState.MAIN_MENU, "after last stage(25) next → MAIN_MENU")
 	if _failed: return
 
 	# (6) 스캔 *이후* 매니페스트 재배치가 published/LAST/next에 반영 — 단일 SoT 가드(codex impl R1 MED).

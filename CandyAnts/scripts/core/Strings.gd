@@ -37,6 +37,9 @@ const _TABLE: Dictionary = {
 
 	# ChapterSelect — scripts/ui/ChapterSelect.gd (캠페인 전역 별점 / 전역 상한. %d 2개)
 	"chapter_select.total_stars": "모은 별 ★ %d / %d",
+	# 공사 중 챕터 카드 라벨(별점 자리 대체). 재개 시 manifest under_construction 제거하면 미사용.
+	# (게임 폰트 글리프 안전 위해 이모지 미사용 — ★는 지원하나 🚧는 tofu 위험.)
+	"chapter_select.under_construction": "공사 중",
 
 	# StageSlotCard — scripts/ui/atoms/StageSlotCard.gd
 	"stage_card.title": "스테이지 %d",

@@ -2,12 +2,12 @@ class_name ChapterCard
 extends Button
 
 # campaign-50 — ChapterSelect 카드 아톰. StageSlotCard와 동형(섀도+패널+포커스 헤일로).
-# 3 state: PLAYABLE / CLEARED / LOCKED. 챕터별 테마색 패널 + 별점 텍스트 + 잠금 배지.
+# 4 state: PLAYABLE / CLEARED / LOCKED / UNDER_CONSTRUCTION(공사 중). 챕터별 테마색 패널 + 별점 텍스트 + 잠금 배지.
 # Pressed signal만 emit (라우팅은 ChapterSelect.gd 책임).
 
-# 정수값을 ChapterSelect.ChapterState와 일치시킨다(LOCKED=0/PLAYABLE=1/CLEARED=2) — setup()에
-# 그 enum 값을 그대로 전달받으므로 순서가 곧 계약.
-enum CardState { LOCKED, PLAYABLE, CLEARED }
+# 정수값을 ChapterSelect.ChapterState와 일치시킨다(LOCKED=0/PLAYABLE=1/CLEARED=2/UNDER_CONSTRUCTION=3)
+# — setup()에 그 enum 값을 그대로 전달받으므로 순서가 곧 계약.
+enum CardState { LOCKED, PLAYABLE, CLEARED, UNDER_CONSTRUCTION }
 
 const ICON_LOCK := preload("res://assets/icons/ui/lock.svg")
 
@@ -48,16 +48,25 @@ func _render() -> void:
 	_num_label.text = "챕터 %d" % chapter_num
 	_title_label.text = Campaign.chapter_title(chapter_num)
 	var locked: bool = _state == CardState.LOCKED
-	_star_label.visible = not locked
-	_star_label.text = "★ %d / %d" % [_stars, _star_cap]
-	# 만점(보라별) / 부분·0 색 분기 — StageSlotCard의 GRAPE_700 퍼펙트 컨벤션과 동일 어휘.
-	var perfect: bool = _star_cap > 0 and _stars >= _star_cap
-	_star_label.add_theme_color_override("font_color", Tokens.GRAPE_700 if perfect else Tokens.INK_700)
+	var under_con: bool = _state == CardState.UNDER_CONSTRUCTION
+	var dimmed: bool = locked or under_con   # 둘 다 회색·반투명(진입 불가)
+	if under_con:
+		# 별점 슬롯을 "공사 중" 상태 라벨로 재사용 — 별점은 숨기고 안내 문구 노출.
+		_star_label.visible = true
+		_star_label.text = Strings.t("chapter_select.under_construction")
+		_star_label.add_theme_color_override("font_color", Tokens.INK_500)
+	else:
+		_star_label.visible = not locked
+		_star_label.text = "★ %d / %d" % [_stars, _star_cap]
+		# 만점(보라별) / 부분·0 색 분기 — StageSlotCard의 GRAPE_700 퍼펙트 컨벤션과 동일 어휘.
+		var perfect: bool = _star_cap > 0 and _stars >= _star_cap
+		_star_label.add_theme_color_override("font_color", Tokens.GRAPE_700 if perfect else Tokens.INK_700)
+	# 자물쇠 배지는 진행 LOCKED 전용(공사 중은 "공사 중" 문구로 충분 — 자물쇠는 진행 미달 의미라 혼동 방지).
 	_badge.visible = locked
 	if locked:
 		_badge.texture = ICON_LOCK
-	_apply_panel_style(locked)
-	modulate.a = 0.6 if locked else 1.0
+	_apply_panel_style(dimmed)
+	modulate.a = 0.6 if dimmed else 1.0
 
 # 챕터(1-based) → 테마색. 잠금이면 회색 폴백. (const 배열 대신 런타임 match — autoload 무관 안전.)
 func _chapter_color(num: int) -> Color:

@@ -27,8 +27,10 @@ func _case_states_fresh() -> void:
 	_reset()
 	var cs: ChapterSelect = await _make()
 	_expect(cs, 1, ChapterSelect.ChapterState.PLAYABLE, "ch1 PLAYABLE fresh")
-	for c in [2, 3, 4, 5]:
-		_expect(cs, c, ChapterSelect.ChapterState.LOCKED, "ch%d LOCKED fresh" % c)
+	_expect(cs, 2, ChapterSelect.ChapterState.LOCKED, "ch2 LOCKED fresh")
+	# Ch3~5는 공사 중 → 진행도와 무관하게 UNDER_CONSTRUCTION(플래그가 progression-lock보다 우선).
+	for c in [3, 4, 5]:
+		_expect(cs, c, ChapterSelect.ChapterState.UNDER_CONSTRUCTION, "ch%d UNDER_CONSTRUCTION fresh" % c)
 	cs.queue_free()
 	await get_tree().process_frame
 	if not _failed:
@@ -42,7 +44,7 @@ func _case_states_after_ch1_clear() -> void:
 	var cs: ChapterSelect = await _make()
 	_expect(cs, 1, ChapterSelect.ChapterState.CLEARED, "ch1 CLEARED after all Ch1 cleared")
 	_expect(cs, 2, ChapterSelect.ChapterState.PLAYABLE, "ch2 PLAYABLE after ch1 cleared")
-	_expect(cs, 3, ChapterSelect.ChapterState.LOCKED, "ch3 LOCKED (ch2 not cleared)")
+	_expect(cs, 3, ChapterSelect.ChapterState.UNDER_CONSTRUCTION, "ch3 공사 중 (진행 무관 차단)")
 	cs.queue_free()
 	await get_tree().process_frame
 	if not _failed:
@@ -63,16 +65,16 @@ func _case_routing() -> void:
 	if got[0] != 1:
 		cs.queue_free()
 		return _fail("ch1 card → request_stage_select(1) failed, got %d" % got[0])
-	# (b) locked 카드(ch3) 선택 → request_stage_select emit 없음
+	# (b) 공사 중 카드(ch3) 선택 → request_stage_select emit 없음(진입 차단)
 	var locked_emit: Array = [false]
 	var cb2 := func(_ch: int): locked_emit[0] = true
 	EventBus.request_stage_select.connect(cb2)
-	cs._cards[2].pressed.emit()  # ch3 카드(LOCKED)
+	cs._cards[2].pressed.emit()  # ch3 카드(UNDER_CONSTRUCTION)
 	await get_tree().process_frame
 	EventBus.request_stage_select.disconnect(cb2)
 	if locked_emit[0]:
 		cs.queue_free()
-		return _fail("locked ch3 card should NOT emit request_stage_select")
+		return _fail("under-construction ch3 card should NOT emit request_stage_select")
 	# (c) Back → request_main_menu
 	var menu: Array = [false]
 	var cb3 := func(): menu[0] = true

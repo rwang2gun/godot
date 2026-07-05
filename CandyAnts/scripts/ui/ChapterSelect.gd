@@ -6,9 +6,10 @@ extends Control
 # 선택 → request_stage_select(chapter_num)(잠금 카드는 locked sfx). Back/ESC → request_main_menu.
 # 챕터 번호는 1-based (Campaign/CampaignManifest 계약과 동일).
 
-# ChapterCard.CardState와 enum 순서를 맞춘다(LOCKED=0/PLAYABLE=1/CLEARED=2 — 본 화면 SoT).
+# ChapterCard.CardState와 enum 순서를 맞춘다(LOCKED=0/PLAYABLE=1/CLEARED=2/UNDER_CONSTRUCTION=3 — 본 화면 SoT).
 # ChapterCard는 자체 CardState enum을 갖지만 정수값이 동일해 직접 전달한다.
-enum ChapterState { LOCKED, PLAYABLE, CLEARED }
+# UNDER_CONSTRUCTION = "공사 중"(진행 순서 밖, 진입 차단·곧 재개). 진행도 LOCKED와 별개(플래그가 우선).
+enum ChapterState { LOCKED, PLAYABLE, CLEARED, UNDER_CONSTRUCTION }
 
 const CARD_SCENE := preload("res://scenes/ui/atoms/ChapterCard.tscn")
 
@@ -50,6 +51,9 @@ func _populate() -> void:
 		_cards.append(card)
 
 func _resolve_state(chapter_num: int) -> int:
+	# 공사 중 플래그가 진행도보다 우선 — ch2를 다 깨 진행상 unlock돼도 진입 차단 유지.
+	if Campaign.is_chapter_under_construction(chapter_num):
+		return ChapterState.UNDER_CONSTRUCTION
 	if not Campaign.is_chapter_unlocked(chapter_num):
 		return ChapterState.LOCKED
 	if Campaign.is_chapter_cleared(chapter_num):
@@ -63,7 +67,8 @@ func chapter_state(chapter_num: int) -> int:
 	return _states[chapter_num - 1]
 
 func _on_card_pressed(chapter_num: int, state: int) -> void:
-	if state == ChapterState.LOCKED:
+	# LOCKED(진행 미달)·UNDER_CONSTRUCTION(공사 중) 둘 다 진입 불가 → locked sfx만, 화면 전환 없음.
+	if state == ChapterState.LOCKED or state == ChapterState.UNDER_CONSTRUCTION:
 		EventBus.sfx_request.emit(&"locked")
 		return
 	EventBus.request_stage_select.emit(chapter_num)

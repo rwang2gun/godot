@@ -15,13 +15,16 @@ chapters = [{
 }, {
 "stage_ids": [6, 7],
 "theme": "destruction",
-"title": "파괴"
+"title": "파괴",
+"under_construction": true
 }, {
 "stage_ids": [8],
 "theme": "devices",
-"title": "장치·숙련"
+"title": "장치·숙련",
+"under_construction": true
 }, {
 "stage_ids": [9, 10],
 "theme": "mastery",
-"title": "종합"
+"title": "종합",
+"under_construction": true
 }]
