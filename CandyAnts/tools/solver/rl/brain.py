@@ -70,9 +70,38 @@ def _record_solution(cycle: int, mdp, res: dict, plan: list) -> None:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
+# reachability-확장 보상: 스킬 배치로 개미가 "기본 지형만으론 못 가던 새 땅"에 도달하면 보상
+# (배치 발견 부트스트랩). 물 셀·낙하 기절 제외 — 상태가 walk/climb/carry일 때만 인정(mid-fall "fall"·
+# 기절 "dead" 자동 제외, floater 안전착지는 walk로 끝나 포함). 기준(base)은 빈-플랜 롤아웃 실측.
+PRODUCTIVE_STATES = frozenset(("walk", "climb", "carry"))
+REACH_COEFF = 0.6      # goal shaping(0.5)과 동급 스케일
+REACH_CAP = 8          # 새 셀 수 상한(포화)
+
+
+def _productive_cells(trace: dict, layout: dict) -> set:
+    """trace에서 개미가 walk/climb/carry 상태로 밟은 셀(물 제외)."""
+    water_hazard = layout.get("hazard") or {}
+    cells: set = set()
+    for _si, samples in (trace or {}).items():
+        for s in samples:                          # [frame, cx, cy, carry, state]
+            if len(s) >= 5 and s[4] in PRODUCTIVE_STATES:
+                cell = (int(s[1]), int(s[2]))
+                if water_hazard.get(cell) != "water":
+                    cells.add(cell)
+    return cells
+
+
+def _reach_bonus(trace: dict, layout: dict, base_cells: set) -> float:
+    """기본 지형(base_cells) 밖의 새 productive 셀 수에 비례한 보상(포화 cap)."""
+    if not base_cells:
+        return 0.0
+    new_cells = _productive_cells(trace, layout) - base_cells
+    return REACH_COEFF * min(len(new_cells), REACH_CAP) / REACH_CAP
+
+
 def _train_stage(policy, opt, mdp, grid_t, pool, cfg, n_batches: int, ent_coef: float,
                  baseline: float = 0.0, grad_clip: float = 1.0,
-                 jackpot_s: float = 0.0) -> tuple[float, float]:
+                 jackpot_s: float = 0.0, base_cells: set | None = None) -> tuple[float, float]:
     """공유 정책을 한 스테이지에 n_batches 만큼 REINFORCE 업데이트.
 
     보상 = mdp.reward(터미널 verdict) + mdp.shaped_bonus(trace 기반 goal-거리·retired shaping) —
@@ -98,6 +127,7 @@ def _train_stage(policy, opt, mdp, grid_t, pool, cfg, n_batches: int, ent_coef: 
         # 실제로 클리어했을 때만 가산 → 오래 정체한(또는 퇴보한) 스테이지의 재클리어를 강하게 강화.
         rewards = [mdp.reward(res, len(p)) + mdp.shaped_bonus(res)
                    + (jackpot_s if (res.get("cleared") and int(res.get("saved") or 0) == mdp.hp) else 0.0)
+                   + (_reach_bonus(res.get("trace"), mdp.layout, base_cells) if base_cells else 0.0)
                    for (p, _, _), res in zip(samples, results)]
         mean_r = sum(rewards) / len(rewards)
         baseline = cfg["baseline_decay"] * baseline + (1 - cfg["baseline_decay"]) * mean_r
@@ -155,11 +185,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="공유 뇌 커리큘럼 트레이너(1~10)")
     ap.add_argument("--cycles", type=int, default=5, help="이번 실행에서 돌릴 사이클 수")
     ap.add_argument("--envs", type=int, default=4)
-    ap.add_argument("--batches-per-stage", type=int, default=4,
+    ap.add_argument("--batches-per-stage", type=int, default=6,
                     help="스테이지당 배치 수/사이클(균등 — 예산 뺏기 없음, 깬 것도 유지 학습으로 망각 방지)")
     ap.add_argument("--jackpot-inc", type=float, default=2.0,
                     help="못 깬 스테이지가 사이클마다 누적하는 미지급 클리어 보상(=REWARD.cleared 스케일)")
     ap.add_argument("--jackpot-cap", type=float, default=20.0, help="잭팟 누적 상한")
+    ap.add_argument("--entropy", type=float, default=0.08, help="엔트로피 계수 초기값(탐험 대폭 강화)")
+    ap.add_argument("--entropy-min", type=float, default=0.05, help="엔트로피 하한(탐험 지속 유지)")
+    ap.add_argument("--no-reach", action="store_true", help="reachability-확장 보상 끄기")
     ap.add_argument("--lr", type=float, default=1e-3, help="학습률(안정화 위해 기본 하향)")
     ap.add_argument("--grad-clip", type=float, default=1.0, help="gradient clipping max-norm(안정화)")
     ap.add_argument("--reset", action="store_true", help="brain.pt 무시하고 처음부터")
@@ -172,7 +205,8 @@ def main() -> int:
             for ln in PROGRESS.read_text(encoding="utf-8").splitlines():
                 d = json.loads(ln)
                 m = {s for s in CURRICULUM if d.get(f"s{s}")}
-                print(f"cycle {d['cycle']:>3}  숙련 {d['mastered']:>2}/10  {_bar(m)}")
+                ach = f" 달성 {d['achievement'] * 100:.0f}%" if "achievement" in d else ""
+                print(f"cycle {d['cycle']:>3}  숙련 {d['mastered']:>2}/10{ach}  {_bar(m)}")
         else:
             print("아직 진행 기록 없음(brain_progress.jsonl 부재)")
         return 0
@@ -194,6 +228,15 @@ def main() -> int:
     print(f"[brain] EnvPool envs_effective={n_eff}")
     baselines = {s: 0.0 for s in CURRICULUM}   # 스테이지별 REINFORCE baseline(사이클 간 지속)
 
+    # base 지형 도달셀 실측(빈-플랜 롤아웃) — 스킬 없이 개미가 가는 곳. reachability-확장 보상 기준.
+    base_reach: dict = {}
+    if not args.no_reach:
+        for s in CURRICULUM:
+            empty = pool.envs[0].step({"stage": mdps[s].stage_scene,
+                                       "deadline_frames": cfg["replay_deadline"], "trace": True, "actions": []})
+            base_reach[s] = _productive_cells(empty.get("trace"), mdps[s].layout)
+        print("[brain] base 도달셀: " + " ".join(f"s{s}={len(base_reach[s])}" for s in CURRICULUM))
+
     policy = T.make_policy_r2(mdps[1], cfg)
     opt = torch.optim.Adam(policy.parameters(), lr=args.lr)
     if args.reset:
@@ -208,25 +251,29 @@ def main() -> int:
           f"발견해 {sum(len(v) for v in seen.values())}종 lr={args.lr} clip={args.grad_clip} "
           f"{'(신규 뇌)' if start_cycle == 0 else '(이어받기)'}")
 
-    ent_coef = max(cfg["entropy_min"], cfg["entropy"] * (cfg["entropy_decay"] ** start_cycle))
+    ent_coef = args.entropy         # 매 실행 탐험 재점화(감쇠 스케줄 리셋 — 이어받기여도 탐험 회복)
+    total_hp = sum(mdps[s].hp for s in CURRICULUM)
     t0 = time.monotonic()
     for c in range(start_cycle, start_cycle + args.cycles):
-        # 균등 배분(예산 뺏기 없음) — 매 사이클 1~10 전체를 batches_per_stage씩 학습한다(이미 깬
-        # 스테이지도 유지 학습으로 망각·퇴보 방지 → prev-cycle 기준 starvation 결함 해소). 하드
-        # 스테이지 초점은 예산이 아니라 잭팟 보상이 담당(사용자 전략): 오래 못 깬 스테이지일수록
-        # jackpot[s]가 커져 그 스테이지를 클리어하는 롤아웃에 큰 보상이 실린다.
+        # 균등 배분(예산 뺏기 없음) — 매 사이클 1~10 전체를 batches_per_stage씩 학습(깬 것도 유지
+        # 학습으로 퇴보 방지). 하드 스테이지 초점 = 잭팟(막힐수록 재클리어 보상↑) + reachability-확장
+        # 보상(새 땅 도달로 배치 발견 부트스트랩) + 탐험 강화(엔트로피↑).
         for s in CURRICULUM:
             _, baselines[s] = _train_stage(policy, opt, mdps[s], grids[s], pool, cfg,
                                           args.batches_per_stage, ent_coef, baselines[s],
-                                          args.grad_clip, jackpot[s])
+                                          args.grad_clip, jackpot[s], base_reach.get(s))
 
-        # 전 스테이지 greedy 재평가 → 현행 숙련 집합 + **새로(distinct) 발견한 해**만 별도 기록
+        # 전 스테이지 greedy 재평가 → 숙련 + 달성률(saved/hp) + 새 해 기록
         row = {"cycle": c, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         now_mastered = set()
         new_sols = 0
+        total_saved = 0
         for s in CURRICULUM:
             cleared, res, plan = _eval_stage(policy, mdps[s], grids[s], pool, cfg)
+            saved = int(res.get("saved") or 0)
+            total_saved += saved
             row[f"s{s}"] = 1 if cleared else 0
+            row[f"a{s}"] = saved                       # 스테이지별 달성 사탕 수(부분 진전)
             if cleared:
                 now_mastered.add(s)
                 bucket = seen.setdefault(s, set())
@@ -243,6 +290,7 @@ def main() -> int:
             jackpot[s] = 0.0 if s in mastered else min(args.jackpot_cap, jackpot[s] + args.jackpot_inc)
 
         row["mastered"] = len(mastered)
+        row["achievement"] = round(total_saved / total_hp, 3)   # 전체 달성률(궁극 목표 100%)
         row["new_solutions"] = new_sols
         row["total_solutions"] = sum(len(v) for v in seen.values())
         row["jackpot_max"] = round(max(jackpot.values()), 1)
@@ -257,9 +305,10 @@ def main() -> int:
         with open(PROGRESS, "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
         dt = time.monotonic() - t0
-        print(f"cycle {c:>3}  숙련 {len(mastered):>2}/10 (best {best_mastered}) 새해+{new_sols} "
-              f"잭팟max={row['jackpot_max']}  {_bar(mastered)}  ({dt:.0f}s)")
-        ent_coef = max(cfg["entropy_min"], ent_coef * cfg["entropy_decay"])
+        ach_bar = " ".join(f"{s}:{row[f'a{s}']}/{mdps[s].hp}" for s in CURRICULUM)
+        print(f"cycle {c:>3}  숙련 {len(mastered):>2}/10 (best {best_mastered}) 달성 {row['achievement']*100:.0f}% "
+              f"새해+{new_sols} 잭팟max={row['jackpot_max']}\n         {ach_bar}  ({dt:.0f}s)")
+        ent_coef = max(args.entropy_min, ent_coef * cfg["entropy_decay"])
 
     pool.close()
     print(f"[brain] 완료. 누적 상태 → {T._rel(BRAIN_CKPT)} / 곡선 → {T._rel(PROGRESS)}")
