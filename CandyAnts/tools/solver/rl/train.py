@@ -59,8 +59,10 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 from mdp import (StageMDP, GRAMMAR_VERSION, GRAMMAR_R2, REWARD, SHAPING,  # noqa: E402
-                 global_vocab, manifest_stage_ids)
+                 global_vocab, manifest_stage_ids, skill_metas,
+                 OBS_SCHEMA_DIGEST, obs_schema, C_TRACE, N_TRACE_SCALAR)
 from env import GodotEnv                           # noqa: E402  (tools/solver/env.py)
+from run_test import find_godot                    # noqa: E402  (실제 롤아웃 godot 해석 — exec digest 바인딩)
 import solve                                       # noqa: E402  (run_plan 단발 리플레이 — 권위 경로)
 
 REPLAY_DEADLINE = 7000       # acceptance 판정·리플레이 표준 deadline(축소 cap 거짓음성 차단, plan §R0)
@@ -122,6 +124,82 @@ R2_CHAINS = {11: [11], 12: [11, 12], 13: [11, 12, 13], 19: [19]}
 # 부재-fail-open 차단). S19는 pinned 커맨드에 저장이 없어 비대상(기록돼 있으면 검증은 한다).
 R2_SAVE_CKPT_STAGES = frozenset({11, 12, 13})
 
+# ---------- R3 (trace-refinement MDP — plan §R3, --refine opt-in) ----------
+# 관측 확장 = 신규 ckpt 포맷(model_cfg에 trace-채널/obs-schema digest 포함 → r2 정책과 shape 비호환).
+CKPT_FORMAT_R3 = "candyants-rl3-ckpt-v1"
+# 처리량 floor(R1-high1/R2-high3 — wall-bound vacuous FAIL 차단). impl-pin 금지: verify-r3가 다른 값이면
+# 리뷰된 plan 개정 없이 FAIL. MIN_DISTINCT=S13 known 해 공간 격자 하한 실측 기준 pin.
+THROUGHPUT_FLOOR = {"MIN_EPISODES": 3000, "MIN_DISTINCT": 1500}
+R3_PROTOCOL_VERSION = "rl3-tcp-ndjson-v1"   # exec_config_digest 멤버(memo_key stale hit 차단)
+
+
+def _floor_reached(tp: dict) -> bool:
+    """THROUGHPUT_FLOOR 도달 여부 = raw 카운터 파생(자기-보고 bool 신뢰 금지, codex §R3 HIGH-2).
+    verify-r3가 이 함수로 재계산해 산출물의 floor_reached와 대조 + outcome 재판정.
+    **AND**(codex §R3 R6-MED, 사용자 결정 2026-07-05 → plan §R3 개정): model_fail 인증에는 학습량
+    (≥MIN_EPISODES) **그리고** 탐색 커버리지(≥MIN_DISTINCT)를 **둘 다** 요구 — MIN_DISTINCT의 pin 근거
+    ("해 공간 격자 하한")와 정합. 한 축만 넘고 다른 축 미달 = 탐색/학습 부족 → throughput-pin-invalid(인프라)."""
+    return (int(tp.get("episodes_completed") or 0) >= THROUGHPUT_FLOOR["MIN_EPISODES"]
+            and int(tp.get("distinct_prefix_rollouts") or 0) >= THROUGHPUT_FLOOR["MIN_DISTINCT"])
+# R3_PRIMARY_PIN(acceptance 1·2·3·5) = R2_PIN 계승 + refine 계약. shaping="trace"(=R_d4+R1_terminal_shaping,
+# 계상 1회)·grammar r2.1·obs_schema_digest·memo 기본 on·max_len(S13=6). dense가 이 pin을 갱신 금지.
+R3_PRIMARY_PIN = dict(R2_PIN, refine=True, dense_shaping=False,
+                      obs_schema_digest=OBS_SCHEMA_DIGEST,
+                      throughput_floor=dict(THROUGHPUT_FLOOR))
+# R3_DENSE_PIN(acceptance 6, fallback) — 독립 정의(R3-med3): shaping="none"(terminal trace shaping off,
+# 이중계상 차단)·dense_shaping·γ=1.0·terminal φ=0·φ 계수 {0.5,0.1}(SHAPING 계승) + primary 공유 나머지.
+R3_DENSE_PIN = dict(R2_PIN, refine=True, dense_shaping=True, shaping="none",
+                    obs_schema_digest=OBS_SCHEMA_DIGEST, gamma=1.0, terminal_potential=0,
+                    dense_coeffs=dict(SHAPING), throughput_floor=dict(THROUGHPUT_FLOOR))
+
+
+def _sha_obj(o) -> str:
+    return hashlib.sha256(json.dumps(o, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _exec_config_digest(mdp: StageMDP, cfg: dict) -> tuple[str, dict]:
+    """rollout(P)가 의존하는 exec config 전량(숨은 의존 0, plan §R3 memo_key 계약). 멤버 하나라도
+    바뀌면 memo 무효(cross-config stale hit 차단). stage_resource_digest = subset 금지(R3-high1) —
+    스테이지 .tres + 참조 layout + scene의 full content hash(spawn/timeout/per-entity 등 전 runtime 필드)."""
+    def fh(rel: str):
+        p = ROOT / rel
+        return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+    sid = mdp.stage_id
+    stage_files = [f"data/stages/stage{sid:02d}.tres",
+                   f"data/stage_layouts/stage{sid:02d}_layout.tres",
+                   f"scenes/stages/Stage{sid:02d}.tscn"]
+    # 스테이지 리소스는 rollout 결정론의 실체 — 하나라도 없으면 memo_key가 content-blind가 됨.
+    # fail-closed(codex §R3 HIGH-1 인접: 누락 시 silent None 금지).
+    for rel in stage_files:
+        if not (ROOT / rel).exists():
+            raise FileNotFoundError(
+                f"exec_config_digest: 스테이지 리소스 {rel} 없음 — memo_key content-bind 불가(fail-closed)")
+    driver_files = ["scripts/core/PlanRunner.gd", "scripts/core/SimConfig.gd",
+                    "tests/PlanServerHarness.gd", "tests/PlanServerHarness.tscn",
+                    "tools/solver/env.py", "project.godot", "data/solver/capabilities.tres"]
+    # 실제 롤아웃에 쓰이는 godot = find_godot()(GODOT_BIN 미설정 시 PATH/후보 폴백) — env var raw는
+    # 미설정 시 빈 문자열로 두 바이너리를 구별 못 함(codex §R3 R3-MED). resolved 경로로 바인딩·fail-closed.
+    try:
+        godot_binary = str(Path(find_godot()).resolve())
+    except Exception as e:
+        raise RuntimeError(f"exec_config_digest: godot 실행파일 해석 불가 — {e} (fail-closed)")
+    members = {
+        "stage_resource_digest": _sha_obj({r: fh(r) for r in stage_files}),
+        "skill_meta_digest": _sha_obj(skill_metas()),
+        "vocab_digest": mdp.vocab_digest,
+        "grammar": mdp.grammar_version,
+        "fixed_fps": 60,
+        "train_deadline": cfg["train_deadline"],
+        "replay_deadline": cfg["replay_deadline"],
+        "trace_schema_digest": OBS_SCHEMA_DIGEST,
+        "trace_request": True,
+        "godot_binary": godot_binary,
+        "script_rev_digest": _sha_obj({r: fh(r) for r in driver_files}),
+        "protocol_version": R3_PROTOCOL_VERSION,
+    }
+    return _sha_obj(members), members
+
+
 # ---------- r2 체크포인트 (P1 — plan §R2: 영속화 = 사용자 필수 요건) ----------
 CKPT_FORMAT = "candyants-rl2-ckpt-v1"
 CKPT_DIR = ROOT / "data" / "solutions" / "rl_ckpt"
@@ -134,8 +212,10 @@ CKPT_REQUIRED_KEYS = (
     "sil_buf", "torch_rng", "policy", "optimizer", "chain")
 
 
-def ckpt_path(stage_id: int, seed: int) -> Path:
-    return CKPT_DIR / f"stage{stage_id:02d}_seed{seed}.r2.pt"
+def ckpt_path(stage_id: int, seed: int, refine: bool = False) -> Path:
+    # r3(refine)은 별도 확장자(.r3.pt) — R2 byte-backed ckpt 덮어쓰기 차단(codex §R3 MED-4).
+    ext = "r3" if refine else "r2"
+    return CKPT_DIR / f"stage{stage_id:02d}_seed{seed}.{ext}.pt"
 
 
 def _file_sha(path: Path) -> str:
@@ -143,10 +223,15 @@ def _file_sha(path: Path) -> str:
 
 
 def _model_cfg(mdp: StageMDP, cfg: dict) -> dict:
-    """모델 shape 계약(ckpt 호환 검사 대상) — 전역 어휘라 스테이지 무관 동일해야 transfer 가능."""
-    return {"hidden": cfg["hidden"], "conv_channels": cfg["conv_channels"],
-            "max_len": mdp.max_len, "flat_dim": mdp.flat_dim,
-            "heads": dict(mdp.heads)}
+    """모델 shape 계약(ckpt 호환 검사 대상) — 전역 어휘라 스테이지 무관 동일해야 transfer 가능.
+    r3(refine)은 관측 확장분(trace 채널/스칼라/obs-schema digest)까지 포함 → r2 ckpt와 shape 비호환."""
+    mc = {"hidden": cfg["hidden"], "conv_channels": cfg["conv_channels"],
+          "max_len": mdp.max_len, "flat_dim": mdp.flat_dim,
+          "heads": dict(mdp.heads)}
+    if cfg.get("refine"):
+        mc.update(refine=True, flat_dim=mdp.flat_dim_r3, in_channels=5 + C_TRACE,
+                  obs_schema_digest=OBS_SCHEMA_DIGEST)
+    return mc
 
 
 def save_ckpt(path: Path, state: dict) -> str:
@@ -172,8 +257,9 @@ def _ckpt_compat(ckpt: dict, mdp: StageMDP, seed: int, mode: str, cfg: dict) -> 
     - transfer(타 스테이지 curriculum): 레이아웃/마스크 **면제**(불일치가 전이의 정의)하되
       전역 어휘/head-시맨틱 digest + 모델 shape는 일치 — silent 오매핑 차단."""
     fails: list[str] = []
-    if ckpt.get("format") != CKPT_FORMAT:
-        fails.append(f"format {ckpt.get('format')!r} != {CKPT_FORMAT!r}")
+    want_fmt = CKPT_FORMAT_R3 if cfg.get("refine") else CKPT_FORMAT
+    if ckpt.get("format") != want_fmt:
+        fails.append(f"format {ckpt.get('format')!r} != {want_fmt!r}")
     if ckpt.get("grammar_version") != mdp.grammar_version:
         fails.append(f"grammar {ckpt.get('grammar_version')!r} != {mdp.grammar_version!r}")
     if ckpt.get("vocab_digest") != mdp.vocab_digest:
@@ -519,6 +605,234 @@ def _episode_logp(mdp: StageMDP, policy, partial: list[dict[str, int]]):
     return total
 
 
+# ---------- R3 refine (trace-refinement — plan §R3, --refine opt-in) ----------
+
+def make_policy_r3(mdp: StageMDP, cfg: dict):
+    """r3 정책 = r2 CNN + trace 공간 채널 concat(5→5+C_TRACE) + trace 집계 스칼라(flat append).
+    파라미터 shape는 여전히 스테이지-무관(전역 어휘) — from-scratch 학습(R3 primary는 transfer 미사용)."""
+    torch, nn = _torch()
+    ch = cfg["conv_channels"]
+    in_ch = 5 + C_TRACE
+
+    class PolicyR3(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv = nn.Sequential(
+                nn.Conv2d(in_ch, ch, 3, padding=1), nn.ReLU(),
+                nn.Conv2d(ch, ch, 3, padding=1), nn.ReLU(),
+                nn.AdaptiveMaxPool2d((4, 4)))
+            self.torso = nn.Sequential(
+                nn.Linear(ch * 16 + mdp.flat_dim_r3, cfg["hidden"]), nn.Tanh(),
+                nn.Linear(cfg["hidden"], cfg["hidden"]), nn.Tanh())
+            self.heads = nn.ModuleDict(
+                {h: nn.Linear(cfg["hidden"], n) for h, n in mdp.heads.items()})
+
+        def forward(self, grid, flat):
+            z = self.conv(grid).flatten(1)
+            z = self.torso(torch.cat([z, flat], dim=1))
+            return {h: self.heads[h](z) for h in mdp.head_names}
+
+    return PolicyR3()
+
+
+def _trace_grid_tensor(mdp: StageMDP, res: dict, blind: bool = False):
+    """trace 공간 채널 → CNN 입력 텐서(1×C_TRACE×H×W). blind = 전부 0(trace-blind 대조)."""
+    torch, _ = _torch()
+    tc = [0.0] * (mdp.H * mdp.W * C_TRACE) if blind else mdp.trace_channels(res)
+    return (torch.tensor(tc, dtype=torch.float32)
+            .view(1, mdp.H, mdp.W, C_TRACE).permute(0, 3, 1, 2).contiguous())
+
+
+def _r3_grid(mdp: StageMDP, grid_t, res: dict, blind: bool = False):
+    """layout 5ch(상수 grid_t) + trace C_TRACE ch(per-obs) concat → 1×(5+C_TRACE)×H×W."""
+    torch, _ = _torch()
+    return torch.cat([grid_t, _trace_grid_tensor(mdp, res, blind)], dim=1)
+
+
+class Rollouter:
+    """refine 롤아웃 캐시(plan §R3 memo). memo_key = sha256(exec_config_digest, 정규화 lowered plan).
+    캐시는 처리량만 — verdict/보상/샘플링 불변(acceptance 3이 memo-on==--no-memo byte-identical 실증).
+    use_memo=False면 매 롤아웃 실행(결정론 대조). 회계: requests/total_rollouts/distinct/hit_rate."""
+
+    def __init__(self, pool: EnvPool, mdp: StageMDP, cfg: dict, exec_digest: str,
+                 use_memo: bool = True):
+        self.pool, self.mdp, self.cfg = pool, mdp, cfg
+        self.exec_digest, self.use_memo = exec_digest, use_memo
+        self.cache: dict[str, dict] = {}
+        self.seen: set[str] = set()
+        self.requests = 0
+        self.total_rollouts = 0
+
+    def _key(self, lowered: list) -> str:
+        return _sha_obj([self.exec_digest, lowered])
+
+    def _plan(self, lowered: list) -> dict:
+        return {"stage": self.mdp.stage_scene, "deadline_frames": self.cfg["train_deadline"],
+                "trace": True, "actions": lowered}
+
+    def _run(self, k: str, lowered: list) -> dict:
+        r = self.pool.envs[0].step(self._plan(lowered))
+        if not _trace_valid(r.get("trace")):
+            raise RuntimeError(
+                f"refine 롤아웃 유효 trace 부재(fail-closed): digest={_digest(r)}")
+        self.total_rollouts += 1
+        self.seen.add(k)
+        if self.use_memo:
+            self.cache[k] = r
+        return r
+
+    def get(self, partial: list) -> dict:
+        self.requests += 1
+        lowered = self.mdp.decode_plan(partial)
+        k = self._key(lowered)
+        if self.use_memo and k in self.cache:
+            return self.cache[k]
+        return self._run(k, lowered)
+
+    def batch(self, partials: list) -> list[dict]:
+        """distinct un-cached prefix를 pool 병렬 평가(입력 순서대로 반환) — refine 처리량 유지."""
+        self.requests += len(partials)
+        lowereds = [self.mdp.decode_plan(p) for p in partials]
+        keys = [self._key(l) for l in lowereds]
+        local: dict[str, dict] = {}
+        need: dict[str, list] = {}
+        for k, l in zip(keys, lowereds):
+            if self.use_memo and k in self.cache:
+                local[k] = self.cache[k]
+            elif k not in need:
+                need[k] = l
+        if need:
+            nk = list(need)
+            res = self.pool.evaluate([self._plan(need[k]) for k in nk])
+            for k, r in zip(nk, res):
+                if not _trace_valid(r.get("trace")):
+                    raise RuntimeError(
+                        f"refine 배치 롤아웃 유효 trace 부재(fail-closed): digest={_digest(r)}")
+                self.total_rollouts += 1
+                self.seen.add(k)
+                local[k] = r
+                if self.use_memo:
+                    self.cache[k] = r
+        return [local[k] for k in keys]
+
+    @property
+    def distinct(self) -> int:
+        return len(self.seen)
+
+    @property
+    def memo_hit_rate(self) -> float:
+        return round(1.0 - self.total_rollouts / self.requests, 4) if self.requests else 0.0
+
+
+def _sample_batch_refine(mdp: StageMDP, policy, grid_t, roll: Rollouter, cfg: dict,
+                         greedy: bool = False, blind: bool = False, n: int | None = None):
+    """refine 에피소드 배치를 depth-lockstep으로 전진(N-env 병렬 + memo 유지): 스텝 t에서 각 활성
+    에피소드의 P_t를 롤아웃(배치)→trace 관측→액션 샘플. append면 P_{t+1}, SUBMIT/max_len이면 terminal.
+    반환 = [(partial, logp, ent, final_result)] — final_result = rollout(최종 plan)(중간 obs 롤아웃 재사용).
+    RNG: torch 스트림을 depth×episode 순으로 소비(refine 전용 경로 — 재개 등가성은 동일 경로 재사용으로 성립)."""
+    torch, _ = _torch()
+    B = n if n is not None else cfg["batch"]
+    eps = [{"partial": [], "used": {}, "logps": [], "ents": [], "done": False,
+            "result": None} for _ in range(B)]
+    for t in range(mdp.max_len + 1):
+        active = [e for e in eps if not e["done"]]
+        if not active:
+            break
+        results = roll.batch([e["partial"] for e in active])   # rollout(P_t) 관측(baseline=빈 plan)
+        for e, r in zip(active, results):
+            e["cur"] = r
+        if t == mdp.max_len:                                   # 인벤토리/슬롯 소진 → 최종 롤아웃 확정
+            for e in active:
+                e["done"], e["result"] = True, e["cur"]
+            break
+        for e in active:
+            flat = torch.tensor(mdp.obs_flat_r3(e["partial"], e["cur"], blind=blind),
+                                dtype=torch.float32).unsqueeze(0)
+            gin = _r3_grid(mdp, grid_t, e["cur"], blind)
+            logits = policy(gin, flat)
+            idx: dict[str, int] = {}
+            step_logp, step_ent = [], []
+
+            def _pick(h: str) -> None:
+                lg = _masked(logits[h][0], mdp.head_mask(h, t, e["used"], idx), mdp.heads[h])
+                dist = torch.distributions.Categorical(logits=lg)
+                a = torch.argmax(lg) if greedy else dist.sample()
+                idx[h] = int(a)
+                step_logp.append(dist.log_prob(a))
+                step_ent.append(dist.entropy())
+
+            _pick("skill")
+            if idx["skill"] == mdp.SUBMIT:                     # terminal — 최종 plan = P_t(rollout 재사용)
+                e["logps"].append(step_logp[0])
+                e["ents"].append(step_ent[0])
+                e["done"], e["result"] = True, e["cur"]
+                continue
+            _pick("kind")
+            _pick("trigger")
+            for h in mdp.active_heads(idx)[2:]:
+                _pick(h)
+            sid = mdp.skills[idx["skill"]]
+            e["used"][sid] = e["used"].get(sid, 0) + 1
+            e["logps"].append(sum(step_logp))
+            e["ents"].append(sum(step_ent))
+            e["partial"].append(idx)
+    zero = torch.tensor(0.0)
+    out = []
+    for e in eps:
+        if e["result"] is None:                               # 방어(도달 불가 경로)
+            e["result"] = roll.get(e["partial"])
+        out.append((e["partial"], sum(e["logps"]) if e["logps"] else zero,
+                    sum(e["ents"]) if e["ents"] else zero, e["result"]))
+    return out
+
+
+def _episode_logp_r3(mdp: StageMDP, policy, grid_t, partial: list[dict[str, int]],
+                     roll: Rollouter, blind: bool = False):
+    """저장 에피소드의 현행-정책 log-prob 재계산(SIL) — 각 prefix의 trace obs 필요(memo 재사용)."""
+    torch, _ = _torch()
+    total = torch.tensor(0.0)
+    used: dict[str, int] = {}
+    for t, a in enumerate(partial):
+        res = roll.get(partial[:t])
+        flat = torch.tensor(mdp.obs_flat_r3(partial[:t], res, blind=blind),
+                            dtype=torch.float32).unsqueeze(0)
+        logits = policy(_r3_grid(mdp, grid_t, res, blind), flat)
+        for h in ["skill"] + mdp.active_heads(a):
+            lg = _masked(logits[h][0], mdp.head_mask(h, t, used, a), mdp.heads[h])
+            total = total + torch.distributions.Categorical(logits=lg).log_prob(
+                torch.tensor(a[h]))
+        sid = mdp.skills[a["skill"]]
+        used[sid] = used.get(sid, 0) + 1
+    if len(partial) < mdp.max_len:
+        res = roll.get(partial)
+        flat = torch.tensor(mdp.obs_flat_r3(partial, res, blind=blind),
+                            dtype=torch.float32).unsqueeze(0)
+        lg = _masked(policy(_r3_grid(mdp, grid_t, res, blind), flat)["skill"][0],
+                     mdp.head_mask("skill", len(partial), used, {}), mdp.heads["skill"])
+        total = total + torch.distributions.Categorical(logits=lg).log_prob(
+            torch.tensor(mdp.SUBMIT))
+    return total
+
+
+def _dense_terms(mdp: StageMDP, partial: list, roll: Rollouter) -> tuple[float, list]:
+    """dense PBRS(plan §R3 acceptance 6): F_t = γ·φ(P_{t+1}) − φ(P_t), γ=1.0, terminal φ=0(모든 종료
+    원인). φ = R1 trace potential = mdp.shaped_bonus(rollout(P)). Σ F_t = γ^L·φ(term) − φ(P_0) =
+    −φ(P_0)(정책-불변, Ng 1999) — telescoping 단위검증 대상. 반환 (Σ F_t, φ[P_0..P_L])."""
+    L = len(partial)
+    phis = [mdp.shaped_bonus(roll.get(partial[:t])) for t in range(L + 1)]
+    total = 0.0
+    for t in range(L):
+        total += 1.0 * phis[t + 1] - phis[t]        # γ=1.0
+    total += 0.0 - phis[L]                           # P_L → terminal, φ(terminal)=0
+    return total, phis
+
+
+def _dense_reward(mdp: StageMDP, partial: list, final_res: dict, roll: Rollouter) -> float:
+    """dense 모드 보상 = R_d4(terminal verdict) + Σ_t F_t (R1 terminal trace-shaping off — 이중계상 차단)."""
+    dense, _ = _dense_terms(mdp, partial, roll)
+    return mdp.reward(final_res, len(partial)) + dense
+
+
 # ---------- 학습 (seed 1개) ----------
 
 def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
@@ -530,10 +844,20 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     스테이지-파생 상태(entropy 스케줄·SIL buffer·baseline)는 리셋, RNG는 새 seed."""
     torch, _ = _torch()
     r2 = mdp.grammar_version == GRAMMAR_R2
+    refine = bool(cfg.get("refine"))          # plan §R3 — trace-refinement(opt-in)
+    dense = bool(cfg.get("dense_shaping"))    # plan §R3 acceptance 6 — dense PBRS fallback
+    blind = bool(cfg.get("trace_blind"))      # plan §R3 acceptance 1 (ii) — trace 정보 격리 대조
+    if refine and not r2:
+        raise RuntimeError("--refine는 --grammar r2.1 전용(plan §R3 — r2.1 문법 무변경, 관측만 확장)")
     torch.manual_seed(seed)
-    policy = make_policy_r2(mdp, cfg) if r2 else make_policy(mdp, cfg["hidden"])
+    policy = (make_policy_r3(mdp, cfg) if refine
+              else make_policy_r2(mdp, cfg)) if r2 else make_policy(mdp, cfg["hidden"])
     opt = torch.optim.Adam(policy.parameters(), lr=cfg["lr"])
     grid_t = _grid_tensor(mdp) if r2 else None
+    roll = None
+    if refine:
+        exec_digest, _ = _exec_config_digest(mdp, cfg)
+        roll = Rollouter(pool, mdp, cfg, exec_digest, use_memo=cfg.get("memo", True))
     baseline, baseline_init = 0.0, False
     episodes, batch_i = 0, 0                  # 세그먼트 카운터 — 예산 회계는 구간별(plan-R2 MED-4)
     wall_prev = 0.0                           # exact resume 시 같은 세그먼트의 이전 invocation 누적 wall
@@ -587,6 +911,8 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
                 else _sample_episode(mdp, policy, greedy))
 
     def _ep_logp(p):
+        if refine:
+            return _episode_logp_r3(mdp, policy, grid_t, p, roll, blind=blind)
         return (_episode_logp_r2(mdp, policy, grid_t, p) if r2
                 else _episode_logp(mdp, policy, p))
 
@@ -594,24 +920,40 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     while not result["cleared"] and _budget_left():
         batch_i += 1
         ran_batches += 1
-        eps = [_sample() for _ in range(cfg["batch"])]
-        plans = [{"stage": mdp.stage_scene, "deadline_frames": cfg["train_deadline"],
-                  **({"trace": True} if use_trace else {}),
-                  "actions": mdp.decode_plan(p)} for p, _, _ in eps]
-        rollouts = pool.evaluate(plans)
-        episodes += len(eps)
-        if use_trace:
-            # post-commit codex R4 MEDIUM: 빈-plan preflight만으론 "액션 발화 시 trace 소실" 회귀를 못
-            # 잡고, shaped_bonus의 {} fail-safe가 무력화를 침묵시킴 → **액션 롤아웃별 trace 검증**.
-            # 위반 = 학습 run 전체 fail(정직 크래시 — silent shaping 격하로 'trace' 라벨 산출물 금지).
-            for r in rollouts:
-                if not _trace_valid(r.get("trace")):
-                    raise RuntimeError(
-                        f"trace-shaped 학습 롤아웃에 유효 trace 부재 — 엔진/Env trace 수집 회귀 "
-                        f"(fail-closed): digest={_digest(r)}")
-        bonuses = [mdp.shaped_bonus(r) if use_trace else 0.0 for r in rollouts]
-        rewards = [mdp.reward(r, len(p)) + b
-                   for (p, _, _), r, b in zip(eps, rollouts, bonuses)]
+        if refine:
+            # closed-loop: 배치 각 에피소드가 P_0..P_L을 롤아웃하며 trace 관측(memo + N-env 병렬).
+            # 최종 롤아웃(final_res)만 보상에 쓰임(중간 obs 롤아웃 보상 0 — 이중계상 차단).
+            samp = _sample_batch_refine(mdp, policy, grid_t, roll, cfg, blind=blind)
+            eps = [(p, lp, en) for (p, lp, en, _r) in samp]
+            rollouts = [r for (_p, _lp, _en, r) in samp]
+            episodes += len(eps)
+            if dense:                                     # dense PBRS(acceptance 6): R_d4 + Σ F_t
+                bonuses = [0.0] * len(eps)                # 로깅용(terminal shaping off)
+                rewards = [_dense_reward(mdp, p, r, roll)
+                           for (p, _, _), r in zip(eps, rollouts)]
+            else:                                         # primary: R_d4 + R1_terminal_shaping(계상 1회)
+                bonuses = [mdp.shaped_bonus(r) for r in rollouts]
+                rewards = [mdp.reward(r, len(p)) + b
+                           for (p, _, _), r, b in zip(eps, rollouts, bonuses)]
+        else:
+            eps = [_sample() for _ in range(cfg["batch"])]
+            plans = [{"stage": mdp.stage_scene, "deadline_frames": cfg["train_deadline"],
+                      **({"trace": True} if use_trace else {}),
+                      "actions": mdp.decode_plan(p)} for p, _, _ in eps]
+            rollouts = pool.evaluate(plans)
+            episodes += len(eps)
+            if use_trace:
+                # post-commit codex R4 MEDIUM: 빈-plan preflight만으론 "액션 발화 시 trace 소실" 회귀를 못
+                # 잡고, shaped_bonus의 {} fail-safe가 무력화를 침묵시킴 → **액션 롤아웃별 trace 검증**.
+                # 위반 = 학습 run 전체 fail(정직 크래시 — silent shaping 격하로 'trace' 라벨 산출물 금지).
+                for r in rollouts:
+                    if not _trace_valid(r.get("trace")):
+                        raise RuntimeError(
+                            f"trace-shaped 학습 롤아웃에 유효 trace 부재 — 엔진/Env trace 수집 회귀 "
+                            f"(fail-closed): digest={_digest(r)}")
+            bonuses = [mdp.shaped_bonus(r) if use_trace else 0.0 for r in rollouts]
+            rewards = [mdp.reward(r, len(p)) + b
+                       for (p, _, _), r, b in zip(eps, rollouts, bonuses)]
         bi = max(range(len(rewards)), key=lambda i: rewards[i])
         if rewards[bi] > result["best_reward"]:
             result["best_episode"] = mdp.decode_plan(eps[bi][0])   # FAIL 사후 진단용(스윕 로그)
@@ -654,7 +996,11 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         # greedy 평가(성공 판정 = 표준 deadline에서 saved==hp_stage)
         if batch_i % cfg["greedy_every"] == 0:
             with torch.no_grad():
-                gp, _, _ = _sample(greedy=True)
+                if refine:
+                    gp = _sample_batch_refine(mdp, policy, grid_t, roll, cfg,
+                                              greedy=True, blind=blind, n=1)[0][0]
+                else:
+                    gp, _, _ = _sample(greedy=True)
             plan = mdp.decode_plan(gp)
             res = pool.envs[0].step({"stage": mdp.stage_scene,
                                      "deadline_frames": cfg["replay_deadline"], "actions": plan})
@@ -666,6 +1012,25 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     result["episodes"] = episodes
     result["batches"] = batch_i
     result["wall_s"] = round(wall_prev + (time.monotonic() - t0), 1)
+    if refine:
+        # 처리량 회계(plan §R3 THROUGHPUT_FLOOR — wall-bound vacuous FAIL 진단·binding 축 판별).
+        if result["cleared"]:
+            binding = "clear"
+        elif cfg.get("max_batches"):
+            binding = "batches"
+        elif episodes >= cfg["max_episodes"]:
+            binding = "episode"
+        else:
+            binding = "wall"
+        tp = {
+            "episodes_completed": episodes,
+            "distinct_prefix_rollouts": roll.distinct,
+            "total_rollouts": roll.total_rollouts,
+            "memo_hit_rate": roll.memo_hit_rate,
+            "wall_s": result["wall_s"], "binding_axis": binding,
+            "throughput_floor": dict(THROUGHPUT_FLOOR)}
+        tp["floor_reached"] = _floor_reached(tp)   # raw 카운터 파생(verify가 재계산·대조)
+        result["throughput"] = tp
     if not result["cleared"] and result.get("best_episode") is not None:
         print(f"  [seed {seed}] FAIL bestR={result['best_reward']:.3f} best plan: "
               f"{json.dumps(result['best_episode'])}")
@@ -673,9 +1038,10 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     if r2:
         # 직렬화 대상 전수(plan-R1 MED-1): policy+optimizer + entropy 카운터(batch_i) + 사용 RNG 전수
         # (현 구현 = torch 단일; python random/numpy 미사용) + SIL 내용·순서 + 누적 카운터 + 문법/
-        # digest/모델 config·dtype + 재개 사슬.
+        # digest/모델 config·dtype + 재개 사슬. r3(refine)은 별도 포맷(관측 확장 → r2 정책과 비호환).
         state = {
-            "format": CKPT_FORMAT, "grammar_version": mdp.grammar_version,
+            "format": CKPT_FORMAT_R3 if refine else CKPT_FORMAT,
+            "grammar_version": mdp.grammar_version,
             "vocab_digest": mdp.vocab_digest, "stage_id": mdp.stage_id,
             "layout_digest": mdp.layout_digest(), "mask_digest": mdp.mask_digest(),
             "model_cfg": _model_cfg(mdp, cfg), "dtype": "float32",
@@ -704,6 +1070,93 @@ def rl2_json_path(stage_id: int) -> Path:
     return ROOT / "data" / "solutions" / f"stage{stage_id:02d}.rl2.json"
 
 
+def _r3_variant(cfg: dict) -> str:
+    if cfg.get("trace_blind"):
+        return "trace_blind"
+    if cfg.get("dense_shaping"):
+        return "dense_fallback"
+    return "primary"
+
+
+def rl3_json_path(stage_id: int, variant: str = "primary") -> Path:
+    """r3 산출물 — variant별 분리 파일(primary/dense/blind가 서로 clobber 방지, 세 런 전부 박제)."""
+    suffix = "" if variant == "primary" else f".{variant}"
+    return ROOT / "data" / "solutions" / f"stage{stage_id:02d}.rl3{suffix}.json"
+
+
+def _r3_outcome(entries: list[dict], passed: bool) -> str:
+    """outcome enum(plan §R3 R3-med2): pass / model_fail / throughput-pin-invalid.
+    (throughput-infeasible는 예산 개정 ≤1회 후 수동 escalate 산출물 — 자동 분류 대상 아님.)"""
+    if passed:
+        return "pass"
+    non_cleared = [e for e in entries if not e["cleared"]]
+    if non_cleared and all((e.get("throughput") or {}).get("floor_reached")
+                           for e in non_cleared):
+        return "model_fail"                   # floor 도달 후 미클리어 = 정당한 model FAIL
+    return "throughput-pin-invalid"           # wall이 floor 전에 걸림 = infra(≠ model FAIL)
+
+
+def _write_r3_artifact(mdp: StageMDP, args, cfg: dict, outs, seeds,
+                       envs_effective: int, pf_info: dict, saved: dict) -> None:
+    """stageNN.rl3[.variant].json — variant(primary/dense_fallback/trace_blind)·outcome·처리량 회계·
+    인과 라벨(r3_mechanical_pass) 박제. mode↔pin 정합은 verify-r3가 강제."""
+    variant = _r3_variant(cfg)
+    mode = "dense_fallback" if cfg.get("dense_shaping") else "primary"
+    cfg_pub = {**cfg, "reward": REWARD, "shaping_coeffs": dict(SHAPING),
+               "obs_schema_digest": OBS_SCHEMA_DIGEST}
+    exec_digest, exec_members = _exec_config_digest(mdp, cfg)
+    entries = []
+    for (res, _state), s in zip(outs, seeds):
+        br = res["best_reward"]
+        entries.append({
+            "seed": s, "cleared": bool(res["cleared"]), "episodes": res["episodes"],
+            "batches": res["batches"], "wall_s": res["wall_s"],
+            "best_reward": (br if br != float("-inf") else None),
+            "greedy_plan": res["greedy_plan"],
+            "envs_requested": args.envs, "envs_effective": envs_effective,
+            "throughput": res.get("throughput"),
+            "preflight_trace": pf_info, "ckpt_saved": saved.get(s)})
+    pinned = R3_PRIMARY_PIN["seeds"]
+    need = (len(pinned) + (len(pinned) % 2) + 1) // 2
+    n_clear = sum(1 for e in entries if e["seed"] in pinned and e["cleared"])
+    passed = (n_clear >= need) and not cfg.get("max_batches")
+    outcome = _r3_outcome([e for e in entries if e["seed"] in pinned], passed)
+    cleared_entries = [e for e in entries if e["cleared"] and e.get("greedy_plan")]
+    best = min(cleared_entries, key=lambda e: e["episodes"]) if cleared_entries else None
+    out = {
+        "stage": mdp.stage_scene, "stage_id": mdp.stage_id,
+        "deadline_frames": cfg["replay_deadline"],
+        "inventory": mdp.inventory,
+        "actions": best["greedy_plan"] if best else None,
+        "expect": {"cleared": True, "saved": mdp.hp},
+        "rl_meta": {
+            "grammar_version": mdp.grammar_version, "no_hint": True,
+            "refine": True, "mode": mode, "variant": variant,
+            "save_ckpt": bool(args.save_ckpt),   # ckpt 부재를 비-silent화(codex §R3 R4-MED)
+            "obs_schema_digest": OBS_SCHEMA_DIGEST,
+            "trace_channels": list(obs_schema()["trace_channels"]),
+            "trace_scalars": list(obs_schema()["trace_scalars"]),
+            "memo_key_members": sorted(exec_members.keys()),
+            "exec_config_digest": exec_digest,
+            "vocab_digest": mdp.vocab_digest, "layout_digest": mdp.layout_digest(),
+            "config": cfg_pub,
+            # r3_mechanical_pass = --refine(trace-full)이 ≥need 클리어(그것만 — trace 인과 주장 아님).
+            # trace_causal_pass는 세 런(trace-full/terminal-only/trace-blind) 조합으로만 결정(verify-r3/report).
+            "r3_mechanical_pass": passed,
+            "outcome": outcome, "budget_revisions": 0,
+            "pass_rule": f">={need}/{len(pinned)} pinned seeds greedy clear within per-seed budget",
+            "run_mode": "pinned-acceptance" if (seeds == pinned and args.envs == R3_PRIMARY_PIN["envs"]
+                                                and not cfg.get("max_batches")) else "exploratory",
+            "seeds": entries, "envs_effective": envs_effective,
+            "best_seed": best["seed"] if best else None,
+        },
+    }
+    path = rl3_json_path(mdp.stage_id, variant)
+    path.write_text(json.dumps(out, indent=1), encoding="utf-8")
+    print(f"산출물 저장: {path} — variant={variant} mode={mode} outcome={outcome} "
+          f"mech_pass={passed}")
+
+
 def run_training(args) -> int:
     r2 = args.grammar == GRAMMAR_R2
     seeds = [int(s) for s in args.seeds.split(",")]
@@ -716,11 +1169,21 @@ def run_training(args) -> int:
     if (args.resume_ckpt or args.transfer_ckpt) and len(seeds) != 1:
         print("ckpt 로드는 seed 1개 커맨드 전용(per-seed 사슬 계약, plan-R3 HIGH-2)")
         return 2
+    refine = bool(getattr(args, "refine", False))
+    if refine and not r2:
+        print("--refine는 --grammar r2.1 전용(plan §R3)")
+        return 2
     mdp = StageMDP(args.stage, max_len=args.max_len, grammar=args.grammar,
                    at_frame_cap=args.train_deadline)
     cfg = dict(DEFAULTS, max_episodes=args.max_episodes, max_wall=args.max_wall,
                shaping=args.shaping, train_deadline=args.train_deadline, max_len=args.max_len,
                sil=bool(args.sil), max_batches=args.max_batches)
+    if refine:                                    # plan §R3 — trace-refinement 계약(opt-in)
+        cfg.update(refine=True, dense_shaping=bool(getattr(args, "dense_shaping", False)),
+                   trace_blind=bool(getattr(args, "trace_blind", False)),
+                   memo=not bool(getattr(args, "no_memo", False)),
+                   obs_schema_digest=OBS_SCHEMA_DIGEST,
+                   throughput_floor=dict(THROUGHPUT_FLOOR))
     ckpt_in, ckpt_mode = None, None
     if args.resume_ckpt:
         ckpt_in, ckpt_mode = load_ckpt(args.resume_ckpt), "resume"
@@ -732,7 +1195,7 @@ def run_training(args) -> int:
           f"shaping={cfg['shaping']} train_deadline={cfg['train_deadline']} "
           f"ckpt={ckpt_mode or 'none'} ===")
     pool, envs_effective, pf_info = build_pool(
-        args.envs, mdp.stage_scene, with_trace=(cfg["shaping"] == "trace"))
+        args.envs, mdp.stage_scene, with_trace=(cfg["shaping"] == "trace" or refine))
     try:
         outs = [train_seed(mdp, pool, s, cfg, ckpt_in, ckpt_mode) for s in seeds]
     finally:
@@ -742,6 +1205,19 @@ def run_training(args) -> int:
     need = (len(seeds) + (len(seeds) % 2) + 1) // 2         # ≥2/3 (일반화: 과반) — verify와 동일식
     passed = n_clear >= need
     print(f"=== 집계: {n_clear}/{len(seeds)} seed 클리어 (필요 ≥{need}) → {'PASS' if passed else 'FAIL'} ===")
+    if refine:
+        saved_r3: dict[int, dict] = {}
+        if args.save_ckpt:
+            for (res, state), s in zip(outs, seeds):
+                p = ckpt_path(args.stage, s, refine=True)   # .r3.pt (R2 ckpt 미덮어쓰기)
+                sha = save_ckpt(p, state)
+                saved_r3[s] = {"path": _rel(p), "sha256": sha}
+                print(f"ckpt 저장(r3): {p} sha256={sha[:16]}…")
+        if not args.no_save:
+            _write_r3_artifact(mdp, args, cfg, outs, seeds, envs_effective, pf_info, saved_r3)
+        else:
+            print("--no-save: 산출물 미저장(판정은 위 집계줄 — plan §R3 스모크 격리)")
+        return 0 if passed else 1
     if r2:
         # 체크포인트 저장(P1 — 영속화). 클리어 여부 무관 저장(FAIL 세그먼트도 exact resume 대상;
         # transfer는 _ckpt_compat이 미클리어 ckpt를 거부).
@@ -1561,6 +2037,297 @@ def verify_r2(stage_id: int) -> int:
 
 # ---------- --coverage (문법 커버리지: known 해 → 격자 인코딩 → 엔진 클리어, R1-H2) ----------
 
+def _dense_telescoping_ok() -> tuple[bool, str]:
+    """dense PBRS 결정론 telescoping 단위검증(plan §R3 acceptance 6): 임의 φ 시퀀스에서
+    Σ_t F_t == γ^L·φ(terminal) − φ(P_0) = −φ(P_0)(γ=1, terminal φ=0). 순수 함수 — 엔진 불요."""
+    class _FakeMDP:
+        def shaped_bonus(self, res):
+            return res["_phi"]
+    class _FakeRoll:
+        def __init__(self, phis):
+            self.phis = phis
+        def get(self, partial):
+            return {"_phi": self.phis[len(partial)]}
+    for phis in ([0.3, -0.1, 0.5, 0.2], [0.0], [1.0, 1.0], [-0.4, 0.7, -0.2, 0.9, 0.1]):
+        L = len(phis) - 1
+        partial = [{"skill": 0}] * L
+        total, got = _dense_terms(_FakeMDP(), partial, _FakeRoll(phis))
+        if abs(total - (-phis[0])) > 1e-9:
+            return False, f"telescoping 불일치: ΣF={total} != -φ(P0)={-phis[0]} (φ={phis})"
+    return True, "telescoping OK (Σ F_t == -φ(P_0), 4 시퀀스)"
+
+
+def verify_r3(stage_id: int) -> int:
+    """r3(trace-refinement) primary 산출물 fail-closed 게이트(plan §R3 acceptance 4): R1/R2 게이트
+    계승(pinned 예산·문법 라운드트립·live trace preflight·trace 재생 replay·pass 시맨틱) + obs 계약
+    (obs_schema_digest·trace_channels/scalars 순서) + memo 계약(memo_key 스키마) + 처리량 회계
+    (THROUGHPUT_FLOOR 판정) + outcome별 분기 + mode↔pin 정합 + ckpt 무결 + dense telescoping."""
+    label = "verify-r3"
+    # primary가 정본(gate) — 있으면 그것, 없고 dense_fallback만 있으면 그것(fallback rung 검증).
+    # **선택 경로↔mode/variant 결속**(codex §R3 R4-MED): 어느 파일을 열었는지가 기대 mode/variant를
+    # 결정한다 — self-report mode로 pin 고르면 dense 아티팩트를 primary 경로에 복사해 통과 가능.
+    path = rl3_json_path(stage_id, "primary")
+    selected = "primary"
+    if not path.exists():
+        dpath = rl3_json_path(stage_id, "dense_fallback")
+        if dpath.exists():
+            path, selected = dpath, "dense_fallback"
+        else:
+            print(f"[{label}] FAIL: {path} 없음")
+            return 1
+    d = json.loads(path.read_text(encoding="utf-8"))
+    meta = d.get("rl_meta") or {}
+    cfg = meta.get("config") or {}
+    mode = meta.get("mode")
+    fails: list[str] = []
+    # 선택 경로가 mode/variant/pin을 강제 — self-report 신뢰 금지.
+    want_mode = "dense_fallback" if selected == "dense_fallback" else "primary"
+    pin = R3_DENSE_PIN if selected == "dense_fallback" else R3_PRIMARY_PIN
+    if mode != want_mode:
+        fails.append(f"선택 경로({selected})↔mode {mode!r} 불일치 — {want_mode!r} 기대(경로 위장 차단)")
+    if meta.get("variant") != selected:
+        fails.append(f"variant {meta.get('variant')!r} != 선택 경로 {selected!r} (A/B 경로 격리 위반)")
+    if selected == "primary" and cfg.get("trace_blind"):
+        fails.append("config.trace_blind == true — primary 게이트는 trace-full만(blind는 인과 대조 전용)")
+    mdp = StageMDP(stage_id, max_len=pin["max_len"], grammar=pin["grammar"],
+                   at_frame_cap=pin["train_deadline"])
+    # ① 바인딩 + 관측/refine 계약
+    if d.get("stage_id") != stage_id:
+        fails.append(f"stage_id {d.get('stage_id')} != {stage_id}")
+    if d.get("stage") != mdp.stage_scene:
+        fails.append(f"stage {d.get('stage')} != {mdp.stage_scene}")
+    if d.get("deadline_frames") != pin["replay_deadline"]:
+        fails.append(f"deadline_frames != pinned {pin['replay_deadline']}")
+    if (d.get("expect") or {}).get("saved") != mdp.hp:
+        fails.append(f"expect.saved != hp_stage {mdp.hp}")
+    if meta.get("no_hint") is not True:
+        fails.append("no_hint != true")
+    if meta.get("refine") is not True:
+        fails.append("rl_meta.refine != true (refine=false 위장 차단)")
+    if meta.get("grammar_version") != pin["grammar"]:
+        fails.append(f"grammar_version != pinned {pin['grammar']}")
+    if meta.get("vocab_digest") != mdp.vocab_digest:
+        fails.append("vocab_digest 불일치")
+    if meta.get("layout_digest") != mdp.layout_digest():
+        fails.append("layout_digest 불일치")
+    # obs 스키마 계약: digest + 채널/스칼라 이름·순서 = 모듈 상수(변조 fail-closed)
+    schema = obs_schema()
+    if meta.get("obs_schema_digest") != schema["digest"]:
+        fails.append("obs_schema_digest 불일치 — 관측 스키마 드리프트/위조")
+    if cfg.get("obs_schema_digest") != schema["digest"]:
+        fails.append("config.obs_schema_digest 불일치")
+    if meta.get("trace_channels") != schema["trace_channels"]:
+        fails.append(f"trace_channels {meta.get('trace_channels')} != {schema['trace_channels']}")
+    if meta.get("trace_scalars") != schema["trace_scalars"]:
+        fails.append(f"trace_scalars 순서 불일치")
+    # memo_key 계약: 멤버 집합 = _exec_config_digest 멤버(스키마) + **digest 값 대조**(codex §R3 R2-MED —
+    # 멤버명만 보면 PlanRunner/env/godot/deadline/protocol drift가 통과). verify는 이미 로컬 godot로
+    # replay하므로 same-config 대조가 정합. 재계산 config = pinned mode(training과 동일 digest-바인딩 키).
+    exec_digest, exec_members = _exec_config_digest(
+        mdp, dict(DEFAULTS, refine=True, train_deadline=pin["train_deadline"]))
+    if meta.get("memo_key_members") != sorted(exec_members.keys()):
+        fails.append(f"memo_key_members {meta.get('memo_key_members')} != "
+                     f"{sorted(exec_members.keys())} (memo_key 스키마 위조)")
+    if meta.get("exec_config_digest") != exec_digest:
+        fails.append(f"exec_config_digest {str(meta.get('exec_config_digest'))[:16]}… != "
+                     f"재계산 {exec_digest[:16]}… (rollout 의존 drift/위조 — memo/provenance 계약)")
+    # ② config pin 값-대조(mode별 pin) — refine/dense/obs/floor 등 계약 상수
+    if cfg.get("max_batches"):
+        fails.append("config.max_batches 사용 — pinned 예산 위장 차단")
+    if cfg.get("refine") is not True:
+        fails.append("config.refine != true")
+    if bool(cfg.get("dense_shaping")) != bool(pin.get("dense_shaping")):
+        fails.append(f"config.dense_shaping != pinned {pin.get('dense_shaping')} (mode↔pin 불일치)")
+    if cfg.get("shaping") != pin["shaping"]:
+        fails.append(f"config.shaping {cfg.get('shaping')!r} != pinned {pin['shaping']!r} "
+                     "(primary=trace / dense=none — 이중계상 차단)")
+    if cfg.get("throughput_floor") != THROUGHPUT_FLOOR:
+        fails.append(f"config.throughput_floor {cfg.get('throughput_floor')} != {THROUGHPUT_FLOOR} "
+                     "(impl-pin 금지 — plan 개정 없이 다른 값이면 FAIL)")
+    for k in _BASE_CFG_KEYS:
+        if k not in cfg:
+            fails.append(f"config.{k} 누락")
+    for k in ("shaping_coeffs", "train_deadline", "sil", "sil_buffer", "sil_coef",
+              "max_len", "replay_deadline", "max_episodes", "max_wall"):
+        if cfg.get(k) != pin.get(k):
+            fails.append(f"config.{k} {cfg.get(k)!r} != pinned {pin.get(k)!r}")
+    # ③ per-seed 항목 + 처리량 회계 + outcome
+    entries = meta.get("seeds") or []
+    entry_seeds = [e.get("seed") for e in entries]
+    if entry_seeds != pin["seeds"]:
+        fails.append(f"seeds {entry_seeds} != pinned {pin['seeds']}")
+    for e in entries:
+        sd = e.get("seed")
+        if e.get("envs_requested") != pin["envs"]:
+            fails.append(f"seed {sd}: envs_requested != {pin['envs']}")
+        _check_preflight_evidence(e.get("preflight_trace"), pin["envs"],
+                                  int(e.get("envs_effective") or 0), fails, f"seed {sd}")
+        tp = e.get("throughput") or {}
+        for k in ("episodes_completed", "distinct_prefix_rollouts", "total_rollouts",
+                  "memo_hit_rate", "binding_axis", "floor_reached"):
+            if k not in tp:
+                fails.append(f"seed {sd}: throughput.{k} 누락(회계 불완전)")
+        # floor_reached는 자기-보고 신뢰 금지 — raw 카운터로 재계산해 대조(codex §R3 HIGH-2).
+        if tp and bool(tp.get("floor_reached")) != _floor_reached(tp):
+            fails.append(f"seed {sd}: floor_reached {tp.get('floor_reached')} != raw 카운터 재계산 "
+                         f"{_floor_reached(tp)} (eps={tp.get('episodes_completed')}·"
+                         f"distinct={tp.get('distinct_prefix_rollouts')}, 자기-보고 위조)")
+        if e.get("episodes", 10**9) > pin["max_episodes"] + pin["batch"]:
+            fails.append(f"seed {sd}: 에피소드 예산 초과")
+        if e.get("wall_s", 10**9) > pin["max_wall"] + 60:
+            fails.append(f"seed {sd}: wall 예산 초과(+60s 밖)")
+    n_seeds = len(pin["seeds"])
+    need = (n_seeds + (n_seeds % 2) + 1) // 2
+    # predicate 증거(codex §R3 R7-MED — verify_r2 §R2-R5 패턴 계승): cleared 자기-보고 불리언 불인정.
+    # seed별 greedy_plan을 문법 canon + 엔진 replay(pinned deadline, saved==hp)해 **실증된 것만** n_clear.
+    max_repr = min(sum(mdp.inventory.get(s, 0) for s in mdp.skills), pin["max_len"])
+    verified_clear: set = set()
+    for e in entries:
+        if not e.get("cleared"):
+            continue
+        sd = e.get("seed")
+        gp = e.get("greedy_plan") or []
+        if not gp:
+            fails.append(f"seed {sd}: cleared인데 greedy_plan 없음 — 증거 부재(fail-closed)")
+            continue
+        pre = len(fails)
+        gcanon = _grammar_canon(mdp, gp, max_repr, fails, f"seed {sd} greedy_plan")
+        if len(fails) != pre:
+            continue
+        gres = solve.run_plan(mdp.stage_scene, gcanon, pin["replay_deadline"], trace=False)
+        if "error" in gres:
+            fails.append(f"seed {sd}: greedy_plan replay 에러: {gres['error']}")
+        elif not (gres.get("cleared") and int(gres.get("saved") or 0) == mdp.hp):
+            fails.append(f"seed {sd}: greedy_plan replay 미클리어({_digest(gres)}) — cleared 위조(fail-closed)")
+        else:
+            verified_clear.add(sd)
+    n_clear = len(verified_clear)
+    outcome = meta.get("outcome")
+    # outcome 재판정 = **replay-실증 클리어 + 재계산 floor**(자기-보고 cleared/floor bool 불신, HIGH-2·R7-MED).
+    recompute_entries = [{"cleared": (e.get("seed") in verified_clear),
+                          "throughput": {"floor_reached": _floor_reached(e.get("throughput") or {})}}
+                         for e in entries]
+    recomputed = _r3_outcome(recompute_entries, n_clear >= need)
+    if outcome != recomputed:
+        fails.append(f"outcome {outcome!r} != 재계산 {recomputed!r} (raw 카운터 기반 재판정)")
+    if meta.get("r3_mechanical_pass") != (n_clear >= need):
+        fails.append(f"r3_mechanical_pass != (cleared {n_clear}/{n_seeds} ≥ {need})")
+    # ④ outcome별 분기: pass = predicate ∧ best plan replay ×2 byte-identical ∧ saved==hp /
+    #   model_fail = floor 도달 ∧ predicate 미달 / throughput-pin-invalid = replay 스킵 + 증거 보존.
+    if outcome == "pass":
+        if n_clear < need:
+            fails.append(f"outcome=pass인데 검증-클리어 predicate 미달 {n_clear}/{n_seeds}")
+        actions = d.get("actions") or []
+        # actions ↔ best_seed 결속(codex §R3 R7-MED): top-level plan = 검증-클리어된 best_seed의
+        # greedy_plan(출처 불명 plan이 predicate와 무관하게 실리는 것 차단).
+        bs = meta.get("best_seed")
+        be = next((x for x in entries if x.get("seed") == bs), None)
+        if be is None or bs not in verified_clear:
+            fails.append(f"best_seed {bs!r}가 검증-클리어 seed 아님 — actions 출처 불명")
+        elif actions != (be.get("greedy_plan") or []):
+            fails.append("top-level actions != best_seed greedy_plan — 출처 결속 위반")
+        if not actions:
+            fails.append("outcome=pass인데 actions 없음")
+        else:
+            gpre = len(fails)
+            canon = _grammar_canon(mdp, actions, max_repr, fails, "action")
+            gfail = len(fails) - gpre
+            if gfail == 0:
+                digs = []
+                for _ in range(2):
+                    res = solve.run_plan(d["stage"], canon, d["deadline_frames"], trace=False)
+                    if "error" in res:
+                        fails.append(f"replay 에러: {res['error']}")
+                        break
+                    digs.append(_digest(res))
+                if len(digs) == 2:
+                    if digs[0] != digs[1]:
+                        fails.append(f"replay ×2 불일치: {digs[0]} != {digs[1]}")
+                    if not digs[0].get("cleared"):
+                        fails.append("replay 미클리어")
+                    if int(digs[0].get("saved") or 0) != mdp.hp:
+                        fails.append(f"saved {digs[0].get('saved')} != hp {mdp.hp}")
+                    rt2 = solve.run_plan(d["stage"], canon, d["deadline_frames"], trace=True)
+                    if "error" in rt2:      # trace 경로 회귀를 침묵 통과 금지(codex §R3 R5-MED)
+                        fails.append(f"best plan trace replay 에러: {rt2['error']}")
+                    elif not _trace_valid(rt2.get("trace")):
+                        fails.append("best plan trace replay 부재/기형")
+    elif outcome == "model_fail":
+        non_cleared = [e for e in entries if not e.get("cleared")]
+        if not all(_floor_reached(e.get("throughput") or {}) for e in non_cleared):
+            fails.append("outcome=model_fail인데 미클리어 seed가 floor 미도달(재계산, → pin-invalid 이어야)")
+    elif outcome in ("throughput-pin-invalid", "throughput-infeasible"):
+        pass  # predicate/replay 스킵 — 보존된 처리량 증거는 위 ③에서 검사
+    else:
+        fails.append(f"outcome {outcome!r} ∉ enum")
+    # ⑤ ckpt 무결(primary=from-scratch → resume-exact digest 계약만; transfer 미사용).
+    # ckpt 부재를 비-silent화(codex §R3 R4-MED): save_ckpt 플래그가 계약 — true면 seed별 ckpt_saved 필수,
+    # false면 부재 필수. 플래그로 "저장 안 함"과 "증거 탈취"를 구별(둘 다 침묵 스킵 차단).
+    save_ckpt_flag = meta.get("save_ckpt")
+    if not isinstance(save_ckpt_flag, bool):
+        fails.append("rl_meta.save_ckpt 누락/비-bool — ckpt 계약 불명(fail-closed)")
+    for e in entries:
+        cs = e.get("ckpt_saved")
+        if save_ckpt_flag is True and not isinstance(cs, dict):
+            fails.append(f"seed {e.get('seed')}: save_ckpt=true인데 ckpt_saved 부재(증거 탈취 차단)")
+        if save_ckpt_flag is False and cs is not None:
+            fails.append(f"seed {e.get('seed')}: save_ckpt=false인데 ckpt_saved 존재(계약 모순)")
+        if isinstance(cs, dict):
+            sd_e = e.get("seed")
+            p = ROOT / cs.get("path", "")
+            # 경로 결속(codex §R3 R5-MED): 저장 경로 = 정확히 이 stage·seed의 정본 .r3.pt(cross-seed/
+            # wrong-path 대체 차단).
+            if cs.get("path") != _rel(ckpt_path(stage_id, sd_e, refine=True)):
+                fails.append(f"seed {sd_e}: ckpt_saved.path {cs.get('path')} != 정본 "
+                             f"{_rel(ckpt_path(stage_id, sd_e, refine=True))}(경로 위장)")
+            if not p.exists():
+                fails.append(f"seed {sd_e}: ckpt 파일 {cs.get('path')} 없음")
+            elif _file_sha(p) != cs.get("sha256"):
+                fails.append(f"seed {sd_e}: ckpt sha256 불일치(byte-backed 위조)")
+            else:
+                rec = load_ckpt(p)
+                if rec.get("format") != CKPT_FORMAT_R3:
+                    fails.append(f"seed {sd_e}: ckpt format != {CKPT_FORMAT_R3}")
+                for rk in CKPT_REQUIRED_KEYS:
+                    if rk not in rec:
+                        fails.append(f"seed {sd_e}: ckpt 필드 {rk} 누락")
+                mc = (rec.get("model_cfg") or {})
+                if mc.get("obs_schema_digest") != schema["digest"] or not mc.get("refine"):
+                    fails.append(f"seed {sd_e}: ckpt model_cfg obs/refine 계약 위반")
+                # seed·stage·digest 결속(codex §R3 R5-MED): resume-exact 계약으로 record를 현 MDP에 대조
+                # (seed/stage_id/grammar/vocab/layout/mask/model_cfg 전부) — 다른 유효 r3 ckpt 대체 차단.
+                try:
+                    _ckpt_compat(rec, mdp, sd_e, "resume", dict(DEFAULTS, refine=True,
+                                                                max_len=pin["max_len"]))
+                except RuntimeError as ce:
+                    fails.append(f"seed {sd_e}: ckpt resume-exact 계약 위반 — {ce}")
+    # ⑥ dense telescoping 단위검증(mode 무관 — dense fallback 정확성 상시 검증)
+    ok, note = _dense_telescoping_ok()
+    if not ok:
+        fails.append(f"dense telescoping FAIL: {note}")
+    # ⑦ 검증자 측 live trace preflight(자기-보고 아닌 실측 — R2 계승)
+    live_pool = None
+    try:
+        live_pool = EnvPool(pin["envs"])
+        live = preflight(live_pool, mdp.stage_scene, with_trace=True)
+        if (live["ok"] is not True or live["runs"] != 2 * pin["envs"]
+                or live.get("trace_present") is not True):
+            fails.append(f"검증자 측 trace preflight 실측 FAIL: {live}")
+    except Exception as e:
+        fails.append(f"검증자 측 preflight 실행 불가({type(e).__name__}: {e}) — fail-closed")
+    finally:
+        if live_pool is not None:
+            live_pool.close()
+    if fails:
+        print(f"[{label}] FAIL (mode={mode} outcome={outcome}):")
+        for f in fails:
+            print("  -", f)
+        return 1
+    print(f"[{label}] PASS — mode={mode} outcome={outcome} mech_pass={meta.get('r3_mechanical_pass')} "
+          f"cleared {n_clear}/{n_seeds} · {note}")
+    return 0
+
+
 def coverage(stage_ids: list[int], grammar: str = GRAMMAR_VERSION) -> int:
     label = f"coverage:{grammar}"
     fails = []
@@ -1599,14 +2366,20 @@ def accept_resume_equiv(args) -> int:
         print("--max-batches N 필수(등가성 기준 배치 수)")
         return 2
     seed = int(args.seeds.split(",")[0])
+    refine = bool(getattr(args, "refine", False))
     mdp = StageMDP(args.stage, max_len=args.max_len, grammar=args.grammar,
                    at_frame_cap=args.train_deadline)
     base = dict(DEFAULTS, max_episodes=10**9, max_wall=10**9, shaping=args.shaping,
                 train_deadline=args.train_deadline, max_len=args.max_len, sil=bool(args.sil))
-    print(f"=== P1 재개 등가성: stage {args.stage} seed {seed} N={n} "
+    if refine:                                    # r3: refine 경로도 재개 등가성 대상(plan §R3 acceptance 2)
+        base.update(refine=True, dense_shaping=bool(getattr(args, "dense_shaping", False)),
+                    trace_blind=bool(getattr(args, "trace_blind", False)),
+                    memo=not bool(getattr(args, "no_memo", False)),
+                    obs_schema_digest=OBS_SCHEMA_DIGEST)
+    print(f"=== P1 재개 등가성: stage {args.stage} seed {seed} N={n} refine={refine} "
           f"(A: 2N 무중단 / B: N→ckpt→resume→N) ===")
     pool, _eff, _pf = build_pool(args.envs, mdp.stage_scene,
-                                 with_trace=(args.shaping == "trace"))
+                                 with_trace=(args.shaping == "trace" or refine))
     tmp = Path(tempfile.gettempdir()) / f"candyants_rl2_equiv_{os.getpid()}.pt"
     try:
         res_a, st_a = train_seed(mdp, pool, seed, dict(base, max_batches=2 * n))
@@ -1672,9 +2445,18 @@ def main() -> int:
                     help="r2: curriculum 전이(타 스테이지 — 가중치만 이월, 전역 어휘 digest fail-closed)")
     ap.add_argument("--max-batches", type=int, default=0,
                     help="이 invocation의 배치-수 종료 조건(등가성 시험 전용; wall/에피소드 예산 비활성)")
+    ap.add_argument("--refine", action="store_true",
+                    help="r3 trace-refinement(plan §R3): 부분 plan 롤아웃 trace를 상태로 관측(closed-loop)")
+    ap.add_argument("--dense-shaping", action="store_true",
+                    help="r3 fallback: dense PBRS(F_t=γφ(P_{t+1})−φ(P_t), γ=1, terminal φ=0)")
+    ap.add_argument("--trace-blind", action="store_true",
+                    help="r3 인과 대조: trace 채널·스칼라 전부 0(롤아웃 수·비용은 --refine과 동일)")
+    ap.add_argument("--no-memo", action="store_true",
+                    help="r3 롤아웃 memo 캐시 끔(memo-결정론 대조 — memo-on과 byte-identical 실증)")
     ap.add_argument("--verify-r0", action="store_true")
     ap.add_argument("--verify-r1", action="store_true")
     ap.add_argument("--verify-r2", action="store_true")
+    ap.add_argument("--verify-r3", action="store_true")
     ap.add_argument("--coverage", action="store_true")
     ap.add_argument("--coverage-r2", action="store_true",
                     help="r2 문법 커버리지: known S11·S12(ant)+S19(cell) 해 → 격자 → 엔진 클리어")
@@ -1688,6 +2470,8 @@ def main() -> int:
         return verify_r1(args.stage)
     if args.verify_r2:
         return verify_r2(args.stage)
+    if args.verify_r3:
+        return verify_r3(args.stage)
     if args.coverage:
         return coverage([11, 12])
     if args.coverage_r2:

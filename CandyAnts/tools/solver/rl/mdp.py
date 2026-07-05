@@ -125,6 +125,131 @@ REWARD = {"cleared": 2.0, "saved": 1.0, "picked": 0.3, "lost": -0.2,
 # S12 prefix 실측(plan §R1 grounding): goal 항이 #1을, retired 항이 #2를 구별 — 둘 다 필수.
 SHAPING = {"goal": 0.5, "retired": 0.1}
 
+# ---------- R3 obs 스키마 (trace-refinement MDP — plan §R3 R3_OBS_SCHEMA, 전량 pin) ----------
+# 관측 확장분의 *전부*를 결정론 확정("impl 확정" 여지 0). verify-r3가 obs_schema_digest 불일치를
+# fail-closed. r0/r1/r2 경로는 이 스키마를 부착하지 않음(--refine opt-in) — obs 차원·재현성 불변.
+TRACE_CHANNELS = ("visit_walk", "loss", "visit_carry", "pickup_goal")   # C_trace=4 (고정 이름·순서)
+C_TRACE = len(TRACE_CHANNELS)
+TRACE_SCALARS = ("best_goal_dist", "retired_total", "retired_water", "retired_fall",
+                 "picked_total", "saved", "verdict_code")               # 집계 스칼라(고정 순서)
+N_TRACE_SCALAR = len(TRACE_SCALARS)
+# verdict_code enum pin(R2-med1 — 숫자 매핑 고정), 정규화 /VERDICT_NORM.
+VERDICT_CODE = {"absent": 0, "cleared": 1, "incomplete": 2, "timeout": 3, "error": 4}
+VERDICT_NORM = 4
+DENSITY_DENOM = 7000     # = replay_deadline(셀 총 방문 상한 상수) — visit_walk/carry per-cell 정규화 분모
+# 스칼라 정규화 분모 = 레이아웃/스테이지 상수(result 파생 금지, R1-H1). digest는 규칙명만 인코딩(스테이지-무관).
+SCALAR_DENOM = {"best_goal_dist": "W+H", "retired_total": "total_ants",
+                "retired_water": "total_ants", "retired_fall": "total_ants",
+                "picked_total": "hp", "saved": "hp", "verdict_code": "4"}
+MARKER_DENOM = "total_ants"      # loss/pickup_goal 이벤트 마커 채널 정규화 분모(레이아웃 상수)
+OBS_DTYPE = "float32"
+OBS_ABSENT_RULE = "all_channels_scalars_zero_verdict_absent"
+
+
+def _verdict_code_of(res: dict) -> int:
+    if not res:
+        return VERDICT_CODE["absent"]
+    if "error" in res:
+        return VERDICT_CODE["error"]
+    if res.get("cleared"):
+        return VERDICT_CODE["cleared"]
+    if res.get("reason") == "deadline":
+        return VERDICT_CODE["timeout"]
+    return VERDICT_CODE["incomplete"]
+
+
+def rasterize_channels(trace: dict, layout: dict, H: int, W: int, ants_total: int) -> list[float]:
+    """공간 채널 [H×W×C_TRACE] flatten((r*W+c)*C_TRACE+ch). 결정론·좌표 rasterize(순수 — golden 결속
+    대상, codex §R3 MED-3). absent(빈 trace) = 전 채널 0. off-grid는 버림 없이 격자 경계 clamp.
+    밀도(visit_walk/carry) = per-cell 카운트/DENSITY_DENOM, 마커(loss/pickup_goal) = 카운트/ants_total, clip."""
+    g = [0.0] * (H * W * C_TRACE)
+    tr = trace or {}
+    if not tr:
+        return g
+
+    def add(cx: int, cy: int, ch: int, v: float) -> None:
+        c = min(max(int(cx), 0), W - 1)
+        r = min(max(int(cy), 0), H - 1)
+        g[(r * W + c) * C_TRACE + ch] += v
+
+    home = layout.get("home")
+    for si in sorted({int(k) for k in tr.keys()}):
+        ss = model._samples(tr, si)
+        if not ss:
+            continue
+        picked_seen = False
+        for s in ss:
+            cx, cy = s[1], s[2]
+            carry = s[3]
+            st = s[4] if len(s) > 4 else "other"
+            if st == "walk":
+                add(cx, cy, 0, 1.0)               # visit_walk 밀도
+            elif st == "carry":
+                add(cx, cy, 2, 1.0)               # visit_carry 밀도(귀로 loop)
+            if st in ("dead", "lost"):
+                add(cx, cy, 1, 1.0)               # loss 마커(기절사/익사 상태)
+            if carry == 1 and not picked_seen:
+                add(cx, cy, 3, 1.0)               # pickup 마커(첫 운반 진입)
+                picked_seen = True
+        if model._died_water(ss, layout):         # 드리프트 익사(dead/lost 상태 없이 물로) 마커
+            add(ss[-1][1], ss[-1][2], 1, 1.0)
+        cx, cy = ss[-1][1], ss[-1][2]
+        if home is not None and abs(cx - home[0]) <= 1 and abs(cy - home[1]) <= 1:
+            add(cx, cy, 3, 1.0)                   # goal 도달(귀가=saved) 마커
+    for i in range(H * W):
+        base = i * C_TRACE
+        for ch in (0, 2):
+            g[base + ch] = min(1.0, g[base + ch] / DENSITY_DENOM)
+        for ch in (1, 3):
+            g[base + ch] = min(1.0, g[base + ch] / ants_total)
+    return g
+
+
+def rasterize_scalars(trace: dict, res: dict, layout: dict, ants_total: int,
+                      hp: int, D0: int) -> list[float]:
+    """집계 스칼라(TRACE_SCALARS 순서, 순수 — golden 결속). absent = 전부 0. 분모 = 레이아웃/스테이지 상수."""
+    if not res or not trace:
+        return [0.0] * N_TRACE_SCALAR
+    gd = model.best_goal_dist(trace, layout)
+    ret = model.count_retired(trace, layout)
+    picked = max(0, int(res.get("picked_total") or 0))
+    saved = max(0, int(res.get("saved") or 0))
+    return [min(gd, D0) / D0,
+            ret["total"] / ants_total, ret["water"] / ants_total, ret["fall"] / ants_total,
+            picked / hp, saved / hp,
+            _verdict_code_of(res) / VERDICT_NORM]
+
+
+def _obs_golden() -> str:
+    """고정 합성 (layout, trace, res)로 rasterize 실행 → **실제 시맨틱(clamp·state→채널 매핑·pickup/goal
+    마커·물사·정규화)을 digest에 결속**(codex §R3 MED-3: 이름/분모만 pin하면 rasterize 로직 변경이 digest를
+    안 바꾼다). Godot 불요(model 순수 함수만). 시맨틱 변경 = golden 변경 = obs_schema_digest 변경."""
+    layout = {"occupied": {(0, 2), (1, 2), (2, 2), (3, 2)}, "ladder": set(),
+              "hazard": {(3, 3): "water"}, "candy": (2, 0), "home": (0, 0), "cell_size": 48}
+    H, W, ants, hp, D0 = 4, 4, 3, 2, 8
+    trace = {"0": [[0, 0, 2, 0, "walk"], [5, 1, 2, 0, "walk"], [9, 2, 2, 1, "carry"],
+                   [12, 0, 0, 1, "carry"]],                      # 픽업 후 귀가(goal)
+             "1": [[0, 0, 2, 0, "walk"], [3, 3, 3, 0, "lost"]],  # 상태 loss
+             "2": [[0, 2, 2, 0, "walk"], [4, 3, 2, 0, "walk"]]}  # 물 아래(3,3) 드리프트 익사
+    res = {"cleared": False, "reason": "deadline", "saved": 1, "picked_total": 2, "trace": trace}
+    ch = rasterize_channels(trace, layout, H, W, ants)
+    sc = rasterize_scalars(trace, res, layout, ants, hp, D0)
+    return _sha([round(x, 6) for x in ch] + [round(x, 6) for x in sc])
+
+
+def obs_schema() -> dict:
+    """R3_OBS_SCHEMA 전체(채널 이름/순서·스칼라 순서·verdict enum·정규화 분모 규칙·dtype·absent 규칙
+    + rasterize golden 벡터). digest = ckpt·산출물·verify-r3 대조 키(스테이지-무관 상수)."""
+    spec = {"trace_channels": list(TRACE_CHANNELS), "trace_scalars": list(TRACE_SCALARS),
+            "verdict_code": dict(VERDICT_CODE), "verdict_norm": VERDICT_NORM,
+            "density_denom": DENSITY_DENOM, "marker_denom": MARKER_DENOM,
+            "scalar_denom": dict(SCALAR_DENOM), "dtype": OBS_DTYPE,
+            "absent_rule": OBS_ABSENT_RULE, "rasterize_golden": _obs_golden()}
+    return {**spec, "digest": _sha(spec)}
+
+
+OBS_SCHEMA_DIGEST = obs_schema()["digest"]
+
 
 class StageMDP:
     """스테이지 1개에 대한 plan-구성 MDP: 관측 인코딩 / factored 액션 decode·encode / terminal 보상.
@@ -170,6 +295,8 @@ class StageMDP:
         else:
             # r2: grid는 CNN 입력(가변 H×W), flat 부는 전역 고정 차원 — 스테이지-불변(plan §R2 P2).
             self.flat_dim = len(self.skills) + self.max_len * self._slot_dim + 1
+            # r3(--refine): flat에 trace 집계 스칼라 N개 append(공간 채널은 CNN grid에 concat).
+            self.flat_dim_r3 = self.flat_dim + N_TRACE_SCALAR
 
     def _init_r1(self, max_len: int) -> None:
         # R1-스윕: 문법 = ant-target 스킬만(plan §R1-스윕 정직 선언). cell-target(sand_mound 등)은
@@ -478,3 +605,23 @@ class StageMDP:
         retired = model.count_retired(tr, self.layout)["total"] if tr else 0
         return (SHAPING["goal"] * (1.0 - min(goal_d, self.D0) / self.D0)
                 - SHAPING["retired"] * (retired / self.ants_total))
+
+    # ----- R3 trace obs (plan §R3 R3_OBS_SCHEMA — 순수 rasterize 함수 위임, golden 결속) -----
+    def _verdict_code(self, res: dict) -> int:
+        return _verdict_code_of(res)
+
+    def trace_channels(self, res: dict) -> list[float]:
+        """공간 채널 [H×W×C_trace] flatten. 순수 rasterize_channels 위임(obs_schema golden 결속 대상)."""
+        return rasterize_channels((res or {}).get("trace") or {}, self.layout,
+                                  self.H, self.W, self.ants_total)
+
+    def trace_scalars(self, res: dict) -> list[float]:
+        """집계 스칼라(TRACE_SCALARS 순서). 순수 rasterize_scalars 위임(golden 결속 대상)."""
+        return rasterize_scalars((res or {}).get("trace") or {}, res, self.layout,
+                                 self.ants_total, self.hp, self.D0)
+
+    def obs_flat_r3(self, partial: list[dict[str, int]], res: dict,
+                    blind: bool = False) -> list[float]:
+        """r3 flat 관측 = r2 flat + trace 집계 스칼라. blind = 스칼라 전부 0(trace-blind 대조 격리)."""
+        scal = [0.0] * N_TRACE_SCALAR if blind else self.trace_scalars(res)
+        return self.obs_flat_r2(partial) + scal

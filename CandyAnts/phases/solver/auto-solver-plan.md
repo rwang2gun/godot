@@ -1592,10 +1592,13 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
    금지).
    - **처리량 floor 게이트(R1-high1/R2-high3 — wall-bound vacuous FAIL 차단, escape-hatch cap 명시)**:
      R3=L+1 롤아웃/에피소드라 R1(1롤, S13 ~3.5k eps/1800s)보다 처리량이 낮다 → **model FAIL 판정 전에 최소
-     처리량 도달을 강제**. pin = `THROUGHPUT_FLOOR`: seed당 **완료 에피소드 ≥ `MIN_EPISODES`(=3000) 또는
-     distinct-prefix 롤아웃 ≥ `MIN_DISTINCT`(=1500 — S13 known 해 공간 격자 하한 실측 기준으로 pin, "impl
-     확정" 아님)**. wall이 floor 도달 **전에** 걸리면 그 seed = **`throughput-pin-invalid`(infra) ≠ model
-     FAIL**. **escape-hatch cap(R2-high3)**: 예산/pin 개정은 **명시 리뷰 하 최대 1회**만 허용(예산 상향
+     처리량 도달을 강제**. pin = `THROUGHPUT_FLOOR`: seed당 **완료 에피소드 ≥ `MIN_EPISODES`(=3000) 그리고
+     (AND) distinct-prefix 롤아웃 ≥ `MIN_DISTINCT`(=1500 — S13 known 해 공간 격자 하한 실측 기준으로 pin,
+     "impl 확정" 아님)**. wall이 floor 도달 **전에** 걸리면 그 seed = **`throughput-pin-invalid`(infra) ≠ model
+     FAIL**. **(2026-07-05 개정 — 사용자 결정 · impl codex §R3 R6-MED)**: 두 축을 **AND**로 요구 —
+     MIN_DISTINCT의 pin 근거("해 공간 격자 하한 = 실패라 말할 자격이 되는 최소 탐색 커버리지")와 정합.
+     한 축만 넘고(예: 3000 에피소드지만 조기수렴으로 distinct<1500) 다른 축 미달이면 탐색 커버리지 부족
+     → model_fail로 오분류 금지, `throughput-pin-invalid`(인프라)로 분류해 예산 상향 escalate. **escape-hatch cap(R2-high3)**: 예산/pin 개정은 **명시 리뷰 하 최대 1회**만 허용(예산 상향
      후보를 사용자에게 escalate) → **개정 후에도 floor 미달이면 설계를 `throughput-infeasible`로 분류**
      (무한 상향 금지). **`throughput-infeasible` = 1급 terminal 산출물(R3-med2)**: manifest `outcome` enum
      `∈ {pass, model_fail, throughput-pin-invalid, throughput-infeasible}` + `budget_revisions`(≤1). verify-r3는

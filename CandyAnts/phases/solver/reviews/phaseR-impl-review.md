@@ -447,3 +447,69 @@ Verdict: **approve** — "No ship-blocking fail-open, forgery, or verifier-bypas
   자체리뷰 clean + 음성 픽스처 실증(누적 ~20종).
 - 종결 스윕(전부 그린): verify-r0(3/3)·verify-r1(2/3)·verify-r2 stage11(3/3)/stage19(3/3)·
   coverage r1.1·coverage r2.1 — stage12/13은 정직 FAIL 박제(무결-오류 0, 사유=predicate/pass/actions).
+
+## §R3 impl 리뷰 (2026-07-05) — trace-refinement MDP
+
+### Round 1 (codex adversarial-review, working-tree) — verdict: needs-attention (HIGH 2·MED 2)
+- **[HIGH-1] exec digest가 stage 파일 미해시(추정)** — *오탐*. codex가 `:02d`를 `:03d`("stage013.tres")로
+  오독. 실측 반증: `data/stages/stage13.tres` 등 존재·content 해시(stage13 exec digest ≠ stage11).
+  → **인접 유효점 채택**: `_exec_config_digest`가 스테이지 리소스 누락 시 `FileNotFoundError`(silent None 금지).
+- **[HIGH-2] verify_r3가 자기보고 `throughput.floor_reached` 신뢰** — *유효*. 위조 floor_reached=true로
+  under-budget FAIL을 legit model_fail로 위장 가능(replay 스킵 경로라 특히 위험). → **수정**: `_floor_reached()`
+  = raw 카운터(episodes_completed/distinct_prefix_rollouts) 재계산. verify_r3가 산출물 bool과 대조(불일치
+  FAIL) + outcome을 재계산 floor로 재판정. train_seed도 동일 헬퍼로 회계.
+- **[MED-3] obs_schema_digest가 rasterize 시맨틱 미결속** — *유효*. 채널/스칼라 이름·분모만 pin →
+  clamp·state→채널 매핑·마커·물사 로직 변경이 digest 불변(ckpt/산출물이 비호환 obs로 통과). → **수정**:
+  rasterize를 순수 함수 `rasterize_channels/rasterize_scalars`로 추출 + 고정 합성 (layout,trace,res)의
+  `_obs_golden()` 벡터를 obs_schema에 결속. 시맨틱 변경 = golden 변경 = obs_schema_digest 변경.
+- **[MED-4] R3 ckpt가 `.r2.pt` 경로 재사용 → R2 ckpt 덮어씀** — *유효·파괴적*. `--refine --save-ckpt`가
+  추적된 `stage13_seed2.r2.pt`(R2 byte-backed) 덮어씀 실측 확인. → git 복구 + **수정**: `ckpt_path(refine=True)`
+  = `.r3.pt`. run_training r3 저장이 이 경로 사용.
+- **자체 적대 리뷰(수정 후) clean**: floor 재계산·ckpt 경로·golden 결속·fail-closed 인접 전부 정합, 회귀 0.
+
+### 수정 후 재검(전부 그린)
+- verify-r3(S13, mode=primary, outcome=pass, 3/3, telescoping OK) + **음성 9/9 검출 + 복원 PASS**
+  (refine_false·trace_channels·obs_digest·memo_members·off_grid·nonpinned_seed·max_len·floor_tamper·
+  outcome_forge). floor_tamper 음성이 HIGH-2 수정 실증.
+- 회귀 0: coverage-r2·verify-r0(3/3)·verify-r1(2/3)·verify-r2(S19 3/3) PASS(기존 frame byte-identical).
+- 결정론: memo(on vs --no-memo) byte-identical·재개 등가성(refine, 파라미터 비트동일+곡선 일치) PASS.
+- 산출물 재생성: stage13.rl3.json(new obs digest) + stage13_seed{0,1,2}.r3.pt(3/3 클리어, 결정론 동일 해).
+
+### Round 2~6 (codex 재리뷰 — verify_r3 fail-closed 조이기, 매 라운드 자체리뷰 clean + 음성 확장)
+- **R2 (1 MED)**: verify_r3가 `exec_config_digest` 재계산만 하고 값 미대조. → 재계산 digest == 산출물 대조
+  (rollout 의존 drift/위조 fail-closed) + 음성 `exec_digest`.
+- **R3 (2 MED)**: (a) exec digest가 raw `GODOT_BIN` env(미설정 시 빈 문자열, find_godot 폴백 미반영) →
+  `str(Path(find_godot()).resolve())` 바인딩·fail-closed. (b) verify_r3가 mode=primary에 variant/trace_blind
+  미강제 → variant↔mode + `config.trace_blind` falsy 강제 + 음성 `variant_masq`/`trace_blind_masq`.
+- **R4 (2 MED)**: (a) 선택 경로↔mode 미결속(dense 아티팩트 primary 경로 복사 통과) → 선택 경로가 기대
+  mode/variant/pin 결정(self-report pin 선택 폐기) + 음성 `mode_masq`. (b) `ckpt_saved` 생략 시 ckpt 검증
+  침묵 스킵 → `rl_meta.save_ckpt` 플래그 계약(true=seed별 필수·false=부재 필수) + 음성 `ckpt_strip`.
+- **R5 (2 MED)**: (a) `trace=True` replay 에러 침묵 통과(`"error" not in rt2` 조건) → error 명시 FAIL.
+  (b) ckpt가 seed/경로 미결속 → 정확 경로(`_rel(ckpt_path(stage,seed,refine=True))`) + `_ckpt_compat(resume)`로
+  seed/stage/grammar/vocab/layout/mask/model_cfg 대조 + 음성 `ckpt_crossseed`.
+- **매 라운드 사이 자체 적대 리뷰 clean** + 산출물 재생성(R2·R3·R4는 digest/save_ckpt 필드 변경으로 재학습;
+  전부 3/3 결정론 동일 해). 수정 후 스윕: verify-r3 PASS + 음성 **16/16 검출 + 복원 PASS** +
+  회귀 0(verify-r0/r1/r2·coverage-r2·memo 결정론·재개 등가성).
+
+### Round 6 (1 MED) — plan-pin 모순 → **사용자 표면화 → plan 개정(AND) 결정**
+- codex 권고: `_floor_reached()` model_fail 인증을 OR→**AND**(episodes≥3000 **및** distinct≥1500)로.
+- plan §R3가 THROUGHPUT_FLOOR를 명시적 "또는"(OR)로 pin했으므로 impl 임의 변경 불가 → **사용자 표면화**
+  (AskUserQuestion, OR/AND 트레이드오프 설명). **현재 영향 0**(전 seed PASS라 floor 로직 dormant).
+- **사용자 결정(2026-07-05) = AND**: MIN_DISTINCT의 pin 근거("해 공간 격자 하한 = 실패라 말할 자격이 되는
+  최소 탐색 커버리지")와 정합. → `_floor_reached` AND + **plan §R3 텍스트 개정(또는→AND)** + 음성
+  `floor_single_axis`(5000ep/100dist claiming floor_reached=true → AND면 미도달 → 대조 FAIL).
+
+### Round 7 (1 MED) — verify_r2 §R2-R5 패턴 미계승 → 수정
+- codex: verify_r3의 n_clear가 seed별 자기-보고 `cleared` bool 신뢰 + replay는 top-level plan만 검증
+  (multi-seed predicate replay-미실증). verify_r2는 이미 `verified_clear`로 강화된 표준.
+- **수정**: seed별 `greedy_plan`을 `_grammar_canon` + 엔진 replay(pinned deadline, saved==hp)해 **실증된
+  것만** `verified_clear`에 가산 → `n_clear=len(verified_clear)`. outcome/mechanical_pass는 verified_clear
+  파생. top-level `actions == best_seed.greedy_plan` ∧ `best_seed ∈ verified_clear` 결속. 음성
+  `seed_evidence_forge`(2 seed cleared=true·greedy_plan 제거 → verify FAIL).
+
+### Round 8 — **approve (no material findings)** = impl 리뷰 루프 종결
+- verdict=approve("Ship: no remaining material fail-open or correctness gap"). 매 라운드 사이 자체 적대
+  리뷰 clean + 음성 픽스처 **18종** 누적 전부 검출 + 복원 PASS.
+- **8 라운드 요약**: R1(실버그 3 — 파괴적 ckpt 덮어쓰기·false-green)·R2~R5·R7(verify fail-closed 조이기
+  = exec digest 대조·godot resolve·A/B 경로격리·ckpt seed결속·trace error·predicate replay실증)·
+  R6(plan-pin OR→AND 사용자 결정). CRITICAL 0·HIGH 2(R1, 전건 수정)·MED 다수(전건 수정).

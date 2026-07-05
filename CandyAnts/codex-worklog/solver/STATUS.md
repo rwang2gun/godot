@@ -1380,3 +1380,50 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   (plan.md는 선례대로 로컬 working doc이나 §R3는 신규 설계라 커밋; cross-PC SoT = 본 항목).
 - 다음 = **R3 구현**(`tools/solver/rl/{mdp,train}.py` refine 경로 — 사용자 go 대기). 엔진/PlanRunner 무변경.
 - ⚠ 워킹트리 사용자 Ch2 WIP(stage26~33 등) 격리 유지 — 커밋 제외.
+
+## Phase R §R3 구현 (2026-07-05) — trace-refinement MDP: S13 다단 carry-연쇄 무힌트 3/3 돌파
+
+> 세션 로그(구현 상세·인과 대조·codex 라운드) = [2026-07-05-rl-r3-impl.md](2026-07-05-rl-r3-impl.md).
+> 사용자 go("다음 작업 이어서 진행") → 구현·acceptance 실측. 엔진/PlanRunner/기존 게이트 무변경
+> (Python `tools/solver/rl/{mdp,train}.py`만, --refine opt-in → R0/R1/R2·verify-r0/r1/r2 완전 불변).
+
+### headline — R3 가설 실증
+- **R2 curriculum이 0/3 완전 실패**(bestR 0.660 전이-불변 고원)했던 **S13**(blocker1+climber5 carry-연쇄)을
+  trace-refinement가 **무힌트 3/3 seed 클리어**(560/720/960 eps, saved 5/5 frame 1669 결정론 동일해).
+
+### 구현 (--refine opt-in — closed-loop: 정책이 직전 partial plan 롤아웃 trace를 상태로 관측)
+- **mdp.py**: R3_OBS_SCHEMA 전량 pin — trace 공간채널 4(`visit_walk/loss/visit_carry/pickup_goal`)+집계
+  스칼라 7+verdict enum+정규화 규칙+**rasterize golden 벡터**(순수 `rasterize_channels/scalars` 추출,
+  시맨틱 결속)+`obs_schema_digest`.
+- **train.py**: `make_policy_r3`(CNN 5→9ch+스칼라 flat) / `Rollouter` memo(`memo_key=sha256(exec_config_digest,
+  lowered plan)`, exec_digest=stage full content hash+skill/vocab/**resolved godot**/script rev/deadlines/
+  protocol; 처리량만-불변) / `_sample_batch_refine`(depth-lockstep, L+1 롤아웃, 최종만 보상=R2와 동일 R_d4+
+  R1_shaping 1회) / dense PBRS fallback(telescoping) / ckpt r3(`.r3.pt` 분리) / THROUGHPUT_FLOOR 회계 /
+  verify_r3(mode↔pin·variant·trace_blind·obs digest·exec digest·floor 재계산·outcome enum·live preflight).
+
+### 인과 대조 (plan §R3 A/B) — **trace_causal_pass=FALSE (정직한 반증)**
+- (i) terminal-only(R2): 0/3 · (ii) **trace-blind(채널·스칼라 0, 롤아웃/비용 동일): 3/3 클리어**(seed2 다른 해
+  frame 2067). → `r3_mechanical_pass=TRUE`(게이트) **∧** blind도 클리어 → **고원 돌파는 trace 정보가 아니라
+  refine 루프 구조**(점진적 구성·재샘플링·확장 정책·탐험). plan 인과 가드가 오버클레임 차단.
+
+### Acceptance: 1(3/3 PASS)·2(재개 등가성)·3(memo 결정론)·4(verify-r3+음성 13종)·5(회귀 verify-r0/r1/r2·
+  coverage-r2·S11 스모크; S12 스모크 FAIL=refine 퇴행 아님, 비-refine baseline 0.249<refine 0.447 실증)·
+  6(dense telescoping). 인과 대조=trace_causal 반증(정직).
+
+### codex 적대 리뷰(impl) 종결: R1(2H+2M — 실버그 파괴적 ckpt 덮어쓰기·false-green) → R2~R5·R7(verify
+  fail-closed 조이기: exec digest 대조·godot resolve·A/B 경로격리·ckpt seed결속·trace error·predicate
+  replay실증) → R6(floor OR→**AND** 사용자 결정 + plan §R3 개정) → **R8 approve**. 자체리뷰 매 라운드
+  clean + 음성 18종 전부 검출. 트레일=phaseR-impl-review.md §R3.
+
+### 최종 게이트 (전부 그린)
+- **RL 트랙**: verify-r3(S13 mode=primary outcome=pass 3/3)·verify-r0(S11 3/3)·verify-r1(S12 2/3)·
+  verify-r2(S11·S19 3/3)·coverage-r2·memo 결정론·재개 등가성 = PASS.
+- **메인 frontmatter 게이트(GATE EXIT 0)**: Determinism×2·SkillMetadataDrift·harness-test·selftest 19/19·
+  analyze --verify·diverse-verify 5·rediscover-verify 5 = 전부 PASS(엔진/PlanRunner 무변경 → 회귀 0).
+
+### 상태·다음 (§R3)
+- **커밋 대상**(사용자 Ch2 WIP=untracked stage26~33 격리 제외): `tools/solver/rl/{mdp,train}.py` +
+  plan.md(§R3 AND 개정) + reviews/phaseR-impl-review.md(§R3) + 본 STATUS + 세션 로그 +
+  `data/solutions/stage13.rl3.json`·`stage13.rl3.trace_blind.json` + `rl_ckpt/stage13_seed{0,1,2}.r3.pt`.
+- **R3 종결**. 다음 후보(사용자 결정): R3-스윕(비게이트 탐사 — S14/15/16/18에 --refine) / dense fallback은
+  primary PASS로 불요 / 휴리스틱 트랙 propose 확장(carry-reverse S24·risk S25) 별개 계속.

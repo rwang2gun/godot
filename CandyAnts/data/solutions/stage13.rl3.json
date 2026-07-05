@@ -1,0 +1,554 @@
+{
+ "stage": "res://scenes/stages/Stage13.tscn",
+ "stage_id": 13,
+ "deadline_frames": 7000,
+ "inventory": {
+  "blocker": 1,
+  "climber": 5
+ },
+ "actions": [
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 288.0,
+    "y_max": 336.0
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 300
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 288.0,
+    "y_max": 336.0
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 300
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 288.0,
+    "y_max": 336.0
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 300
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 288.0,
+    "y_max": 336.0
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 300
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 288.0,
+    "y_max": 336.0
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 300
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 288.0,
+    "y_max": 336.0
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 300
+   }
+  }
+ ],
+ "expect": {
+  "cleared": true,
+  "saved": 5
+ },
+ "rl_meta": {
+  "grammar_version": "r2.1",
+  "no_hint": true,
+  "refine": true,
+  "mode": "primary",
+  "variant": "primary",
+  "save_ckpt": true,
+  "obs_schema_digest": "52fcceeed6701255c472d65a22ffd9bcf6f824c83c2db93794c0f44c7df8b488",
+  "trace_channels": [
+   "visit_walk",
+   "loss",
+   "visit_carry",
+   "pickup_goal"
+  ],
+  "trace_scalars": [
+   "best_goal_dist",
+   "retired_total",
+   "retired_water",
+   "retired_fall",
+   "picked_total",
+   "saved",
+   "verdict_code"
+  ],
+  "memo_key_members": [
+   "fixed_fps",
+   "godot_binary",
+   "grammar",
+   "protocol_version",
+   "replay_deadline",
+   "script_rev_digest",
+   "skill_meta_digest",
+   "stage_resource_digest",
+   "trace_request",
+   "trace_schema_digest",
+   "train_deadline",
+   "vocab_digest"
+  ],
+  "exec_config_digest": "263da7807506567c8c1ca29dede5de0562fadbc220539608e2d7e7a96dc6e019",
+  "vocab_digest": "b85505b79ba4084df8fd6f77bccb725edacada112e22b132e2969fdca94037ff",
+  "layout_digest": "2aaa71c2ede4dd646c844ae5fcc0ad2b55dbe5a2984bd92e8611b631cd8cb1f0",
+  "config": {
+   "batch": 16,
+   "lr": 0.003,
+   "entropy": 0.03,
+   "entropy_min": 0.02,
+   "entropy_decay": 0.997,
+   "hidden": 128,
+   "greedy_every": 5,
+   "baseline_decay": 0.9,
+   "max_len": 6,
+   "train_deadline": 4500,
+   "replay_deadline": 7000,
+   "shaping": "trace",
+   "sil": true,
+   "sil_buffer": 8,
+   "sil_coef": 0.1,
+   "conv_channels": 32,
+   "max_batches": 0,
+   "max_episodes": 20000,
+   "max_wall": 1800,
+   "refine": true,
+   "dense_shaping": false,
+   "trace_blind": false,
+   "memo": true,
+   "obs_schema_digest": "52fcceeed6701255c472d65a22ffd9bcf6f824c83c2db93794c0f44c7df8b488",
+   "throughput_floor": {
+    "MIN_EPISODES": 3000,
+    "MIN_DISTINCT": 1500
+   },
+   "reward": {
+    "cleared": 2.0,
+    "saved": 1.0,
+    "picked": 0.3,
+    "lost": -0.2,
+    "len_penalty": -0.02,
+    "timeout_penalty": -0.1
+   },
+   "shaping_coeffs": {
+    "goal": 0.5,
+    "retired": 0.1
+   }
+  },
+  "r3_mechanical_pass": true,
+  "outcome": "pass",
+  "budget_revisions": 0,
+  "pass_rule": ">=2/3 pinned seeds greedy clear within per-seed budget",
+  "run_mode": "pinned-acceptance",
+  "seeds": [
+   {
+    "seed": 0,
+    "cleared": true,
+    "episodes": 560,
+    "batches": 35,
+    "wall_s": 118.9,
+    "best_reward": 3.6697959183673468,
+    "greedy_plan": [
+     {
+      "skill": "blocker",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 300
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 300
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 300
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 300
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 300
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 300
+      }
+     }
+    ],
+    "envs_requested": 4,
+    "envs_effective": 4,
+    "throughput": {
+     "episodes_completed": 560,
+     "distinct_prefix_rollouts": 263,
+     "total_rollouts": 263,
+     "memo_hit_rate": 0.8553,
+     "wall_s": 118.9,
+     "binding_axis": "clear",
+     "throughput_floor": {
+      "MIN_EPISODES": 3000,
+      "MIN_DISTINCT": 1500
+     },
+     "floor_reached": false
+    },
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 0.64,
+     "runs": 8,
+     "trace_present": true
+    },
+    "ckpt_saved": {
+     "path": "data/solutions/rl_ckpt/stage13_seed0.r3.pt",
+     "sha256": "f20ae2db380cfa52dcf9f55657e84eac3d5d01ad2ba04f7bee8745eb54946762"
+    }
+   },
+   {
+    "seed": 1,
+    "cleared": true,
+    "episodes": 720,
+    "batches": 45,
+    "wall_s": 305.6,
+    "best_reward": 3.6697959183673468,
+    "greedy_plan": [
+     {
+      "skill": "blocker",
+      "target": {
+       "mode": "ant",
+       "select": "min_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 1080.0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "min_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 1080.0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "min_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 1080.0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "min_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 1080.0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "min_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 1080.0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "min_x",
+       "state": "walker",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 1080.0
+      }
+     }
+    ],
+    "envs_requested": 4,
+    "envs_effective": 4,
+    "throughput": {
+     "episodes_completed": 720,
+     "distinct_prefix_rollouts": 634,
+     "total_rollouts": 634,
+     "memo_hit_rate": 0.7724,
+     "wall_s": 305.6,
+     "binding_axis": "clear",
+     "throughput_floor": {
+      "MIN_EPISODES": 3000,
+      "MIN_DISTINCT": 1500
+     },
+     "floor_reached": false
+    },
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 0.64,
+     "runs": 8,
+     "trace_present": true
+    },
+    "ckpt_saved": {
+     "path": "data/solutions/rl_ckpt/stage13_seed1.r3.pt",
+     "sha256": "0296013992dbdc9e28eced5b99e9e7e1e4d836040c681370137d5902b8378dde"
+    }
+   },
+   {
+    "seed": 2,
+    "cleared": true,
+    "episodes": 960,
+    "batches": 60,
+    "wall_s": 394.4,
+    "best_reward": 3.6697959183673468,
+    "greedy_plan": [
+     {
+      "skill": "blocker",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "any",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "any",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "any",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "any",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "any",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "any",
+       "y_min": 288.0,
+       "y_max": 336.0
+      },
+      "trigger": {
+       "type": "at_frame",
+       "frame": 0
+      }
+     }
+    ],
+    "envs_requested": 4,
+    "envs_effective": 4,
+    "throughput": {
+     "episodes_completed": 960,
+     "distinct_prefix_rollouts": 761,
+     "total_rollouts": 761,
+     "memo_hit_rate": 0.7856,
+     "wall_s": 394.4,
+     "binding_axis": "clear",
+     "throughput_floor": {
+      "MIN_EPISODES": 3000,
+      "MIN_DISTINCT": 1500
+     },
+     "floor_reached": false
+    },
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 0.64,
+     "runs": 8,
+     "trace_present": true
+    },
+    "ckpt_saved": {
+     "path": "data/solutions/rl_ckpt/stage13_seed2.r3.pt",
+     "sha256": "38df86553b60efa4c6a947071c1e4bd8967103e67e15cb2f9e919258c311ecd2"
+    }
+   }
+  ],
+  "envs_effective": 4,
+  "best_seed": 0
+ }
+}
