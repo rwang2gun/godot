@@ -47,6 +47,7 @@ from mdp import StageMDP   # noqa: E402
 CURRICULUM = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]   # 도구 도입 순서(1~8 도입, 9~10 통합)
 OUT_DIR = ROOT / "data" / "solutions" / "found"
 BRAIN_CKPT = OUT_DIR / "brain.pt"
+BEST_CKPT = OUT_DIR / "brain_best.pt"   # 최고 숙련 뇌 별도 보존(붕괴에도 최선 가중치 유실 방지)
 PROGRESS = OUT_DIR / "brain_progress.jsonl"
 SOL_LOG = OUT_DIR / "brain_solutions.jsonl"   # 사이클별 새로 발견한 distinct 해 누적 기록
 
@@ -66,14 +67,17 @@ def _record_solution(cycle: int, mdp, res: dict, plan: list) -> None:
 
 
 def _train_stage(policy, opt, mdp, grid_t, pool, cfg, n_batches: int, ent_coef: float,
-                 baseline: float = 0.0) -> tuple[float, float]:
+                 baseline: float = 0.0, grad_clip: float = 1.0) -> tuple[float, float]:
     """공유 정책을 한 스테이지에 n_batches 만큼 REINFORCE 업데이트.
 
     보상 = mdp.reward(터미널 verdict) + mdp.shaped_bonus(trace 기반 goal-거리·retired shaping) —
     train.py의 --shaping trace 경로와 동일 조립(계상 1회). rollout plan에 "trace":true를 넣어 엔진이
     궤적을 반환하게 하고, trace 소실은 fail-closed(silent shaping 격하 차단, train.py R4-MED 계승).
-    반환 = (마지막 배치 평균보상, 갱신된 baseline)."""
-    torch, _ = T._torch()
+
+    안정화(2026-07-05 전략): ① 보상 정규화 — 배치 advantage를 표준편차로 스케일해 스테이지 간
+    보상 크기 차가 공유 gradient를 독점하지 못하게 + 분산 감소. ② gradient clipping — 파괴적
+    업데이트(0 붕괴)를 방지. 반환 = (마지막 배치 평균보상, 갱신된 baseline)."""
+    torch, nn = T._torch()
     B = cfg["batch"]
     dl = cfg["train_deadline"]
     mean_r = 0.0
@@ -89,12 +93,16 @@ def _train_stage(policy, opt, mdp, grid_t, pool, cfg, n_batches: int, ent_coef: 
                    for (p, _, _), res in zip(samples, results)]
         mean_r = sum(rewards) / len(rewards)
         baseline = cfg["baseline_decay"] * baseline + (1 - cfg["baseline_decay"]) * mean_r
+        var = sum((r - mean_r) ** 2 for r in rewards) / len(rewards)
+        std = var ** 0.5 + 1e-6                        # 보상 정규화 스케일
         loss = torch.tensor(0.0)
         for (_p, logp, ent), rew in zip(samples, rewards):
-            loss = loss + (-(rew - baseline)) * logp - ent_coef * ent
+            adv = (rew - baseline) / std               # 표준화 advantage(스테이지 간 균형)
+            loss = loss + (-adv) * logp - ent_coef * ent
         loss = loss / B
         opt.zero_grad()
         loss.backward()
+        nn.utils.clip_grad_norm_(policy.parameters(), grad_clip)   # 안정화: 붕괴 방지
         opt.step()
     return mean_r, baseline
 
@@ -115,31 +123,36 @@ def _bar(mastered: set) -> str:
 
 def _load_brain(policy, opt, torch):
     if not BRAIN_CKPT.exists():
-        return 0, set(), {}
+        return 0, set(), {}, 0
     ck = torch.load(BRAIN_CKPT, weights_only=False)
     policy.load_state_dict(ck["policy"])
     opt.load_state_dict(ck["optimizer"])
     seen = {int(s): set(h) for s, h in (ck.get("seen") or {}).items()}
-    return ck.get("cycle", 0), set(ck.get("mastered", [])), seen
+    return ck.get("cycle", 0), set(ck.get("mastered", [])), seen, ck.get("best_mastered", 0)
 
 
-def _save_brain(policy, opt, cycle, mastered, seen):
-    tmp = BRAIN_CKPT.with_suffix(".pt.tmp")
+def _save_brain(policy, opt, cycle, mastered, seen, best_mastered, path=BRAIN_CKPT):
+    tmp = path.with_suffix(".pt.tmp")
     import torch
     torch.save({"policy": policy.state_dict(), "optimizer": opt.state_dict(),
                 "cycle": cycle, "mastered": sorted(mastered),
-                "seen": {str(s): sorted(h) for s, h in seen.items()}}, tmp)
-    os.replace(tmp, BRAIN_CKPT)
+                "seen": {str(s): sorted(h) for s, h in seen.items()},
+                "best_mastered": best_mastered}, tmp)
+    os.replace(tmp, path)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="공유 뇌 커리큘럼 트레이너(1~10)")
     ap.add_argument("--cycles", type=int, default=5, help="이번 실행에서 돌릴 사이클 수")
     ap.add_argument("--envs", type=int, default=4)
-    ap.add_argument("--learn-batches", type=int, default=5,
-                    help="아직 못 깬 스테이지의 배치 수/사이클(짧게 여러 번 — 한 스테이지 독점 방지)")
-    ap.add_argument("--refresh-batches", type=int, default=2,
+    ap.add_argument("--learn-budget", type=int, default=40,
+                    help="미완료 스테이지들이 나눠 갖는 총 배치 예산/사이클(클리어 늘수록 남은 게 독점)")
+    ap.add_argument("--learn-min", type=int, default=3, help="미완료 스테이지 최소 배치/사이클")
+    ap.add_argument("--learn-max", type=int, default=16, help="미완료 스테이지 최대 배치/사이클(상한)")
+    ap.add_argument("--refresh-batches", type=int, default=1,
                     help="이미 깬 스테이지의 배치 수/사이클(망각 방지 refresh)")
+    ap.add_argument("--lr", type=float, default=1e-3, help="학습률(안정화 위해 기본 하향)")
+    ap.add_argument("--grad-clip", type=float, default=1.0, help="gradient clipping max-norm(안정화)")
     ap.add_argument("--reset", action="store_true", help="brain.pt 무시하고 처음부터")
     ap.add_argument("--show", action="store_true", help="현재 숙련 곡선만 출력하고 종료")
     args = ap.parse_args()
@@ -173,28 +186,35 @@ def main() -> int:
     baselines = {s: 0.0 for s in CURRICULUM}   # 스테이지별 REINFORCE baseline(사이클 간 지속)
 
     policy = T.make_policy_r2(mdps[1], cfg)
-    opt = torch.optim.Adam(policy.parameters(), lr=cfg["lr"])
-    if args.reset and BRAIN_CKPT.exists():
-        BRAIN_CKPT.unlink()
-    start_cycle, mastered, seen = _load_brain(policy, opt, torch)
-    print(f"[brain] 시작 cycle={start_cycle} mastered={sorted(mastered)} "
-          f"발견해 {sum(len(v) for v in seen.values())}종 "
+    opt = torch.optim.Adam(policy.parameters(), lr=args.lr)
+    if args.reset:
+        for p in (BRAIN_CKPT, BEST_CKPT):
+            if p.exists():
+                p.unlink()
+    start_cycle, mastered, seen, best_mastered = _load_brain(policy, opt, torch)
+    for g in opt.param_groups:       # 로드된 optimizer state의 옛 lr을 새 --lr로 강제(안정화 적용)
+        g["lr"] = args.lr
+    print(f"[brain] 시작 cycle={start_cycle} mastered={sorted(mastered)} best={best_mastered} "
+          f"발견해 {sum(len(v) for v in seen.values())}종 lr={args.lr} clip={args.grad_clip} "
           f"{'(신규 뇌)' if start_cycle == 0 else '(이어받기)'}")
 
     ent_coef = max(cfg["entropy_min"], cfg["entropy"] * (cfg["entropy_decay"] ** start_cycle))
     t0 = time.monotonic()
     for c in range(start_cycle, start_cycle + args.cycles):
-        # 게이트 없음 — 매 사이클 1~10 전체를 순회한다(순차 클리어 불요, 총 클리어 수 증가가 목표).
-        # 한 스테이지에 오래 잡히지 않도록 못 깬 스테이지는 짧게 learn, 이미 깬 스테이지는 가벼운 refresh.
+        # 게이트 없음 — 매 사이클 1~10 전체 순회(순차 클리어 불요, 총 클리어 수 증가가 목표).
+        # 예산 재분배: 미완료 스테이지들이 총 learn-budget을 나눠 가짐 → 클리어가 늘수록 남은
+        # 스테이지가 예산을 독점해 자연히 강화(사용자 전략). 이미 깬 것은 가벼운 refresh(망각 방지).
+        un = [s for s in CURRICULUM if s not in mastered]
+        per_un = max(args.learn_min, min(args.learn_max, args.learn_budget // max(len(un), 1)))
         for s in CURRICULUM:
-            nb = args.refresh_batches if s in mastered else args.learn_batches
+            nb = per_un if s not in mastered else args.refresh_batches
             if nb <= 0:
                 continue
             _, baselines[s] = _train_stage(policy, opt, mdps[s], grids[s], pool, cfg,
-                                          nb, ent_coef, baselines[s])
+                                          nb, ent_coef, baselines[s], args.grad_clip)
 
         # 전 스테이지 greedy 재평가 → 현행 숙련 집합 + **새로(distinct) 발견한 해**만 별도 기록
-        row = {"cycle": c, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        row = {"cycle": c, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "per_un": per_un}
         now_mastered = set()
         new_sols = 0
         for s in CURRICULUM:
@@ -213,12 +233,18 @@ def main() -> int:
         row["new_solutions"] = new_sols
         row["total_solutions"] = sum(len(v) for v in seen.values())
 
-        _save_brain(policy, opt, c + 1, mastered, seen)
+        is_best = len(mastered) > best_mastered      # best 뇌 별도 보존(붕괴에도 최선 유실 방지)
+        if is_best:
+            best_mastered = len(mastered)
+        row["best_mastered"] = best_mastered
+        _save_brain(policy, opt, c + 1, mastered, seen, best_mastered)
+        if is_best:
+            _save_brain(policy, opt, c + 1, mastered, seen, best_mastered, path=BEST_CKPT)
         with open(PROGRESS, "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
         dt = time.monotonic() - t0
-        print(f"cycle {c:>3}  숙련 {len(mastered):>2}/10  새해+{new_sols} "
-              f"(누적 {row['total_solutions']}종)  {_bar(mastered)}  ({dt:.0f}s)")
+        print(f"cycle {c:>3}  숙련 {len(mastered):>2}/10 (best {best_mastered}) 새해+{new_sols} "
+              f"per_un={per_un}  {_bar(mastered)}  ({dt:.0f}s)")
         ent_coef = max(cfg["entropy_min"], ent_coef * cfg["entropy_decay"])
 
     pool.close()
