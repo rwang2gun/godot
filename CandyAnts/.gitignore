@@ -10,6 +10,10 @@ export_presets.cfg
 *.import
 build/
 
+# RL 해 발견 런타임 기록 (train.py _record_found) — 발견 즉시 append 로그+sidecar.
+# 권위 산출물은 게이트된 data/solutions/*.rl*.json. found/는 런타임 discovery 로그라 제외.
+data/solutions/found/
+
 # IDE/OS
 .vscode/
 .idea/

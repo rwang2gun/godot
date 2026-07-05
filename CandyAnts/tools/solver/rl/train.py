@@ -218,6 +218,67 @@ def ckpt_path(stage_id: int, seed: int, refine: bool = False) -> Path:
     return CKPT_DIR / f"stage{stage_id:02d}_seed{seed}.{ext}.pt"
 
 
+# ---------- 해 발견 즉시 기록 (부작용 전용 — 게이트 산출물 rlN.json과 직교) ----------
+# 목적(사용자 요건): RL이 클리어 해를 찾는 순간 durable하게 남긴다. run 종료 시 1회만 쓰는 gated
+# 산출물과 달리, 뒤 seed 크래시·wall-timeout에도 발견 해가 유실되지 않게 append 로그 + 최신 sidecar를
+# 쓴다. verify-r2/r3 계약(출처 결속·digest·merge lock)과 완전 무관 — 기록 실패가 학습을 죽이지 않는다.
+FOUND_DIR = ROOT / "data" / "solutions" / "found"
+
+
+def _append_jsonl(path: Path, rec: dict) -> None:
+    """프로세스간 인터리브 방지용 짧은 파일락(_flush_write_r2와 동일 spin 패턴) 아래 1줄 append."""
+    line = json.dumps(rec, ensure_ascii=False) + "\n"
+    lock = path.with_suffix(path.suffix + ".lock")
+    fd = None
+    for _ in range(200):                       # ~2s (append는 짧아 경합 미미)
+        try:
+            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            time.sleep(0.01)
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line)                      # 락 실패해도 유실보다 인터리브 위험 감수하고 append
+    finally:
+        if fd is not None:
+            os.close(fd)
+            try:
+                os.unlink(str(lock))
+            except OSError:
+                pass
+
+
+def _record_found(mdp: "StageMDP", seed: int, plan: list, res: dict,
+                  cfg: dict, refine: bool, episodes: int) -> None:
+    """train_seed의 greedy-clear 지점에서 호출. 발견 해를 append 로그 + 최신 sidecar에 즉시 기록.
+    부작용 전용(반환 없음) — 예외는 삼켜 학습 지속(기록은 보조, 학습이 1차)."""
+    try:
+        FOUND_DIR.mkdir(parents=True, exist_ok=True)
+        rec = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "stage_id": mdp.stage_id,
+            "stage": mdp.stage_scene,
+            "seed": seed,
+            "grammar": mdp.grammar_version,
+            "refine": bool(refine),
+            "saved": int(res.get("saved") or 0),
+            "hp": mdp.hp,
+            "frame": res.get("frame"),
+            "episodes": episodes,
+            "deadline_frames": cfg.get("replay_deadline"),
+            "inventory": mdp.inventory,
+            "actions": plan,                   # 디코딩된 플랜 — 무수정 replay/시각화용
+        }
+        _append_jsonl(FOUND_DIR / "log.jsonl", rec)
+        side = FOUND_DIR / f"stage{mdp.stage_id:02d}_seed{seed}.found.json"
+        tmp = side.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(rec, indent=1, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, side)                  # 원자적 교체(부분쓰기 sidecar 차단)
+        print(f"  [seed {seed}] 해 기록 → {_rel(side)} + found/log.jsonl")
+    except Exception as e:                     # noqa: BLE001 — 기록 실패가 학습을 죽이면 안 됨
+        print(f"  [seed {seed}] WARN 해 기록 실패(무시하고 학습 지속): {e}")
+
+
 def _file_sha(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -1008,6 +1069,7 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
                 result.update(cleared=True, greedy_plan=plan)
                 print(f"  [seed {seed}] GREEDY CLEAR saved={res.get('saved')}/{mdp.hp} "
                       f"frame={res.get('frame')} eps={episodes}")
+                _record_found(mdp, seed, plan, res, cfg, refine, episodes)  # 발견 즉시 durable 기록
                 break
     result["episodes"] = episodes
     result["batches"] = batch_i
