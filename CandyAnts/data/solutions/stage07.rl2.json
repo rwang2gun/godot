@@ -1,0 +1,131 @@
+{
+ "stage": "res://scenes/stages/Stage07.tscn",
+ "stage_id": 7,
+ "deadline_frames": 7000,
+ "inventory": {
+  "basher": 2
+ },
+ "actions": [
+  {
+   "skill": "basher",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     5,
+     0
+    ]
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "ge",
+    "x": 216.0
+   }
+  }
+ ],
+ "expect": {
+  "cleared": true,
+  "saved": 5
+ },
+ "rl_meta": {
+  "grammar_version": "r2.1",
+  "no_hint": true,
+  "vocab_digest": "b85505b79ba4084df8fd6f77bccb725edacada112e22b132e2969fdca94037ff",
+  "layout_digest": "7a263614a59f1547de7ef2778ce58c2c34316c0f8d40ce9b6efd77c2f8ccfc69",
+  "config": {
+   "batch": 16,
+   "lr": 0.003,
+   "entropy": 0.03,
+   "entropy_min": 0.02,
+   "entropy_decay": 0.997,
+   "hidden": 128,
+   "greedy_every": 5,
+   "baseline_decay": 0.9,
+   "max_len": 6,
+   "train_deadline": 4500,
+   "replay_deadline": 7000,
+   "shaping": "trace",
+   "sil": true,
+   "sil_buffer": 8,
+   "sil_coef": 0.1,
+   "conv_channels": 32,
+   "max_batches": 0,
+   "max_episodes": 20000,
+   "max_wall": 1200,
+   "reward": {
+    "cleared": 2.0,
+    "saved": 1.0,
+    "picked": 0.3,
+    "lost": -0.2,
+    "len_penalty": -0.02,
+    "timeout_penalty": -0.1
+   },
+   "shaping_coeffs": {
+    "goal": 0.5,
+    "retired": 0.1
+   }
+  },
+  "pass": false,
+  "pass_rule": ">=2/3 pinned seeds greedy clear within per-segment budget",
+  "mode": "exploratory-sweep",
+  "seeds": [
+   {
+    "seed": 0,
+    "cleared": true,
+    "episodes": 80,
+    "batches": 5,
+    "wall_s": 108.8,
+    "best_reward": 3.7693617021276595,
+    "greedy_plan": [
+     {
+      "skill": "basher",
+      "target": {
+       "mode": "cell",
+       "cell": [
+        5,
+        0
+       ]
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "ge",
+       "x": 216.0
+      }
+     }
+    ],
+    "envs_requested": 3,
+    "envs_effective": 3,
+    "chain": [
+     {
+      "stage_id": 7,
+      "seed": 0,
+      "mode": "scratch",
+      "episodes": 80,
+      "batches": 5,
+      "wall_s": 108.8,
+      "cleared": true,
+      "ckpt_sha": null,
+      "ckpt_path": null
+     }
+    ],
+    "ckpt_saved": null,
+    "ckpt_loaded": null,
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 1.05,
+     "runs": 6,
+     "trace_present": true
+    }
+   }
+  ],
+  "curves": {
+   "0": [
+    0.2659,
+    0.4776,
+    0.254,
+    0.4882,
+    1.3414
+   ]
+  },
+  "best_seed": 0
+ }
+}

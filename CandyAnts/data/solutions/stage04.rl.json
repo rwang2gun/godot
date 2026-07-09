@@ -1,0 +1,96 @@
+{
+ "stage": "res://scenes/stages/Stage04.tscn",
+ "stage_id": 4,
+ "deadline_frames": 7000,
+ "inventory": {
+  "slideR": 1
+ },
+ "actions": [
+  {
+   "skill": "slideR",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 432.0,
+    "y_max": 480.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 360.0
+   }
+  }
+ ],
+ "expect": {
+  "cleared": true,
+  "saved": 5
+ },
+ "rl_meta": {
+  "grammar_version": "r1.1",
+  "no_hint": true,
+  "envs_requested": 3,
+  "envs_effective": 3,
+  "config": {
+   "batch": 16,
+   "lr": 0.003,
+   "entropy": 0.03,
+   "entropy_min": 0.02,
+   "entropy_decay": 0.997,
+   "hidden": 128,
+   "greedy_every": 5,
+   "baseline_decay": 0.9,
+   "max_len": 6,
+   "train_deadline": 4500,
+   "replay_deadline": 7000,
+   "shaping": "trace",
+   "sil": true,
+   "sil_buffer": 8,
+   "sil_coef": 0.1,
+   "conv_channels": 32,
+   "max_batches": 0,
+   "max_episodes": 20000,
+   "max_wall": 900,
+   "reward": {
+    "cleared": 2.0,
+    "saved": 1.0,
+    "picked": 0.3,
+    "lost": -0.2,
+    "len_penalty": -0.02,
+    "timeout_penalty": -0.1
+   },
+   "shaping_coeffs": {
+    "goal": 0.5,
+    "retired": 0.1
+   }
+  },
+  "pass": true,
+  "pass_rule": ">=1/1 seeds greedy clear within per-seed budget",
+  "mode": "exploratory-sweep",
+  "seeds": [
+   {
+    "seed": 0,
+    "cleared": true,
+    "episodes": 80,
+    "wall_s": 37.6,
+    "best_reward": 3.7699999999999996
+   }
+  ],
+  "curves": {
+   "0": [
+    1.045,
+    1.3362,
+    3.0362,
+    2.4425,
+    2.885
+   ]
+  },
+  "best_seed": 0,
+  "preflight_trace": {
+   "ok": true,
+   "wall_s": 1.13,
+   "runs": 6,
+   "trace_present": true
+  }
+ }
+}

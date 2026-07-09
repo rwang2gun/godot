@@ -1,0 +1,668 @@
+{
+ "stage": "res://scenes/stages/Stage06.tscn",
+ "stage_id": 6,
+ "deadline_frames": 7000,
+ "inventory": {
+  "climber": 5,
+  "digger": 1
+ },
+ "actions": [
+  {
+   "skill": "digger",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     14,
+     0
+    ]
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 1416.0
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "any"
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 2
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "any",
+    "y_min": 576.0,
+    "y_max": 624.0
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 2
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 576.0,
+    "y_max": 624.0
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 2
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 576.0,
+    "y_max": 624.0
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 2
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "walker",
+    "y_min": 576.0,
+    "y_max": 624.0
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 2
+   }
+  }
+ ],
+ "expect": {
+  "cleared": true,
+  "saved": 5
+ },
+ "rl_meta": {
+  "grammar_version": "r2.1",
+  "no_hint": true,
+  "vocab_digest": "b85505b79ba4084df8fd6f77bccb725edacada112e22b132e2969fdca94037ff",
+  "layout_digest": "a076243b81784b52a4bb94bfc6b530101660fac1e83b7c61871d9ceb18efa65f",
+  "config": {
+   "batch": 16,
+   "lr": 0.003,
+   "entropy": 0.03,
+   "entropy_min": 0.02,
+   "entropy_decay": 0.997,
+   "hidden": 128,
+   "greedy_every": 5,
+   "baseline_decay": 0.9,
+   "max_len": 6,
+   "train_deadline": 4500,
+   "replay_deadline": 7000,
+   "shaping": "trace",
+   "sil": true,
+   "sil_buffer": 8,
+   "sil_coef": 0.1,
+   "conv_channels": 32,
+   "max_batches": 0,
+   "max_episodes": 20000,
+   "max_wall": 1800,
+   "reward": {
+    "cleared": 2.0,
+    "saved": 1.0,
+    "picked": 0.3,
+    "lost": -0.2,
+    "len_penalty": -0.02,
+    "timeout_penalty": -0.1
+   },
+   "shaping_coeffs": {
+    "goal": 0.5,
+    "retired": 0.1
+   }
+  },
+  "pass": false,
+  "pass_rule": ">=2/3 pinned seeds greedy clear within per-segment budget",
+  "mode": "exploratory-sweep",
+  "seeds": [
+   {
+    "seed": 0,
+    "cleared": false,
+    "episodes": 1808,
+    "batches": 113,
+    "wall_s": 1801.5,
+    "best_reward": 0.65,
+    "greedy_plan": null,
+    "envs_requested": 3,
+    "envs_effective": 3,
+    "chain": [
+     {
+      "stage_id": 6,
+      "seed": 0,
+      "mode": "scratch",
+      "episodes": 1808,
+      "batches": 113,
+      "wall_s": 1801.5,
+      "cleared": false,
+      "ckpt_sha": "56888445b717d3ba0880389d9c607018e94cc9126cfdeae3c85296b159d5b4ca",
+      "ckpt_path": "data/solutions/rl_ckpt/stage06_seed0.r2.pt"
+     }
+    ],
+    "ckpt_saved": {
+     "path": "data/solutions/rl_ckpt/stage06_seed0.r2.pt",
+     "sha256": "56888445b717d3ba0880389d9c607018e94cc9126cfdeae3c85296b159d5b4ca"
+    },
+    "ckpt_loaded": null,
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 0.87,
+     "runs": 6,
+     "trace_present": true
+    }
+   },
+   {
+    "seed": 1,
+    "cleared": true,
+    "episodes": 1600,
+    "batches": 100,
+    "wall_s": 1573.8,
+    "best_reward": 3.67,
+    "greedy_plan": [
+     {
+      "skill": "digger",
+      "target": {
+       "mode": "cell",
+       "cell": [
+        14,
+        0
+       ]
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 1416.0
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "any"
+      },
+      "trigger": {
+       "type": "picked_ge",
+       "n": 2
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "any",
+       "y_min": 576.0,
+       "y_max": 624.0
+      },
+      "trigger": {
+       "type": "picked_ge",
+       "n": 2
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "walker",
+       "y_min": 576.0,
+       "y_max": 624.0
+      },
+      "trigger": {
+       "type": "picked_ge",
+       "n": 2
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "walker",
+       "y_min": 576.0,
+       "y_max": 624.0
+      },
+      "trigger": {
+       "type": "picked_ge",
+       "n": 2
+      }
+     },
+     {
+      "skill": "climber",
+      "target": {
+       "mode": "ant",
+       "select": "max_x",
+       "state": "walker",
+       "y_min": 576.0,
+       "y_max": 624.0
+      },
+      "trigger": {
+       "type": "picked_ge",
+       "n": 2
+      }
+     }
+    ],
+    "envs_requested": 3,
+    "envs_effective": 3,
+    "chain": [
+     {
+      "stage_id": 6,
+      "seed": 1,
+      "mode": "scratch",
+      "episodes": 1600,
+      "batches": 100,
+      "wall_s": 1573.8,
+      "cleared": true,
+      "ckpt_sha": "678ee8e369635d08ad788f921ec72f6fa2aec13242d9b5b355c073e49085315e",
+      "ckpt_path": "data/solutions/rl_ckpt/stage06_seed1.r2.pt"
+     }
+    ],
+    "ckpt_saved": {
+     "path": "data/solutions/rl_ckpt/stage06_seed1.r2.pt",
+     "sha256": "678ee8e369635d08ad788f921ec72f6fa2aec13242d9b5b355c073e49085315e"
+    },
+    "ckpt_loaded": null,
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 1.0,
+     "runs": 6,
+     "trace_present": true
+    }
+   },
+   {
+    "seed": 2,
+    "cleared": false,
+    "episodes": 1840,
+    "batches": 115,
+    "wall_s": 1806.9,
+    "best_reward": 0.65,
+    "greedy_plan": null,
+    "envs_requested": 3,
+    "envs_effective": 3,
+    "chain": [
+     {
+      "stage_id": 6,
+      "seed": 2,
+      "mode": "scratch",
+      "episodes": 1840,
+      "batches": 115,
+      "wall_s": 1806.9,
+      "cleared": false,
+      "ckpt_sha": "5576bc29664675ba0466792871aa7e6cc2332c03eb396d0a7f5a375d9da2c9d6",
+      "ckpt_path": "data/solutions/rl_ckpt/stage06_seed2.r2.pt"
+     }
+    ],
+    "ckpt_saved": {
+     "path": "data/solutions/rl_ckpt/stage06_seed2.r2.pt",
+     "sha256": "5576bc29664675ba0466792871aa7e6cc2332c03eb396d0a7f5a375d9da2c9d6"
+    },
+    "ckpt_loaded": null,
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 0.88,
+     "runs": 6,
+     "trace_present": true
+    }
+   }
+  ],
+  "curves": {
+   "1": [
+    0.3288,
+    0.3244,
+    0.3481,
+    0.335,
+    0.3387,
+    0.3394,
+    0.3538,
+    0.3506,
+    0.3244,
+    0.3563,
+    0.3538,
+    0.3781,
+    0.3925,
+    0.4125,
+    0.4169,
+    0.4256,
+    0.41,
+    0.4169,
+    0.4544,
+    0.4562,
+    0.4506,
+    0.4688,
+    0.5112,
+    0.5081,
+    0.4644,
+    0.4481,
+    0.4806,
+    0.5056,
+    0.4525,
+    0.5081,
+    0.4831,
+    0.4981,
+    0.445,
+    0.52,
+    0.5156,
+    0.55,
+    0.5219,
+    0.4994,
+    0.4944,
+    0.4831,
+    0.485,
+    0.4738,
+    0.5088,
+    0.4962,
+    0.4569,
+    0.4756,
+    0.5431,
+    0.5012,
+    0.5138,
+    0.55,
+    0.5531,
+    0.5769,
+    0.6088,
+    0.5869,
+    0.5962,
+    0.6069,
+    0.6081,
+    0.6031,
+    0.6,
+    0.5881,
+    0.6175,
+    0.6225,
+    0.6306,
+    0.5988,
+    0.5963,
+    0.6088,
+    0.6194,
+    0.5663,
+    0.58,
+    0.5369,
+    0.575,
+    0.5337,
+    0.5513,
+    0.5069,
+    0.58,
+    0.5887,
+    0.5913,
+    0.6162,
+    0.525,
+    0.5894,
+    0.5869,
+    0.5587,
+    0.5956,
+    0.6256,
+    0.5887,
+    0.5875,
+    0.6319,
+    0.6262,
+    0.5794,
+    0.6031,
+    0.5856,
+    0.6125,
+    0.5969,
+    0.6056,
+    0.8094,
+    0.6169,
+    0.9781,
+    1.8838,
+    2.6713,
+    2.68
+   ],
+   "0": [
+    0.3231,
+    0.3144,
+    0.3394,
+    0.3275,
+    0.3319,
+    0.3325,
+    0.3325,
+    0.3519,
+    0.3275,
+    0.3306,
+    0.3169,
+    0.3206,
+    0.3463,
+    0.3288,
+    0.345,
+    0.3287,
+    0.3588,
+    0.3337,
+    0.365,
+    0.3513,
+    0.3706,
+    0.3819,
+    0.3588,
+    0.3463,
+    0.3869,
+    0.3381,
+    0.3788,
+    0.39,
+    0.3788,
+    0.38,
+    0.375,
+    0.3669,
+    0.4031,
+    0.3825,
+    0.3912,
+    0.3806,
+    0.4175,
+    0.4012,
+    0.4094,
+    0.4113,
+    0.4506,
+    0.455,
+    0.4313,
+    0.4619,
+    0.4862,
+    0.445,
+    0.4669,
+    0.4669,
+    0.4456,
+    0.4469,
+    0.4612,
+    0.4381,
+    0.4587,
+    0.4806,
+    0.47,
+    0.4956,
+    0.4344,
+    0.4937,
+    0.4738,
+    0.4719,
+    0.4631,
+    0.4569,
+    0.4113,
+    0.435,
+    0.445,
+    0.4562,
+    0.4519,
+    0.4806,
+    0.4888,
+    0.4894,
+    0.5194,
+    0.5319,
+    0.5669,
+    0.5575,
+    0.5419,
+    0.5537,
+    0.5363,
+    0.535,
+    0.5344,
+    0.5494,
+    0.5219,
+    0.5287,
+    0.4619,
+    0.5919,
+    0.5494,
+    0.545,
+    0.5469,
+    0.555,
+    0.5619,
+    0.5719,
+    0.5575,
+    0.5156,
+    0.5194,
+    0.5219,
+    0.5513,
+    0.525,
+    0.5319,
+    0.4894,
+    0.5169,
+    0.5387,
+    0.5219,
+    0.5613,
+    0.5713,
+    0.5844,
+    0.5556,
+    0.5575,
+    0.5806,
+    0.5931,
+    0.5644,
+    0.5819,
+    0.5869,
+    0.5844,
+    0.6019
+   ],
+   "2": [
+    0.3088,
+    0.3331,
+    0.3275,
+    0.3475,
+    0.3581,
+    0.3588,
+    0.3669,
+    0.4037,
+    0.3981,
+    0.4288,
+    0.3987,
+    0.4006,
+    0.4263,
+    0.4581,
+    0.4425,
+    0.4294,
+    0.4213,
+    0.4088,
+    0.4275,
+    0.3962,
+    0.4456,
+    0.4181,
+    0.4462,
+    0.405,
+    0.4306,
+    0.41,
+    0.4188,
+    0.4537,
+    0.4037,
+    0.3894,
+    0.3944,
+    0.4075,
+    0.4025,
+    0.4012,
+    0.4144,
+    0.4263,
+    0.4594,
+    0.4681,
+    0.4281,
+    0.4581,
+    0.43,
+    0.4656,
+    0.4275,
+    0.4581,
+    0.4569,
+    0.4462,
+    0.4138,
+    0.4344,
+    0.4381,
+    0.4375,
+    0.4356,
+    0.4512,
+    0.4494,
+    0.4594,
+    0.4406,
+    0.4175,
+    0.44,
+    0.45,
+    0.4688,
+    0.4731,
+    0.4387,
+    0.4587,
+    0.5219,
+    0.5044,
+    0.5287,
+    0.535,
+    0.5863,
+    0.4894,
+    0.5456,
+    0.5169,
+    0.5406,
+    0.5294,
+    0.5212,
+    0.5469,
+    0.5531,
+    0.5737,
+    0.5575,
+    0.6044,
+    0.56,
+    0.625,
+    0.5963,
+    0.6131,
+    0.5575,
+    0.6144,
+    0.5894,
+    0.6256,
+    0.5781,
+    0.6212,
+    0.5681,
+    0.5988,
+    0.5719,
+    0.6006,
+    0.5913,
+    0.6288,
+    0.5631,
+    0.5681,
+    0.605,
+    0.5487,
+    0.6031,
+    0.5869,
+    0.605,
+    0.6013,
+    0.6306,
+    0.6044,
+    0.6112,
+    0.5944,
+    0.6269,
+    0.5975,
+    0.5944,
+    0.6138,
+    0.6212,
+    0.5913,
+    0.6212,
+    0.6131,
+    0.6106
+   ]
+  },
+  "best_seed": 1
+ }
+}

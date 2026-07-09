@@ -62,6 +62,7 @@ from mdp import (StageMDP, GRAMMAR_VERSION, GRAMMAR_R2, REWARD, SHAPING,  # noqa
                  global_vocab, manifest_stage_ids, skill_metas,
                  OBS_SCHEMA_DIGEST, obs_schema, C_TRACE, N_TRACE_SCALAR)
 from env import GodotEnv                           # noqa: E402  (tools/solver/env.py)
+import model                                       # noqa: E402  (frontier_dists — §14.3 지식-축적 보상)
 from run_test import find_godot                    # noqa: E402  (실제 롤아웃 godot 해석 — exec digest 바인딩)
 import solve                                       # noqa: E402  (run_plan 단발 리플레이 — 권위 경로)
 
@@ -894,6 +895,69 @@ def _dense_reward(mdp: StageMDP, partial: list, final_res: dict, roll: Rollouter
     return mdp.reward(final_res, len(partial)) + dense
 
 
+# ---------- 지식-축적 보상 (워크로그 §14.3 v3, 사용자 설계 2026-07-10 — opt-in) ----------
+
+# 계수(전체 스케일 = knowledge_coef): new_token=토큰 첫 사용(유한 vocab → 소진=자연 감쇠),
+# repeat=미개선 동일-plan 반복 1회당 누진 페널티, repeat_cap=페널티 상한(repeat×cap이 최대 절대값).
+KNOWLEDGE = {"new_token": 0.05, "repeat": 0.02, "repeat_cap": 50}
+
+
+class KnowledgeLedger:
+    """"지식으로 쌓이는 모든 행위 보상 + 같은 시행착오 반복 누진 페널티" 원장(§14.3 v3).
+
+    시행착오(사용자 정의 2026-07-10) = **미클리어 & 두 프런티어 모두 미갱신**
+    (빈손→candy 최소거리 / 운반→home 최소거리 — model.frontier_dists, 원시 물리 진척이라 shaping 순환 없음).
+    - 신규-보상은 유한 **토큰** 단위만(plan 단위 신규-보상 금지 = 조합공간 novelty 파밍 방지).
+    - 페널티는 **동일 plan의 미개선 반복**에만, 첫 시행착오는 0(사용 주저 방지) → 이후 누진(cap 클립).
+    - 성공/개선 에피소드는 페널티 면제(수렴·SIL 재모방 보호).
+    결정론(배치 내 에피소드 순서 고정)·RNG 미사용. ckpt 동승: resume=이월(재도전 가속),
+    transfer=리셋(스테이지-국소 토큰이라 무의미). 불사용 인벤토리는 어떤 항에도 등장하지 않음(중립)."""
+
+    def __init__(self, coef: float, data: dict | None = None):
+        d = data or {}
+        self.coef = float(coef)
+        self.token_seen: set[str] = set(d.get("token_seen") or [])
+        self.plan_fail_n: dict[str, int] = {k: int(v) for k, v in (d.get("plan_fail_n") or {}).items()}
+        self.best_w = int(d.get("best_w", 1 << 30))
+        self.best_c = int(d.get("best_c", 1 << 30))
+
+    def repeat_term(self, sig: str) -> float:
+        """현재 누진 페널티(≤0) — 관측만(미갱신). SIL 사용-시점 재평가용(수집-시점 박제 방지)."""
+        n = self.plan_fail_n.get(sig, 0)
+        if n <= 0:
+            return 0.0
+        return -self.coef * KNOWLEDGE["repeat"] * min(n, KNOWLEDGE["repeat_cap"])
+
+    def observe(self, p: list, res: dict, layout: dict) -> float:
+        """에피소드 1건 관측 → knowledge bonus(부호 포함) 반환 + 원장 갱신.
+        ⚠토큰 = 액션의 **필드 값 단위**(skill=3, y_row=6, …) — 액션-조합 단위는 공간이 수만+라
+        novelty 파밍 가능(§14.3 패치 위반). 조합 신규성은 '반복 페널티 부재'가 암묵 보상."""
+        b = 0.0
+        for tok in p:
+            fields = (sorted(tok.items()) if isinstance(tok, dict)
+                      else [("tok", json.dumps(tok, sort_keys=True))])
+            for f, v in fields:
+                ts = f"{f}={v}"
+                if ts not in self.token_seen:
+                    self.token_seen.add(ts)
+                    b += self.coef * KNOWLEDGE["new_token"]
+        w, c = model.frontier_dists(res.get("trace"), layout)
+        improved = bool(res.get("cleared")) or w < self.best_w or c < self.best_c
+        self.best_w = min(self.best_w, w)
+        self.best_c = min(self.best_c, c)
+        if improved:
+            return b
+        sig = json.dumps(p, sort_keys=True)
+        b += self.repeat_term(sig)               # 첫 시행착오(n=0)=0 — 페널티는 반복부터
+        self.plan_fail_n[sig] = self.plan_fail_n.get(sig, 0) + 1
+        return b
+
+    def to_dict(self) -> dict:
+        return {"token_seen": sorted(self.token_seen),
+                "plan_fail_n": dict(self.plan_fail_n),
+                "best_w": self.best_w, "best_c": self.best_c}
+
+
 # ---------- 학습 (seed 1개) ----------
 
 def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
@@ -978,6 +1042,19 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
                 else _episode_logp(mdp, policy, p))
 
     use_trace = cfg["shaping"] == "trace"                 # plan §R1 — trace-shaped 보상
+    # 생산적 blocker 활용도 보너스(opt-in, plan §6.4 첫 수 — 2026-07-06). coef=0이면 완전 no-op(pinned
+    # 경로 byte-identical). >0이면 롤아웃에 report_fired 부착(blocker 정착 셀) + reward에 blocker_bonus 가산.
+    blocker_coef = float(cfg.get("blocker_coef", 0.0) or 0.0)
+    if blocker_coef and refine:
+        raise RuntimeError("--blocker-coef는 현재 non-refine(r2 primary) 경로 전용 — refine 미배선")
+    # 지식-축적 보상(opt-in, §14.3 v3). coef=0이면 완전 no-op(pinned 경로 byte-identical).
+    k_coef = float(cfg.get("knowledge_coef", 0.0) or 0.0)
+    if k_coef and refine:
+        raise RuntimeError("--knowledge-coef는 현재 non-refine(r2 primary) 경로 전용 — refine 미배선")
+    ledger = None
+    if k_coef:
+        ledger = KnowledgeLedger(k_coef, (ckpt_in or {}).get("knowledge_ledger")
+                                 if ckpt_mode == "resume" else None)
     while not result["cleared"] and _budget_left():
         batch_i += 1
         ran_batches += 1
@@ -999,11 +1076,12 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         else:
             eps = [_sample() for _ in range(cfg["batch"])]
             plans = [{"stage": mdp.stage_scene, "deadline_frames": cfg["train_deadline"],
-                      **({"trace": True} if use_trace else {}),
+                      **({"trace": True} if (use_trace or k_coef) else {}),
+                      **({"report_fired": True} if blocker_coef else {}),
                       "actions": mdp.decode_plan(p)} for p, _, _ in eps]
             rollouts = pool.evaluate(plans)
             episodes += len(eps)
-            if use_trace:
+            if use_trace or k_coef:
                 # post-commit codex R4 MEDIUM: 빈-plan preflight만으론 "액션 발화 시 trace 소실" 회귀를 못
                 # 잡고, shaped_bonus의 {} fail-safe가 무력화를 침묵시킴 → **액션 롤아웃별 trace 검증**.
                 # 위반 = 학습 run 전체 fail(정직 크래시 — silent shaping 격하로 'trace' 라벨 산출물 금지).
@@ -1013,12 +1091,19 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
                             f"trace-shaped 학습 롤아웃에 유효 trace 부재 — 엔진/Env trace 수집 회귀 "
                             f"(fail-closed): digest={_digest(r)}")
             bonuses = [mdp.shaped_bonus(r) if use_trace else 0.0 for r in rollouts]
-            rewards = [mdp.reward(r, len(p)) + b
+            rewards = [mdp.reward(r, len(p)) + b + mdp.blocker_bonus(r, blocker_coef)
                        for (p, _, _), r, b in zip(eps, rollouts, bonuses)]
-        bi = max(range(len(rewards)), key=lambda i: rewards[i])
-        if rewards[bi] > result["best_reward"]:
+        # 지식 항(§14.3): PG 보상에만 가산. bestR/SIL은 base 보상 기준(시간-가변 항 섞이면 비교 불능 +
+        # SIL 수집-시점 고보상 박제가 collapse를 되레 지속시키는 역효과 — 사용-시점 repeat_term 재평가로 대체).
+        br = rewards
+        if k_coef and not refine:
+            br = list(rewards)
+            rewards = [rw + ledger.observe(p, r, mdp.layout)
+                       for (p, _, _), r, rw in zip(eps, rollouts, br)]
+        bi = max(range(len(br)), key=lambda i: br[i])
+        if br[bi] > result["best_reward"]:
             result["best_episode"] = mdp.decode_plan(eps[bi][0])   # FAIL 사후 진단용(스윕 로그)
-        result["best_reward"] = max(result["best_reward"], max(rewards))
+        result["best_reward"] = max(result["best_reward"], max(br))
         mean_r = sum(rewards) / len(rewards)
         mean_shape = sum(bonuses) / len(bonuses)
         curve.append(round(mean_r, 4))
@@ -1031,7 +1116,9 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         loss = loss / len(eps)
         if cfg["sil"]:
             # buffer 갱신(top-K, sig 중복 제거) 후 (R−baseline)+ 가중 모방 항 가산.
-            for (p, _lp, _e), rew in zip(eps, rewards):
+            # k_coef>0이면 buffer엔 base 보상(br) 저장 + 사용 시점에 현재 repeat_term으로 재평가 —
+            # 수집-시점 지식 항을 박제하면 baseline 하락과 함께 collapse plan 모방이 되레 강화되는 역효과.
+            for (p, _lp, _e), rew in zip(eps, br):
                 sig = json.dumps(p, sort_keys=True)
                 if sig not in sil_sigs:
                     sil_buf.append((rew, p))
@@ -1040,7 +1127,14 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
             for rew, p in sil_buf[cfg["sil_buffer"]:]:
                 sil_sigs.discard(json.dumps(p, sort_keys=True))
             del sil_buf[cfg["sil_buffer"]:]
-            used_sil = [(rew, p) for rew, p in sil_buf if rew > baseline]
+            if k_coef:
+                used_sil = []
+                for rew, p in sil_buf:
+                    eff = rew + ledger.repeat_term(json.dumps(p, sort_keys=True))
+                    if eff > baseline:
+                        used_sil.append((eff, p))
+            else:
+                used_sil = [(rew, p) for rew, p in sil_buf if rew > baseline]
             if used_sil:
                 sil_term = torch.tensor(0.0)
                 for rew, p in used_sil:
@@ -1118,6 +1212,8 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
             "policy": policy.state_dict(), "optimizer": opt.state_dict(),
             "chain": chain, "greedy_plan": result["greedy_plan"],
         }
+        if ledger is not None:      # §14.3 opt-in에서만 동승 — coef=0 ckpt는 기존과 키 구성 동일
+            state["knowledge_ledger"] = ledger.to_dict()
     return result, state
 
 
@@ -1239,7 +1335,9 @@ def run_training(args) -> int:
                    at_frame_cap=args.train_deadline)
     cfg = dict(DEFAULTS, max_episodes=args.max_episodes, max_wall=args.max_wall,
                shaping=args.shaping, train_deadline=args.train_deadline, max_len=args.max_len,
-               sil=bool(args.sil), max_batches=args.max_batches)
+               sil=bool(args.sil), max_batches=args.max_batches,
+               blocker_coef=float(getattr(args, "blocker_coef", 0.0) or 0.0),  # opt-in(§6.4)
+               knowledge_coef=float(getattr(args, "knowledge_coef", 0.0) or 0.0))  # opt-in(§14.3)
     if refine:                                    # plan §R3 — trace-refinement 계약(opt-in)
         cfg.update(refine=True, dense_shaping=bool(getattr(args, "dense_shaping", False)),
                    trace_blind=bool(getattr(args, "trace_blind", False)),
@@ -1257,9 +1355,32 @@ def run_training(args) -> int:
           f"shaping={cfg['shaping']} train_deadline={cfg['train_deadline']} "
           f"ckpt={ckpt_mode or 'none'} ===")
     pool, envs_effective, pf_info = build_pool(
-        args.envs, mdp.stage_scene, with_trace=(cfg["shaping"] == "trace" or refine))
+        args.envs, mdp.stage_scene,
+        with_trace=(cfg["shaping"] == "trace" or refine or cfg["blocker_coef"] > 0
+                    or cfg["knowledge_coef"] > 0))
+    reseed_k = int(getattr(args, "reseed_on_fail", 0) or 0)
+    if reseed_k and ckpt_in is not None:
+        print("--reseed-on-fail은 scratch 학습 전용(ckpt 로드 모드=per-seed 사슬 계약과 배타)")
+        return 2
     try:
-        outs = [train_seed(mdp, pool, s, cfg, ckpt_in, ckpt_mode) for s in seeds]
+        if reseed_k:
+            # collapse 회피(§11): 요청 seed가 FAIL이면 대체 seed로 재시도. 실제 학습된 seed로
+            # seeds를 재바인딩(이후 zip/산출물 회계가 실 seed 기준). train_seed 무변경.
+            outs, eff_seeds = [], []
+            for slot_seed in seeds:
+                rs = train_seed(mdp, pool, slot_seed, cfg, ckpt_in, ckpt_mode)
+                attempt = 0
+                while not rs[0]["cleared"] and attempt < reseed_k:
+                    attempt += 1
+                    alt = slot_seed + 1000 * attempt
+                    print(f"  [reseed] slot {slot_seed} FAIL(collapse) → 대체 seed {alt} "
+                          f"재시도 ({attempt}/{reseed_k})")
+                    rs = train_seed(mdp, pool, alt, cfg, ckpt_in, ckpt_mode)
+                outs.append(rs)
+                eff_seeds.append(rs[0]["seed"])
+            seeds = eff_seeds
+        else:
+            outs = [train_seed(mdp, pool, s, cfg, ckpt_in, ckpt_mode) for s in seeds]
     finally:
         pool.close()
     seed_results = [r for r, _ in outs]
@@ -2497,6 +2618,19 @@ def main() -> int:
                     help="plan 슬롯 상한(r1.1 실효값=min(ant-target 인벤토리 합, 이 값); r2=전역 고정 슬롯)")
     ap.add_argument("--sil", action="store_true",
                     help="self-imitation(plan §R1 fallback 2): top-K 에피소드 (R−baseline)+ 가중 재모방")
+    ap.add_argument("--blocker-coef", type=float, default=0.0,
+                    help="생산적 blocker 활용도 보너스 계수(opt-in, §6.4; 0=무효 = pinned 경로 byte-identical). "
+                         ">0이면 롤아웃 report_fired + reward에 +coef·redirect_value/(D0·ants) 가산")
+    ap.add_argument("--knowledge-coef", type=float, default=0.0,
+                    help="지식-축적 보상 계수(opt-in, §14.3 v3; 0=무효 = pinned 경로 byte-identical). "
+                         ">0이면 신규 토큰(필드 값) 첫 사용 +, '시행착오'(미클리어 & 빈손→candy/운반→home "
+                         "프런티어 모두 미갱신) 동일 plan 반복 누진 −(cap 클립). 원장은 ckpt 동승"
+                         "(resume 이월=재도전 가속 / transfer 리셋). SIL은 사용-시점 재평가")
+    ap.add_argument("--reseed-on-fail", type=int, default=0,
+                    help="collapse 회피(§11 안정화): FAIL로 끝난 seed를 대체 seed(base+1000·attempt)로 최대 "
+                         "K회 재시도(opt-in, 0=기존 동작 불변). 오케스트레이션 전용 — train_seed 무변경이라 "
+                         "pinned 경로 byte-identical. scratch 학습 전용(ckpt 로드 모드 비활성). "
+                         "collapse seed가 빨리 잘리도록 --max-wall을 짧게(정상 seed clear wall 초과분) 줄 것")
     ap.add_argument("--grammar", choices=(GRAMMAR_VERSION, GRAMMAR_R2), default=GRAMMAR_VERSION,
                     help="문법 버전(기본 r1.1 = 기존 커맨드 의미 불변; R2 커맨드는 r2.1 명시)")
     ap.add_argument("--save-ckpt", action="store_true",

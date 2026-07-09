@@ -1,0 +1,178 @@
+{
+ "stage": "res://scenes/stages/Stage05.tscn",
+ "stage_id": 5,
+ "deadline_frames": 7000,
+ "inventory": {
+  "floater": 1,
+  "sand_mound": 1
+ },
+ "actions": [
+  {
+   "skill": "floater",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 792.0
+   }
+  },
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     15,
+     8
+    ]
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 792.0
+   }
+  }
+ ],
+ "expect": {
+  "cleared": true,
+  "saved": 5
+ },
+ "rl_meta": {
+  "grammar_version": "r2.1",
+  "no_hint": true,
+  "vocab_digest": "b85505b79ba4084df8fd6f77bccb725edacada112e22b132e2969fdca94037ff",
+  "layout_digest": "e7b2a05d3b4e16702bfdd09778eb670cbdcb89a5bf5c53920a23db846110bf51",
+  "config": {
+   "batch": 16,
+   "lr": 0.003,
+   "entropy": 0.03,
+   "entropy_min": 0.02,
+   "entropy_decay": 0.997,
+   "hidden": 128,
+   "greedy_every": 5,
+   "baseline_decay": 0.9,
+   "max_len": 6,
+   "train_deadline": 4500,
+   "replay_deadline": 7000,
+   "shaping": "trace",
+   "sil": true,
+   "sil_buffer": 8,
+   "sil_coef": 0.1,
+   "conv_channels": 32,
+   "max_batches": 0,
+   "max_episodes": 20000,
+   "max_wall": 1200,
+   "reward": {
+    "cleared": 2.0,
+    "saved": 1.0,
+    "picked": 0.3,
+    "lost": -0.2,
+    "len_penalty": -0.02,
+    "timeout_penalty": -0.1
+   },
+   "shaping_coeffs": {
+    "goal": 0.5,
+    "retired": 0.1
+   }
+  },
+  "pass": false,
+  "pass_rule": ">=2/3 pinned seeds greedy clear within per-segment budget",
+  "mode": "exploratory-sweep",
+  "seeds": [
+   {
+    "seed": 0,
+    "cleared": true,
+    "episodes": 400,
+    "batches": 25,
+    "wall_s": 403.2,
+    "best_reward": 3.749795918367347,
+    "greedy_plan": [
+     {
+      "skill": "floater",
+      "target": {
+       "mode": "ant",
+       "select": "min_x",
+       "state": "carrying"
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 792.0
+      }
+     },
+     {
+      "skill": "sand_mound",
+      "target": {
+       "mode": "cell",
+       "cell": [
+        15,
+        8
+       ]
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 792.0
+      }
+     }
+    ],
+    "envs_requested": 3,
+    "envs_effective": 3,
+    "chain": [
+     {
+      "stage_id": 5,
+      "seed": 0,
+      "mode": "scratch",
+      "episodes": 400,
+      "batches": 25,
+      "wall_s": 403.2,
+      "cleared": true,
+      "ckpt_sha": null,
+      "ckpt_path": null
+     }
+    ],
+    "ckpt_saved": null,
+    "ckpt_loaded": null,
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 1.17,
+     "runs": 6,
+     "trace_present": true
+    }
+   }
+  ],
+  "curves": {
+   "0": [
+    0.3075,
+    0.3113,
+    0.327,
+    0.3113,
+    0.4945,
+    0.31,
+    0.3138,
+    0.3076,
+    0.3113,
+    0.3276,
+    0.3082,
+    0.3132,
+    0.5195,
+    0.3075,
+    0.3383,
+    0.8815,
+    0.9235,
+    1.5501,
+    1.0797,
+    2.0054,
+    2.6373,
+    3.1854,
+    3.1841,
+    3.4591,
+    3.0617
+   ]
+  },
+  "best_seed": 0
+ }
+}

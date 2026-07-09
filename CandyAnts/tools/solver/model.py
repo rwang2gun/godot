@@ -281,6 +281,71 @@ def count_trapped(trace: dict, reversal_thresh: int = 6) -> tuple[int, int]:
     return carry, total
 
 
+def _goal_dist_at(s: list, layout: dict) -> int:
+    """샘플 s의 목표까지 셀 맨해튼 — 픽업 전 candy, 픽업 후 home(per-sample carry). 목표 없으면 큰 값."""
+    g = _goal_cell(s[3] == 1, layout)
+    if g is None:
+        return 1 << 30
+    return abs(s[1] - g[0]) + abs(s[2] - g[1])
+
+
+def frontier_dists(trace: dict, layout: dict) -> tuple:
+    """진척 프런티어(워크로그 §14.3 v3 — 사용자 정의 '시행착오' 판정용, 2026-07-10).
+    에피소드 전체에서 (빈손 개미가 candy에 접근한 최소 맨해튼, 운반 개미가 home에 접근한 최소 맨해튼).
+    '시행착오' = 미클리어 & 두 축 모두 역대 최소 미갱신 — 판정은 호출측(train.KnowledgeLedger).
+    해당 상태 샘플이 없으면 그 축은 BIG(1<<30, fail-safe: 개선으로 오인 안 됨). 순수·결정론."""
+    best_w = best_c = 1 << 30
+    if not trace:
+        return best_w, best_c
+    for si in {int(k) for k in trace.keys()}:
+        for s in _samples(trace, si):
+            d = _goal_dist_at(s, layout)
+            if d >= (1 << 30):                # 목표 없음(_goal_cell None) — 프런티어 집계 제외
+                continue
+            if s[3] == 1:
+                best_c = min(best_c, d)
+            else:
+                best_w = min(best_w, d)
+    return best_w, best_c
+
+
+def blocker_redirect_value(trace: dict, layout: dict, blocker_cells, adj: int = 1) -> float:
+    """**생산적 blocker 활용도** — blocker가 유발한 반전이 목표 진척으로 이어진 총량(정규화 전, 셀 단위).
+    실증(2026-07-06): S12에서 raw bump 카운트는 좋은/나쁜 배치를 못 가른다(가드가 트랩 bump 폭발을
+    막음, 좋은 해가 오히려 bump 최다). 진짜 판별자 = **반전 × 진척**. 각 개미 trace에서:
+      ① blocker 셀 인접(Chebyshev<=adj)에서 수평 방향-반전이 1회 이상 있었는가(= blocker가 이 개미를
+         리다이렉트) → 아니면 제외(blocker-귀속 게이트, 스킬-의미론 = 전이 가능).
+      ② 그렇다면 이 개미의 (시작 goal_dist − 도달 최소 goal_dist)를 진척으로 적립(픽업=candy 접근, 귀환=home).
+    blocker_cells = 이번 에피소드 실제 정착 blocker 셀 집합 {(col,row)}. 순수·결정론. 정규화(D0·ants)는
+    호출측(mdp.blocker_bonus). 반환 = 진척 셀 합(≥0)."""
+    if not trace or not blocker_cells:
+        return 0.0
+    bcells = set(blocker_cells)
+    total = 0.0
+    for si in sorted({int(k) for k in trace.keys()}):
+        ss = _samples(trace, si)
+        if len(ss) < 2:
+            continue
+        redirected = False
+        prev_dir = 0
+        for i in range(1, len(ss)):
+            dx = ss[i][1] - ss[i - 1][1]
+            d = 1 if dx > 0 else (-1 if dx < 0 else 0)
+            if d != 0 and prev_dir != 0 and d != prev_dir:
+                rc = (ss[i - 1][1], ss[i - 1][2])   # 반전이 일어난 셀
+                if any(max(abs(rc[0] - bc[0]), abs(rc[1] - bc[1])) <= adj for bc in bcells):
+                    redirected = True
+                    break
+            if d != 0:
+                prev_dir = d
+        if not redirected:
+            continue
+        d_start = _goal_dist_at(ss[0], layout)
+        d_best = min(_goal_dist_at(s, layout) for s in ss)
+        total += max(0.0, float(d_start - d_best))
+    return total
+
+
 def count_retired(trace: dict, layout: dict) -> dict:
     """리타이어한 개미를 **원인별로 구별**해 카운트. 회수 실패하고 죽은 개미만(저장·생존 제외):
       water = 물 익사 — 마지막 샘플이 hazard 위/안(_died_water). **낙하 중 드리프트로 바닥을 놓치고

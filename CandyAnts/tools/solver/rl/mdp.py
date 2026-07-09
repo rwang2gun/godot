@@ -258,16 +258,20 @@ class StageMDP:
     / "r2.1"(전역 어휘 + per-stage 마스킹 + cell-target sum-type). r1.1 경로는 R2에서 무변경."""
 
     def __init__(self, stage_id: int, max_len: int = 6, grammar: str = GRAMMAR_VERSION,
-                 at_frame_cap: int = 4500):
+                 at_frame_cap: int = 4500,
+                 scene: str | None = None, stage_tres=None, layout_tres=None):
+        """scene/stage_tres/layout_tres(옵션) = 캠페인 경로 밖 스테이지(dev_stages fixture, §14.4).
+        기본 None = 기존 경로·동작 불변(pinned 경로 byte-identical)."""
         self.stage_id = stage_id
         self.grammar_version = grammar
-        self.stage_scene = f"res://scenes/stages/Stage{stage_id:02d}.tscn"
-        meta = solve.stage_meta(stage_id)
+        self.stage_scene = scene or f"res://scenes/stages/Stage{stage_id:02d}.tscn"
+        meta = solve.stage_meta(stage_id, tres_path=stage_tres)
         self.inventory: dict[str, int] = meta["inventory"]
         self.hp: int = meta["candy_hp"]                       # hp_stage(상수) — result.hp 미사용(R1-H1)
         self.ants_total: int = max(1, int(meta["total_ants"]))  # shaping 분모(스테이지 상수, R1 계약)
         self.layout = model.parse_layout(
-            ROOT / "data" / "stage_layouts" / f"stage{stage_id:02d}_layout.tres")
+            Path(layout_tres) if layout_tres
+            else ROOT / "data" / "stage_layouts" / f"stage{stage_id:02d}_layout.tres")
         self.cs: int = self.layout["cell_size"]
         cells = set(self.layout["occupied"]) | set(self.layout["hazard"])
         for v in (self.layout["candy"], self.layout["home"]):
@@ -605,6 +609,31 @@ class StageMDP:
         retired = model.count_retired(tr, self.layout)["total"] if tr else 0
         return (SHAPING["goal"] * (1.0 - min(goal_d, self.D0) / self.D0)
                 - SHAPING["retired"] * (retired / self.ants_total))
+
+    # ----- 생산적 blocker 활용도 보너스 (opt-in — 기존 shaped_bonus/SHAPING/reward 무변경으로 R1/R2
+    #        pinned 재현 게이트 보존. coef=0.0이면 완전 no-op). plan §6.4 첫 수, 2026-07-06 실증 기반. -----
+    def blocker_cells_from_res(self, res: dict) -> set:
+        """이번 에피소드 실제 정착 blocker 셀 {(col,row)} — res.fired_actions(report_fired 필요)의 ant-target
+        blocker 발화 위치(target_pos 픽셀→셀). fired_actions 부재 시 빈 집합(fail-safe → 보너스 0)."""
+        cells: set = set()
+        for e in (res or {}).get("fired_actions") or []:
+            if e.get("target_kind") == "ant" and e.get("skill") == "blocker":
+                tp = e.get("target_pos")
+                if tp and len(tp) == 2:
+                    cells.add((int(tp[0] // self.cs), int(tp[1] // self.cs)))
+        return cells
+
+    def blocker_bonus(self, res: dict, coef: float) -> float:
+        """`+coef · redirect_value / (D0·ants)`. redirect_value = blocker가 리다이렉트한 개미의 목표 진척
+        합(model.blocker_redirect_value). 분모 = 스테이지 상수(R1-H1). coef=0 또는 blocker 미정착 시 0."""
+        if not coef:
+            return 0.0
+        cells = self.blocker_cells_from_res(res)
+        if not cells:
+            return 0.0
+        val = model.blocker_redirect_value((res or {}).get("trace") or {}, self.layout, cells)
+        norm = self.D0 * self.ants_total
+        return coef * (val / norm) if norm else 0.0
 
     # ----- R3 trace obs (plan §R3 R3_OBS_SCHEMA — 순수 rasterize 함수 위임, golden 결속) -----
     def _verdict_code(self, res: dict) -> int:

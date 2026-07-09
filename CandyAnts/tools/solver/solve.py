@@ -102,8 +102,11 @@ def dump_capabilities() -> dict:
 
 # ---------- 엔진 롤아웃 (PlanReplayHarness, D4 verdict) ----------
 
-def run_plan(stage_scene: str, actions: list[dict], deadline: int, trace: bool = True) -> dict:
+def run_plan(stage_scene: str, actions: list[dict], deadline: int, trace: bool = True,
+             report_fired: bool = False) -> dict:
     plan = {"stage": stage_scene, "deadline_frames": deadline, "trace": trace, "actions": actions}
+    if report_fired:                 # 각 blocker 액션의 uid별 충돌 카운트(bumps)를 결과에 실음
+        plan["report_fired"] = True
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
         json.dump(plan, f)
         plan_path = f.name
@@ -165,8 +168,11 @@ def _fmt(res: dict, hp: int) -> str:
 
 # ---------- 스테이지 메타 ----------
 
-def stage_meta(stage_id: int) -> dict:
-    tres = (ROOT / "data" / "stages" / f"stage{stage_id:02d}.tres").read_text(encoding="utf-8")
+def stage_meta(stage_id: int, tres_path=None) -> dict:
+    """tres_path(옵션) = 캠페인 경로 밖 StageData(.tres) — dev_stages fixture용(워크로그 §14.4).
+    기본 None = 기존 경로·동작 불변."""
+    tres = (Path(tres_path) if tres_path
+            else ROOT / "data" / "stages" / f"stage{stage_id:02d}.tres").read_text(encoding="utf-8")
     inv: dict[str, int] = {}
     b = re.search(r"skill_inventory\s*=\s*\{(.*?)\}", tres, re.S)
     if b:
