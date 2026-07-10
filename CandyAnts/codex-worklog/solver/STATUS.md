@@ -1529,10 +1529,14 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
     3번째 재현) + 간헐 지연 1건(s0 30→125, 발견은 batch 20 동일·greedy 고착만 지연). 합계 batch −22%.
   - 정직 한계: 잉여-불사용 축 미변별(스페어 1이 3번째 blocker 허용)·n=6·단일 fixture.
 - **§15.7 건강-런 쌍대조(S12 seed 0·2 +knowledge)**: seed0 60=60 동일 / **seed2 70→145 (2배 지연)**.
-  → **전 쌍대조 10건 승/패 완벽 분리**: 구출 5건 전부 정체·병리 런 / 지연 3건(4배·2배 포함) 전부
-  건강 런. knowledge="정체면 돕고 건강하면 1/3꼴 2~4배 지연".
-- **knowledge 상시화 = 사용자 결정 대기**: 증거상 권고 = **(b) 정체-격발 escalation**(bestR 정체 시
-  on — 승리 전건 보존+패배 전건 회피, 비용=구현·문턱 튜닝) / (a) 상시화도 방어 가능(DNF 0 보장,
-  단순). 세부 = 세션 로그 §15.6~15.7.
+  일시적으로 "승/패=런-건강도 완벽 분리"로 보였으나 →
+- **§15.8 S17 실스테이지 쌍대조가 분리를 깸**: s0 **195→DNF flip(첫 역방향 악화)** / s1 130→85 /
+  s2 DNF(3.768)→95 구출. 재특성화 = knowledge는 **near-clear 고원·collapse 락은 구출, 저고원
+  점진-확장(blocker 축차 발견) 구간은 방해 가능**. 최종 집계(고유 12쌍+재현 1): 개선 6/중립 2/악화 4
+  (클리어 순증 +1). **보너스: cross-PC 학습 결정론 실증** — 로컬 +knowledge arm이 §R4 ⓐ(RogallyX,
+  torch 2.13 vs 로컬 2.12.1)와 batch-동일(0.942/@85/@95).
+- **knowledge 레시피 = 사용자 결정 대기 (3안, 어느 것도 지배 못함)**: (a) 상시화(집계 +, flip 리스크
+  1/13) / (b) 정체-격발(§15.7 논거 붕괴 — near-clear 한정 격발이면 잔존, 복잡도↑) / (c) **현행
+  opt-in 유지**(구현 0·단순). 세부 = 세션 로그 §15.6~15.8.
 - **게이트**: TileMetadataDriftTest PASS(82 layouts — 신규 fixture 포함 전수 스캔) + try_solve selftest
   19/19 PASS. 산출물 = `dev_stages/trap_blocker_v2/`(3파일) + `rl/experiments/trap_v2_{probe,test}.py`.
