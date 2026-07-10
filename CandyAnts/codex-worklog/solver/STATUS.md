@@ -1528,7 +1528,11 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   - **knowledge**: median 동률 + BASELINE heavy-tail 구출(125→20, 130→50 — §14.4 정체-구출 메커니즘
     3번째 재현) + 간헐 지연 1건(s0 30→125, 발견은 batch 20 동일·greedy 고착만 지연). 합계 batch −22%.
   - 정직 한계: 잉여-불사용 축 미변별(스페어 1이 3번째 blocker 허용)·n=6·단일 fixture.
-- **knowledge 상시화 = 사용자 결정 대기**: 권고 (a) 상시화(집계 우월·정체 자동 구출·레시피 단순) vs
-  (b) 정체-격발 escalation(간헐 교란 회피, 구현 추가). 세부 = 세션 로그 §15.6.
+- **§15.7 건강-런 쌍대조(S12 seed 0·2 +knowledge)**: seed0 60=60 동일 / **seed2 70→145 (2배 지연)**.
+  → **전 쌍대조 10건 승/패 완벽 분리**: 구출 5건 전부 정체·병리 런 / 지연 3건(4배·2배 포함) 전부
+  건강 런. knowledge="정체면 돕고 건강하면 1/3꼴 2~4배 지연".
+- **knowledge 상시화 = 사용자 결정 대기**: 증거상 권고 = **(b) 정체-격발 escalation**(bestR 정체 시
+  on — 승리 전건 보존+패배 전건 회피, 비용=구현·문턱 튜닝) / (a) 상시화도 방어 가능(DNF 0 보장,
+  단순). 세부 = 세션 로그 §15.6~15.7.
 - **게이트**: TileMetadataDriftTest PASS(82 layouts — 신규 fixture 포함 전수 스캔) + try_solve selftest
   19/19 PASS. 산출물 = `dev_stages/trap_blocker_v2/`(3파일) + `rl/experiments/trap_v2_{probe,test}.py`.

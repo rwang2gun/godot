@@ -357,14 +357,31 @@ bash scratchpad/solve_stage.sh <N>               # 단독 3-seed 병렬 집중
 
 ### 15.6 §15 종합 — knowledge 상시화 판단 재료 (사용자 결정 대상)
 - **blocker-coef**: 함정 지형 포함 순이득 재확인 → 현 레시피(1.0) 유지 근거 강화.
-- **knowledge-coef 상시화**: 증거 = 순편익 우세(합계 −22%, 꼬리 125/130→20/50 구출, 클리어율 동일
-  6/6)이나 간헐 비용(s0 4배 지연) 존재. 선택지:
-  - (a) **상시화(레시피 기본 편입)** — 집계상 우월, 정체 구출이 자동. 비용 = 간헐 지연 감수.
-  - (b) **정체-격발(escalation)** — 기본 off, bestR 정체 N batch 시 on. s0류 교란 회피 + 구출 보존.
-    단 구현·검증 추가 필요(전환 시점의 baseline EMA 불연속 등).
-  - 내 권고 = (a): s0류 지연도 클리어는 도달(단일 seed·+95 batch)인 반면, 정체는 방치 시 DNF로
-    직결(§11 이전 0/3 선례). 단순성(레시피 1개) 우위. (b)는 s0류가 실전에서 잦아지면 재론.
+- **knowledge-coef 상시화**: v2.1만 보면 순편익 우세(합계 −22%, 꼬리 구출)였으나 **§15.7의 건강-런
+  쌍대조가 그림을 바꿈** — 아래 §15.7 종합 참조.
 - 산출물: fixture `dev_stages/trap_blocker_v2/`(2-blocker 지그재그 최종형) + `experiments/
   trap_v2_probe.py`(함정성 4-플랜 probe) + `experiments/trap_v2_test.py`(3-arm 러너). 로그:
   scratchpad trap_v2_run/trap_v21_run/trap_v21_seeds345.log(비보존). 게이트: TileMetadataDriftTest
   PASS(82 layouts) + try_solve selftest 19/19 PASS — 엔진/솔버 코드 무변경이라 pinned 원천 무영향.
+
+### 15.7 건강-런 지연 쌍대조 (S12 표준 스테이지) — 승/패 완벽 분리 발견
+- 동기: §14.4는 knowledge를 **병리 케이스에서만** 검증(S12 seed1 락·S17 고원). v2.1 s0의 4배 지연이
+  fixture 특이인지 확인 위해 **건강하게 수렴하는 §11 S12 seed 0·2**에 동일 커맨드+knowledge 1.0 쌍대조.
+- 결과: seed 0 = **batch 60 동일**(baseline 60) / seed 2 = **batch 145/eps 2320 (baseline 70/1200 —
+  2배 지연)**. bestR 궤적: baseline이 batch 70에 찾던 3-blocker 해를 knowledge run은 batch 140에야
+  발견(0.743 고원 장기 체류) — 탐험 편향이 유효 basin 진입 자체를 늦춘 케이스.
+- **전 쌍대조 10건 종합 = 승/패가 런-건강도로 완벽 분리**:
+  | 결과 | 케이스 | baseline→knowledge |
+  |---|---|---|
+  | 구출(5) | S12 s1 / S17 s2 / v2.1 s4·s5·s2 | FAIL→120 / DNF→75 / 125→20 / 130→50 / 45→40 |
+  | 중립(2) | v2.1 s1 / S12 s0 | 40=40 / 60=60 |
+  | 지연(3) | v2.1 s0 / v2.1 s3 / S12 s2 | 30→125(4배) / 35→40 / 70→145(2배) |
+  **승리 5건 전부 = 정체·병리 런, 패배 3건 전부 = 건강 런.** knowledge = "정체면 돕고, 건강하면
+  1/3꼴로 2~4배 늦춘다" — 무조건 상시화의 논거(집계 우월)가 건강-런 표본 추가로 약화됨.
+- **수정 권고 (사용자 결정 대상)**:
+  - (b) **정체-격발(escalation)** ← 증거상 우월로 상향: knowledge의 이득이 전부 정체 런에 몰려
+    있으므로 "bestR 정체 N batch(예: 30~40) 시 on"이 승리 전건 보존 + 패배 전건 회피. 비용 =
+    구현·검증(전환 시 baseline EMA 불연속, 원장 mid-run 활성 semantics) + 문턱 튜닝.
+  - (a) 상시화 — 여전히 방어 가능(DNF 0 보장, 지연도 클리어는 도달, 레시피 단순). 건강 런 ~1/3
+    2~4배 지연을 감수하는 선택.
+  - 판단 재료 완비 — silent 재스코프 금지 원칙대로 레시피 확정은 사용자 몫.
