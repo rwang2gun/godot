@@ -1506,3 +1506,29 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   포함 문구 vs 실측 세트] + LOW 1 = probe 경로 drift, **코드 blocker 0**) → 2건 수정(plan acceptance 4
   실측 개정 공시 명문화 + 워크로그 경로 정정) → Self-R1 clean → **codex R2 approve(findings 0)**.
   트레일 = `reviews/phaseR-impl-review.md` §R4.
+
+## r2.1 주력 복귀 — 어려운 함정 v2 실험 (2026-07-11 밤샘 세션) — §14.1 유혹 가설 반증(2차) + knowledge 상시화 재료
+
+> 세션 로그 = [2026-07-05-rl-brain-experiments.md](2026-07-05-rl-brain-experiments.md) §15.
+> §R4 종결 후 사용자 결정 = r2.1 주력 복귀 → §14 잔여(어려운 함정 v2 → knowledge 상시화 근거) 착수.
+> 엔진/train/mdp/model **무변경**(fixture + 실험 스크립트만) — pinned 게이트 원천 무영향.
+
+- **fixture v2 반복 2회**: 반복1(1-blocker) = 9/9 batch 5~15 즉시 클리어로 **여전히 비변별**(1-액션
+  해는 함정을 붙여도 학습 창이 안 생김 — 관건은 유혹 세기가 아니라 정답 발견 비용). →
+  **v2.1 = 2-blocker 지그재그**(복도→중간선반[우측 물]→바닥층[좌측 물], #2 밴드는 #1 발화 전 도달
+  불가 = 순차 의존 p²) — 손플랜 probe로 함정성 확립: noop 전멸/partial(#1) FAIL bonus 0.2546/
+  correct CLEAR 3/3 @1621f/honey(복도 셔틀) FAIL bonus **0.0926 양수**. dense 서열 correct>partial>
+  honey>noop = gradient 계단 + 얕은 유혹 분지 공존. (부수 규명: 물 hazard = 씬 배치 Area2D,
+  layout hazard_map은 솔버 메타 전용 — StageLayoutBuilder 미소비.)
+- **3-arm × 6 seed (cap 150)**: NOBONUS 3/6(median ~130, DNF 3건=하강 미발견 0.324 고원) /
+  BASELINE(blocker 1.0) **6/6 median 42.5** / KNOWLEDGE(+1.0) **6/6 median 40**.
+  - **§14.1 유혹 가설 반증**: 유혹 credit 실재에도 blocker-coef가 전면 순이득(paired 5/6, NOBONUS-DNF
+    seed 3건 전부 구출, honey-고착 0건). 원인 = redirect×**진척** 게이트가 진짜 진척을 유혹보다 크게
+    보상(§10 설계 검증).
+  - **knowledge**: median 동률 + BASELINE heavy-tail 구출(125→20, 130→50 — §14.4 정체-구출 메커니즘
+    3번째 재현) + 간헐 지연 1건(s0 30→125, 발견은 batch 20 동일·greedy 고착만 지연). 합계 batch −22%.
+  - 정직 한계: 잉여-불사용 축 미변별(스페어 1이 3번째 blocker 허용)·n=6·단일 fixture.
+- **knowledge 상시화 = 사용자 결정 대기**: 권고 (a) 상시화(집계 우월·정체 자동 구출·레시피 단순) vs
+  (b) 정체-격발 escalation(간헐 교란 회피, 구현 추가). 세부 = 세션 로그 §15.6.
+- **게이트**: TileMetadataDriftTest PASS(82 layouts — 신규 fixture 포함 전수 스캔) + try_solve selftest
+  19/19 PASS. 산출물 = `dev_stages/trap_blocker_v2/`(3파일) + `rl/experiments/trap_v2_{probe,test}.py`.

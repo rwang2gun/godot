@@ -277,3 +277,94 @@ bash scratchpad/solve_stage.sh <N>               # 단독 3-seed 병렬 집중
   - 실험(BASELINE=blocker 1.0 vs KNOWLEDGE=+1.0, seed 0·1, cap 40): **4/4 arm 전부 batch 5(첫 greedy 평가)/eps 80 CLEAR** — 발견 해=`blocker @ at_frame 4500`(deadline 3000 밖=무발화). **규칙 ③(불사용 중립) 실증**: 어떤 항도 불사용을 처벌하지 않아 정답 즉시 채택, knowledge 항 무회귀.
   - **정직한 한계(비변별)**: BASELINE도 즉시 클리어 → blocker-coef "함정 유혹" 가설(§14.1)은 이 난이도에서 **검증 불가**(dense bonus gradient가 축적되기 전에 클리어). 유혹 변별에는 더 어려운 함정(클리어까지 학습이 필요해 dense 신호가 지배할 시간이 있는 레이아웃)이 필요 — 후속 후보.
 - **§14 종합**: v3 지식-축적 보상 검증 4/4 완료 — ①probe 8/8 ②S12 seed1 collapse 돌파(3/3 완성) ③S17 고원 돌파 ④함정 무회귀(단 유혹 가설은 비변별). 병리 2종 실측 해소+함정 안전성 확인. 미커밋: model/mdp/solve/train 4파일+transfer_test/knowledge_probe/trap_test+fixture 3파일.
+
+## 15. 후속 세션 (2026-07-11 밤) — 어려운 함정 v2: "학습이 필요한 함정"으로 유혹 가설 변별 시도
+
+> §R4 종결 후 사용자 결정 = **r2.1 주력 복귀** → §14 잔여 2건(어려운 함정 v2 / knowledge 상시화) 착수.
+> 함정 v2가 상시화 판단의 직접 근거가 되므로 v2 먼저. 엔진/train.py/mdp.py **무변경**(fixture+실험
+> 스크립트만) → pinned 게이트 원천 무영향. TileMetadataDriftTest는 dev_stages 전수 스캔 대상이라
+> 신규 레이아웃 포함 재실행 **PASS(82 layouts)**.
+
+### 15.1 왜 "불사용=정답 + 학습 필요"는 구조적으로 불가능한가 (v2 설계 전제)
+- 이 MDP에서 무도구 클리어가 존재하면 **무발화 트리거 플랜(널려 있음)이 전부 클리어** → 첫 greedy
+  평가(batch 5)에 즉시 발견(§14.4 ④ v1 실측 그대로). "불사용이 정답"과 "클리어까지 학습 필요"는 양립
+  불가. → 실행 가능한 변별 설계 = **정답이 도구 일부 사용 + 유혹 배치(국소 진척·전역 차단)와 잉여
+  인벤(함정 도구)이 공존**하는 지형. §14.1 유혹 가설("blocker_bonus가 함정 배치에 양의 dense 보상")을
+  직접 겨냥한다.
+
+### 15.2 fixture 반복 1 (1-blocker) — **여전히 비변별 (정직 박제)**
+- 설계: 복도(스폰) → 낙하 → 낙하층 우측 물 전멸이 기본 경로. 정답 = 낙하층 col 12~13 blocker 1개
+  (지급 2 중 1), 유혹 = 복도 blocker(candy 상공 셔틀, redirect 양수·터미널 0).
+- 손플랜 probe: noop FAIL(water 5/5)/correct CLEAR 4/4 @1340f(bonus 0.150)/honey FAIL(bonus 0.075 양수) ✓.
+  (부수 규명: **물 hazard는 씬 배치 Area2D**(`Water_col_row` 노드, 표면행+deep) — layout `hazard_map`은
+  솔버/에디터 메타일 뿐 StageLayoutBuilder가 소비하지 않음. 첫 판은 물 미배치로 개미가 물을 관통 낙사
+  → retired water=0 이상신호로 발견·수정.)
+- **3-arm(NOBONUS/BASELINE/KNOWLEDGE × seed 0,1,2, cap 120) 결과: 9/9 전부 batch 5~15 클리어** —
+  1-액션 정답 basin(밴드 y[480,528] × x≥~576·ge)이 초기 정책 분포에서 그냥 뽑힘. v1과 동류의 비변별.
+  교훈: **함정 변별의 관건은 유혹의 세기가 아니라 정답의 발견 비용** — 1-액션 해는 어떤 함정을 붙여도
+  학습 창이 생기지 않는다.
+
+### 15.3 fixture 반복 2 (v2.1, 2-blocker 지그재그) — 함정성 + 커리큘럼 gradient 확립
+- 경화 원리: 정답을 **순차 의존 2-액션**으로(랜덤 히트 ~p²). 복도(스폰, floor row7) → 낙하 →
+  **중간 선반**(row11, 우측 col14~16 물 — blocker#1 col12~13권 필요) → 좌측 가장자리 낙하 →
+  **바닥층**(row15, 좌측 col1~2 물 — blocker#2 col3~5권 필요) → 우향 반등 → candy(10,14) 픽업
+  자동반전 → #2에 재반등 → home(14,14). **#2의 트리거 밴드(y≈715)는 #1 발화 전엔 개미가 도달
+  불가** = 자연 커리큘럼. 인벤 blocker×3(2 필요+1 잉여=함정 도구), total 6/hp 3. 낙하 전부 4칸(기절
+  5칸 미만). 유혹면: 복도 blocker = 하강 전면 차단(다른 정답 액션과 공존해도 치명) + 잉여 오발화.
+- 손플랜 probe 4/4 (결정론 det=OK, `trap_v2_probe.py`):
+  | 플랜 | verdict | retired | redirect | bonus |
+  |---|---|---|---|---|
+  | noop | FAIL(no_more_ants @874f) | water 6/6 | 0 | 0 |
+  | partial(#1만) | FAIL(deadline) | water 5/5 | 55.0 | 0.2546 |
+  | correct(#1+#2) | **CLEAR 3/3 @1621f** | 0 | 68.0 | 0.3148 |
+  | honey(복도) | FAIL(deadline, 셔틀) | 0 | 20.0 | 0.0926 |
+- **dense 신호 서열 correct > partial > honey > noop** — 정답으로 향하는 gradient 계단(partial이
+  두터운 디딤돌)과 얕은 유혹 분지가 공존. §14.1 가설을 검정할 지형 성립.
+
+### 15.4 v2.1 3-arm 학습 실험 (NOBONUS/BASELINE/KNOWLEDGE × seeds, cap 150) — 완료
+- ① BASELINE vs NOBONUS = blocker-coef dense 신호가 함정 지형에서 순이득/순해인가(§14.1).
+- ② KNOWLEDGE vs BASELINE = 미개선 반복 누진 페널티가 honey/잉여 고착을 깎는가(= **상시화 근거**).
+- 실행: `trap_v2_test.py --seeds 0,1,2` + `--seeds 3,4,5`, cap 150, §14 레시피(trace+sil, train-deadline
+  3000), envs 4. 총 18런.
+
+### 15.5 결과 (n=6/arm, batch-to-clear, DNF=cap 150)
+| arm | s0 | s1 | s2 | s3 | s4 | s5 | 클리어 | median |
+|---|---|---|---|---|---|---|---|---|
+| NOBONUS (0/0) | 60 | 110 | DNF | DNF | DNF | 90 | **3/6** | ~130 |
+| BASELINE (blocker 1.0) | 30 | 40 | 45 | 35 | 125 | 130 | **6/6** | 42.5 |
+| KNOWLEDGE (blocker 1.0 + knowledge 1.0) | 125 | 40 | 40 | 40 | 20 | 50 | **6/6** | 40 |
+
+- **① §14.1 유혹 가설 = 반증(2차, 이번엔 학습 창 있는 지형에서)**: 유혹 basin이 실재(honey bonus
+  0.093 양수·복도=고확률 샘플 영역)함에도 BASELINE이 NOBONUS를 압도(6/6 vs 3/6, median 42.5 vs
+  ~130; paired 5/6 seed 우세, 예외 s5 130>90 정직 표기). NOBONUS DNF 3건의 고원 bestR 0.324 =
+  하강(#1) 자체를 못 찾음 — **honey에 붙잡힌 게 아니라 가이드 부재로 정체**(coef 0이면 honey 인력도
+  0인 대조 설계). coef arm 12런 중 honey-고착 DNF **0건**. 구조 해석: redirect×진척 메트릭이
+  진짜 진척(partial 0.2546)을 유혹(0.0926)보다 크게 보상해 gradient 계단이 유혹 분지를 지배 —
+  §10 설계(bump 카운트가 아닌 진척 게이트)가 함정-안전의 원인. blocker-coef는 이 함정 지형에서
+  **순이득**(특히 NOBONUS-DNF seed 2·3·4 전부 구출).
+- **② KNOWLEDGE = median 동률 + 꼬리 개선 + 간헐 지연**: paired로 s4 125→20, s5 130→50, s2 45→40
+  (개선 3) / s1 40=40 (동률) / s3 35→40, **s0 30→125(4배 지연)** (악화 2). 합계 batch 405→315.
+  - s0 지연의 실체: 클리어 에피소드는 batch 20에 발견(bestR 4.075)됐으나 greedy 고착이 batch 125까지
+    지연 — 미개선 근방-변형 반복 페널티가 해 분지 강화를 교란한 것으로 추정(BASELINE s0은 같은
+    발견을 batch 30에 고착). **knowledge의 비용면 = 건강한 수렴의 간헐 교란**.
+  - s4·s5 구출의 실체: BASELINE의 heavy tail(125/130)이 정확히 §14.4가 겨냥한 "미개선 반복 정체"이고
+    knowledge가 그걸 깎음 — S12 seed1 collapse·S17 고원 구출과 동일 메커니즘의 3번째 재현.
+- **정직 한계**: ⓐ 잉여-불사용 압력은 설계보다 느슨 — total 6/hp 3이 스페어 1을 남겨 3번째 blocker
+  사용도 클리어 가능(발견 해 다수가 3-액션 전량 사용). "잉여 사용=치명" 축은 이 fixture에서 미변별,
+  변별된 축은 honey 배치 + 2-스텝 의존 난이도. ⓑ n=6/arm, 단일 fixture — 기하 일반화는 미검증.
+  ⓒ honey-고착 0건은 "이 지형에서 유혹이 약했다"와 "메트릭이 본질적으로 함정-안전"을 완전히
+  구별하진 못함(유혹 credit을 인위적으로 키운 기하가 남은 반례 공간).
+
+### 15.6 §15 종합 — knowledge 상시화 판단 재료 (사용자 결정 대상)
+- **blocker-coef**: 함정 지형 포함 순이득 재확인 → 현 레시피(1.0) 유지 근거 강화.
+- **knowledge-coef 상시화**: 증거 = 순편익 우세(합계 −22%, 꼬리 125/130→20/50 구출, 클리어율 동일
+  6/6)이나 간헐 비용(s0 4배 지연) 존재. 선택지:
+  - (a) **상시화(레시피 기본 편입)** — 집계상 우월, 정체 구출이 자동. 비용 = 간헐 지연 감수.
+  - (b) **정체-격발(escalation)** — 기본 off, bestR 정체 N batch 시 on. s0류 교란 회피 + 구출 보존.
+    단 구현·검증 추가 필요(전환 시점의 baseline EMA 불연속 등).
+  - 내 권고 = (a): s0류 지연도 클리어는 도달(단일 seed·+95 batch)인 반면, 정체는 방치 시 DNF로
+    직결(§11 이전 0/3 선례). 단순성(레시피 1개) 우위. (b)는 s0류가 실전에서 잦아지면 재론.
+- 산출물: fixture `dev_stages/trap_blocker_v2/`(2-blocker 지그재그 최종형) + `experiments/
+  trap_v2_probe.py`(함정성 4-플랜 probe) + `experiments/trap_v2_test.py`(3-arm 러너). 로그:
+  scratchpad trap_v2_run/trap_v21_run/trap_v21_seeds345.log(비보존). 게이트: TileMetadataDriftTest
+  PASS(82 layouts) + try_solve selftest 19/19 PASS — 엔진/솔버 코드 무변경이라 pinned 원천 무영향.

@@ -1,0 +1,184 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/StageRunner.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/core/AntSpawner.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Home.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Candy.tscn" id="4"]
+[ext_resource type="Script" path="res://scripts/world/Terrain.gd" id="4_terrain"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Ant.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="6"]
+[ext_resource type="Script" path="res://scripts/world/Home.gd" id="6_home_script"]
+[ext_resource type="Resource" path="res://dev_stages/trap_blocker_v2/trap_blocker_v2_test.tres" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/ui/SkillToolbar.tscn" id="8_toolbar"]
+[ext_resource type="PackedScene" path="res://scenes/world/StageBackground.tscn" id="9_background"]
+[ext_resource type="Script" path="res://scripts/world/Candy.gd" id="10_candy_script"]
+[ext_resource type="Script" path="res://scripts/world/StageLayoutBuilder.gd" id="11_layout_builder"]
+[ext_resource type="Resource" path="res://dev_stages/trap_blocker_v2/dev_trap_blocker_v2_layout.tres" id="12_dev_layout"]
+[ext_resource type="PackedScene" path="res://scenes/entities/hazards/Water.tscn" id="13_water"]
+[ext_resource type="Script" path="res://scripts/world/hazards/WaterHazard.gd" id="14_water_script"]
+
+[node name="StageRunner" type="Node"]
+script = ExtResource("1")
+stage_data = ExtResource("7")
+candy_path = NodePath("World/Candy")
+home_path = NodePath("World/Home")
+spawner_path = NodePath("Spawner")
+hud_path = NodePath("HUD")
+toolbar_path = NodePath("SkillToolbar")
+ant_scene = ExtResource("5")
+spawn_parent_path = NodePath("World")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="StageLayoutBuilder" type="Node2D" parent="World"]
+script = ExtResource("11_layout_builder")
+layout = ExtResource("12_dev_layout")
+
+[node name="Terrain" type="Node2D" parent="World"]
+script = ExtResource("4_terrain")
+
+[node name="Home" type="Area2D" parent="World" instance=ExtResource("3")]
+position = Vector2(696, 720)
+collision_layer = 32
+collision_mask = 4
+script = ExtResource("6_home_script")
+
+[node name="Candy" type="Area2D" parent="World" instance=ExtResource("4")]
+position = Vector2(504, 720)
+collision_layer = 16
+collision_mask = 4
+script = ExtResource("10_candy_script")
+hp = 3
+
+[node name="Camera2D" type="Camera2D" parent="World"]
+position = Vector2(456, 552)
+
+[node name="Water_14_11" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(696, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+
+[node name="Water_15_11" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(744, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+
+[node name="Water_16_11" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(792, 552)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+
+[node name="Water_14_12" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(696, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="Water_15_12" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(744, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="Water_16_12" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(792, 600)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="Water_14_13" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(696, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="Water_15_13" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(744, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="Water_16_13" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(792, 648)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="Water_1_15" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(72, 768)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+
+[node name="Water_2_15" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(120, 768)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+
+[node name="Water_1_16" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(72, 816)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="Water_2_16" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(120, 816)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="Water_1_17" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(72, 864)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="Water_2_17" type="Area2D" parent="World" instance=ExtResource("13_water")]
+position = Vector2(120, 864)
+collision_layer = 8
+collision_mask = 4
+monitorable = false
+script = ExtResource("14_water_script")
+deep = true
+
+[node name="StageBackground" type="CanvasLayer" parent="." instance=ExtResource("9_background")]
+layer = -100
+
+[node name="Spawner" type="Node" parent="."]
+script = ExtResource("2")
+spawn_position = Vector2(168, 331)
+total = 6
+release_rate = 30
+spawn_direction = 1
+
+[node name="HUD" parent="." instance=ExtResource("6")]
+
+[node name="SkillToolbar" parent="." instance=ExtResource("8_toolbar")]
+stage_data = ExtResource("7")
