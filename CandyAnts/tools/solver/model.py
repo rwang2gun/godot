@@ -28,7 +28,11 @@ for _s in (sys.stdout, sys.stderr):              # cp949 무관 UTF-8(knowledge.
 
 # ---------- 레이아웃 ----------
 
-def parse_layout(layout_tres: Path) -> dict:
+def parse_layout(layout_tres: Path, exclude_background: bool = False) -> dict:
+    """§R4a: exclude_background=True(r4 경로 전용)면 background(비충돌 장식 — StageLayoutBuilder가
+    충돌체를 만들지 않음)를 occupied에서 제외한다. **기본값 False = 종전 동작 그대로**(선존 결함
+    포함): 레거시(r1.1/r2.1·휴리스틱) 경로의 y_rows/surface 파생과 pinned 산출물을 byte-identical
+    보존하기 위한 격리(§R4 plan R1-L1). kinds에는 background도 기록(관측·메타용 완전 정보)."""
     text = layout_tres.read_text(encoding="utf-8")
     cell_size = int(re.search(r"cell_size\s*=\s*(\d+)", text).group(1))
     occupied: set[tuple[int, int]] = set()    # 충돌 셀(solid·사다리 등; 해저드 제외)
@@ -39,8 +43,10 @@ def parse_layout(layout_tres: Path) -> dict:
     if tm:
         for m in re.finditer(r'"(-?\d+),(-?\d+)"\s*:\s*"(\w+)"', tm.group(1)):
             c, r, kind = int(m.group(1)), int(m.group(2)), m.group(3)
-            occupied.add((c, r))
             kinds[(c, r)] = kind
+            if exclude_background and kind == "background":
+                continue
+            occupied.add((c, r))
             if kind == "sand_mound":
                 ladder.add((c, r))
     hazard: dict[tuple[int, int], str] = {}

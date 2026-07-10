@@ -14,6 +14,8 @@ extends Node
 # quit code: 0=성공, 2=에러.
 
 const CAPABILITIES_PATH := "res://data/solver/capabilities.tres"
+# §R4a — preload 참조(class_name 전역 캐시는 에디터 스캔 의존, 헤드리스 안전).
+const TileSolverMeta := preload("res://scripts/core/TileSolverMeta.gd")
 
 func _ready() -> void:
 	var metas: Dictionary = SkillRegistry.all_solver_metas()
@@ -30,6 +32,13 @@ func _ready() -> void:
 		"t_human_hard_s": caps.t_human_hard_s,
 		"t_human_machine_only_s": caps.t_human_machine_only_s,
 	}
-	var out: Dictionary = {"skills": metas, "capabilities": caps_dict}
+	# §R4a — 타일/해저드 self-describing 메타 동봉(가산 키 — 기존 소비자는 skills/capabilities만 읽음).
+	# TileMetadataDriftTest가 완전성·alias 정합을 강제하므로 여기서는 그대로 노출만 한다.
+	var out: Dictionary = {
+		"skills": metas,
+		"capabilities": caps_dict,
+		"tiles": TileSolverMeta.all_tile_metas(),
+		"hazards": TileSolverMeta.all_hazard_metas(),
+	}
 	print("SOLVER_CAPS %s" % JSON.stringify(out))
 	get_tree().quit(0)

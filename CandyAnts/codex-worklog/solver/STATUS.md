@@ -1447,3 +1447,25 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   **R3 approve(신규 발견 0) — 3-round cap 내 종결**.
 - **§R4 plan-stage 종결.** 다음 = **R4 구현**(R4a 타일-의미 계층 → R4b 랜드마크 문법 r4.0 —
   사용자 go 대기). 커밋 = plan.md §R4 + 트레일 `# §R4` + 본 항목(§R3 선례).
+
+## Phase R §R4 구현 — R4a/R4b 인프라 완성 + acceptance 실험 중단·재개 대기 (2026-07-10, RogallyX)
+
+> 세션 로그(구현 상세·실측·재개 절차 SoT) = [2026-07-10-r4-impl.md](2026-07-10-r4-impl.md).
+> 사용자 go → 당일 구현. 엔진 verdict/PlanRunner 무변경(TileSolverMeta는 상수 가산).
+
+- **R4a 타일-의미 계층 ✅**: TileSolverMeta(canonical kind alias + hazard lethal/speed_mult) +
+  SolverMetaDump tiles/hazards + TileMetadataDriftTest(73 레이아웃 PASS, **메인 게이트 편입**) +
+  parse_layout exclude_background opt-in(레거시 byte-identical).
+- **R4b 랜드마크 문법 r4.0 ✅ + 커버리지 게이트 PASS 16/16**: landmarks.py(어휘 v11 — 게이트가 S19
+  갭 검출 → 사용자 결정 2단으로 ceiling_surface per-cell 채택·cap 128 실측 개정) + mdp r4(8ch 관측·
+  pointer용 encode/decode lowering) + witness S24 비게이트 리플레이 클리어(보너스).
+- **train.py r4 경로 ✅**: make_policy_r4(landmark head만 피처-점수화 pointer — per-index 임베딩
+  금지 계약) + ckpt .r4.pt/rl4-ckpt-v1 + rl4.json + verify-r4(R4_PIN·contract digest fail-closed).
+  S11 r4 스모크 CLEAR @240eps. **pinned 격리 5/5 PASS**(verify-r0/r1/r2×2/resume-equiv — §14.4 세트).
+  verify-r3은 이 PC 판정 불가(exec digest가 godot 로컬 경로 결박 — 선존 cross-PC 한계, 회귀 아님).
+- **acceptance 2(S17 전이 flip)**: 1차 cap 120 = headline FAIL(r4 전 arm near-clear 고원) → 사용자
+  승인 개정(cap 240 + S13 r4 소스 seed1 — escape-hatch 1회 소진). 재실험 중 **사용자 지시로 중단**:
+  소스 seed0·1 CLEAR(@batch 60·60) / ⓐ 2/3 / ⓑ 1/2(seed별 비일관 = 좌표-우연 재확인) / ⓒ 1/3 /
+  **ⓓ 미완 — 재개 커맨드는 세션 로그 §8**(ⓓ 2런만 돌리면 predicate 판정 가능).
+- **잔여**: ⓓ 재개·판정 → 비회귀(S12·S19·S13 r4 scratch) → verify-r4 음성 probe → impl-stage codex
+  적대 리뷰 → §R4 종결. torch 2.13.0+cpu 이 PC 설치됨. GODOT_BIN 경로는 세션 로그 헤더.

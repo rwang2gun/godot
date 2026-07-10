@@ -1,7 +1,7 @@
 ---
 name: auto-solver
 duration_estimate: 28800
-verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn && python scripts/run_test.py tests/SkillMetadataDriftTest.tscn && python tools/solver/try_solve.py harness-test && python tools/solver/try_solve.py selftest && python tools/solver/analyze.py --verify && python tools/solver/try_solve.py diverse-verify && python tools/solver/try_solve.py rediscover-verify
+verify: python scripts/run_test.py tests/DeterminismReplayTest.tscn && python scripts/run_test.py tests/DeterminismSpawnScheduleTest.tscn && python scripts/run_test.py tests/SkillMetadataDriftTest.tscn && python scripts/run_test.py tests/TileMetadataDriftTest.tscn && python tools/solver/try_solve.py harness-test && python tools/solver/try_solve.py selftest && python tools/solver/analyze.py --verify && python tools/solver/try_solve.py diverse-verify && python tools/solver/try_solve.py rediscover-verify
 large_change_ok: false
 sot: phases/solver/auto-solver-plan.md
 sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/SceneFlow.gd, scripts/core/ScoreSystem.gd, scripts/ant/Ant.gd, scripts/world/Home.gd, scripts/core/AntSpawner.gd, scripts/ui/SkillToolbar.gd, scripts/core/SkillRegistry.gd, scripts/core/SkillApplier.gd, scripts/core/PlanRunner.gd, scripts/core/SolverCapabilities.gd, scripts/run_test.py, scripts/run_plan.py, tests/SolverHarness.gd, tests/PlanReplayHarness.gd, tests/PlanReplayHarnessTest.gd, tests/SkillMetadataDriftTest.gd, data/solver/capabilities.tres, tools/solver/solve_spike.py, tools/solver/analyze.py, tools/solver/try_solve.py]
@@ -1800,10 +1800,12 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
 
 **R4b — 랜드마크 문법 r4.0 (본체: 액션 = 장소의 성질 + 상대 트리거)**
 - **랜드마크 추출기(순수 Python, 기존 자산 재사용)**: `model.diagnose`(물/허공 낙하 가장자리)·
-  `_has_ceiling`(§5 천장 휴리스틱)·`parse_layout`·`_goal_dist_at` read-only 재사용. **유형 어휘 pin** =
+  `_has_ceiling`(§5 천장 휴리스틱)·`parse_layout`·`_goal_dist_at` read-only 재사용. **유형 어휘 pin
+  (v11 — 개정 트레일은 위 R4_PIN 개정 항목)** =
   `{water_edge(치명 낙수 가장자리), fall_edge(비치명 낙하 가장자리), ladder_top, ladder_bottom,
   sticky_span_edge(감속 구간 경계), plant_wall(cutter 대상 벽), earth_wall(basher/digger 대상 벽),
-  candy_adj, home_adj, surface_segment(잔여 표면 구간)}` — 인스턴스는 스테이지별 **결정론 열거**
+  candy_adj, home_adj, ceiling_surface(천장 있는 표면 셀 전부 — per-cell·dir=0, 2026-07-10 개정),
+  surface_segment(잔여 표면 구간)}` — 인스턴스는 스테이지별 **결정론 열거**
   (정렬 키 = (유형, row, col) 사전순, pin). 유형 어휘는 R4a 타일 메타에서 파생(예: plant_wall =
   breakable_by∋cutter인 kind의 수직 노출면 — 하드코딩 0).
 - **액션 문법 r4.0** = `skill × landmark-후보 × offset(0..2) × trigger`:
@@ -1848,12 +1850,24 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
 
 **`R4_PIN` (R1-H1/H4 — material 상수 plan-단계 선pin, "impl 확정" escape hatch 금지. verify-r4가
 불일치 fail-closed)**
-- 문법·표현: `grammar="r4.0"`(리터럴) · `landmark_schema_digest`(유형 어휘 10종 + 정렬 키
-  `(유형, row, col)` 사전순 + 피처 스키마 7항 + offset 도메인 `{0,1,2}`) · `R4_OBS_SCHEMA`
-  (C_layout=8 위 채널 이름/순서) · pointer dtype=`float32` · **`LANDMARK_CANDIDATE_CAP=64`**
-  (초과 시 절단 = 동일 정렬 키 `(유형-어휘-pin-순서, row, col)` 상위 64 결정론 절단; manifest에
+- 문법·표현: `grammar="r4.0"`(리터럴) · `landmark_schema_digest`(유형 어휘 **11종**(개정 ↓) +
+  정렬 키 `(유형, row, col)` 사전순 + 피처 스키마 7항 + offset 도메인 `{0,1,2}`) · `R4_OBS_SCHEMA`
+  (C_layout=8 위 채널 이름/순서) · pointer dtype=`float32` · **`LANDMARK_CANDIDATE_CAP=128`**(개정 ↓)
+  (초과 시 절단 = 동일 정렬 키 `(유형-어휘-pin-순서, row, col)` 상위 결정론 절단; manifest에
   절단 전/후 후보 수·유형별 절단 count 기록; **커버리지 라운드트립에서 known 해의 필요 후보가
   절단으로 소실되면 verify-r4 FAIL**).
+- **개정(2026-07-10, impl 커버리지 게이트 실측 + 사용자 결정 — 게이트가 설계 목적대로 작동한 기록)**:
+  - **어휘 10→11종: `ceiling_surface` 추가**(천장 있는 표면 셀 **전부**, per-cell·dir=0). 경위:
+    커버리지 게이트가 S19 휴리스틱 해의 sand_mound 셀 (10,14)=위층-가장자리-직하 표면을 표현 불가로
+    검출(3칸 드리프트 FAIL — 15/16 PASS 중 유일 갭). 후보 ① drop_column(가장자리 직하) — **사용자
+    기각**(항상 유익하지 않음, 상황 의존) ② ceiling_span_edge(천장 경계) — **사용자 기각**(밀실형
+    S25류는 경계=벽뿐, 구간 안 최적점도 상황 의존) → ③ **채택 = 천장 표면 전부를 후보로, 어느 셀이
+    좋은지는 pointer 피처가 상황별 학습**. 근거: S17 천장-선호 엔진 실측(천장 無=saved0/有=5/5) +
+    S19 갭 셀이 천장 표면. per-cell 노출은 "천장 있는 부분집합" 한정이라 절대-좌표 head 부활 아님
+    (선택은 여전히 피처 점수 — 인덱스 임베딩 금지 계약 불변).
+  - **cap 64→128**: ceiling_surface(per-cell) 추가 후 실측 — S25(밀실형) total=113으로 64에서
+    ceiling 17개 절단 = 갭 재발 구조. 128 = 현 캠페인 전 스테이지 무절단(최대 S25=113). 절단
+    회계·정렬(잔여 surface_segment 후순위) 유지.
 - 트리거: `at_frame` 양자화 300f(r2.1 계승) · `train_deadline=4500` · `replay_deadline=7000`.
 - 학습 레시피(전 acceptance 공통): `--shaping trace`(계수 `{goal:0.5, retired:0.1}`) ·
   `--sil(8,0.1)` · `--blocker-coef 1.0` · `--knowledge-coef 1.0`(§14 최신 레시피) · `envs=4` ·
@@ -1880,8 +1894,14 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
 - 예산: A/B 4-arm(acceptance 2) = **cap 120 batch(batch=16 eps)·`max_wall=3600`/arm·seed**
   (§13.2/13.5 관측 최대 1075s에 여유; wall이 cap 전에 걸리면 §R3 선례대로 infra 분류, model FAIL
   오분류 금지) · 비회귀(acceptance 3) = 해당 §의 기존 pinned 예산 그대로.
-- 판정 산식: **DNF = cap(120) 대입**으로 batch-to-clear 산출(R1-C1 — 산식 pin) · per-seed paired
+- 판정 산식: **DNF = cap 대입**으로 batch-to-clear 산출(R1-C1 — 산식 pin) · per-seed paired
   비교(동일 seed끼리만 짝).
+- **예산 개정 1회 소진(2026-07-10, 사용자 승인 — escape-hatch, budget_revisions=1)**: 1차 실측
+  (cap 120)에서 r4 전 arm이 **near-clear 고원(bestR 3.7~3.99)** DNF = 예산 경계형 실패 → **cap
+  120→240 batch** 재실험 승인. 동시 확장: **S13 r4 소스 seed 1 추가**(ⓓ n 보강) + ⓐ/ⓒ seeds
+  0,1,2 + **ⓑ는 소스-호환 max_len=6으로 실행**(1차에서 r2.1 소스 ckpt(max_len 6)와 통일 레시피
+  (max_len 8)의 모델 shape 비호환 크래시 — fail-closed 가드 정상 작동. max_len 이탈은 산출물에
+  명시 기록). **추가 개정 불가**(throughput-infeasible 규칙 계승 — 240에서도 FAIL이면 종결·박제).
 
 **Acceptance (falsifiable — 고정 커맨드/설정, R0~R3 스타일. 위 R4_PIN이 유일한 상수 출처 —
 잔여 상수는 R4_PIN 갱신 없이 도입 금지)**

@@ -41,6 +41,29 @@ def skill_metas() -> dict:
         _METAS_CACHE = solve.dump_capabilities()["skills"]
     return _METAS_CACHE
 
+
+_TILE_CAPS_CACHE: dict | None = None
+
+
+def _tile_caps() -> dict:
+    """§R4a 엔진 self-describing 타일/해저드 메타(SolverMetaDump) — r4 경로 전용, fail-closed,
+    프로세스 캐시(skill_metas와 동일 패턴 — 덤프 1회)."""
+    global _TILE_CAPS_CACHE
+    if _TILE_CAPS_CACHE is None:
+        caps = solve.dump_capabilities()
+        if "tiles" not in caps or "hazards" not in caps:
+            raise ValueError("SOLVER_CAPS에 tiles/hazards 없음 — 엔진 §R4a(TileSolverMeta) 미반영 덤프")
+        _TILE_CAPS_CACHE = {"tiles": caps["tiles"], "hazards": caps["hazards"]}
+    return _TILE_CAPS_CACHE
+
+
+def tile_metas() -> dict:
+    return _tile_caps()["tiles"]
+
+
+def hazard_metas() -> dict:
+    return _tile_caps()["hazards"]
+
 # ---------- 문법 어휘 (R0 — plan §Phase R MDP 정의) ----------
 TRIGGER_VOCAB = ("ant_reaches_x", "picked_ge")
 CMP_VOCAB = ("ge", "le")
@@ -66,6 +89,20 @@ R2_HEAD_ORDER = ("skill", "kind", "trigger", "cmp", "param", "frame",
                  "select", "state", "col", "row")
 R2_TRIGGER_HEADS = {"ant_reaches_x": ("cmp", "param"), "picked_ge": ("param",),
                     "at_frame": ("frame",)}
+
+# ---------- r4 문법 어휘 (plan §R4 — 랜드마크-상대 표현, 절대-좌표 head 제거) ----------
+# r4.0: 위치 지시 = (landmark 인스턴스, offset) 쌍 하나뿐 — 절대 y_row/x/col head 없음. 트리거의
+# 공간축(ant_reaches_landmark)과 ant-target y밴드(band=landmark_row), cell-target 배치 셀이 전부
+# 같은 lowered 셀에서 파생된다(decode lowering → 기존 plan JSON, PlanRunner/엔진 무변경).
+# ⚠ landmark head는 "후보 인덱스"로 *직렬화*될 뿐, 정책 파라미터화는 피처-점수화 pointer여야 한다
+# (per-index 임베딩 학습 금지 — R4_PIN 핵심 계약, train.py make_policy_r4가 준수).
+GRAMMAR_R4 = "r4.0"
+TRIGGER_VOCAB_R4 = ("ant_reaches_landmark", "picked_ge", "at_frame")
+BAND_VOCAB = ("any", "landmark_row")      # ant-target y밴드: 없음 / lowered 셀의 행(1-row 밴드)
+R4_HEAD_ORDER = ("skill", "kind", "trigger", "cmp", "param", "frame",
+                 "landmark", "offset", "band", "select", "state")
+R4_TRIGGER_HEADS = {"ant_reaches_landmark": ("cmp", "landmark", "offset"),
+                    "picked_ge": ("param",), "at_frame": ("frame",)}
 
 
 def _sha(obj) -> str:
@@ -289,8 +326,13 @@ class StageMDP:
             self._init_r2(max_len, at_frame_cap)
         elif grammar == GRAMMAR_VERSION:
             self._init_r1(max_len)
+        elif grammar == GRAMMAR_R4:
+            self._init_r4(max_len, at_frame_cap,
+                          Path(layout_tres) if layout_tres
+                          else ROOT / "data" / "stage_layouts" / f"stage{stage_id:02d}_layout.tres")
         else:
-            raise ValueError(f"unknown grammar {grammar!r} (지원: {GRAMMAR_VERSION!r}, {GRAMMAR_R2!r})")
+            raise ValueError(f"unknown grammar {grammar!r} "
+                             f"(지원: {GRAMMAR_VERSION!r}, {GRAMMAR_R2!r}, {GRAMMAR_R4!r})")
         # 관측 레이아웃(고정 스테이지 = 상수지만 일반화 대비 포함, plan §관측)
         self._grid = self._encode_grid()
         self._slot_dim = 1 + sum(self.heads[h] for h in self.head_names)
@@ -327,6 +369,54 @@ class StageMDP:
         self.head_names = list(self.heads)
         self.SUBMIT = len(self.skills)
 
+    def _init_r4(self, max_len: int, at_frame_cap: int, layout_path: Path) -> None:
+        """r4.0 (plan §R4): 레이아웃을 exclude_background=True로 재파싱(background solid-오분류 정정 —
+        r4 경로 한정, 레거시 y_rows/pinned 산출물 불변) + 랜드마크 인스턴스/피처 열거 + 8ch 관측."""
+        import sys as _sys
+        _rl_dir = str(Path(__file__).resolve().parent)
+        if _rl_dir not in _sys.path:
+            _sys.path.insert(0, _rl_dir)
+        import landmarks as _lm   # rl/ 내부 모듈(지연 import — r1/r2/r3 경로 무의존)
+        self._lm = _lm
+        self.layout = model.parse_layout(layout_path, exclude_background=True)
+        cells = set(self.layout["occupied"]) | set(self.layout["hazard"])
+        for v in (self.layout["candy"], self.layout["home"]):
+            if v:
+                cells.add(v)
+        self.W = max(c for c, _ in cells) + 1
+        self.H = max(r for _, r in cells) + 1
+        self.D0 = self.W + self.H
+        occ = set(self.layout["occupied"])
+        self.y_rows = sorted({r for (c, r1) in occ
+                              for r in ((r1 - 1),) if r >= 0 and (c, r) not in occ})
+        vocab = global_vocab()                       # 전역 스킬 사전/상한 재사용(r2와 동일 권위)
+        self.vocab_digest: str = vocab["digest"]
+        self.skills = list(vocab["skills"])
+        metas = skill_metas()
+        self._skill_kind = {s: str((metas.get(s) or {}).get("target", "")) for s in self.skills}
+        if not any(self.inventory.get(s, 0) > 0 for s in self.skills):
+            raise ValueError(f"stage {self.stage_id}: 어휘 표현 가능 인벤토리 0")
+        self.max_len = int(max_len)
+        self.at_frame_cap = int(at_frame_cap)
+        self._frame_bins = [b for b in range(FRAME_BINS) if b * AT_FRAME_QUANT <= self.at_frame_cap]
+        self.tile_meta = tile_metas()
+        self.hazard_meta = hazard_metas()
+        inv_skills = {s for s, n in self.inventory.items() if n > 0}
+        lm = _lm.extract(self.layout, self.W, self.H, inv_skills, self.tile_meta, self.hazard_meta)
+        self.landmark_result = lm
+        self.landmark_instances: list[dict] = lm["instances"]
+        self.landmark_digest: str = lm["digest"]
+        if not self.landmark_instances:
+            raise ValueError(f"stage {self.stage_id}: 랜드마크 인스턴스 0 — r4 비표현 레이아웃")
+        self.heads = {"skill": len(self.skills) + 1, "kind": len(KIND_VOCAB),
+                      "trigger": len(TRIGGER_VOCAB_R4), "cmp": len(CMP_VOCAB),
+                      "param": vocab["heads"]["param"], "frame": FRAME_BINS,
+                      "landmark": _lm.LANDMARK_CANDIDATE_CAP,
+                      "offset": len(_lm.OFFSET_DOMAIN), "band": len(BAND_VOCAB),
+                      "select": len(SELECT_VOCAB), "state": len(STATE_VOCAB)}
+        self.head_names = list(R4_HEAD_ORDER)
+        self.SUBMIT = len(self.skills)
+
     def _init_r2(self, max_len: int, at_frame_cap: int) -> None:
         vocab = global_vocab()
         self.vocab_digest: str = vocab["digest"]
@@ -353,8 +443,20 @@ class StageMDP:
 
     # ----- r2 마스킹 (plan §R2 P2/P3 — 무효 조합은 페널티가 아니라 표현 불가) -----
     def head_mask(self, head: str, t: int, used: dict[str, int], ctx: dict[str, int]) -> list[int]:
-        """head별 허용 인덱스(r2 전용). ctx = 이 스텝에서 이미 샘플된 head 인덱스(skill/kind/trigger).
+        """head별 허용 인덱스(r2/r4). ctx = 이 스텝에서 이미 샘플된 head 인덱스(skill/kind/trigger).
         used = partial의 스킬별 사용 수(인벤토리 동적 마스크)."""
+        if self.grammar_version == GRAMMAR_R4:
+            if head == "trigger":
+                return list(range(len(TRIGGER_VOCAB_R4)))
+            if head == "param":                      # r4 param = picked_ge 전용(hp 마스크)
+                return list(range(self.hp))
+            if head == "landmark":                   # 유효 인스턴스만(cap head 중 실존 후보)
+                return list(range(len(self.landmark_instances)))
+            if head == "offset":
+                return list(range(len(self._lm.OFFSET_DOMAIN)))
+            if head == "band":
+                return list(range(len(BAND_VOCAB)))
+            # skill/kind/cmp/frame/select/state는 r2 로직 공유(아래로 폴스루)
         if head == "skill":
             ok = [i for i, s in enumerate(self.skills)
                   if used.get(s, 0) < self.inventory.get(s, 0)]
@@ -386,12 +488,67 @@ class StageMDP:
 
     def active_heads(self, a: dict[str, int]) -> list[str]:
         """완성된 스텝 idx(skill != SUBMIT)에 대해 skill 이후 활성 head 순서(샘플링·SIL replay 공용)."""
+        if self.grammar_version == GRAMMAR_R4:
+            ttype = TRIGGER_VOCAB_R4[a["trigger"]]
+            heads = ["kind", "trigger", *R4_TRIGGER_HEADS[ttype]]
+            if KIND_VOCAB[a["kind"]] == "ant":
+                heads += ["select", "state", "band"]
+                # landmark/offset은 ant에서 **무조건 활성**(band 값 조건부로 하면 샘플링 순서 순환·
+                # SIL replay 구조 분기 발생). band=any ∧ 트리거 비-landmark면 decode가 무시(no-op head).
+                if "landmark" not in heads:
+                    heads += ["landmark", "offset"]
+            else:                                   # cell: 배치 셀 = landmark+offset(트리거와 공유 가능)
+                if "landmark" not in heads:
+                    heads += ["landmark", "offset"]
+            return heads
         heads = ["kind", "trigger", *R2_TRIGGER_HEADS[TRIGGER_VOCAB_R2[a["trigger"]]]]
         heads += ["select", "state", "row"] if KIND_VOCAB[a["kind"]] == "ant" else ["col", "row"]
         return heads
 
     # ----- 관측 -----
+    # §R4a R4_OBS_SCHEMA: 레이아웃 채널 8(하드 pin — 이름·순서 고정, 미지 kind fail-closed).
+    R4_LAYOUT_CHANNELS = ("earth_solid", "plant", "cookie", "ladder",
+                          "hazard_lethal", "hazard_slow", "candy", "home")
+
+    def _encode_grid_r4(self) -> list[float]:
+        lay = self.layout
+        C = len(self.R4_LAYOUT_CHANNELS)
+        g = [0.0] * (self.H * self.W * C)
+
+        def put(c: int, r: int, ch: int) -> None:
+            if 0 <= c < self.W and 0 <= r < self.H:
+                g[(r * self.W + c) * C + ch] = 1.0
+        kinds = lay.get("kinds", {})
+        for (c, r) in lay["occupied"]:
+            if (c, r) in lay["ladder"]:
+                put(c, r, 3)
+                continue
+            kind = kinds.get((c, r), "")
+            tm = self.tile_meta.get(kind)
+            if tm is None:
+                raise ValueError(f"stage {self.stage_id}: 미지 tile kind {kind!r} — "
+                                 "TileSolverMeta 등록 필요(fail-closed, §R4a)")
+            ek = str(tm.get("engine_kind", ""))
+            if ek == "plant":
+                put(c, r, 1)
+            elif ek == "cookie":
+                put(c, r, 2)
+            else:
+                put(c, r, 0)                       # earth 계열(solid/slope)
+        for (c, r), hk in lay["hazard"].items():
+            hm = self.hazard_meta.get(hk)
+            if hm is None:
+                raise ValueError(f"stage {self.stage_id}: 미지 hazard kind {hk!r} — fail-closed(§R4a)")
+            put(c, r, 4 if bool(hm.get("lethal", True)) else 5)
+        if lay["candy"]:
+            put(*lay["candy"], 6)
+        if lay["home"]:
+            put(*lay["home"], 7)
+        return g
+
     def _encode_grid(self) -> list[float]:
+        if self.grammar_version == GRAMMAR_R4:
+            return self._encode_grid_r4()
         # 채널: solid / ladder / hazard / candy / home (H×W×5 flatten)
         lay = self.layout
         g = [0.0] * (self.H * self.W * 5)
@@ -459,8 +616,99 @@ class StageMDP:
         out.append(len(partial) / max(1, self.max_len))
         return out
 
+    # ----- r4 decode/encode (landmark lowering — plan §R4, 라운드트립 = 커버리지 게이트) -----
+    def _lowered_cell(self, a: dict[str, int]) -> tuple:
+        idx = max(0, min(len(self.landmark_instances) - 1, int(a.get("landmark", 0))))
+        inst = self.landmark_instances[idx]
+        off = self._lm.OFFSET_DOMAIN[max(0, min(len(self._lm.OFFSET_DOMAIN) - 1,
+                                                int(a.get("offset", 0))))]
+        return self._lm.lower_cell(inst, off, self.layout)
+
+    def _decode_r4(self, a: dict[str, int]) -> dict:
+        skill = self.skills[a["skill"]]
+        kind = KIND_VOCAB[a["kind"]]
+        ttype = TRIGGER_VOCAB_R4[a["trigger"]]
+        cell = self._lowered_cell(a)                 # (col,row) — 트리거/밴드/배치의 단일 공간 출처
+        if ttype == "ant_reaches_landmark":          # lowering: 랜드마크 셀 센터 x 임계
+            trigger = {"type": "ant_reaches_x", "cmp": CMP_VOCAB[a["cmp"]],
+                       "x": float(min(cell[0], self.W - 1) * self.cs + self.cs // 2)}
+        elif ttype == "picked_ge":
+            trigger = {"type": "picked_ge", "n": (a["param"] % self.hp) + 1}
+        else:
+            trigger = {"type": "at_frame", "frame": int(a["frame"]) * AT_FRAME_QUANT}
+        if kind == "cell":
+            return {"skill": skill, "target": {"mode": "cell", "cell": [cell[0], cell[1]]},
+                    "trigger": trigger}
+        target: dict = {"mode": "ant", "select": SELECT_VOCAB[a["select"]],
+                        "state": STATE_VOCAB[a["state"]]}
+        if BAND_VOCAB[a.get("band", 0)] == "landmark_row":
+            target["y_min"] = float(cell[1] * self.cs)
+            target["y_max"] = float((cell[1] + 1) * self.cs)
+        return {"skill": skill, "target": target, "trigger": trigger}
+
+    def _encode_r4(self, action: dict) -> dict[str, int]:
+        """known 해(plan JSON) → r4 액션(결정론 최근접). 목표 셀 = (트리거 x의 col, 밴드 겹침-최대
+        surface row). (landmark, offset) 탐색: lowered 셀과 (col_diff, row_diff, 인스턴스 정렬,
+        offset) 사전순 최소. 정확 일치 강제 아님 — 커버리지 게이트가 디코드 플랜 리플레이로 판정."""
+        skill_id = action["skill"]
+        a: dict[str, int] = {"skill": self.skills.index(skill_id)}
+        t = action.get("target", {})
+        kind_s = str(t.get("mode", self._skill_kind.get(skill_id) or "ant"))
+        a["kind"] = KIND_VOCAB.index(kind_s)
+        trig = action.get("trigger", {})
+        ttype = trig.get("type", "ant_reaches_x")
+        want_col = want_row = None
+        if ttype == "ant_reaches_x":
+            a["trigger"] = TRIGGER_VOCAB_R4.index("ant_reaches_landmark")
+            a["cmp"] = CMP_VOCAB.index(trig.get("cmp", "ge"))
+            want_col = max(0, min(self.W - 1, round((float(trig["x"]) - self.cs / 2) / self.cs)))
+        elif ttype == "picked_ge":
+            a["trigger"] = TRIGGER_VOCAB_R4.index("picked_ge")
+            a["param"] = max(0, min(self.hp - 1, int(trig.get("n", 1)) - 1))
+        else:
+            a["trigger"] = TRIGGER_VOCAB_R4.index("at_frame")
+            a["frame"] = max(0, min(FRAME_BINS - 1,
+                                    round(int(trig.get("frame", 0)) / AT_FRAME_QUANT)))
+        if kind_s == "cell":
+            c = t["cell"]
+            want_col = max(0, min(self.W - 1, int(c[0])))
+            want_row = max(0, min(self.H - 1, int(c[1])))
+            a["band"] = 0
+        else:
+            a["select"] = SELECT_VOCAB.index(t.get("select", "max_x"))
+            a["state"] = STATE_VOCAB.index(t.get("state", "walker"))
+            if "y_min" in t and "y_max" in t:
+                a["band"] = 1
+                lo, hi = float(t["y_min"]), float(t["y_max"])
+                best, best_ov = None, float("-inf")
+                for r in self.y_rows:                # 겹침-최대 surface row(r2 encode 규칙 계승)
+                    ov = min(hi, (r + 1) * self.cs) - max(lo, r * self.cs)
+                    if ov > best_ov:
+                        best, best_ov = r, ov
+                want_row = best
+            else:
+                a["band"] = 0
+        # (landmark, offset) 최근접 탐색 — want_col/row 요구가 없으면(비공간 액션) 0/0 (decode 무시).
+        if want_col is None and want_row is None:
+            a["landmark"] = 0
+            a["offset"] = 0
+            return a
+        best_key, best_pick = None, (0, 0)
+        for i, inst in enumerate(self.landmark_instances):
+            for oi, off in enumerate(self._lm.OFFSET_DOMAIN):
+                lc = self._lm.lower_cell(inst, off, self.layout)
+                cd = abs(lc[0] - want_col) if want_col is not None else 0
+                rd = abs(lc[1] - want_row) if want_row is not None else 0
+                key = (rd, cd, i, oi)                # 행 정합 우선(밴드/배치 의미가 행에 결박)
+                if best_key is None or key < best_key:
+                    best_key, best_pick = key, (i, oi)
+        a["landmark"], a["offset"] = best_pick
+        return a
+
     # ----- 액션 decode (head 인덱스 → PlanRunner 액션) -----
     def decode(self, a: dict[str, int]) -> dict:
+        if self.grammar_version == GRAMMAR_R4:
+            return self._decode_r4(a)
         if self.grammar_version == GRAMMAR_R2:
             return self._decode_r2(a)
         skill = self.skills[a["skill"]]
@@ -552,14 +800,22 @@ class StageMDP:
                      "candy": lay["candy"], "home": lay["home"]})
 
     def mask_digest(self) -> str:
-        """per-stage 마스크의 시맨틱 전부(r2) — exact resume 일치 요구 / transfer 면제(plan-R3 HIGH-1)."""
-        return _sha({"stage_id": self.stage_id, "W": self.W, "H": self.H, "hp": self.hp,
-                     "inventory": sorted(self.inventory.items()),
-                     "surface_rows": self.y_rows, "frame_bins": self._frame_bins,
-                     "max_len": self.max_len})
+        """per-stage 마스크의 시맨틱 전부(r2/r4) — exact resume 일치 요구 / transfer 면제(plan-R3 HIGH-1).
+        r4는 랜드마크 인스턴스 열거(셀·dir·유형)와 schema digest까지 결속(§R4 — 후보가 곧 마스크)."""
+        base = {"stage_id": self.stage_id, "W": self.W, "H": self.H, "hp": self.hp,
+                "inventory": sorted(self.inventory.items()),
+                "surface_rows": self.y_rows, "frame_bins": self._frame_bins,
+                "max_len": self.max_len}
+        if self.grammar_version == GRAMMAR_R4:
+            base["landmarks"] = [(i["type"], list(i["cell"]), i["dir"])
+                                 for i in self.landmark_instances]
+            base["landmark_schema_digest"] = self.landmark_digest
+        return _sha(base)
 
     # ----- 액션 encode (known 해 → 가장 가까운 격자, 커버리지 검사용) -----
     def encode_action(self, action: dict) -> dict[str, int]:
+        if self.grammar_version == GRAMMAR_R4:
+            return self._encode_r4(action)
         if self.grammar_version == GRAMMAR_R2:
             return self._encode_r2(action)
         t = action.get("target", {})
