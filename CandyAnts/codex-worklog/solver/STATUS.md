@@ -1427,3 +1427,23 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   `data/solutions/stage13.rl3.json`·`stage13.rl3.trace_blind.json` + `rl_ckpt/stage13_seed{0,1,2}.r3.pt`.
 - **R3 종결**. 다음 후보(사용자 결정): R3-스윕(비게이트 탐사 — S14/15/16/18에 --refine) / dense fallback은
   primary PASS로 불요 / 휴리스틱 트랙 propose 확장(carry-reverse S24·risk S25) 별개 계속.
+
+## Phase R §R4 plan-stage 종결 (2026-07-10) — 타일-의미 계층 + 랜드마크-상대 표현
+
+> 사용자 결정(2026-07-10): 다음 작업 = **좌표-불변(→명명 정정: 랜드마크-상대) 표현 재설계** +
+> 사용자 지적(끈끈이·덩굴 타일 의미 사각) 반영. 근거 = §13.5 무전이(좌표-우연 가설) + 관측 5ch가
+> water/sticky·plant/earth를 뭉갬(mdp `_encode_grid` 실측). plan SoT = auto-solver-plan.md §R4.
+> 트레일 = reviews/phaseR-plan-review.md `# §R4`.
+
+- **설계 2단**: R4a 타일-의미 계층(관측 8ch 분화 + canonical kind alias + 타일 self-describing 메타
+  + TileMetadataDriftTest) / R4b 랜드마크 문법 r4.0(유형 10종 추출기 + 피처-점수화 pointer +
+  decode lowering, 엔진/PlanRunner 무변경). headline acceptance = **S13→S17 전이 flip**(pinned
+  A/B 4-arm, AND predicate). 부수 확정 사실: **background가 tile_map에 실존하며 parse_layout이
+  solid 오분류(선존 결함)** — 정정은 r4 경로 한정(레거시 y_rows vocab·pinned 산출물 보호).
+- **plan-review 종결**: R1 needs-attention(C1 fail-open predicate + H4 + M3 + L1) → v2 반영(R4_PIN
+  신설·coverage STOP·alias table·명명 격하) → R2 needs-attention(H5 소스 ckpt under-pin + H6
+  knowledge 내부 상수 미결속 + M4/M5/L2) → v3 반영(소스 커맨드·seed 매핑·source-unavailable 분류·
+  knowledge/blocker contract digest·커버리지 subset 명명·제목 정정·본 STATUS 동기화) →
+  **R3 approve(신규 발견 0) — 3-round cap 내 종결**.
+- **§R4 plan-stage 종결.** 다음 = **R4 구현**(R4a 타일-의미 계층 → R4b 랜드마크 문법 r4.0 —
+  사용자 go 대기). 커밋 = plan.md §R4 + 트레일 `# §R4` + 본 항목(§R3 선례).

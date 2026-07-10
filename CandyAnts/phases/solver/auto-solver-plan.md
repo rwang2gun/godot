@@ -1484,6 +1484,10 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
 - ~~**R3 후보**: trace-피드백 refinement MDP / dense per-prefix shaping / PPO 승격. R2 증거 후 선택.~~
   → **확정(사용자 결정 2026-07-04): R3 = trace-refinement MDP 우선**(dense per-prefix는 R3 내부 fallback
   rung). 근거 = R2 acceptance 2 FAIL(S13 전이-불변 고원 0.660). 상세 = 아래 §R3.
+- **확정(사용자 결정 2026-07-10): R4 = 타일-의미 계층 + 랜드마크-상대 표현(절대-좌표 head 제거).**
+  근거 = warm-start 전이 실측(브레인 로그 §13.5)이 "전이 성공 = 해-토큰(절대 좌표 vocab) 중첩
+  조건부"임을 실증(S12→S13 ○ / S13→S17 ×) + 관측이 타일 의미(water≠sticky, plant≠earth)를 뭉개는
+  사각 확인. 상세 = 아래 §R4.
 
 ### R3 — trace-refinement MDP (closed-loop 학습판): S13 다단 carry-연쇄 돌파 **[설계 초안 · plan-review 대상, 2026-07-04]**
 
@@ -1722,6 +1726,214 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
   과적합 → 오히려 퇴행. 완화 = 채널 집합을 휴리스틱이 실제 쓰는 신호(방문/사망/carry-loop/pickup)로
   한정(D7-충실, 임의 확장 금지) + S11/S12 비파괴 스모크(--refine이 기존 성공 사례를 퇴행 안 시킴 저비용
   반증)를 acceptance 5 회귀에 포함.
+
+### R4 — 타일-의미 계층 + 랜드마크-상대 표현 (절대-좌표 head 제거 · 추상 전이 실험) **[설계 초안 · plan-review 대상, 2026-07-10]**
+
+> 명명(R2-M1): "좌표-불변"은 과장이라 제목에서 제거 — 정확한 주장 = **절대 좌표 head 제거 +
+> geometry-정규화 피처 pointer**(landmark-relative). 전이 개선은 전제가 아니라 acceptance 2가
+> 검증하는 가설.
+
+> **배경(전부 실측 근거)**: warm-start 전이 실측(브레인 로그 §13)이 현 표현의 한계를 확정했다 —
+> S12→S13 전이 성립(median batch 120→30)의 실체는 **좌표-vocab 우연 공유**(전이 해의 첫 수
+> `blocker @ y[288,336] @ at_frame 300` = 소스 해 토큰과 문자 그대로 동일)였고, 레이아웃이 다른
+> S13→S17은 **무전이**(median 70→85, n=2 혼합 노이즈 — §13.5). 즉 정책이 배운 것은 "blocker를 쓰는
+> 법"이 아니라 "이 지도에서 정답인 절대 행/프레임"(§9.2 레이아웃-국소 암기 진단과 일관). 병목은
+> 관측(CNN)이 아니라 **액션 문법**: r2.1 head의 `y_row`(절대 surface-row 인덱스)·`param`(x 픽셀
+> 임계)·`frame`(절대 프레임)이 좌표에 결박돼, 학습된 선호가 레이아웃 밖에서 무의미해진다.
+> **두 번째 사각 = 타일 의미(2026-07-10 사용자 지적)**: RL 관측은 5채널(solid/ladder/hazard/candy/home,
+> `mdp._encode_grid`)로 뭉개져 ① **끈끈이(sticky)=물(water)과 동일 hazard 채널** — 실제로는 감속 존
+> (STICKY_SPEED_MULT=0.35, 생존·통과 가능, Ant.gd) vs 익사(치명)로 정반대 의미 ② **덩굴(plant)=흙과
+> 동일 solid 채널** — 엔진 `_cell_kind`(earth/plant, Terrain.gd)가 cutter(plant만)/basher(earth만)의
+> 적용처를 갈라도 정책은 "부술 수 있는 벽"을 식별 불가(스킬 SOLVER_META의 break 라우팅만 알고 대상
+> 지형을 모르는 반쪽 지식). 휴리스틱 트랙도 동일 사각(`model._died_water`가 hazard≈치명 가정 —
+> sticky 스테이지 오진 소지). **레이아웃 kind 어휘 실측(2026-07-10 전수 스캔)**: tile_map =
+> {solid, plant, sand_mound, cookie} / hazard_map = {water, sticky} / background(비충돌 장식).
+> **R4 = R4a 타일-의미 계층(관측·진단이 타일 종류를 구분) + R4b 랜드마크 문법(액션이 좌표가 아니라
+> "장소의 성질"을 지시)** — 목표는 §13.5의 반증을 뒤집는 것: **S13→S17 전이 flip**.
+
+**선결 계약 — 레거시 게이트·인증 산출물 격리 (§R2/§R3 계약 계승, 최우선)**
+- **`--grammar r4.0` opt-in(기본 off)**: 미지정 시 r1.1/r2.1 경로·obs 차원·pinned 커맨드·
+  verify-r0/r1/r2/r3 재현성 **완전 불변**(byte-identical — §R3 --refine 선례). verify-r0/r1/r2/r3의
+  grammar pin(리터럴 "r1.1"/"r2.1")·인증 산출물 무영향.
+- **신규 ckpt 포맷 `candyants-rl4-ckpt-v1`**: R4a 채널 분화 + R4b pointer 헤드로 r2/r3 정책과 shape
+  비호환 — 포맷 변경은 R4a+R4b **동시 도입으로 1회만**(2회 마이그레이션 금지). verify-r0~r3은 정책
+  가중치를 로드하지 않으므로 무관.
+- **엔진 가산 경계(§R3 불변식 계승 + digest-재인증 가드)**: Godot 게임플레이·verdict·**PlanRunner.gd
+  무변경**(브레인 로그 §10.2 실증 — PlanRunner.gd 파일해시가 `exec_config_digest`로 S13 R3 pin에
+  바인딩. 편집 = pinned 산출물 재인증 유발). R4a의 self-describing 타일 메타는 **verdict-불변 상수
+  가산만**(Phase 1 스킬 SOLVER_META 선례: 스킬 스크립트에 const 추가 = 동작 불변) + 메타 덤프는 기존
+  `SolverMetaDump` 브리지 확장. **digest 영향 사전 감사 필수**: 가산 대상 파일이 exec_config_digest
+  멤버(위 §R3 memo_key 스키마)에 해시되는지 구현 전 확인 → 해시된다면 (a) 신규 파일로 우회 또는
+  (b) 재인증 절차(verify-r0~r3 재실행 그린)를 acceptance에 명시하고 진행. 침묵 재인증 금지.
+- **휴리스틱 트랙 비커플링**: R4a의 `parse_layout` kind-노출 확장은 **가산**(기존 반환 키 불변 +
+  신규 키) — solve.py/analyze.py/selftest 등 기존 소비자 무영향(회귀 = 메인 게이트가 검증).
+
+**R4a — 타일-의미 계층 (선행: 관측·진단이 타일 종류를 구분)**
+- **관측 채널 분화(R4_OBS_SCHEMA로 전량 pin — §R3 R3_OBS_SCHEMA 선례)**: 레이아웃 채널 5 →
+  `[earth_solid, plant, cookie, ladder(sand_mound), hazard_lethal(water), hazard_slow(sticky),
+  candy, home]`(**C_layout=8 — r4.0 schema로 하드 pin**, 이름·순서 고정, R1-M3). "전수 스캔 파생"은
+  **어휘 도출 절차**(2026-07-10 전수 스캔 결과를 r4.0에 동결)이지 런타임 동적 schema가 아님 —
+  **미지 kind 등장 = fail-closed FAIL**(조용한 뭉개짐 차단), 새 kind 수용은 **schema 승격(r4.x +
+  ckpt 포맷 버전 상승 + 신규 digest)으로만**. 트리거 어휘·보상 형태 무변경(관측만).
+- **background 처리(R1-L1 — 실측 확정, "구현 시 검증" 제거)**: background는 **tile_map에 실존**
+  (stage01 등 전수 스캔 실측)하며 현 `parse_layout`은 tile_map 전 항목을 occupied 처리 →
+  **비충돌 장식이 solid로 오분류되는 선존 결함 확정**. 정정은 **r4 경로 한정**(신규 opt-in 파서
+  파라미터/키 — background를 occupied·채널에서 제외): occupied가 바뀌면 surface-row(y_rows) 파생이
+  바뀌어 **r1.1/r2.1 vocab·pinned 산출물이 흔들리므로** 레거시 경로(휴리스틱·r1.1/r2.1)는
+  **byte-identical 유지**(acceptance 4가 실증). 레거시 경로 정정은 재인증 비용과 함께 별도 검토.
+- **타일 self-describing 메타(D7 확장) + canonical kind alias(R1-H3)**: 해저드/타일 kind별 솔버-가시
+  속성을 엔진이 선언 — hazard: `{lethal: bool, speed_mult: float}`(water={lethal:true},
+  sticky={lethal:false, speed_mult:0.35}) / tile: `{traversal: solid|climbable,
+  breakable_by: [skill_id]}`(값의 SoT는 엔진 상수·`SkillAffordance`류 단일 권위에서 파생, Python 중복
+  기술 금지). **어휘 3계가 서로 다름을 명시 pin**: layout kind(`solid/plant/sand_mound/cookie`) ↔
+  엔진 `_cell_kind`(`earth/plant`) ↔ 스킬 판정(`Ant.gd` basher=earth·cutter=plant) — **canonical
+  alias table을 엔진 덤프에서 생성**(예: layout `solid`→engine `earth`·breakable_by=[basher,digger] /
+  `cookie`→solid-non-breakable(breakable_by=[]) / `sand_mound`→climbable+occupied)하고 **타일 메타
+  digest에 결속**. `SolverMetaDump` 확장으로 덤프 + **드리프트 게이트**: 신규 `TileMetadataDriftTest`
+  (또는 `SkillMetadataDriftTest` 확장) — ① 레이아웃 전수 kind ⊆ alias table의 layout-kind 열
+  ② alias의 engine-kind ⊆ 엔진 `_cell_kind` 어휘(+스킬 판정 상수와 대조) ③ breakable_by 스킬 id ⊆
+  SkillRegistry ④ 메타 필드 완전성. **새 타일이 메타/alias 없이 추가되면 게이트 FAIL**(스킬과
+  동일한 자동 인지 계약 완성).
+- **휴리스틱 진단 정합(가산)**: `model._died_water`류 치명 판정을 hazard-kind 인지로 정정
+  (lethal=true만 사망 귀속, sticky는 감속 존) — 단 **기존 solve.json/analysis.json 스테이지는 sticky
+  무존재 확인 후 무변경 보장**(sticky 6셀 = 비대상 스테이지 한정 실측), selftest byte-identical로 실증.
+
+**R4b — 랜드마크 문법 r4.0 (본체: 액션 = 장소의 성질 + 상대 트리거)**
+- **랜드마크 추출기(순수 Python, 기존 자산 재사용)**: `model.diagnose`(물/허공 낙하 가장자리)·
+  `_has_ceiling`(§5 천장 휴리스틱)·`parse_layout`·`_goal_dist_at` read-only 재사용. **유형 어휘 pin** =
+  `{water_edge(치명 낙수 가장자리), fall_edge(비치명 낙하 가장자리), ladder_top, ladder_bottom,
+  sticky_span_edge(감속 구간 경계), plant_wall(cutter 대상 벽), earth_wall(basher/digger 대상 벽),
+  candy_adj, home_adj, surface_segment(잔여 표면 구간)}` — 인스턴스는 스테이지별 **결정론 열거**
+  (정렬 키 = (유형, row, col) 사전순, pin). 유형 어휘는 R4a 타일 메타에서 파생(예: plant_wall =
+  breakable_by∋cutter인 kind의 수직 노출면 — 하드코딩 0).
+- **액션 문법 r4.0** = `skill × landmark-후보 × offset(0..2) × trigger`:
+  - **landmark-후보 선택 = 피처 점수화(pointer) — 정확한 주장 = "절대 좌표 head 제거 +
+    geometry-정규화 피처 pointer"(R1-M1 — "좌표 불변" 과장 정정)**: 후보별 피처 벡터
+    `[유형 one-hot, dist(candy)/(W+H), dist(home)/(W+H), drop_height/H, has_ceiling, 인접-해저드
+    (lethal/slow/none), breakable-by-보유스킬 매칭]`(전량 레이아웃 상수 정규화, dtype=float32 —
+    §R1 hp=-1 교훈)를 **공유 MLP**가 점수화 → categorical(가변 후보 수 = 마스킹). **후보 슬롯
+    인덱스 직접 선택 head 금지**(인덱스가 새 절대좌표가 되는 것 차단 — 이 금지가 r4의 핵심 계약).
+    단 geometry-정규화 스칼라(dist/drop_height)는 여전히 레이아웃별 절대 기하 파생이므로 **표현
+    자체가 전이를 보장하지 않음** — 전이 개선 주장은 오직 acceptance 2의 ⓑ(r2.1 xfer) vs
+    ⓓ(r4 xfer) 실측 대비로만 성립(표현 명칭도 산출물에서 `landmark-relative`로 표기,
+    coordinate-invariant 라벨 금지). 정책이 배우는 것 = "성질에 대한 선호"(예: 치명-가장자리·
+    천장-있음·candy-가까움)라는 가설을 실험으로 검증하는 것이지 전제가 아님.
+  - **offset**: 랜드마크 기준 뒤로 0~2셀(Phase 2 off 변형·§13 동선-거슬러 계승, 개미 동선 grounded
+    타일 기준).
+  - **트리거 = 이벤트 우선**: `ant_reaches_landmark`(하강 시 해당 랜드마크 x로 lowering)·`picked_ge`·
+    select(carrying/spawn_index) 우선, `at_frame`(양자화)은 보조 유지(완전 제거 아님 — S12 해가
+    at_frame 사용, 커버리지 게이트가 판정).
+  - **decode 하강(lowering)**: 랜드마크+offset → 셀 → **기존 plan JSON**(x px·y밴드·트리거) —
+    r1.1 y_row→y밴드 하강과 동일 패턴, **PlanRunner/엔진 무변경**.
+- **KnowledgeLedger 토큰 = 랜드마크-유형 단위로 자동 승격 — 정확한 서술 = "스테이지-불문 *형식*의
+  per-stage 토큰"(R1-M2 — cross-stage 이득 overclaim 정정)**: §14 v3의 신규-토큰 보상 단위가
+  "water_edge에 blocker 첫 시도"처럼 의미 형식이 되나, **transfer 시 ledger 리셋은 현행 유지**
+  (train.py transfer 계약)이므로 cross-stage 지식 이월 이득은 **없음** — 같은 스테이지 안에서의
+  탐험 shaping 개선일 뿐. cross-stage ledger 이월은 R4 out-of-scope(digest/ckpt 계약·음성 실증을
+  새로 pin해야 하는 별도 plan-review 대상).
+- **커버리지 게이트(fail-closed, 구현 1단계 — R0/R1 문법 커버리지 선례)**: 대상 = **"R4 커버리지
+  subset"**(R2-M5 — "전수" 명명 정정): **S11~S17 `solve.json`/`rl*.json` 해 + S19 cell 해**(S12는
+  at_frame 기반 해 포함)를 r4.0으로 인코딩→디코드→엔진 리플레이 클리어. **명시 제외 + 사유**:
+  `stage23/24.witness.json`(수기 witness — Phase 5 stretch 트랙 산물로 학습 acceptance 대상 밖,
+  cell-침투 사다리·carry-reverse 등 §5g/5f 계열 needle 포함). 단 witness 2종의 r4.0 인코딩
+  가능성은 **비게이트 탐사로 측정·박제**(어휘 갭의 정직한 예보 — 게이트 아님). **subset 내
+  인코딩 불가 해 존재 = 문법 갭 FAIL = 즉시 STOP·사용자 보고**(랜드마크 유형 어휘 개정 후보를
+  박제) — 본학습 착수 금지, **fallback으로 우회 금지**(R1-H2).
+- **hybrid r4.1 = R4 acceptance 경로에서 제거(R1-H2 — 모순 봉합)**: 절대좌표 head 병존(r4.1)은
+  "landmark 표현 검증"이라는 R4의 목적을 스스로 무효화하므로 **fallback rung이 아니라 R4 FAIL 후
+  별도 plan-review 대상 설계 후보**로만 존치. 만약 시도되면 그 결과는 headline에 집계 금지 —
+  별도 라벨 `hybrid_absolute_escape_pass`로만 기록. R4의 실패 사다리 = **커버리지 FAIL → STOP /
+  acceptance 2 FAIL → 갭 분석 박제 + 사용자 STOP** 2단뿐(§R3 dense 선례의 "사다리 밖 자동 진입
+  금지" 계승).
+
+**`R4_PIN` (R1-H1/H4 — material 상수 plan-단계 선pin, "impl 확정" escape hatch 금지. verify-r4가
+불일치 fail-closed)**
+- 문법·표현: `grammar="r4.0"`(리터럴) · `landmark_schema_digest`(유형 어휘 10종 + 정렬 키
+  `(유형, row, col)` 사전순 + 피처 스키마 7항 + offset 도메인 `{0,1,2}`) · `R4_OBS_SCHEMA`
+  (C_layout=8 위 채널 이름/순서) · pointer dtype=`float32` · **`LANDMARK_CANDIDATE_CAP=64`**
+  (초과 시 절단 = 동일 정렬 키 `(유형-어휘-pin-순서, row, col)` 상위 64 결정론 절단; manifest에
+  절단 전/후 후보 수·유형별 절단 count 기록; **커버리지 라운드트립에서 known 해의 필요 후보가
+  절단으로 소실되면 verify-r4 FAIL**).
+- 트리거: `at_frame` 양자화 300f(r2.1 계승) · `train_deadline=4500` · `replay_deadline=7000`.
+- 학습 레시피(전 acceptance 공통): `--shaping trace`(계수 `{goal:0.5, retired:0.1}`) ·
+  `--sil(8,0.1)` · `--blocker-coef 1.0` · `--knowledge-coef 1.0`(§14 최신 레시피) · `envs=4` ·
+  `max_len=8`(§R1-스윕 I1 선례).
+- **shaping-항 내부 계약 digest(R2-H6 — coefficient만으론 미결정, 내부 상수·규칙 전량 결속)**:
+  `knowledge_contract_digest` = `KNOWLEDGE={new_token:0.05, repeat:0.02, repeat_cap:50}` + 토큰화
+  =**필드 값 단위**(§14.4 — plan/조합 단위 금지) + "시행착오" 정의 = 미클리어 ∧ 두 프런티어
+  (빈손↔candy·운반↔home) 모두 미갱신 + **SIL 사용-시점 재평가**(수집-시점 박제 금지) + ledger
+  resume=이월·transfer=리셋, — 의 sha256. `blocker_contract_digest` = redirect_value 귀속
+  (Chebyshev≤1 수평 반전 × goal_dist 진척 합) + 정규화 `/(D0·ants)` — 의 sha256. 두 digest를
+  R4 산출물·ckpt에 동승, **verify-r4가 불일치 fail-closed**(§14 실측 레시피가 acceptance 재현의
+  전제이므로 — 내부 상수 변경 = pin 개정 리뷰 대상).
+- **S13 r4 소스 ckpt(ⓓ 전제) — 실행 가능 수준 전량 pin(R2-H5)**: 고정 커맨드(seed별 1회) =
+  `python tools/solver/rl/train.py --grammar r4.0 --stage 13 --seeds 0,2 --envs 4
+  --max-episodes 20000 --max-wall 1800 --shaping trace --train-deadline 4500 --sil
+  --blocker-coef 1.0 --knowledge-coef 1.0 --max-len 8 --save-ckpt --no-save`
+  → 산출 경로 `data/solutions/rl_ckpt/stage13_seed{s}.r4.pt`(r4 접미사 = r2/r3 ckpt 미덮어쓰기,
+  §12.1 SOP). **seed 매핑 고정**: arm ⓓ의 seed `s`는 반드시 `stage13_seed{s}.r4.pt`만 로드
+  (cross-seed 교차 금지 — verify-r4가 ckpt 내 seed 메타와 대조). **소스 fail-closed 분류**:
+  seed `s` 소스 미클리어(transfer는 클리어 ckpt만 로드 — train.py 기존 계약) 또는 ckpt 부재 =
+  해당 seed pair를 `source-unavailable`(infra)로 분류·headline 짝에서 제외(n 감소를 산출물에
+  정직 기록), **양 seed 모두 source-unavailable = headline 실행 불가 = infra FAIL**(model FAIL
+  아님 — S13 r4 학습 자체의 갭 분석 박제 + 사용자 escalate).
+- 예산: A/B 4-arm(acceptance 2) = **cap 120 batch(batch=16 eps)·`max_wall=3600`/arm·seed**
+  (§13.2/13.5 관측 최대 1075s에 여유; wall이 cap 전에 걸리면 §R3 선례대로 infra 분류, model FAIL
+  오분류 금지) · 비회귀(acceptance 3) = 해당 §의 기존 pinned 예산 그대로.
+- 판정 산식: **DNF = cap(120) 대입**으로 batch-to-clear 산출(R1-C1 — 산식 pin) · per-seed paired
+  비교(동일 seed끼리만 짝).
+
+**Acceptance (falsifiable — 고정 커맨드/설정, R0~R3 스타일. 위 R4_PIN이 유일한 상수 출처 —
+잔여 상수는 R4_PIN 갱신 없이 도입 금지)**
+1. **커버리지(선행 게이트)**: R4 커버리지 subset(위 정의 — S11~S17 solve/rl + S19, witness 2종은
+   명시 제외·비게이트 탐사) r4.0 라운드트립(인코딩→디코드→표준 deadline 리플레이 클리어) PASS.
+   갭 = FAIL = **즉시 STOP·사용자 보고**·본학습 착수 금지(위 fail-closed, R1-H2).
+2. **headline — S13→S17 전이 flip(pinned A/B 4-arm)**: 동일 seed(0·2 — §13.5와 동일 짝)·R4_PIN
+   예산·레시피로 4-arm 통일: ⓐ r2.1 scratch ⓑ r2.1 transfer(S13 ckpt) ⓒ r4.0 scratch
+   ⓓ r4.0 transfer(S13 r4 ckpt — R4_PIN의 소스 학습 커맨드로 선행 생성). **predicate(R1-C1 —
+   AND 결합, fail-open 봉합)**: **ⓓ 클리어 seed 수 ≥ ⓒ 클리어 seed 수 ∧ paired seed(양쪽 모두
+   클리어 또는 DNF=cap 대입) 기준 ⓓ/ⓒ batch-to-clear 비율의 median ≤ 0.5**(≥50% 감소 — §13.2
+   성립 판정 계승) **∧ ⓑ는 무전이 재확인**(§13.5 재현 — ⓑ가 전이 성립하면 r4 이득 주장의 대조
+   전제 붕괴 = 실험 무효·재설계). **클리어율 증가만 있고 batch 감소 미달이면 headline FAIL** —
+   별도 라벨 `r4_transfer_reachability_pass`로만 기록(PASS로 집계 금지). ⓓ 개선이 좌표 우연이
+   아님의 증거 = ⓑ/ⓓ 대비 자체. n=2 소표본 정직 기록(seed 1 추가는 S13 r4 소스 성공 시 확장).
+   **미달 = FAIL = 갭 분석 박제 + 사용자 STOP**(silent 재스코프·hybrid 자동 진입 금지, R1-H2).
+3. **비회귀(r4 scratch가 기존 성과 유지)**: S12 무힌트 ≥2/3(§11 재현 predicate) + S19 cell-target
+   3/3(R2 acceptance 3ⓑ 재현) + S13 무힌트(§R3 예산) ≥2/3 — 전부 r4.0 scratch·§14 레시피.
+   **랜드마크 표현이 기존 클리어를 퇴행시키면 그 자체가 finding**(§R3 acceptance 5 선례).
+4. **pinned 격리 실증**: `--grammar r4.0` 미지정 경로 byte-identical — verify-r0(S11)·verify-r1(S12)·
+   verify-r2(S11·S19)·verify-r3(S13)·accept-resume-equiv 전부 PASS(§14.4 5/5 선례 재확인) +
+   메인 frontmatter 게이트 전체 그린(R4a의 엔진 메타 가산 후 — TileMetadataDriftTest 포함).
+5. **verify-r4(fail-closed 로컬 게이트)**: R2/R3 게이트 계승(문법 라운드트립 자기재생산·live
+   preflight·replay ×2 byte-identical·manifest 완전성·mode↔pin 정합) + **R4 고유**: `R4_PIN` 전량
+   (grammar 리터럴 "r4.0"·`landmark_schema_digest`(유형 어휘+정렬 규칙+피처 스키마+offset 도메인)·
+   `R4_OBS_SCHEMA` digest(채널 이름/순서·정규화 분모)·타일 메타 digest(엔진 덤프 대조)·
+   `LANDMARK_CANDIDATE_CAP`(+절단 회계·known-해 후보 소실 FAIL)·DNF=cap 판정 산식·seeds·예산) +
+   **음성 실증 ≥7종**(landmark_schema 변조·채널 순서 변조·타일 메타 위조·후보 인덱스-직접선택 우회·
+   오프그리드 offset·비-pinned seed·grammar 위장·candidate-cap 변조) 전부 FAIL 검출 + 복원 PASS.
+   메인 게이트 비편입(RL 트랙 로컬 — 단 TileMetadataDriftTest는 메인 게이트 편입, 엔진 계약이므로).
+6. **재개 등가성(P1 계승)**: r4.0에서 `--accept-resume-equiv` — pointer 구조 포함 정책 파라미터
+   비트동일 + 곡선 일치(R2 배치 계약 ⓐ~ⓓ 계승 — 가변 후보 마스킹·피처 rasterize가 결정론임을 실증).
+
+**정직 경계**: R4는 "**액션이 장소의 성질을 지시하면 좌표-우연 없이 전이가 성립하는가**"의 실험이다.
+성공해도 (a) 랜드마크 유형 어휘 **밖** 구조(신규 메커닉 스테이지)로의 일반화 주장 없음 (b) "일반
+지능" 주장 없음 — 유형 어휘 내 전이만 (c) 휴리스틱 대비 효율 주장 없음(학습/실험 트랙). acceptance
+2 FAIL 가능성은 설계에 내재(S13·S17 해가 공통 유형 서술을 안 가질 수도 — 그 경우 갭 분석 박제).
+n=2 소표본 한계는 산출물에 명시.
+
+**리스크(R4 고유)**
+- **랜드마크 어휘 갭**(S25 propose 갭 선례 — 정답 위치가 후보에 없으면 표현 자체 불가): 완화 =
+  acceptance 1 커버리지 게이트 **선행**(본학습 전 fail-closed) + surface_segment 잔여-유형(전 표면이
+  최소 1 유형에 귀속 = 표현 완전성 하한). hybrid r4.1은 **완화책 아님**(R2-M4 — R4 FAIL 후 별도
+  plan-review 후보일 뿐, 위 본문 계약과 동일 서술).
+- **후보 폭발/파밍**: 큰 스테이지에서 랜드마크 인스턴스 수십 개 → head 분산·KnowledgeLedger 신규-토큰
+  파밍 위험. 완화 = 토큰은 **유형 단위**(인스턴스 아님 — §14.4 필드-단위 강등 선례) +
+  `LANDMARK_CANDIDATE_CAP=64`(R4_PIN — 결정론 절단·manifest 정직 기록·known-해 후보 소실 시
+  verify-r4 FAIL).
+- **엔진 메타 가산의 digest 재인증**: 위 선결 계약의 사전 감사로 대응 — 재인증 필요 판명 시 그
+  비용(verify 전체 재실행)을 acceptance 4에 흡수하고 침묵 진행 금지.
+- **pointer 구조의 결정론**: 가변 길이 후보·마스킹·피처 부동소수가 재개 등가성(P1)을 깰 위험 —
+  acceptance 6이 실증(비결정 유입 = 즉시 FAIL 검출). 정렬·절단 규칙 전량 pin으로 방어.
 
 ### 리스크
 - sparse reward: ~~클리어 희소 → shaping 항(picked/lost)으로 완화~~ **R0가 반증**(2026-07-03, `dc68a47`):

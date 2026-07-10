@@ -348,3 +348,112 @@ Round 3 7건(HIGH 2 + MEDIUM 3 + LOW 2) v4 반영:
   스킵+산출물 요구) 명시 → 반영. [low-2] `trace_causal_pass=false`+`trace_causal_reason` 스키마 명명 일관 → 반영.
 - **§R3 plan-stage 종결** (R1 11건 → R2 9건 → R3 7건[STOP·사용자 승인] → R4 CRITICAL/HIGH 0·LOW 2 in-plan —
   사용자 승인 user-extended cap 경로, §R2 선례 동일). 다음 = **R3 구현**(사용자 go 대기).
+
+# §R4 (타일-의미 계층 + 좌표-불변 랜드마크 표현) plan-review (2026-07-10)
+
+> 대상: plan SoT §R4(R4a 타일-의미 계층 / R4b 랜드마크 문법 r4.0) + 로드맵 R4 확정 항목.
+> 리뷰어: codex task-모드(read-only). 정책: plan-stage 3-round cap.
+
+## Round 1 — needs-attention (C1 + H4 + M3 + L1)
+
+**CRITICAL**
+- **C1 — acceptance 2 fail-open**: "median ≥50% 감소 **또는** 클리어율 증가"는 n=2에서 너무 약함
+  (r4 scratch 0/2 + xfer 1/2 = scratch 퇴행+우연 1회가 PASS로 위장; §13.5 자신이 n=2 혼합을 무전이로
+  해석한 기준보다 느슨). DNF median 산식(cap 대입 여부)도 미pin.
+
+**HIGH**
+- **H1 — impl-pin loophole 재도입**: "세부 상수 pin은 impl 커밋 동봉"이 material constant escape
+  hatch(§R1~R3 리뷰의 핵심 severity bar 위반). envs/max-wall/cap/at_frame quant/candidate cap/
+  pointer dtype/DNF 산식/소스 ckpt 예산 등이 미pin.
+- **H2 — 커버리지 FAIL 처리 ↔ hybrid rung 내부 모순**: coverage FAIL(=r4.0이 known 해 표현 불가) 직후
+  절대좌표 r4.1로 진행 가능하면 "landmark 표현 검증" 목적 자체가 무효화. S12 해는 at_frame·절대
+  y-band 기반이라 갭 리스크 실재.
+- **H3 — "하드코딩 0" ↔ kind 어휘 3계 충돌**: layout kind(solid/plant/…) ↔ 엔진 _cell_kind(earth/
+  plant) ↔ 스킬 판정(basher=earth, cutter=plant)이 서로 다른 어휘 — canonical alias table 미정의면
+  메타가 서로 다른 언어를 말함.
+- **H4 — candidate cap이 리스크에만 존재**: 후보 상한은 pointer 분포·파밍·커버리지·재개 등가성을
+  전부 바꾸는 material constant인데 숫자·절단 키·검증 없음.
+
+**MEDIUM**
+- **M1 — "좌표 불변" 과장**: dist/drop_height 피처는 레이아웃별 절대 기하 파생 — 정확한 주장은
+  "절대 head 제거 + geometry-정규화 pointer"이고 전이 개선은 실측(ⓑ vs ⓓ)으로만 성립.
+- **M2 — KnowledgeLedger overclaim**: transfer 시 ledger 리셋 유지인데 "스테이지-불문 의미 토큰"
+  서술은 cross-stage 이득처럼 읽힘 — 실체는 per-stage 토큰의 형식 개선.
+- **M3 — C_layout=8 ↔ "전수 스캔 파생" 계약 모호**: 동적 파생이면 새 kind에 ckpt shape가 흔들리고,
+  8 고정이면 스캔 결과의 하드 pin — 어느 쪽인지 명시 필요.
+
+**LOW**
+- **L1 — background 처리 "구현 시 검증" 유예**: parse_layout이 tile_map 전 항목 occupied 처리는
+  현행 사실이고 background가 tile_map에 실존(전수 스캔 실측) — 지금 pin 가능한 것을 유예.
+
+**조치(전건 plan 반영, v2)**:
+- C1 → predicate AND 결합(클리어 seed 수 ≥ ∧ paired median ≤0.5 ∧ ⓑ 무전이 재확인) + DNF=cap 대입
+  pin + 클리어율만 증가는 `r4_transfer_reachability_pass` 별도 라벨(PASS 집계 금지).
+- H1/H4 → `R4_PIN` 블록 신설(grammar 리터럴·landmark_schema_digest·C_layout=8·dtype float32·
+  `LANDMARK_CANDIDATE_CAP=64`(+절단 회계·known-해 후보 소실 FAIL)·at_frame 300f·deadline 4500/7000·
+  레시피(trace{0.5,0.1}·sil(8,0.1)·blocker/knowledge-coef 1.0·envs 4·max_len 8)·예산(cap 120 batch·
+  wall 3600/arm·소스 ckpt 20000eps/1800s)·DNF 산식) — "impl 확정" 문구 제거, R4_PIN이 유일 상수 출처.
+- H2 → coverage FAIL = 즉시 STOP·사용자 보고(우회 금지). hybrid r4.1은 acceptance 경로에서 제거 —
+  "R4 FAIL 후 별도 plan-review 대상"으로만 존치, 결과는 `hybrid_absolute_escape_pass` 별도 라벨.
+- H3 → canonical kind alias table(엔진 덤프 생성·타일 메타 digest 결속: solid→earth·cookie→
+  non-breakable·sand_mound→climbable) + TileMetadataDriftTest가 alias 왕복(layout kind ⊆ alias ⊆
+  엔진 어휘·스킬 판정 상수 대조) 검증.
+- M1 → 주장 격하("절대 좌표 head 제거 + geometry-정규화 피처 pointer") + 산출물 라벨
+  `landmark-relative`(coordinate-invariant 금지) + 전이 주장은 acceptance 2 실측으로만.
+- M2 → "스테이지-불문 *형식*의 per-stage 토큰"으로 정정, cross-stage 이월 = 별도 plan-review.
+- M3 → C_layout=8 하드 pin 명시(전수 스캔 = 어휘 도출 절차, 런타임 동적 아님) + 미지 kind
+  fail-closed + 새 kind는 r4.x schema 승격(ckpt 버전 상승)으로만.
+- L1 → background=tile_map 실존(실측) + parse_layout occupied 오분류 = 선존 결함 확정 명시. 정정은
+  r4 경로 한정(opt-in 파서 파라미터), 레거시 경로 byte-identical 유지(y_rows vocab·pinned 산출물
+  보호).
+
+→ Round 2 codex 재리뷰.
+
+## Round 2 — needs-attention (신규 H2 + M2 + L1; R1 재검증 C1/H3/H4/M2/M3/L1 RESOLVED, H1/H2/M1 PARTIAL)
+
+**R1 재검증**: C1(AND predicate)·H3(alias table)·H4(candidate cap)·M2(ledger 격하)·M3(8ch 하드 pin)·
+L1(background 확정) RESOLVED / H1·H2·M1 PARTIAL(아래 신규로 승계).
+
+**신규 HIGH**
+- **H5 — S13 r4 소스 ckpt under-pin(H1 승계)**: 소스 학습 커맨드에 grammar/envs/shaping/sil/coef/
+  deadline/max_len/--save-ckpt 누락 + seed→ckpt 매핑·소스 실패 분류 부재 = 실행 불가능 수준.
+- **H6 — knowledge-coef 내부 상수 미결속(H1 승계)**: KNOWLEDGE={0.05,0.02,cap50}·토큰화(필드 단위)·
+  시행착오 정의(프런티어)·SIL 재평가·ledger resume/transfer 규칙이 material인데 R4_PIN 밖.
+
+**신규 MEDIUM**
+- **M4 — 리스크 절에 "hybrid r4.1 rung" 잔존(H2 승계)**: 본문은 제거했는데 리스크 완화책 목록에
+  rung으로 재등장 — 용어 불일치.
+- **M5 — "known 해 전수" 과장**: repo에 stage23/24.witness.json이 실존하는데 커버리지 대상(S11~S17+
+  S19)은 subset — "전수" 명명이 corpus와 충돌.
+
+**신규 LOW**
+- **L2 — STATUS tail 미동기화**: R4 plan-stage 진입이 STATUS에 없음.
+
+**+ M1 잔존**: 제목·로드맵의 "좌표-불변" 표현.
+
+**조치(전건 반영, v3)**:
+- H5 → R4_PIN에 소스 커맨드 전량 pin(`--grammar r4.0 --stage 13 --seeds 0,2 --envs 4
+  --max-episodes 20000 --max-wall 1800 --shaping trace --train-deadline 4500 --sil --blocker-coef 1.0
+  --knowledge-coef 1.0 --max-len 8 --save-ckpt --no-save`) + 산출 경로 `stage13_seed{s}.r4.pt` +
+  seed 매핑 고정(cross-seed 금지, verify-r4 ckpt seed 메타 대조) + `source-unavailable`(infra) 분류
+  (양 seed 실패 = infra FAIL·escalate, model FAIL 아님).
+- H6 → `knowledge_contract_digest`(KNOWLEDGE 상수+토큰화+시행착오 정의+SIL 재평가+ledger 규칙) +
+  `blocker_contract_digest`(redirect_value 귀속+정규화) 신설, 산출물·ckpt 동승 + verify-r4
+  fail-closed.
+- M4 → 리스크 절에서 rung 삭제("완화책 아님 — R4 FAIL 후 별도 plan-review 후보" 통일 서술).
+- M5 → "R4 커버리지 subset"으로 명명 격하 + witness 2종 명시 제외·사유(Phase 5 stretch 수기 needle)
+  + 비게이트 인코딩-가능성 탐사로 박제.
+- L2 → STATUS.md tail에 §R4 plan-stage 항목 추가(동기화).
+- M1 잔존 → 제목 "타일-의미 계층 + 랜드마크-상대 표현(절대-좌표 head 제거·추상 전이 실험)"으로
+  개명 + 로드맵 동일 + 명명 정정 배너.
+
+→ Round 3 codex 재리뷰(최종 — 3-round cap: HIGH 잔존 시 STOP·사용자 보고).
+
+## Round 3 — **approve** (§R4 plan-stage 종결)
+
+- Round 2 전건 RESOLVED 확인(H5 소스 커맨드·seed 매핑·source-unavailable / H6 knowledge·blocker
+  contract digest — brain 로그 §14.4 상수와 일치 확인 / M4 rung 문구 통일 / M5 커버리지 subset 명명
+  +witness 제외 사유 / L2 STATUS 동기화 / M1 잔존 제목 개명).
+- 신규 CRITICAL/HIGH/MEDIUM/LOW: 0.
+- **§R4 plan-stage 종결**(R1 needs-attention C1+H4+M3+L1 → R2 needs-attention H2+M2+L1 →
+  R3 approve — 3-round cap 내 종결, §R1 선례 동일 경로). 다음 = **R4 구현**(사용자 go 대기).
