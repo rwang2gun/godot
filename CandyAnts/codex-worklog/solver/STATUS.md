@@ -1469,3 +1469,40 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   **ⓓ 미완 — 재개 커맨드는 세션 로그 §8**(ⓓ 2런만 돌리면 predicate 판정 가능).
 - **잔여**: ⓓ 재개·판정 → 비회귀(S12·S19·S13 r4 scratch) → verify-r4 음성 probe → impl-stage codex
   적대 리뷰 → §R4 종결. torch 2.13.0+cpu 이 PC 설치됨. GODOT_BIN 경로는 세션 로그 헤더.
+  → **전부 완료(아래 항목) — §R4 acceptance 종결.**
+
+## Phase R §R4 acceptance 종결 — headline FAIL 정직 박제 + 게이트 전부 그린 (2026-07-10 재개 세션, RogallyX)
+
+> 세션 로그 §9~§10 = [2026-07-10-r4-impl.md](2026-07-10-r4-impl.md). 재개 커맨드(§8) 그대로 ⓓ 2런
+> 완료 → predicate 판정 → 비회귀 → probe → 재개 등가성 → 게이트 완주. 엔진/PlanRunner 무변경
+> (이 세션 코드 변경 = train.py 2건뿐).
+
+- **acceptance 2 headline = FAIL(종결·박제)**: ⓓ r4 xfer @cap240 = seed0 **CLEAR @batch 235**(saved 5/5
+  frame 2485) · seed1 DNF(bestR 3.937). predicate: 클리어-수(1≥1) ✓ ∧ paired median ratio **0.99 > 0.5 ✗**
+  → 전이 flip 불성립. escape-hatch 소진 = plan 계약대로 종결(추가 개정 불가). `r4_transfer_reachability_
+  pass=TRUE` 별도 라벨(ⓓ가 ⓒ-DNF seed0에서 클리어 = 도달성 개선·속도 미개선). ⓑ 무전이 재확인(∧3 충족).
+- **acceptance 3 비회귀 = 부분 FAIL(S12 퇴행 finding)**: S19 3/3 PASS(240eps×3, stage19.rl4.json
+  pass=True) · S13 2/3 PASS(r4 소스 학습 재사용 — 동일 커맨드·예산·레시피) · **S12 1/3 FAIL**(r1.1 2/3
+  대비 퇴행, seed0/2 near-clear 고원 3.99/4.01 = S17과 동일 실패 모드 — stage12.rl4.json pass=False
+  정직 박제). pointer 탐색 비용 가설의 교차 증거.
+- **acceptance 5 = PASS + fail-open 1건 발견·조임**: 음성 probe 1차 12/13 — "오프그리드 trigger-x"
+  미검출로 **문법-정확성 구멍 실증**(최근접-매치 encode 관용 + cmp=le 즉발화 replay 통과 = 문법 밖
+  액션이 r4 산출물 위장 가능) → verify_r4에 **exact roundtrip `decode(encode(a))==a`** fail-closed 추가
+  (정품 산출물은 decode 출력 그대로라 항상 성립 — stage12/19 재검증 PASS 실증) → **최종 13/13 검출 +
+  복원 PASS**(산출물 변조 11종 + 코드 상수 변조 2종). probe 스크립트 보존 =
+  `tools/solver/rl/experiments/verify_r4_probes.py`.
+- **acceptance 6 = PASS**: `--accept-resume-equiv` r4.0 허용 확장(가드 2줄, refine은 r2.1 전용 유지) →
+  S11 r4 N=6: **파라미터 비트동일 + 곡선 12배치 일치**(pointer 구조·가변 후보 마스킹 결정론 실증).
+- **acceptance 4 = PASS(재실측)**: train.py 변경 후 pinned 격리 5/5 재확인(verify-r0 3/3·r1 2/3·
+  r2 S11 3/3·r2 S19 3/3·r2.1 resume-equiv — 전부 종전 값 동일) + **메인 frontmatter 게이트 전체 그린
+  (GATE EXIT 0)**: Determinism×2·SkillMetadataDrift·TileMetadataDrift·harness-test·selftest 19/19·
+  analyze --verify 4·diverse-verify 5·rediscover-verify 5.
+- **§R4 종합 판정**: 인프라(타일-의미 계층·랜드마크 문법 r4.0·커버리지/verify 게이트) 성립 + S13/S19
+  r4 학습 성립. **headline 가설(랜드마크-상대 표현 → S13→S17 전이 flip)은 반증** — 전이는 도달성만
+  개선(속도 무개선), r4 무힌트 탐색은 다단 blocker 스테이지(S12·S17)에서 r2.1보다 약함. 후속 방향
+  (r4 개선 rung / r2.1 주력 복귀 / 혼합)은 **사용자 결정 대상**(silent 재스코프 금지).
+- plan.md §R4 실측 결과 박제 + 개요 stale 정정(R3 완료·R4 완료 반영).
+- **impl-stage 적대 리뷰 종결**: codex R1(MED 1 = acceptance 4 pinned-격리 계약 drift[verify-r3
+  포함 문구 vs 실측 세트] + LOW 1 = probe 경로 drift, **코드 blocker 0**) → 2건 수정(plan acceptance 4
+  실측 개정 공시 명문화 + 워크로그 경로 정정) → Self-R1 clean → **codex R2 approve(findings 0)**.
+  트레일 = `reviews/phaseR-impl-review.md` §R4.

@@ -513,3 +513,37 @@ Verdict: **approve** — "No ship-blocking fail-open, forgery, or verifier-bypas
 - **8 라운드 요약**: R1(실버그 3 — 파괴적 ckpt 덮어쓰기·false-green)·R2~R5·R7(verify fail-closed 조이기
   = exec digest 대조·godot resolve·A/B 경로격리·ckpt seed결속·trace error·predicate replay실증)·
   R6(plan-pin OR→AND 사용자 결정). CRITICAL 0·HIGH 2(R1, 전건 수정)·MED 다수(전건 수정).
+
+# §R4 impl-stage 적대 리뷰 (2026-07-10~11, 재개 세션 — 리뷰 범위 = acceptance-완료 세션 변경분)
+
+> 범위: train.py 2건(verify_r4 문법-정확성 fail-closed + accept_resume_equiv r4 확장) +
+> `rl/experiments/verify_r4_probes.py`(신규) + stage12/19.rl4.json(비회귀 산출물) + 문서 3종
+> (세션 로그 §9~10 / STATUS §R4 종결 / plan §R4 실측 결과+개요 정정). 실측(acceptance 1~6·게이트)은
+> 세션 로그 §9~10 박제. 리뷰 방식 = codex exec read-only(§R3 working-tree 선례).
+
+## Round 1 (codex) — needs-attention: MEDIUM 1 + LOW 1 (CRITICAL/HIGH 0)
+- **MEDIUM — acceptance 4 pinned-격리 계약 drift**: plan §R4 acceptance 4 문구가 verify-r3(S13)를
+  격리 세트에 포함하는데, 실측 5/5 세트는 verify-r3 제외(세션 로그 §5의 cross-PC 판정 불가) —
+  계약문 미개정 상태로 "게이트 종결" 주장은 모호.
+- **LOW — probe 스크립트 경로 drift**: 워크로그 §10이 scratchpad 경로를 가리키나 실제 보존은
+  `tools/solver/rl/experiments/verify_r4_probes.py`(STATUS/plan은 리포 경로).
+- 코드-레벨 blocker 없음(codex 명시: exact-roundtrip 검사 fail-closed 적절 + refine r2.1-전용 가드 보존).
+
+### 수정 (2건 전부)
+1. plan §R4 acceptance 4에 **실측 개정 공시** 명문화: verify-r3 판정 불가 사유(exec digest godot
+   경로 결박 — 선존 한계·회귀 아님·이 세션 수정 파일 0) + 실측 세트 = r0·r1·r2×2·r2.1 resume-equiv
+   5/5(§14.4 동일 세트) + 재인증 경로(생성 PC or 경로→콘텐츠-해시 개정).
+2. 워크로그 §10 probe 경로를 리포 보존 경로로 정정(리포 위치 재실행 13/13 재확인 문구 포함).
+
+## Self-Review Round 1 (수정 후 자체 적대 리뷰) — clean (HIGH 0)
+- 계약 공시가 "acceptance 4 = PASS" 주장과 정합(실측 세트 명시로 과대주장 제거, 5/5 산식 일치).
+- cross-doc 재검: plan 실측 결과·STATUS·워크로그의 격리 세트 서술 모두 "r0/r1/r2×2/resume-equiv"로
+  일치. probe 경로 3문서 일치. 수치(235/240·0.99·13/13·1/3·3/3·2/3) 상호 일치 재확인.
+- 잔여 위험 없음 판단 → codex Round 2 재리뷰로.
+
+## Round 2 (codex) — **approve (findings 0) = §R4 impl 리뷰 루프 종결**
+- 수정 1 적정: acceptance 4 실측 개정 공시가 verify-r3 판정 불가 사유 + 실제 5/5 산식 명시로
+  과대주장 해소, STATUS/워크로그/plan/트레일 동일 세트 정렬·신규 drift 없음(codex 확인).
+- 수정 2 적정: probe 리포 경로 실존 + 정상 구조 확인(scratchpad 잔존 참조는 R4 coverage JSON 별건 —
+  Round 1 LOW 재발 아님).
+- 신규 CRITICAL/HIGH/MEDIUM 없음. verdict=approve.

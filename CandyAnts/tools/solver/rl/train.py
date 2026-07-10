@@ -2674,6 +2674,11 @@ def verify_r4(stage_id: int) -> int:
                 dec = mdp.decode(enc)
                 if mdp.encode_action(dec) != enc:
                     fails.append(f"action[{i}] encode-decode 비자기재생산(문법 밖/양자화 불안정)")
+                # 문법-정확성(fail-closed): r4 산출물 액션은 decode 출력 그대로라 exact roundtrip이
+                # 성립해야 한다. 최근접-매치 encode의 드리프트 관용은 커버리지 게이트(타 문법 해) 전용 —
+                # 여기서 허용하면 문법 밖 액션(수작업/변조)이 replay만 통과해도 r4 산출물로 위장 가능.
+                if json.dumps(dec, sort_keys=True) != json.dumps(a, sort_keys=True):
+                    fails.append(f"action[{i}] 문법-정확 불일치(decode(encode(a)) != a — 비생성/변조 산출물)")
             except Exception as e:
                 fails.append(f"action[{i}] r4 인코딩 불가({type(e).__name__}: {e})")
         if not fails:
@@ -2723,8 +2728,8 @@ def accept_resume_equiv(args) -> int:
     최종 정책 파라미터(비트 동일)·학습 곡선(배치별 meanR 시퀀스) 일치. 결정론 배치 계약
     (plan-R2 MED-3): --max-batches 모드는 배치 수만 종료 조건(wall 조기중단 비활성)."""
     torch, _ = _torch()
-    if args.grammar != GRAMMAR_R2:
-        print("--accept-resume-equiv는 --grammar r2.1 전용")
+    if args.grammar not in (GRAMMAR_R2, GRAMMAR_R4):
+        print("--accept-resume-equiv는 --grammar r2.1/r4.0 전용")
         return 2
     n = args.max_batches
     if not n:
@@ -2732,6 +2737,9 @@ def accept_resume_equiv(args) -> int:
         return 2
     seed = int(args.seeds.split(",")[0])
     refine = bool(getattr(args, "refine", False))
+    if refine and args.grammar != GRAMMAR_R2:
+        print("--refine 재개 등가성은 r2.1 전용(r4는 refine 미지원)")
+        return 2
     mdp = StageMDP(args.stage, max_len=args.max_len, grammar=args.grammar,
                    at_frame_cap=args.train_deadline)
     base = dict(DEFAULTS, max_episodes=10**9, max_wall=10**9, shaping=args.shaping,

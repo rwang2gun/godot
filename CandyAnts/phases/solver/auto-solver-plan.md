@@ -15,7 +15,7 @@ sot_aux: [scripts/core/SimConfig.gd, scripts/core/StageRunner.gd, scripts/core/S
 - **확정·완료(리뷰·구현 통과)**: 결정 D1~D7 + **Phase 0·1·2·3a**. falsifiable acceptance 충족.
 - **강제 종료(2026-06-24, 사용자)**: **Phase 4(전술 라이브러리 — 속도 위한 전이)**. 4a 실측이 boost를 falsify + pruning-for-speed가 incompleteness 산물로 판명 → 속도 가설 기각. 본문 §Phase 4 = TERMINATED 배너(음성-입증 이력 보존). 살아남은 자산(볼트=해 설명 어휘)은 Phase 5로 이관.
 - **확정·진행 중(in-track 현재)**: **Phase 5 — 솔버 고도화 및 재설계**. 솔버 가치를 *속도*가 아닌 **다양-해 발견 + 풀이법 보고서(designer-in-the-loop)**로 재정의. Phase 0~2 자산 위에 얹는 재설계. Item 1(배치/전략 축) 완료·게이트 그린.
-- **확정·진행 중(병행 실험 트랙)**: **Phase R — 정식 RL 솔버**(2026-06-24 사용자 패러다임 결정). 목적=학습/실험 그 자체. Phase 5 휴리스틱 트랙과 코드·게이트 커플링 0으로 병행. 환경 spike 완료(`f637a24`) → R0 완료(S11 3/3 오버핏 `d7d3352`, S12 stretch FAIL `dc68a47`) → **R1 완료**(S12 2/3 seed `431fdd6` + impl 사후 리뷰 R6 approve, hot-fix 5커밋) → 스윕 S20~S25 취소(사용자, curriculum 전제) → **R2 완료**(영속 학습: 체크포인트+스테이지-불변 정책+curriculum+cell-target — impl 10R approve, S19 cell-target 3/3·재개 등가성 PASS, curriculum 사슬 S13 0/3 정직 FAIL) → **R3(trace-refinement MDP: closed-loop 학습판, S13 다단 carry-연쇄 돌파)가 설계 대상**(§R3, 사용자 결정 2026-07-04: trace-refinement 우선).
+- **확정·진행 중(병행 실험 트랙)**: **Phase R — 정식 RL 솔버**(2026-06-24 사용자 패러다임 결정). 목적=학습/실험 그 자체. Phase 5 휴리스틱 트랙과 코드·게이트 커플링 0으로 병행. 환경 spike 완료(`f637a24`) → R0 완료(S11 3/3 오버핏 `d7d3352`, S12 stretch FAIL `dc68a47`) → **R1 완료**(S12 2/3 seed `431fdd6` + impl 사후 리뷰 R6 approve, hot-fix 5커밋) → 스윕 S20~S25 취소(사용자, curriculum 전제) → **R2 완료**(영속 학습: 체크포인트+스테이지-불변 정책+curriculum+cell-target — impl 10R approve, S19 cell-target 3/3·재개 등가성 PASS, curriculum 사슬 S13 0/3 정직 FAIL) → **R3 완료**(trace-refinement MDP — S13 무힌트 3/3 돌파; 인과 대조 = trace_causal 반증·refine 루프 구조 효과, §R3) → **R4 완료 — headline FAIL 정직 박제**(타일-의미 계층 + 랜드마크-상대 문법 r4.0: 인프라·게이트 성립[커버리지 16/16·S13 2/3·S19 3/3·verify-r4·재개 등가성], headline S13→S17 전이 flip predicate 미충족[cap 240 escape-hatch 소진, 도달성 개선 라벨만] + S12 비회귀 퇴행 finding — §R4 실측 결과).
 - **트랙 밖(별도 브랜치 · 다운스트림)**: (구 Phase 5)감사 오라클·(구 Phase 6)생성. 2026-06-20 사용자 결정 — 생성은 솔버 역할이 아니라 **솔버 산출(다양-해·풀이법 보고서)을 참조하는 별개 소비자**. in-track Phase 5가 "5" 슬롯을 차지하므로, 이 둘은 번호 없는 다운스트림으로 격리.
 
 ## 비전 / 북극성 (방향 — 확정 범위 아님, 사용자 정렬 2026-06-18)
@@ -1924,6 +1924,12 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
 4. **pinned 격리 실증**: `--grammar r4.0` 미지정 경로 byte-identical — verify-r0(S11)·verify-r1(S12)·
    verify-r2(S11·S19)·verify-r3(S13)·accept-resume-equiv 전부 PASS(§14.4 5/5 선례 재확인) +
    메인 frontmatter 게이트 전체 그린(R4a의 엔진 메타 가산 후 — TileMetadataDriftTest 포함).
+   **[실측 개정 공시(codex §R4 R1-MED)]**: verify-r3(S13)는 실행 PC(RogallyX)에서 **판정 불가** —
+   `exec_config_digest`의 `godot_binary`(resolved 절대경로)가 산출물 생성 PC와 달라 fail-closed 거부
+   (선존 cross-PC 한계, 회귀 아님 — digest 멤버 중 이 세션 수정 파일 0은 세션 로그 §5에서 확인).
+   따라서 **실측 pinned 격리 세트 = verify-r0·r1·r2(S11)·r2(S19)·r2.1 resume-equiv 5/5**(§14.4의
+   "5/5"도 동일 세트였음). verify-r3 재인증은 산출물 생성 PC 또는 godot 멤버의 경로→콘텐츠-해시
+   개정(별도 리뷰 대상) 이후 가능.
 5. **verify-r4(fail-closed 로컬 게이트)**: R2/R3 게이트 계승(문법 라운드트립 자기재생산·live
    preflight·replay ×2 byte-identical·manifest 완전성·mode↔pin 정합) + **R4 고유**: `R4_PIN` 전량
    (grammar 리터럴 "r4.0"·`landmark_schema_digest`(유형 어휘+정렬 규칙+피처 스키마+offset 도메인)·
@@ -1934,6 +1940,26 @@ R2는 문법을 **r2로 승격**(전역 어휘+마스킹)하되, **verify-r0/r1�
    메인 게이트 비편입(RL 트랙 로컬 — 단 TileMetadataDriftTest는 메인 게이트 편입, 엔진 계약이므로).
 6. **재개 등가성(P1 계승)**: r4.0에서 `--accept-resume-equiv` — pointer 구조 포함 정책 파라미터
    비트동일 + 곡선 일치(R2 배치 계약 ⓐ~ⓓ 계승 — 가변 후보 마스킹·피처 rasterize가 결정론임을 실증).
+
+#### §R4 실측 결과 (2026-07-10 — 상세 = `codex-worklog/solver/2026-07-10-r4-impl.md` §6~§10)
+- **PASS**: acceptance 1(커버리지 게이트 16/16 — 어휘 v11·cap128 개정 후) / 4(pinned 격리 5/5
+  [verify-r0/r1/r2×2·r2.1 resume-equiv, train.py 변경 후 재실측 동일값] + 메인 frontmatter 게이트
+  전체 그린 GATE EXIT 0) / 5(verify-r4 baseline S12·S19 + **음성 probe 13/13**[산출물 11 + 코드 상수 2,
+  복원 PASS — probe가 문법-정확성 fail-open 1건을 발견해 exact-roundtrip `decode(encode(a))==a`
+  fail-closed로 조임, `rl/experiments/verify_r4_probes.py` 보존]) / 6(r4.0 재개 등가성 —
+  `--accept-resume-equiv` r4 확장 후 pointer 구조 포함 파라미터 비트동일+곡선 일치).
+- **FAIL(정직 박제) — acceptance 2 headline**: cap 240(escape-hatch 소진) 최종 4-arm: ⓐ r2.1 scratch
+  2/3(@85·95) / ⓑ r2.1 xfer 1/2 혼합·비일관(0:@175 도움·2:방해 — §13.5 좌표-우연 재확인 = 조건 ∧3 충족) /
+  ⓒ r4.0 scratch 1/3(@220) / **ⓓ r4.0 xfer 1/2**(seed0 CLEAR @batch 235 · seed1 DNF bestR 3.937).
+  predicate: 클리어-수(1≥1) ✓ ∧ **paired median ratio 0.99 > 0.5 ✗** → **전이 flip 불성립**.
+  `r4_transfer_reachability_pass=TRUE` 별도 라벨(ⓓ가 ⓒ-DNF seed0에서 클리어 — 도달성 개선, 속도 미개선).
+- **FAIL(비회귀 finding) — acceptance 3의 S12**: r4.0 scratch **1/3**(seed1 @1280eps만; r1.1 2/3 대비
+  퇴행 — seed0/2 near-clear 고원 bestR 3.99/4.01 = S17 ⓒ/ⓓ와 동일 실패 모드). S19 3/3 PASS(240eps×3) ·
+  S13 2/3 PASS(r4 소스 학습 재사용 — 동일 커맨드·예산). 랜드마크 표현의 무힌트 탐색 비용(pointer 후보
+  엔트로피)이 다단 blocker 스테이지에서 계통적 = 교차 증거 확보.
+- **종합**: 표현·타일-계층·게이트 인프라 성립(커버리지·S13/S19 학습·verify-r4), **headline 가설
+  (랜드마크-상대 표현 → 전이 flip)은 반증**. 후속 방향(r4 개선 rung vs r2.1 주력 복귀 vs 혼합)은
+  사용자 결정 대상 — silent 재스코프 금지 계약 유지.
 
 **정직 경계**: R4는 "**액션이 장소의 성질을 지시하면 좌표-우연 없이 전이가 성립하는가**"의 실험이다.
 성공해도 (a) 랜드마크 유형 어휘 **밖** 구조(신규 메커닉 스테이지)로의 일반화 주장 없음 (b) "일반

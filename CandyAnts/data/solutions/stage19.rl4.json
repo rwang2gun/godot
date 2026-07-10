@@ -1,0 +1,339 @@
+{
+ "stage": "res://scenes/stages/Stage19.tscn",
+ "stage_id": 19,
+ "deadline_frames": 7000,
+ "inventory": {
+  "sand_mound": 2
+ },
+ "actions": [
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     4,
+     10
+    ]
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 216.0
+   }
+  },
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     4,
+     10
+    ]
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 216.0
+   }
+  }
+ ],
+ "expect": {
+  "cleared": true,
+  "saved": 5
+ },
+ "rl_meta": {
+  "grammar_version": "r4.0",
+  "no_hint": true,
+  "vocab_digest": "b85505b79ba4084df8fd6f77bccb725edacada112e22b132e2969fdca94037ff",
+  "layout_digest": "57260bd53bf268af111f7416e57395bbeececb40eb895cc8cd24307c20a15ae1",
+  "config": {
+   "batch": 16,
+   "lr": 0.003,
+   "entropy": 0.03,
+   "entropy_min": 0.02,
+   "entropy_decay": 0.997,
+   "hidden": 128,
+   "greedy_every": 5,
+   "baseline_decay": 0.9,
+   "max_len": 8,
+   "train_deadline": 4500,
+   "replay_deadline": 7000,
+   "shaping": "trace",
+   "sil": true,
+   "sil_buffer": 8,
+   "sil_coef": 0.1,
+   "conv_channels": 32,
+   "max_batches": 0,
+   "max_episodes": 20000,
+   "max_wall": 1800,
+   "blocker_coef": 1.0,
+   "knowledge_coef": 1.0,
+   "reward": {
+    "cleared": 2.0,
+    "saved": 1.0,
+    "picked": 0.3,
+    "lost": -0.2,
+    "len_penalty": -0.02,
+    "timeout_penalty": -0.1
+   },
+   "shaping_coeffs": {
+    "goal": 0.5,
+    "retired": 0.1
+   }
+  },
+  "envs_requested": 4,
+  "pass": true,
+  "pass_rule": ">=2/3 pinned seeds greedy clear within per-segment budget",
+  "mode": "exploratory-sweep",
+  "seeds": [
+   {
+    "seed": 0,
+    "cleared": true,
+    "episodes": 240,
+    "batches": 15,
+    "wall_s": 116.6,
+    "best_reward": 3.749795918367347,
+    "greedy_plan": [
+     {
+      "skill": "sand_mound",
+      "target": {
+       "mode": "cell",
+       "cell": [
+        4,
+        10
+       ]
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 216.0
+      }
+     },
+     {
+      "skill": "sand_mound",
+      "target": {
+       "mode": "cell",
+       "cell": [
+        4,
+        10
+       ]
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 216.0
+      }
+     }
+    ],
+    "envs_requested": 4,
+    "envs_effective": 4,
+    "chain": [
+     {
+      "stage_id": 19,
+      "seed": 0,
+      "mode": "scratch",
+      "episodes": 240,
+      "batches": 15,
+      "wall_s": 116.6,
+      "cleared": true,
+      "ckpt_sha": null,
+      "ckpt_path": null
+     }
+    ],
+    "ckpt_saved": null,
+    "ckpt_loaded": null,
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 1.0,
+     "runs": 8,
+     "trace_present": true
+    }
+   },
+   {
+    "seed": 1,
+    "cleared": true,
+    "episodes": 240,
+    "batches": 15,
+    "wall_s": 110.3,
+    "best_reward": 3.769795918367347,
+    "greedy_plan": [
+     {
+      "skill": "sand_mound",
+      "target": {
+       "mode": "cell",
+       "cell": [
+        3,
+        10
+       ]
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 168.0
+      }
+     },
+     {
+      "skill": "sand_mound",
+      "target": {
+       "mode": "cell",
+       "cell": [
+        3,
+        10
+       ]
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 168.0
+      }
+     }
+    ],
+    "envs_requested": 4,
+    "envs_effective": 4,
+    "chain": [
+     {
+      "stage_id": 19,
+      "seed": 1,
+      "mode": "scratch",
+      "episodes": 240,
+      "batches": 15,
+      "wall_s": 110.3,
+      "cleared": true,
+      "ckpt_sha": null,
+      "ckpt_path": null
+     }
+    ],
+    "ckpt_saved": null,
+    "ckpt_loaded": null,
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 1.0,
+     "runs": 8,
+     "trace_present": true
+    }
+   },
+   {
+    "seed": 2,
+    "cleared": true,
+    "episodes": 240,
+    "batches": 15,
+    "wall_s": 114.1,
+    "best_reward": 3.769795918367347,
+    "greedy_plan": [
+     {
+      "skill": "sand_mound",
+      "target": {
+       "mode": "cell",
+       "cell": [
+        3,
+        10
+       ]
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 168.0
+      }
+     },
+     {
+      "skill": "sand_mound",
+      "target": {
+       "mode": "cell",
+       "cell": [
+        3,
+        10
+       ]
+      },
+      "trigger": {
+       "type": "ant_reaches_x",
+       "cmp": "le",
+       "x": 168.0
+      }
+     }
+    ],
+    "envs_requested": 4,
+    "envs_effective": 4,
+    "chain": [
+     {
+      "stage_id": 19,
+      "seed": 2,
+      "mode": "scratch",
+      "episodes": 240,
+      "batches": 15,
+      "wall_s": 114.1,
+      "cleared": true,
+      "ckpt_sha": null,
+      "ckpt_path": null
+     }
+    ],
+    "ckpt_saved": null,
+    "ckpt_loaded": null,
+    "preflight_trace": {
+     "ok": true,
+     "wall_s": 1.0,
+     "runs": 8,
+     "trace_present": true
+    }
+   }
+  ],
+  "curves": {
+   "0": [
+    0.6334,
+    0.3252,
+    0.5202,
+    0.3174,
+    0.7338,
+    0.2886,
+    0.9458,
+    0.7161,
+    0.9388,
+    0.942,
+    0.31,
+    0.9395,
+    0.5036,
+    0.7212,
+    0.5176
+   ],
+   "1": [
+    1.055,
+    0.3409,
+    0.5348,
+    0.9424,
+    0.9355,
+    0.7185,
+    1.1513,
+    0.7307,
+    1.3587,
+    1.1596,
+    0.7212,
+    0.7237,
+    1.3689,
+    1.1488,
+    1.5877
+   ],
+   "2": [
+    0.4189,
+    0.3384,
+    0.7353,
+    0.2958,
+    0.2852,
+    0.7317,
+    0.3042,
+    0.9424,
+    0.7236,
+    0.4959,
+    0.7161,
+    0.9362,
+    1.3702,
+    0.7288,
+    1.3785
+   ]
+  },
+  "best_seed": 0,
+  "landmark_schema_digest": "bcdf14f79a379e5a45c4bc15f5ff61c09d0994b28591082cc166048b836e9d47",
+  "landmark_count": 40,
+  "mask_digest": "37380f09d6c8851a65e8cef7096507fbf81ce9ce8803d471c167ade4264010a9",
+  "knowledge_contract_digest": "a13ae9cf1c6be96e33595f54e9e552b1769dda11d57ba0231a56e0b33c07b144",
+  "blocker_contract_digest": "e899b7fa8dbe60158639228326da5dcdc16b4cee0cc897f68df9d2c6fdc9e77c"
+ }
+}
