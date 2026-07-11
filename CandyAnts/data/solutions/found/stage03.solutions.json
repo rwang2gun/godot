@@ -1,0 +1,61 @@
+{
+ "stage_id": 3,
+ "stage": "res://scenes/stages/Stage03.tscn",
+ "level_digest": "e770cde492514077",
+ "updated": "2026-07-11T14:30:53Z",
+ "solutions": [
+  {
+   "exec_digest": "a40ff0b7825d0bb0",
+   "plan_key": "5a3294a0a6890c05",
+   "actions": [
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 696.0
+     }
+    },
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 696.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1714,
+   "hp": 5,
+   "seeds": [
+    0,
+    1
+   ],
+   "runs": 6,
+   "first_ts": "2026-07-11T10:09:13Z",
+   "last_ts": "2026-07-11T14:30:53Z",
+   "grammar": "r2.1",
+   "episodes": 400,
+   "deadline_frames": 7000,
+   "inventory": {
+    "bridge": 2
+   },
+   "stage": "res://scenes/stages/Stage03.tscn"
+  }
+ ]
+}

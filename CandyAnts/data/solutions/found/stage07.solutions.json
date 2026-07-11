@@ -1,0 +1,45 @@
+{
+ "stage_id": 7,
+ "stage": "res://scenes/stages/Stage07.tscn",
+ "level_digest": "da0501e512da3b0e",
+ "updated": "2026-07-11T14:23:19Z",
+ "solutions": [
+  {
+   "exec_digest": "59a7ef95cc4308b2",
+   "plan_key": "dbd23356fad44093",
+   "actions": [
+    {
+     "skill": "basher",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       5,
+       0
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 216.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1714,
+   "hp": 5,
+   "seeds": [
+    0
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-05T07:36:20Z",
+   "last_ts": "2026-07-05T07:36:20Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "basher": 2
+   },
+   "stage": "res://scenes/stages/Stage07.tscn"
+  }
+ ]
+}

@@ -1,0 +1,91 @@
+{
+ "stage_id": 8,
+ "stage": "res://scenes/stages/Stage08.tscn",
+ "level_digest": "79a542661bcd0baa",
+ "updated": "2026-07-11T14:23:19Z",
+ "solutions": [
+  {
+   "exec_digest": "f297f992b9a6c605",
+   "plan_key": "818891a0730c5351",
+   "actions": [
+    {
+     "skill": "cutter",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       9,
+       6
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 504.0
+     }
+    },
+    {
+     "skill": "leaf_jump",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       9,
+       6
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 216.0
+     }
+    },
+    {
+     "skill": "leaf_jump",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       9,
+       6
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 216.0
+     }
+    },
+    {
+     "skill": "leaf_jump",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       9,
+       6
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 216.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1846,
+   "hp": 5,
+   "seeds": [
+    0
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-05T07:36:25Z",
+   "last_ts": "2026-07-05T07:36:25Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "cutter": 1,
+    "leaf_jump": 3
+   },
+   "stage": "res://scenes/stages/Stage08.tscn"
+  }
+ ]
+}

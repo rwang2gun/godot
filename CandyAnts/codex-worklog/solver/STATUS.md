@@ -1575,3 +1575,25 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   최신 — 5.6은 ChatGPT-계정 미지원 실측, CLAUDE.md에 최신-모델 probe 지침 신설).
 - **게이트**: TileMetadataDriftTest PASS(82 layouts — 신규 fixture 포함 전수 스캔) + try_solve selftest
   19/19 PASS. 산출물 = `dev_stages/trap_blocker_v2/`(3파일) + `rl/experiments/trap_v2_{probe,test}.py`.
+
+## 전 스테이지 RL 스윕 + '정리된 해' 레지스트리·비주얼 보고서 (2026-07-11 오후) — 스윕 중단·이월
+
+> 세션 로그 = [2026-07-11-rl-sweep-solution-report.md](2026-07-11-rl-sweep-solution-report.md).
+> 사용자 계약: RL 발견 해(특히 예측 못한 새 해) 중복 제거 전수 보고 + 미클리어=최고-진척 보고 +
+> 궤적 비주얼 / **실행-동치 중복 기준** / **레벨 변경 시 파기** / **정리된 해와 다른 경우만 기록**.
+
+- **`solution_registry.py` 신설**: `found/stageNN.solutions.json`(추적 승격) — dedup 키 =
+  greedy-클리어 trace digest(트리거 표현 별칭 흡수: S1 3표현=f1587 동일 실행 → 1해; 배치 상이
+  S5/S17은 복수 해), 레벨 digest(tres+layout+tscn) 불일치 시 파기, dup=카운트만 갱신.
+  `train.py._record_found` registry 경유 + `_record_partial` 신설(FAIL 최고-보상 플랜) +
+  greedy trace:true. **pinned r0/r1/r2×2=4/4 재확인**(verify-r3 FAIL=선재, project.godot 개행).
+- **`found_viewer.py`/`level_render.py` 확장**: 레지스트리-우선 보고서 + 궤적 오버레이(빈손/운반/
+  낙오) + `--replay` 캐시 + partial 카드. `experiments/sweep_stages.py` 스윕 러너.
+- **1차 스윕 교훈**: 레시피에 `--shaping trace --train-deadline 4500` 누락 → 다단 스테이지 bestR
+  -0.020 평탄(§R1 terminal-only 기울기 0 재현)으로 전멸. **실전 레시피 = trace+4500+sil+blocker
+  1.0+knowledge 1.0 stall** 확정·수정. 쉬운 스테이지는 그래도 풀림 — **S5(sand_mound)·S7(basher)·
+  S8(cutter/leaf_jump) 순수 RL 신규 발견**(휴리스틱 routing 부재 스테이지, cell-target 실전 입증).
+- **현황**: 레지스트리 15해/12스테이지(S12 2해·S17 3해). S9·10·14~16·18~25 미등재.
+  2차 스윕(수정 레시피) S1·S2 3/3 후 사용자 지시로 중단.
+- **다음 세션**: ① codex 적대 리뷰(이월 — 사후 정책) ② 스윕 재개 `sweep_stages.py --stages 3-25`
+  ③ 완료 후 `found_viewer.py --replay` 최종 보고서 + 부분해 카드 실데이터 검증.

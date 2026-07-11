@@ -37,6 +37,10 @@ SKILL_COLOR = {
     "basher": "#ff8a3d", "cutter": "#ff6fae", "leaf_jump": "#8ce05e",
     "sand_mound": "#e0c05e", "digger": "#c98a5a",
 }
+# 궤적(리플레이 trace) 색 — 빈손/운반 구분(stage17 진단 시각화 컨벤션)
+TRAJ_EMPTY = "#8ecbff"
+TRAJ_CARRY = "#ff8a8a"
+TRAJ_BAD_END = ("dead", "lost")   # PlanRunner._state_code 종단 실패 코드
 
 
 def _find_block(text: str, key: str) -> str | None:
@@ -97,20 +101,75 @@ def _esc(s) -> str:
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _trace_svg(trace: dict, cs: int) -> str:
+    """궤적 dict → SVG 조각. 항목 = [frame, cx, cy, has_candy(0/1), state_code].
+    운반 여부가 바뀌는 지점에서 세그먼트를 끊어 빈손/운반을 색으로 구분하고,
+    시작점(○)·종단 상태(dead/lost → ✕)를 마커로 찍는다. JSON 경유 시 키가 str이어도 수용."""
+    frag: list[str] = ['<g class="traj">']
+
+    def center(e):
+        return (e[1] * cs + cs / 2, e[2] * cs + cs / 2)
+
+    def key_i(k):
+        try:
+            return int(k)
+        except (TypeError, ValueError):
+            return 0
+
+    for si in sorted(trace, key=key_i):
+        pts = trace[si]
+        if not pts:
+            continue
+        # 운반 상태가 같은 연속 구간으로 분할 (경계 셀은 양쪽에 포함해 선을 잇는다)
+        seg: list = [pts[0]]
+        for prev, cur in zip(pts, pts[1:]):
+            if bool(cur[3]) != bool(prev[3]):
+                seg.append(cur)
+                carry = bool(prev[3])
+                path = " ".join(f"{x:.0f},{y:.0f}" for x, y in map(center, seg))
+                col = TRAJ_CARRY if carry else TRAJ_EMPTY
+                frag.append(f'<polyline points="{path}" fill="none" stroke="{col}" '
+                            f'stroke-width="2.5" stroke-linejoin="round" opacity="0.8"/>')
+                seg = [cur]
+            else:
+                seg.append(cur)
+        if len(seg) >= 2:
+            carry = bool(seg[0][3])
+            path = " ".join(f"{x:.0f},{y:.0f}" for x, y in map(center, seg))
+            col = TRAJ_CARRY if carry else TRAJ_EMPTY
+            frag.append(f'<polyline points="{path}" fill="none" stroke="{col}" '
+                        f'stroke-width="2.5" stroke-linejoin="round" opacity="0.8"/>')
+        sx, sy = center(pts[0])
+        frag.append(f'<circle cx="{sx:.0f}" cy="{sy:.0f}" r="4" fill="#fff" opacity="0.9"/>')
+        ex, ey = center(pts[-1])
+        if str(pts[-1][4]) in TRAJ_BAD_END:
+            frag.append(f'<text x="{ex:.0f}" y="{ey+5:.0f}" text-anchor="middle" '
+                        f'font-size="16" font-weight="800" fill="#ff4d4d" '
+                        f'stroke="#000" stroke-width="0.8">✕</text>')
+        else:
+            frag.append(f'<circle cx="{ex:.0f}" cy="{ey:.0f}" r="4.5" fill="{TRAJ_CARRY if bool(pts[-1][3]) else TRAJ_EMPTY}" stroke="#000" stroke-width="1"/>')
+    frag.append("</g>")
+    return "\n".join(frag)
+
+
 def render_svg(layout: dict, actions: list[dict], spawn=None,
-               resolved: list | None = None) -> str:
-    """레벨 + 액션 오버레이 SVG 문자열."""
+               resolved: list | None = None, trace: dict | None = None) -> str:
+    """레벨 + 액션 오버레이 SVG 문자열. trace = PlanRunner 궤적
+    ({spawn_index: [[frame,cx,cy,has_candy,state], ...]}) — 있으면 개미 경로 폴리라인을 겹쳐 그린다."""
     cs = layout["cell_size"]
     tiles = layout["tiles"]
     hazards = layout["hazards"]
 
-    # 경계 계산 (모든 셀 + 마커 + 액션 x)
+    # 경계 계산 (모든 셀 + 마커 + 액션 x + 궤적 셀)
     xs, ys = [], []
     for (cx, cy) in list(tiles) + list(hazards):
         xs += [cx, cx + 1]; ys += [cy, cy + 1]
     for mk in (layout["home_cell"], layout["candy_cell"]):
         if mk:
             xs += [mk[0], mk[0] + 1]; ys += [mk[1], mk[1] + 1]
+    for pts in (trace or {}).values():
+        for e in pts:
+            xs += [e[1], e[1] + 1]; ys += [e[2], e[2] + 1]
     if not xs:
         xs, ys = [0, 10], [0, 10]
     min_cx, max_cx = min(xs), max(xs)
@@ -164,6 +223,10 @@ def render_svg(layout: dict, actions: list[dict], spawn=None,
         sx, sy = spawn
         p.append(f'<path d="M {sx:.0f} {sy-cs*0.34:.0f} L {sx+cs*0.32:.0f} {sy+cs*0.28:.0f} L {sx-cs*0.32:.0f} {sy+cs*0.28:.0f} Z" fill="#ffcf5a" stroke="#fff" stroke-width="2"/>')
         p.append(f'<text x="{sx:.0f}" y="{sy+cs*0.8:.0f}" class="mk">시작</text>')
+
+    # 궤적 오버레이 (액션 핀 아래 레이어) — 빈손/운반 색 분리, 종단 실패는 ✕
+    if trace:
+        p.append(_trace_svg(trace, cs))
 
     # 액션 오버레이
     resolved = resolved or []

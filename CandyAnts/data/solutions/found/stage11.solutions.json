@@ -1,0 +1,45 @@
+{
+ "stage_id": 11,
+ "stage": "res://scenes/stages/Stage11.tscn",
+ "level_digest": "f43d95c0ff648ef1",
+ "updated": "2026-07-11T14:26:11Z",
+ "solutions": [
+  {
+   "exec_digest": "8fdd7adbc96df148",
+   "plan_key": "b0b8b8a7cbdfc7c1",
+   "actions": [
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 888.0
+     }
+    }
+   ],
+   "saved": 4,
+   "frame": 1342,
+   "hp": 4,
+   "seeds": [
+    0
+   ],
+   "runs": 19,
+   "first_ts": "2026-07-05T06:22:12Z",
+   "last_ts": "2026-07-11T14:26:11Z",
+   "grammar": "r1.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 1
+   },
+   "stage": "res://scenes/stages/Stage11.tscn"
+  }
+ ]
+}

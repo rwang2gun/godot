@@ -1,0 +1,114 @@
+{
+ "stage_id": 6,
+ "stage": "res://scenes/stages/Stage06.tscn",
+ "level_digest": "0adba01fbd1b0648",
+ "updated": "2026-07-11T14:23:19Z",
+ "solutions": [
+  {
+   "exec_digest": "0fc0359c8d23ca35",
+   "plan_key": "b4fe5a4c9b1f28e5",
+   "actions": [
+    {
+     "skill": "digger",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       14,
+       0
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1416.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "picked_ge",
+      "n": 2
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 576.0,
+      "y_max": 624.0
+     },
+     "trigger": {
+      "type": "picked_ge",
+      "n": 2
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker",
+      "y_min": 576.0,
+      "y_max": 624.0
+     },
+     "trigger": {
+      "type": "picked_ge",
+      "n": 2
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker",
+      "y_min": 576.0,
+      "y_max": 624.0
+     },
+     "trigger": {
+      "type": "picked_ge",
+      "n": 2
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker",
+      "y_min": 576.0,
+      "y_max": 624.0
+     },
+     "trigger": {
+      "type": "picked_ge",
+      "n": 2
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2116,
+   "hp": 5,
+   "seeds": [
+    1
+   ],
+   "runs": 2,
+   "first_ts": "2026-07-05T13:00:21Z",
+   "last_ts": "2026-07-05T13:00:21Z",
+   "grammar": "r2.1",
+   "episodes": 1600,
+   "deadline_frames": 7000,
+   "inventory": {
+    "climber": 5,
+    "digger": 1
+   },
+   "stage": "res://scenes/stages/Stage06.tscn"
+  }
+ ]
+}

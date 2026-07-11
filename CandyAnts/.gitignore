@@ -12,7 +12,11 @@ build/
 
 # RL 해 발견 런타임 기록 (train.py _record_found) — 발견 즉시 append 로그+sidecar.
 # 권위 산출물은 게이트된 data/solutions/*.rl*.json. found/는 런타임 discovery 로그라 제외.
-data/solutions/found/
+# 단 stageNN.solutions.json(정리된 해 레지스트리, 2026-07-11 계약: 실행-동치 dedup + 레벨 digest
+# 파기 바인딩)은 '정리된 해'의 SoT라 추적 — 디렉터리 자체가 아니라 내용 글롭으로 ignore해야
+# 자식 negation이 동작한다(gitignore 규칙: 제외된 디렉터리 내부는 재포함 불가).
+data/solutions/found/*
+!data/solutions/found/stage*.solutions.json
 
 # IDE/OS
 .vscode/

@@ -1,0 +1,71 @@
+{
+ "stage_id": 1,
+ "stage": "res://scenes/stages/Stage01.tscn",
+ "level_digest": "0eda9550208b4cfa",
+ "updated": "2026-07-11T14:28:48Z",
+ "solutions": [
+  {
+   "exec_digest": "23ba99fd348021fe",
+   "plan_key": "0d0aebf3efecb99a",
+   "actions": [
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    }
+   ],
+   "saved": 3,
+   "frame": 1587,
+   "hp": 3,
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "runs": 9,
+   "first_ts": "2026-07-11T10:06:45Z",
+   "last_ts": "2026-07-11T14:28:48Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "climber": 3
+   },
+   "stage": "res://scenes/stages/Stage01.tscn"
+  }
+ ]
+}

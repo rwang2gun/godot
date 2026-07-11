@@ -1,0 +1,59 @@
+{
+ "stage_id": 5,
+ "stage": "res://scenes/stages/Stage05.tscn",
+ "level_digest": "34aae184c563d4d4",
+ "updated": "2026-07-11T14:23:19Z",
+ "solutions": [
+  {
+   "exec_digest": "bc36d6376664f588",
+   "plan_key": "421f51803b62e687",
+   "actions": [
+    {
+     "skill": "floater",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "carrying"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 792.0
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       15,
+       8
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 792.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2128,
+   "hp": 5,
+   "seeds": [
+    0
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-05T07:41:14Z",
+   "last_ts": "2026-07-05T07:41:14Z",
+   "grammar": "r2.1",
+   "episodes": 400,
+   "deadline_frames": 7000,
+   "inventory": {
+    "floater": 1,
+    "sand_mound": 1
+   },
+   "stage": "res://scenes/stages/Stage05.tscn"
+  }
+ ]
+}

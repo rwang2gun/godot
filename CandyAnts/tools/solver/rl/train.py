@@ -280,9 +280,12 @@ def _append_jsonl(path: Path, rec: dict) -> None:
 
 def _record_found(mdp: "StageMDP", seed: int, plan: list, res: dict,
                   cfg: dict, refine: bool, episodes: int) -> None:
-    """train_seed의 greedy-clear 지점에서 호출. 발견 해를 append 로그 + 최신 sidecar에 즉시 기록.
+    """train_seed의 greedy-clear 지점에서 호출. 발견 해를 **solution_registry 경유**로 기록
+    (2026-07-11 사용자 계약): 실행-동치(trace digest) 중복이면 레지스트리 카운트만 갱신하고
+    사이드카/log 미기록, 레벨 digest가 바뀌었으면 기존 해 파기 후 재등록, 신규 해만 durable 기록.
     부작용 전용(반환 없음) — 예외는 삼켜 학습 지속(기록은 보조, 학습이 1차)."""
     try:
+        import solution_registry               # tools/solver (sys.path 선등록) — 기록 경로 한정 의존
         FOUND_DIR.mkdir(parents=True, exist_ok=True)
         rec = {
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -299,14 +302,57 @@ def _record_found(mdp: "StageMDP", seed: int, plan: list, res: dict,
             "inventory": mdp.inventory,
             "actions": plan,                   # 디코딩된 플랜 — 무수정 replay/시각화용
         }
+        outcome = solution_registry.record_clear(rec, res, FOUND_DIR)
+        reg_rel = _rel(solution_registry.registry_path(mdp.stage_id, FOUND_DIR))
+        if outcome == "dup":
+            print(f"  [seed {seed}] 중복 해(실행-동치 기존 등재) → {reg_rel} 카운트만 갱신")
+            return
+        if outcome == "reset":
+            print(f"  [seed {seed}] 레벨 변경 감지 → stage{mdp.stage_id:02d} 기존 해 파기 후 재등록")
         _append_jsonl(FOUND_DIR / "log.jsonl", rec)
         side = FOUND_DIR / f"stage{mdp.stage_id:02d}_seed{seed}.found.json"
         tmp = side.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(rec, indent=1, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, side)                  # 원자적 교체(부분쓰기 sidecar 차단)
-        print(f"  [seed {seed}] 해 기록 → {_rel(side)} + found/log.jsonl")
+        print(f"  [seed {seed}] 신규 해 기록 → {reg_rel} + {_rel(side)}")
     except Exception as e:                     # noqa: BLE001 — 기록 실패가 학습을 죽이면 안 됨
         print(f"  [seed {seed}] WARN 해 기록 실패(무시하고 학습 지속): {e}")
+
+
+def _record_partial(mdp: "StageMDP", seed: int, plan: list, cfg: dict,
+                    episodes: int, batches: int, best_reward: float, refine: bool) -> None:
+    """train_seed FAIL 종료 지점에서 호출(정규 학습 front-door 한정 — record_partial kwarg 게이트,
+    verify/accept 경로는 기본 False라 미기록). 미클리어 seed의 최고-보상(base) 플랜을 durable 기록 —
+    '가장 멀리 도달' 보고용. 리플레이 메트릭(saved/frame/trace)은 보고 파이프라인이 결정론 리플레이로
+    산출(여기선 플랜+출처만). 부작용 전용·예외 삼킴(_record_found와 동일 계약)."""
+    try:
+        import solution_registry               # 레벨 digest 스탬프(뷰어 stale-체크용)
+        FOUND_DIR.mkdir(parents=True, exist_ok=True)
+        rec = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "stage_id": mdp.stage_id,
+            "stage": mdp.stage_scene,
+            "seed": seed,
+            "grammar": mdp.grammar_version,
+            "refine": bool(refine),
+            "cleared": False,
+            "level_digest": solution_registry.level_digest(mdp.stage_id),
+            "best_reward": (float(best_reward) if best_reward != float("-inf") else None),
+            "hp": mdp.hp,
+            "episodes": episodes,
+            "batches": batches,
+            "deadline_frames": cfg.get("replay_deadline"),
+            "inventory": mdp.inventory,
+            "actions": plan,                   # 디코딩된 최고-보상 플랜 — 무수정 replay/시각화용
+        }
+        _append_jsonl(FOUND_DIR / "partials.jsonl", rec)
+        side = FOUND_DIR / f"stage{mdp.stage_id:02d}_seed{seed}.partial.json"
+        tmp = side.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(rec, indent=1, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, side)                  # 원자적 교체(found sidecar와 동일 패턴)
+        print(f"  [seed {seed}] 부분-진척 기록 → {_rel(side)} + found/partials.jsonl")
+    except Exception as e:                     # noqa: BLE001 — 기록 실패가 학습을 죽이면 안 됨
+        print(f"  [seed {seed}] WARN 부분-진척 기록 실패(무시): {e}")
 
 
 def _file_sha(path: Path) -> str:
@@ -1132,7 +1178,8 @@ class StallGovernor:
 # ---------- 학습 (seed 1개) ----------
 
 def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
-               ckpt_in: dict | None = None, ckpt_mode: str | None = None):
+               ckpt_in: dict | None = None, ckpt_mode: str | None = None,
+               record_partial: bool = False):
     """학습 1 seed. 반환 = (result, state) — state는 r2 체크포인트-가능 전체 상태(r1.1은 None).
 
     체크포인트 로드 2모드(plan §R2 P1): resume = 전 상태 복원(같은 세그먼트 계속, RNG·SIL·entropy
@@ -1369,7 +1416,9 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
                 else:
                     gp, _, _ = _sample(greedy=True)
             plan = mdp.decode_plan(gp)
-            res = pool.envs[0].step({"stage": mdp.stage_scene,
+            # trace:true = 실행-동치 dedup 키(solution_registry.exec_digest) 원료 — 가산적·판정 불변
+            # (Phase 2 실증: trace byte-identical·verdict 불변). 클리어 시 res가 그대로 기록에 쓰임.
+            res = pool.envs[0].step({"stage": mdp.stage_scene, "trace": True,
                                      "deadline_frames": cfg["replay_deadline"], "actions": plan})
             if res.get("cleared") and int(res.get("saved") or 0) == mdp.hp:
                 result.update(cleared=True, greedy_plan=plan)
@@ -1402,6 +1451,10 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     if not result["cleared"] and result.get("best_episode") is not None:
         print(f"  [seed {seed}] FAIL bestR={result['best_reward']:.3f} best plan: "
               f"{json.dumps(result['best_episode'])}")
+        if record_partial:                     # kwarg 게이트(cfg 비참여 = exec-digest/pin 불변)
+            _record_partial(mdp, seed, result["best_episode"], cfg,
+                            result["episodes"], result["batches"],
+                            result["best_reward"], refine)
     state = None
     if r2:
         # 직렬화 대상 전수(plan-R1 MED-1): policy+optimizer + entropy 카운터(batch_i) + 사용 RNG 전수
@@ -1441,7 +1494,8 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
 
 
 def train_seed_escalate(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
-                        ckpt_in: dict | None = None, ckpt_mode: str | None = None):
+                        ckpt_in: dict | None = None, ckpt_mode: str | None = None,
+                        record_partial: bool = False):
     """§16.6 stall 모드 front-door — 검출 런 → 격발 시 **같은 seed × knowledge=always 재시작**.
 
     근거: 지연-투입(게이트/latch)은 3판 실측 반증(§16.4~16.6) — knowledge의 구출력은 batch 0부터의
@@ -1451,7 +1505,8 @@ def train_seed_escalate(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     한해 추가 — 무격발(건강) seed는 검출 런이 곧 결과(보상 경로 불개입 = knowledge-무 런과 동일).
     비-stall cfg는 무변경 통과(위임만). 반환 = 최종 (result, state); 격발 시 result에
     stall_escalation(검출 회계) 동승."""
-    res, st = train_seed(mdp, pool, seed, cfg, ckpt_in, ckpt_mode)
+    res, st = train_seed(mdp, pool, seed, cfg, ckpt_in, ckpt_mode,
+                         record_partial=record_partial)
     if not res.get("stall_escalate"):
         return res, st
     always_cfg = {k: v for k, v in cfg.items()
@@ -1471,7 +1526,8 @@ def train_seed_escalate(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     r_ckpt, r_mode = (None, None) if ckpt_mode == "resume" else (ckpt_in, ckpt_mode)
     print(f"  [seed {seed}] stall-escalate → knowledge=always 재시작(§14.4 레짐"
           f"{', 검출 resume-ckpt 미승계=scratch' if ckpt_mode == 'resume' else ''})")
-    res2, st2 = train_seed(mdp, pool, seed, always_cfg, r_ckpt, r_mode)
+    res2, st2 = train_seed(mdp, pool, seed, always_cfg, r_ckpt, r_mode,
+                           record_partial=record_partial)
     res2["stall_escalation"] = {"fire": res["stall_escalate"],
                                 "detect_batches": res["batches"],
                                 "detect_episodes": res["episodes"],
@@ -1646,19 +1702,22 @@ def run_training(args) -> int:
             # seeds를 재바인딩(이후 zip/산출물 회계가 실 seed 기준). train_seed 무변경.
             outs, eff_seeds = [], []
             for slot_seed in seeds:
-                rs = train_seed(mdp, pool, slot_seed, cfg, ckpt_in, ckpt_mode)
+                rs = train_seed(mdp, pool, slot_seed, cfg, ckpt_in, ckpt_mode,
+                                record_partial=True)
                 attempt = 0
                 while not rs[0]["cleared"] and attempt < reseed_k:
                     attempt += 1
                     alt = slot_seed + 1000 * attempt
                     print(f"  [reseed] slot {slot_seed} FAIL(collapse) → 대체 seed {alt} "
                           f"재시도 ({attempt}/{reseed_k})")
-                    rs = train_seed(mdp, pool, alt, cfg, ckpt_in, ckpt_mode)
+                    rs = train_seed(mdp, pool, alt, cfg, ckpt_in, ckpt_mode,
+                                    record_partial=True)
                 outs.append(rs)
                 eff_seeds.append(rs[0]["seed"])
             seeds = eff_seeds
         else:
-            outs = [train_seed_escalate(mdp, pool, s, cfg, ckpt_in, ckpt_mode) for s in seeds]
+            outs = [train_seed_escalate(mdp, pool, s, cfg, ckpt_in, ckpt_mode,
+                                        record_partial=True) for s in seeds]
     finally:
         pool.close()
     seed_results = [r for r, _ in outs]

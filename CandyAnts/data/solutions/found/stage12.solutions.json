@@ -1,0 +1,135 @@
+{
+ "stage_id": 12,
+ "stage": "res://scenes/stages/Stage12.tscn",
+ "level_digest": "ebca7d4f9d49b734",
+ "updated": "2026-07-11T14:23:19Z",
+ "solutions": [
+  {
+   "exec_digest": "a9cf7e3bb158ea2b",
+   "plan_key": "b122ac8bce40b9d7",
+   "actions": [
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2625,
+   "hp": 5,
+   "seeds": [
+    0,
+    1
+   ],
+   "runs": 9,
+   "first_ts": "2026-07-07T13:51:03Z",
+   "last_ts": "2026-07-11T07:02:57Z",
+   "grammar": "r2.1",
+   "episodes": 960,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 3
+   },
+   "stage": "res://scenes/stages/Stage12.tscn"
+  },
+  {
+   "exec_digest": "310693f61435235f",
+   "plan_key": "6a19cca3e81491bb",
+   "actions": [
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 3000
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 744.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 576.0,
+      "y_max": 624.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 168.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 4509,
+   "hp": 5,
+   "seeds": [
+    2
+   ],
+   "runs": 6,
+   "first_ts": "2026-07-07T13:58:50Z",
+   "last_ts": "2026-07-11T07:10:26Z",
+   "grammar": "r2.1",
+   "episodes": 1200,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 3
+   },
+   "stage": "res://scenes/stages/Stage12.tscn"
+  }
+ ]
+}

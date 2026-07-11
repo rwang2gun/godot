@@ -1,0 +1,116 @@
+{
+ "stage_id": 13,
+ "stage": "res://scenes/stages/Stage13.tscn",
+ "level_digest": "7d6a45a569b834bb",
+ "updated": "2026-07-11T14:23:19Z",
+ "solutions": [
+  {
+   "exec_digest": "b7f7382dcd8b414a",
+   "plan_key": "869a5f576c51a136",
+   "actions": [
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1669,
+   "hp": 5,
+   "seeds": [
+    0,
+    2
+   ],
+   "runs": 2,
+   "first_ts": "2026-07-09T13:20:44Z",
+   "last_ts": "2026-07-09T13:46:28Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 1,
+    "climber": 5
+   },
+   "stage": "res://scenes/stages/Stage13.tscn"
+  }
+ ]
+}
