@@ -1241,6 +1241,19 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         governor = StallGovernor(cfg.get("stall_batches", 30), cfg.get("stall_share", 0.5),
                                  (ckpt_in or {}).get("knowledge_governor")
                                  if ckpt_mode == "resume" else None)
+    # §16 codex R1-H1 fail-closed: resume는 ckpt의 **유효 knowledge 모드**와 일치해야 한다.
+    # escalate 재시작 ckpt = always-포맷(ledger 동승) — stall CLI로 재개하면 ledger 무시 + fresh
+    # governor = 결정론 resume 계약 위반(침묵 오염). 레거시 ckpt(키 부재)는 동승 상태로 추론.
+    k_eff = ("stall_detect" if governor is not None
+             else "always" if ledger is not None else "none")
+    if ckpt_in is not None and ckpt_mode == "resume":
+        ck_eff = ckpt_in.get("knowledge_mode_effective",
+                             "always" if "knowledge_ledger" in ckpt_in
+                             else "stall_detect" if "knowledge_governor" in ckpt_in else "none")
+        if k_eff != ck_eff:
+            raise RuntimeError(
+                f"resume knowledge-모드 불일치(fail-closed): ckpt={ck_eff} vs cfg={k_eff} — "
+                "escalate 재시작(always-포맷) ckpt는 --knowledge-mode always(기본)로 재개할 것")
     while not result["cleared"] and _budget_left():
         batch_i += 1
         ran_batches += 1
@@ -1416,6 +1429,8 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
             state["knowledge_ledger"] = ledger.to_dict()
         if governor is not None:    # §16 stall 모드에서만 동승(resume 복원 + 격발 계측 박제)
             state["knowledge_governor"] = governor.to_dict()
+        if k_eff != "none":         # §16 codex R1-H1: 유효 모드 박제(resume 라우팅 fail-closed 대조 키).
+            state["knowledge_mode_effective"] = k_eff   # coef=0 ckpt는 키 부재 = 기존과 구성 동일
     if governor is not None:
         result["knowledge_governor"] = {"mode": "stall",
                                         "stall_batches": governor.stall_batches,
@@ -1441,8 +1456,22 @@ def train_seed_escalate(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         return res, st
     always_cfg = {k: v for k, v in cfg.items()
                   if k not in ("knowledge_mode", "stall_batches", "stall_share")}
-    print(f"  [seed {seed}] stall-escalate → knowledge=always 재시작(§14.4 레짐)")
-    res2, st2 = train_seed(mdp, pool, seed, always_cfg, ckpt_in, ckpt_mode)
+    # 구출 런 ckpt 라우팅(§16 codex R2-H1): resume-모드 검출 ckpt(stall_detect)를 always_cfg에
+    # 그대로 넘기면 R1 fail-closed 가드가 격발 시점에 거부 → **resume이면 무-ckpt 재시작**(문서화된
+    # escalate 의미론 = 같은 seed × 처음부터 always). transfer는 보존(가중치 warm-start가 사용자
+    # 의도이고 §12 SOP상 ledger/governor 리셋이라 모드-가드 비대상).
+    # §16 codex R3-H1(하이브리드 4경로): **transfer-유래 검출 런이 '재개' 사슬로 격발**하면 재개
+    # ckpt엔 transfer 원본 경로가 없어 구출 레짐(transfer×always)을 재구성할 수 없다 — silent
+    # scratch 강등은 사용자 의도(warm-start) 파기이므로 fail-closed(명시 재실행 안내).
+    if ckpt_mode == "resume" and (ckpt_in or {}).get("seg_mode") == "transfer":
+        raise RuntimeError(
+            "stall-escalate: transfer-유래 검출 런(재개 사슬)이 격발 — 재개 ckpt엔 transfer 원본이 "
+            "없어 구출 레짐을 재구성할 수 없음(fail-closed). --knowledge-mode stall "
+            "--transfer-ckpt <원본 소스>로 처음부터 재실행할 것")
+    r_ckpt, r_mode = (None, None) if ckpt_mode == "resume" else (ckpt_in, ckpt_mode)
+    print(f"  [seed {seed}] stall-escalate → knowledge=always 재시작(§14.4 레짐"
+          f"{', 검출 resume-ckpt 미승계=scratch' if ckpt_mode == 'resume' else ''})")
+    res2, st2 = train_seed(mdp, pool, seed, always_cfg, r_ckpt, r_mode)
     res2["stall_escalation"] = {"fire": res["stall_escalate"],
                                 "detect_batches": res["batches"],
                                 "detect_episodes": res["episodes"],
@@ -1781,6 +1810,12 @@ def _merge_write_r2(path: Path, mdp: StageMDP, args, cfg: dict, outs, seeds,
         }
         if cfg["shaping"] == "trace":
             prev_seeds[s]["preflight_trace"] = pf_info
+        # §16 stall 회계 동승(있을 때만 — 비-stall 런 entry는 종전과 키 구성 동일): escalate 여부·
+        # 검출 오버헤드가 산출물에서 식별 가능해야 정직(클리어가 검출 런인지 always-구출인지).
+        if res.get("stall_escalation"):
+            prev_seeds[s]["stall_escalation"] = res["stall_escalation"]
+        if res.get("knowledge_governor"):
+            prev_seeds[s]["knowledge_governor"] = res["knowledge_governor"]
         curves[str(s)] = res["curve"]
     entries = [prev_seeds[k] for k in sorted(prev_seeds)]
     pinned = R2_PIN["seeds"]

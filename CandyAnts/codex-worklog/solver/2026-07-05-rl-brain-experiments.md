@@ -512,7 +512,9 @@ bash scratchpad/solve_stage.sh <N>               # 단독 3-seed 병렬 집중
 | S17 s0 | @195 | **DNF(flip)** | **@195 무격발 유지** | 무해 ✓ (flip 회피) |
 | S17 s1 | @130 | @85 | 격발@124(dup .913) → 재시작 → **CLEAR @85** | 클리어 유지 |
 | S17 s2 | **DNF** | @95 | 격발@122(dup .506) → 재시작 → **CLEAR @95** | 구출 ✓ (§15.8 재현) |
-- **12/12 클리어** vs baseline 10/12(S12s1·S17s2 FAIL) vs always 10/12(S17s0 flip DNF + S12s2 2배).
+- **12/12 클리어** vs baseline 10/12(S12s1·S17s2 FAIL) vs always **11/12**(S17s0 flip DNF; S12s2는
+  2배 지연이나 클리어 — §16.7 초판·커밋 389097b 메시지의 "always 10/12"는 오기, 여기 정정).
+  우위의 정확한 서술 = 클리어 수 12>11>10 **및** always 대비 지연(S12s2 145→75)·flip(S17s0) 회피.
   구출 3건 전부 §14.4/§15.8 always 런의 **결정론 재현**(batch-정확 일치 — escalation의 실체가
   "실증된 레짐 재생"임을 그대로 보여줌). 오격발 0 유지(v2.1 꼬리 dup .21~.45 < 0.5 문턱 정합).
 - **정직 비용 회계**: 격발 seed는 검출 구간이 추가됨 — S12 s1 = 34+120 / S17 s2 = 122+95(FAIL
@@ -521,3 +523,24 @@ bash scratchpad/solve_stage.sh <N>               # 단독 3-seed 병렬 집중
 - pinned 5/5 최종 재확인(값 전부 종전 동일) + probe 11/11. **§16 종결 — knowledge 레시피 확정** =
   `--knowledge-mode stall`(+coef 1.0): 건강 런 불간섭·병리 런 자동 구출. always는 §14.4 재현·연구
   대조용으로 잔존, 기본 권장 레시피 = stall.
+
+### 16.8 impl-stage 적대 리뷰 종결 (2026-07-11) — codex 4R → approve (hot-fix sweep)
+- 트레일 = `phases/solver/reviews/phaseR-impl-review.md` § "§16 stall-escalate". 사후 리뷰(389097b
+  push 후 — CLAUDE.md 사후-리뷰 정책, HIGH 3건을 hot-fix 커밋으로 처리).
+- **codex R1[HIGH]** escalated ckpt(always-포맷)를 stall CLI로 재개하면 ledger 무시+fresh governor
+  = 결정론 resume 침묵 위반 → fix: ckpt에 `knowledge_mode_effective` 박제 + resume fail-closed
+  대조(레거시는 동승 키로 추론·coef=0은 키 부재=기존 구성 불변, transfer는 §12 리셋이라 비대상)
+  + probe D1(잘못된 재개 거부)/D2(escalated 재개 등가성 — 파라미터 비트동일+곡선 일치).
+- **codex R2[HIGH]** 중단된 stall-검출 ckpt를 재개한 런이 격발하면 원본 ckpt가 always_cfg와 함께
+  rescue로 전달돼 R1 가드가 정확히 구출 시점에 크래시 → fix: rescue 라우팅 분기(resume→무-ckpt
+  재시작 = 문서화된 escalate 의미론 / transfer→보존) + probe E(중단→재개→격발→구출 완주).
+- **codex R3[HIGH]** transfer-유래 검출 런의 재개 사슬(seg_mode="transfer" 전파)이 격발하면 R2
+  라우팅이 warm-start를 silent scratch 강등 → fix: fail-closed(재개 ckpt엔 transfer 원본 경로
+  부재로 재구성 불가 — 명시 재실행 안내) + probe F(white-box seg_mode 주입).
+- 자체 선제 수정 2건(MEDIUM): r2 artifact per-seed entry에 stall_escalation/governor 회계 동승 +
+  §16.7 "always 10/12" → **11/12** 수치 정정(S12 s2는 지연이지 FAIL 아님).
+- **codex R4 = approve**("4 ckpt 경로 명시 처리·transfer-유래 fail-closed·probe D/E/F가 인접 회귀
+  커버, no material findings"). 매 codex 라운드 사이 자체 적대 리뷰 clean(CLAUDE.md 루프 준수).
+  최종 게이트 = probe **15/15** + pinned 격리 **5/5**(값 전부 종전 동일). 리뷰 모델 = gpt-5.5
+  (계정 사용 가능 최신 — gpt-5.6/-codex는 ChatGPT-계정 미지원 실측, CLAUDE.md에 "세션 첫 codex
+  호출 전 최신 모델 probe" 지침 신설).

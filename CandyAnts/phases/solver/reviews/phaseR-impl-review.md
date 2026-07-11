@@ -547,3 +547,79 @@ Verdict: **approve** — "No ship-blocking fail-open, forgery, or verifier-bypas
 - 수정 2 적정: probe 리포 경로 실존 + 정상 구조 확인(scratchpad 잔존 참조는 R4 coverage JSON 별건 —
   Round 1 LOW 재발 아님).
 - 신규 CRITICAL/HIGH/MEDIUM 없음. verdict=approve.
+
+# §16 stall-escalate (knowledge 정체-격발 레시피) impl-stage 적대 리뷰 (2026-07-11)
+
+> 대상 = `746783e..389097b`(+후속 수정 워킹트리): train.py StallGovernor+train_seed_escalate+CLI,
+> experiments/{stall_governor_probe,trap_v2_test}.py, 워크로그 §16. 사후 리뷰(389097b push 후 —
+> CLAUDE.md 사후-리뷰 정책: HIGH=hot-fix 커밋+동일 루프).
+
+## Self-Review Round 1 (codex 실행과 병행)
+- [MEDIUM] 산출물 자기-기술 공백: r2 artifact writer per-seed entry가 stall_escalation/
+  knowledge_governor 미동승 — 어느 seed가 escalate로 클리어했는지 산출물에서 식별 불가.
+  → 수정: 있을 때만 entry에 동승(비-stall 런 entry는 키 구성 불변).
+- [MEDIUM] 수치 오기: §16.7/커밋 메시지 "always 10/12" — 실측은 11/12(S12 s2는 2배 지연이지
+  FAIL 아님). → 워크로그·STATUS 정정(커밋 메시지는 오기 사실을 문서에 박제).
+- 그 외 clean(잔재 참조 grep 0, syntax OK, probe 그린 유지).
+
+## Round 1 (codex) — needs-attention
+- **[HIGH] escalated ckpt의 resume 계약 위반**: train_seed_escalate가 반환하는 state = 구출 런의
+  always-포맷(knowledge_ledger 동승). 이를 같은 stall CLI로 --resume-ckpt하면 k_mode=stall이라
+  ledger 미생성(ckpt ledger 무시) + fresh governor = **결정론 resume이 아님**(침묵 오염, 후속
+  transfer 사슬 전파 위험).
+- 수정(권고안 채택): ① ckpt에 `knowledge_mode_effective`("always"/"stall_detect", coef=0은 키
+  부재=기존 구성 불변) 박제 ② resume 시 cfg 유효 모드와 fail-closed 대조(불일치=RuntimeError,
+  escalate ckpt는 always CLI로 재개 안내). 레거시 ckpt는 동승 키(knowledge_ledger/governor)로
+  추론(§14.4 ckpt 하위호환). transfer는 §12 SOP대로 리셋이라 비대상.
+- 검증(codex 권고 probe 확장): D1 = escalated ckpt + stall CLI 재개 → fail-closed 거부 실증 /
+  D2 = escalated 재개 등가성(무중단 2N vs N→save→always 재개 N: **파라미터 비트동일 + 곡선
+  일치**). probe 13/13 PASS + pinned 격리 5종 재실행 PASS(coef=0 ckpt 키 불변 실증).
+
+## Self-Review Round 2 (R1 수정 후)
+- k_eff 산식 = ledger/governor 생성 조건과 동일 원천(불일치 불가능) / resume 가드는 transfer
+  비적용(§12 정합) / coef=0 state 키 구성 불변(pinned resume-equiv 보존) / 레거시 추론 =
+  §14.4-era ckpt 정상 재개 확인. 신규 HIGH 0 — clean.
+
+## Round 2 (codex) — needs-attention
+- **[HIGH] 재개된 stall-검출 런이 격발 시 구출 불가**: R1 가드의 인접 결함 — 중단된 stall_detect
+  ckpt를 stall CLI로 재개(합법)한 뒤 격발되면, escalate가 원본 ckpt(stall_detect)를 always_cfg와
+  함께 rescue에 전달 → R1 가드가 정확히 구출 시점에 RuntimeError. D1/D2는 이미-escalate된
+  ckpt만 커버(경로 공백).
+- 수정: rescue ckpt 라우팅 분기 — **resume-모드면 무-ckpt 재시작**(문서화된 escalate 의미론 =
+  같은 seed × 처음부터 always; 검출 진행분은 진단용이라 폐기가 정합) / **transfer는 보존**
+  (가중치 warm-start = 사용자 의도, §12 SOP 리셋이라 모드-가드 비대상 — codex 권고의 "transfer
+  분리 취급" 채택).
+- 검증: probe E 신설(미격발 stall_detect 저장 → stall 재개 → 격발@6 → 구출 완주 + 최종 상태
+  effective=always) — **14/14 PASS**.
+
+## Self-Review Round 3 (R2 수정 후)
+- 라우팅 전수: scratch 검출(None 전달, 종전 동일) / resume 검출(→scratch rescue, E 실증) /
+  transfer 검출(→transfer rescue, 가드 비대상·의도 보존). run_training 경유 wrapper는 비-stall
+  cfg 무변경 통과(위임) — pinned 경로(verify-*, accept-resume-equiv)는 wrapper 미경유 또는
+  비-stall이라 원천 무영향. 신규 HIGH 0 — clean.
+
+## Round 3 (codex) — needs-attention
+- **[HIGH] transfer-유래 검출 런의 재개→격발 하이브리드 경로**: R2 라우팅이 ckpt_mode만 보고
+  분기해, transfer로 시작→중단→재개(seg_mode="transfer" 전파)된 검출 런이 격발하면 구출을
+  **scratch로 silent 강등**(사용자의 transfer warm-start 의도 파기). 재개 ckpt엔 transfer 원본
+  경로가 저장되지 않아 구출 레짐 재구성 불가.
+- 수정: codex 권고 2안 중 **fail-closed 채택** — `ckpt_mode=="resume" and seg_mode=="transfer"`
+  격발 시 RuntimeError + 명시 재실행 안내(--knowledge-mode stall --transfer-ckpt <원본>).
+  재구성안은 ckpt에 원본 경로 부재로 불가(정직 사유).
+- 검증: probe F 신설(미격발 검출 상태에 seg_mode="transfer" white-box 주입 — resume 전파 값과
+  동형 — 재개→격발 시 "transfer" 명시 RuntimeError 확인) — **15/15 PASS**.
+
+## Self-Review Round 4 (R3 수정 후)
+- ckpt 라우팅 4경로 전수: scratch(무-ckpt 종전) / resume-scratch유래(→scratch rescue, E) /
+  resume-transfer유래(→fail-closed, F) / direct transfer(→transfer rescue, 가드 비대상).
+  seg_mode 전파는 train.py:1163/1190 실코드 확인. 신규 HIGH 0 — clean.
+
+## Round 4 (codex) — **approve (종결)**
+- "No ship-blocking issue found in the R4 stall-escalate fix. The four checkpoint routes are
+  explicitly handled, the transfer-derived resume escalation now fail-closes, and probe D/E/F
+  cover the adjacent resume/escalation regressions. No material findings."
+- 루프 요약: codex R1[H1 escalated-ckpt 오재개] → fix(모드 박제+fail-closed 가드+D1/D2) →
+  Self-R2 clean → codex R2[H1 재개-검출 격발 크래시] → fix(rescue 라우팅 분기+E) → Self-R3 clean
+  → codex R3[H1 transfer-유래 재개 silent 강등] → fix(fail-closed+F) → Self-R4 clean →
+  **codex R4 approve**. 자체 선제 수정 2건(MEDIUM: 산출물 escalate 회계 동승 + "always 10/12"
+  수치 정정) 포함. 최종 게이트: probe 15/15 + pinned 격리 5/5(매 라운드 재확인, 값 전부 종전 동일).

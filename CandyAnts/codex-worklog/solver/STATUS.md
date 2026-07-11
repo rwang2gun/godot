@@ -1557,11 +1557,21 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   mid-run 투입은 어떤 변형으로도 재현 불가** → 재시작으로 전환.
 - **최종 acceptance 12/12**(§16.7 표): 무격발 9런 전부 baseline 정확 일치(S17 s0 flip 회피·S12 s2
   2배지연 회피 포함, 오격발 0) + 격발 3런 전부 구출/유지(S12 s1 FAIL→@120·S17 s2 DNF→@95 = always
-  런 batch-정확 재현, S17 s1 @85). 정직 비용: 격발 seed 검출-구간 추가(S17 s1 = 124+85 vs 자연 130,
-  12건 중 1). **권장 레시피 확정 = stall**(always는 재현·대조용 잔존).
+  런 batch-정확 재현, S17 s1 @85). 비교 = **12/12 > always 11/12(S17s0 DNF) > baseline 10/12** +
+  always 대비 지연·flip 회피(커밋 389097b 메시지 "always 10/12"는 오기 — S12s2는 지연이지 FAIL
+  아님, §16.7에서 정정). 정직 비용: 격발 seed 검출-구간 추가(S17 s1 = 124+85 vs 자연 130, 12건 중
+  1). **권장 레시피 확정 = stall**(always는 재현·대조용 잔존).
 - 검증: probe 11/11(검출기 단위 8 + always byte-identity·무격발 무영향·escalate 통합 3) + pinned
   격리 5/5 매 판 재확인(값 전부 종전 동일) + 재실행 사이 NameError 1건(리팩터 잔재 참조) 수정·probe
   커버리지 보강(batch%10 출력 경로). 산출물 = train.py(StallGovernor+train_seed_escalate+CLI) +
   `experiments/stall_governor_probe.py`(신규) + trap_v2_test `--stall` arm.
+- **impl-stage 적대 리뷰 종결(사후, hot-fix sweep)**: codex R1[H: escalated ckpt 오재개 침묵 위반]
+  →fix(ckpt 모드 박제+fail-closed 대조+probe D1/D2) → R2[H: 재개-검출 격발 시 구출 크래시]→fix
+  (rescue 라우팅 분기: resume→scratch/transfer→보존 + probe E) → R3[H: transfer-유래 재개 사슬의
+  silent scratch 강등]→fix(fail-closed 명시 안내 + probe F) → **R4 approve**(4 ckpt 경로 전수·no
+  material findings). 매 라운드 자체리뷰 clean + 자체 선제 2 MEDIUM(산출물 escalate 회계 동승·
+  "always 10/12"→11/12 정정). 최종 probe **15/15** + pinned **5/5**. 트레일 =
+  `phases/solver/reviews/phaseR-impl-review.md` §16, 세션 로그 §16.8. 리뷰 모델 = gpt-5.5(계정
+  최신 — 5.6은 ChatGPT-계정 미지원 실측, CLAUDE.md에 최신-모델 probe 지침 신설).
 - **게이트**: TileMetadataDriftTest PASS(82 layouts — 신규 fixture 포함 전수 스캔) + try_solve selftest
   19/19 PASS. 산출물 = `dev_stages/trap_blocker_v2/`(3파일) + `rl/experiments/trap_v2_{probe,test}.py`.

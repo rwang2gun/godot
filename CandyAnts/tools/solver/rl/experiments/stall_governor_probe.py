@@ -110,15 +110,95 @@ def integration_tests(envs: int) -> None:
               and r_stall0.get("knowledge_governor", {}).get("events") == [],
               f"curve n={len(r_nok['curve'])}")
         # C. 강제 격발(문턱 최소) → 검출 중단 → always 재시작(escalate) + 회계 동승
-        r_force, _st = T.train_seed_escalate(mdp, pool, 1, mk_cfg(knowledge_coef=1.0,
-                                                                  knowledge_mode="stall",
-                                                                  stall_batches=2, stall_share=0.0))
+        r_force, st_force = T.train_seed_escalate(mdp, pool, 1, mk_cfg(knowledge_coef=1.0,
+                                                                       knowledge_mode="stall",
+                                                                       stall_batches=2,
+                                                                       stall_share=0.0))
         esc = r_force.get("stall_escalation")
         check("C: 강제 격발 → escalate 재시작 + 검출 회계",
               esc is not None and esc["fire"]["event"] == "on"
               and esc["detect_batches"] >= 2
-              and "knowledge_governor" not in r_force,   # 구출 런 = always(governor 부재)
+              and "knowledge_governor" not in r_force   # 구출 런 = always(governor 부재)
+              and st_force.get("knowledge_mode_effective") == "always",
               f"esc={esc}")
+        # D. escalated ckpt resume 계약(§16 codex R1-H1): ① stall CLI 재개 = fail-closed 거부
+        #    ② always 재개 = 무중단 escalate와 파라미터 비트동일 + 곡선 일치(재개 등가성)
+        import os
+        import tempfile
+        torch, _nn = T._torch()
+        n = 4
+        stall_cfg = mk_cfg(knowledge_coef=1.0, knowledge_mode="stall",
+                           stall_batches=2, stall_share=0.0)
+        always_cfg = {k: v for k, v in stall_cfg.items()
+                      if k not in ("knowledge_mode", "stall_batches", "stall_share")}
+        r_a, st_a = T.train_seed_escalate(mdp, pool, 3, dict(stall_cfg, max_batches=2 * n))
+        r_b1, st_b1 = T.train_seed_escalate(mdp, pool, 3, dict(stall_cfg, max_batches=n))
+        tmp = T.Path(tempfile.gettempdir()) / f"candyants_stall_equiv_{os.getpid()}.pt"
+        try:
+            T.save_ckpt(tmp, st_b1)
+            ck = T.load_ckpt(tmp)
+            rejected = False
+            try:
+                T.train_seed(mdp, pool, 3, dict(stall_cfg, max_batches=n), ck, "resume")
+            except RuntimeError:
+                rejected = True
+            check("D1: escalated ckpt + stall CLI 재개 = fail-closed 거부", rejected)
+            r_b2, st_b2 = T.train_seed(mdp, pool, 3, dict(always_cfg, max_batches=n),
+                                       ck, "resume")
+        finally:
+            try:
+                tmp.unlink()
+            except FileNotFoundError:
+                pass
+        pa, pb = st_a["policy"], st_b2["policy"]
+        bits_eq = (pa.keys() == pb.keys()
+                   and all(torch.equal(pa[k], pb[k]) for k in pa))
+        check("D2: escalated 재개 등가성(파라미터 비트동일 + 곡선 일치)",
+              bits_eq and r_a["curve"] == r_b2["curve"]
+              and r_b2["curve"][:len(r_b1["curve"])] == r_b1["curve"],
+              f"curve n={len(r_a['curve'])}")
+        # E. 중단된 stall-검출 ckpt → stall 재개 → 격발 → 구출 완주(§16 codex R2-H1):
+        #    resume-모드 검출이 격발하면 rescue는 무-ckpt 재시작이어야 함(가드 크래시 금지).
+        e_cfg = mk_cfg(knowledge_coef=1.0, knowledge_mode="stall",
+                       stall_batches=3, stall_share=0.0)
+        r_e1, st_e1 = T.train_seed(mdp, pool, 5, dict(e_cfg, max_batches=2))  # 미격발 검출 상태
+        tmp2 = T.Path(tempfile.gettempdir()) / f"candyants_stall_interrupt_{os.getpid()}.pt"
+        try:
+            unfired = (st_e1.get("knowledge_mode_effective") == "stall_detect"
+                       and not r_e1.get("stall_escalate"))
+            T.save_ckpt(tmp2, st_e1)
+            ck2 = T.load_ckpt(tmp2)
+            r_e2, st_e2 = T.train_seed_escalate(mdp, pool, 5, dict(e_cfg, max_batches=10),
+                                                ck2, "resume")
+        finally:
+            try:
+                tmp2.unlink()
+            except FileNotFoundError:
+                pass
+        check("E: 중단 검출 ckpt → 재개 → 격발 → 구출 완주(크래시 없음)",
+              unfired and r_e2.get("stall_escalation") is not None
+              and st_e2.get("knowledge_mode_effective") == "always",
+              f"esc={r_e2.get('stall_escalation')}")
+        # F. transfer-유래 검출 런의 재개→격발 = fail-closed(§16 codex R3-H1): 재개 ckpt에
+        #    transfer 원본이 없어 구출 레짐 재구성 불가 → silent scratch 강등 금지. 시뮬레이션 =
+        #    미격발 검출 상태의 seg_mode를 'transfer'로 세팅(transfer-유래 사슬의 재개 ckpt와 동형
+        #    — seg_mode는 resume을 통해 전파되는 값이라 white-box 주입이 유효).
+        st_f = dict(st_e1, seg_mode="transfer")
+        tmp3 = T.Path(tempfile.gettempdir()) / f"candyants_stall_xferres_{os.getpid()}.pt"
+        try:
+            T.save_ckpt(tmp3, st_f)
+            ck3 = T.load_ckpt(tmp3)
+            rejected_xfer = False
+            try:
+                T.train_seed_escalate(mdp, pool, 5, dict(e_cfg, max_batches=10), ck3, "resume")
+            except RuntimeError as e:
+                rejected_xfer = "transfer" in str(e)
+        finally:
+            try:
+                tmp3.unlink()
+            except FileNotFoundError:
+                pass
+        check("F: transfer-유래 검출 재개→격발 = fail-closed(명시 안내)", rejected_xfer)
     finally:
         pool.close()
 
