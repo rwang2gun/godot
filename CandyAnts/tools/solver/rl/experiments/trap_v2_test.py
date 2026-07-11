@@ -27,11 +27,13 @@ STAGE_TRES = "dev_stages/trap_blocker_v2/trap_blocker_v2_test.tres"
 LAYOUT_TRES = "dev_stages/trap_blocker_v2/dev_trap_blocker_v2_layout.tres"
 
 
-def mk_cfg(cap: int, blocker: float, knowledge: float) -> dict:
+def mk_cfg(cap: int, blocker: float, knowledge: float, stall: bool = False) -> dict:
     cfg = dict(T.DEFAULTS)
     cfg.update(shaping="trace", train_deadline=3000, sil=True,
                max_batches=cap, max_episodes=10 ** 9, max_wall=10 ** 12,
                blocker_coef=blocker, knowledge_coef=knowledge)
+    if stall:   # §16 정체-격발 arm (acceptance 벤치마크용 — 기본 knob 정합 유지)
+        cfg.update(knowledge_mode="stall", stall_batches=30, stall_share=0.5)
     return cfg
 
 
@@ -40,6 +42,8 @@ def main() -> int:
     ap.add_argument("--seeds", type=str, default="0,1,2", help="콤마 목록")
     ap.add_argument("--cap", type=int, default=120, help="batch 상한(=DNF 컷)")
     ap.add_argument("--envs", type=int, default=4)
+    ap.add_argument("--stall", action="store_true",
+                    help="§16 정체-격발 단일 arm(blocker 1.0 + knowledge 1.0 + mode=stall)만 실행")
     args = ap.parse_args()
     seeds = [int(x) for x in args.seeds.split(",")]
 
@@ -48,17 +52,25 @@ def main() -> int:
     pool, n_eff, _ = T.build_pool(args.envs, SCENE, with_trace=True)
     print(f"[trap-v2] envs={n_eff} cap={args.cap} seeds={seeds} inv={mdp.inventory} hp={mdp.hp}")
     t0 = time.monotonic()
-    arms = [("NOBONUS   blocker=0   knowledge=0  ", 0.0, 0.0),
-            ("BASELINE  blocker=1.0 knowledge=0  ", 1.0, 0.0),
-            ("KNOWLEDGE blocker=1.0 knowledge=1.0", 1.0, 1.0)]
+    arms = ([("STALL     blocker=1.0 knowledge=1.0 mode=stall", 1.0, 1.0, True)] if args.stall
+            else [("NOBONUS   blocker=0   knowledge=0  ", 0.0, 0.0, False),
+                  ("BASELINE  blocker=1.0 knowledge=0  ", 1.0, 0.0, False),
+                  ("KNOWLEDGE blocker=1.0 knowledge=1.0", 1.0, 1.0, False)])
     try:
-        for name, b, k in arms:
+        for name, b, k, st in arms:
             print(f"\n=== ARM {name} ===")
             for s in seeds:
-                res, _ = T.train_seed(mdp, pool, s, mk_cfg(args.cap, b, k))
+                res, _ = T.train_seed_escalate(mdp, pool, s, mk_cfg(args.cap, b, k, stall=st))
                 tag = (f"CLEAR @ batch {res['batches']} ({res['episodes']} eps)" if res["cleared"]
                        else f"DNF (cap {res['batches']}, bestR {res['best_reward']:.3f}, "
                             f"best={res.get('best_episode')})")
+                gov = res.get("knowledge_governor")
+                if gov:
+                    tag += f" governor={gov['events']}"
+                esc = res.get("stall_escalation")
+                if esc:
+                    tag += (f" escalated(detect {esc['detect_batches']}b/"
+                            f"{esc['detect_episodes']}eps)")
                 print(f"  seed {s}: {tag}", flush=True)
     finally:
         pool.close()

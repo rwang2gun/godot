@@ -406,3 +406,118 @@ bash scratchpad/solve_stage.sh <N>               # 단독 3-seed 병렬 집중
   - (c) **현행 opt-in 유지** — 스테이지/상황별 수동 선택(§14.4·§15 데이터가 사용 가이드).
     추가 구현 0. 단순성 원칙에 부합.
   - 어느 레시피도 지배하지 못함이 실측 결론. 레시피 확정은 사용자 몫.
+  - → **사용자 결정(2026-07-11 아침): (b) 정체-격발, "구현이 어려워도 제대로"** — §16으로 진행.
+
+## 16. 정체-격발(StallGovernor) 구현 (2026-07-11) — knowledge를 "반복-지배 정체"에만 격발
+
+> 사용자 결정 = §15.6 3안 중 (b), 품질 우선. §15.8의 핵심 함정 = 정체 **길이**만 보면 S17 s0
+> (비반복 점진-확장 저고원)을 오격발 → **격발 조건을 진단 복합**으로: 정체 길이 ⓐ AND 반복-지배 ⓑ.
+
+### 16.1 설계·구현 (train.py만, 드라이버 무편집, pin 안전)
+- **`StallGovernor`**(순수·RNG 무): 격발 = bestR(base) 미개선 연속 ≥ `--stall-batches`(기본 30)
+  **AND** 최근 창 최빈 plan 점유율 ≥ `--stall-share`(기본 0.35). 게이트 g = 격발 후 5-batch 선형
+  램프(`STALL={"ramp":5}`, baseline EMA 충격 완화) → 1.0. **해제 = bestR 갱신 즉시**(hysteresis,
+  재격발은 새 정체 창 요구). on/off 이벤트(+top_share) 계측이 result·ckpt에 동승.
+- **적용 지점 = ledger 바깥**: `rewards += g·ledger.observe(...)`, SIL 재평가도 `g·repeat_term`.
+  g=0이어도 **ledger는 관측·기록**(격발 시 cold-start 방지). always 모드는 리터럴 1.0곱(IEEE
+  정확) = §14.4와 byte-identical. 관측은 1배치 지연(gate가 직전 배치까지 상태 사용 — 결정론 순서 고정).
+- **CLI**: `--knowledge-mode {always,stall}`(기본 always) + `--stall-batches` + `--stall-share`.
+  cfg 키는 **stall일 때만 주입** — always/off 런의 cfg_pub(산출물 config·병합 동일성 비교) 종전과
+  바이트 보존. stall+coef0 = 에러. refine 기존 가드 유지. KNOWLEDGE 상수·ledger 계약 무변경
+  (R4_KNOWLEDGE_PIN·knowledge_contract_digest 불변).
+- ckpt: `state["knowledge_governor"]`(stall에서만 동승, resume 복원). trap_v2_test.py에 `--stall`
+  arm 추가(fixture acceptance용).
+
+### 16.2 격리 검증 — probe 14/14 + pinned 5/5 (전부 PASS)
+- **`experiments/stall_governor_probe.py`**: 단위 11(격발 정확 문턱·다양-plan 비격발[S17 s0 판별
+  핵심]·램프 포화·hysteresis 즉시 해제·재격발 재무장·ckpt roundtrip) + 통합 3(v2.1 fixture 저예산):
+  **A. always == 레거시 curve 정확 일치** / **B. stall 무격발 == knowledge 무 curve 정확 일치**
+  (g=0 완전 무영향) / C. 강제 격발 → on/off 이벤트 계측(hysteresis 실동작 관측).
+- **pinned 격리 5/5 재실측(train.py 변경 후)**: verify-r0(frame=1342)·verify-r1(2239)·verify-r2
+  S11(1488)·verify-r2 S19(1583)·r2.1 resume-equiv(파라미터 비트동일+곡선 10배치 일치) — 전부
+  종전 값 동일 = 인증 경로 무회귀.
+
+### 16.3 acceptance 벤치마크 (13쌍 재검, mode=stall) — 판정 3조
+- ① 구출 보존: S12 s1·S17 s2·v2.1 s4/s5 (격발 지연 감수) ② 악화 회피: 건강 런 무격발 +
+  **S17 s0 클리어 유지**(핵심 신규 시험) ③ 격발 계측 정합(구출 케이스에서만 on).
+- 실행: v2.1 stall seeds 0~5(cap 150) → S12 stall seeds 0,1,2(§11 레시피) → S17 stall seeds
+  0,1,2(max_len 8·cap 240).
+
+### 16.4 acceptance 1차 = 트리거 불발(정직 박제) → 진단 → 격발 조건 v2 재설계
+- **1차 결과(트리거 v1 = 최빈-plan 점유율 ≥0.35)**: 악화 회피 **완벽**(S17 s0 @195 클리어 유지 —
+  always의 DNF flip 소멸 / S12 s0 60=60·s2 75≈70 — always의 145 지연 소멸 / v2.1 s0~3 baseline
+  정확 일치) **BUT 구출 전멸**(S12 s1 FAIL·S17 s2 DNF·v2.1 s4/s5 =baseline — governor 전부 무격발).
+  stall v1 ≈ 사실상 baseline(inert).
+- **진단(blocked 계측 추가 후 5점 보정 실측, dup=창 내 반복 비율)**:
+  | 케이스 | 목표 | top_share max | dup_share max |
+  |---|---|---|---|
+  | S17 s2 (near-clear 고원) | 격발 ○ | 0.346 | **0.915** |
+  | S12 s1 (collapse) | 격발 ○ | 0.088 | **0.756** |
+  | v2.1 s4 (꼬리) | (격발 ○) | 0.027 | 0.452 |
+  | S17 s0 (점진 확장) | 격발 ✗ | 0.060 | 0.371 |
+  | v2.1 s5 (꼬리) | (격발 ○) | 0.027 | **0.327** |
+  - **발견 1 — 메트릭 오류**: collapse도 변형을 섞어 반복 → 단일-sig 점유율은 8.8%에 불과(문턱
+    0.35 불달). 병리의 실체 = **dup 점유율**(S12 s1 0.756·S17 s2 0.915 vs S17 s0 0.371).
+  - **발견 2 — v2.1 꼬리는 반복-병리가 아님**: s5(0.327) < S17 s0(0.371) 역전 — 꼬리 구출은
+    반복-깨기(β)가 아닌 **초기-탐험 보너스(α)** 의 효과였고, α는 건강-런 교란과 동전의 양면 →
+    **stall 모드는 의도적으로 α를 포기**(꼬리 구출 상실 = 문서화된 트레이드오프). 문턱 0.5로
+    진짜 병리(0.76/0.91)와 S17 s0(0.37) 분리 마진 확보.
+  - **발견 3 — hysteresis 결함**: S17 s2에서 v1도 batch 156에 격발했으나 **bestR 미세-틱**(3.736→
+    3.768)이 11 batch 만에 게이트를 꺼 구출 실패(재격발은 30-batch 재무장 필요 — 잔여 예산 소진).
+- **재설계(v2)**: ⓑ 메트릭 top_share→**dup_share ≥ 0.5**(보정 실측 기반) + 해제 조건 bestR-틱→
+  **물리 프런티어 개선(§14.3 ledger 정의)/샘플 클리어**(미세-틱 면역, arm 카운터는 bestR 유지 —
+  민감 검출과 둔감 해제의 비대칭이 의도). blocked 진단 계측(top/dup 최대값)은 상시 동승.
+- probe 갱신 **15/15 PASS**(미세-틱 유지·프런티어 해제·dup 격발 단위 + always byte-identity·무격발
+  무영향·강제 격발 통합 재검).
+
+### 16.5 acceptance 2차 = 격발·판별 완벽 / 해제 깜빡임으로 구출 재실패 → latch 확정
+- **2차(트리거 v2 = dup≥0.5 + 프런티어-해제) 결과**: 격발 판별은 **오격발 0·미격발 0으로 완벽**
+  — S12 s1 on@34(dup 0.604)·S17 s2 on@122/153/197/228(dup 0.51~0.91)·S17 s1 on@124(dup 0.91,
+  클리어 직전 실제 반복-락) vs 무격발 = v2.1 전 seed(꼬리 s4/s5 포함 — blocked max dup 0.45/0.33
+  보정과 정합)·S12 s0/s2(0.31/0.32)·S17 s0(0.371). 무해 케이스 전건 baseline 일치(S17 s0 @195
+  클리어 유지·S12 60/75). **BUT 구출 재실패**: 프런티어-해제도 미세-진척에 반응 — S12 s1은
+  on@34→off@52(프런티어 틱)→재무장 30batch→on@146→**off@147**(1 batch!)→… / S17 s2는 4회 격발
+  전부 **1 batch 만에 소등** → 압력 누적 불가, 둘 다 FAIL. bestR-틱(§16.4)에 이어 프런티어-틱도
+  반증 — **정체 중 미세-진척은 탈출이 아니며, 탈출의 무모호 신호는 클리어뿐**.
+- **latch 시도(v3)**: 격발 후 런 끝까지 유지(중간 해제 제거) — probe 12/12 PASS 후 실측:
+  **S12 s1(on@34 latch)·S17 s2(on@122 latch) 둘 다 여전히 FAIL**. 지연-투입은 latch로도 구출
+  불가(3판째 반증). pinned 5/5는 매 판 재확인 PASS.
+
+### 16.6 최종형 = escalation-restart — "지연-투입 불가" 메커니즘 결론 + 검출기 단순화
+- **핵심 발견(3판 누적): knowledge의 구출력은 batch 0부터의 경로 의존** — ① α(신규-토큰 보너스)는
+  초기 지급이어야 탐험을 넓힘(stall 검출 구간에 토큰이 '관측'되면 α는 영영 미지급) ② β(반복
+  페널티)는 점진 성장 + baseline EMA 공적응이 정합(게이트 개방 시 급투입은 §14.4 레짐과 다른
+  동역학) → **mid-run 투입은 어떤 변형으로도 from-scratch 레짐을 재현하지 못한다**(깜빡임 2안 +
+  latch 전부 실측 FAIL).
+- **설계 전환**: 격발 = mid-run 게이트가 아니라 **재시작 신호**. `train_seed_escalate` = 검출 런
+  (knowledge 완전 미적용 — 보상 경로 무개입 순수 관측) → 격발 시 **같은 seed × knowledge=always
+  재시작** = §14.4가 구출을 실증한 **정확한 커맨드의 결정론 재현**(cross-PC 학습 결정론은 §15.8
+  실증). §11.4 reseed(새 seed × 같은 레짐 = 같은 함정 반복)와의 차이 = 같은 seed × **다른 레짐**.
+  비용 = 격발 seed에 한해 검출 배치(stall_batches+α) 추가; 무격발(건강) seed는 검출 런이 곧 결과.
+- 구현 단순화: StallGovernor = 순수 검출기(게이트/램프/latch 제거, fired 1회 + blocked 계측),
+  격발 시 train_seed 즉시 중단(예산 절약), always 경로는 **§14.4 원문 코드 그대로 복원**
+  (byte-identity 자명). stall+reseed 조합 금지 가드. probe 갱신 **11/11 PASS**(검출기 의미론 +
+  always==레거시 curve 일치 + stall 무격발==knowledge-무 curve 일치 + escalate 재시작·회계).
+- 최종 acceptance(전체 12런 + pinned 5종, 최종 코드 기준) 결과는 §16.7에 박제.
+- (재실행 사이 발견 1건: 검출기 단순화 리팩터가 배치-출력 라인의 옛 `k_gate` 참조를 남겨 NameError
+  — probe가 못 잡은 원인 = 전 통합 테스트가 batch 10 미달로 주기-출력 경로 미실행. 수정 +
+  probe B를 12배치로 확장해 경로 상시 커버.)
+
+### 16.7 최종 acceptance = 12/12 클리어 — stall-escalate가 baseline·always 둘 다 엄격 우위 (종결)
+| 케이스 | baseline | always | **stall-escalate** | 판독 |
+|---|---|---|---|---|
+| v2.1 s0~s5 | 6/6 (30/40/45/35/125/130) | 6/6 (125/40/40/40/20/50) 혼합 | **6/6 무격발 = baseline 정확 일치** | 무해 ✓ |
+| S12 s0/s2 | 60 / 70 | 60 / **145(2배)** | **60 / 75 무격발** | 무해 ✓ |
+| S12 s1 | **FAIL** | @120 | 격발@34(dup .604) → 재시작 → **CLEAR @120** | 구출 ✓ (§14.4 재현) |
+| S17 s0 | @195 | **DNF(flip)** | **@195 무격발 유지** | 무해 ✓ (flip 회피) |
+| S17 s1 | @130 | @85 | 격발@124(dup .913) → 재시작 → **CLEAR @85** | 클리어 유지 |
+| S17 s2 | **DNF** | @95 | 격발@122(dup .506) → 재시작 → **CLEAR @95** | 구출 ✓ (§15.8 재현) |
+- **12/12 클리어** vs baseline 10/12(S12s1·S17s2 FAIL) vs always 10/12(S17s0 flip DNF + S12s2 2배).
+  구출 3건 전부 §14.4/§15.8 always 런의 **결정론 재현**(batch-정확 일치 — escalation의 실체가
+  "실증된 레짐 재생"임을 그대로 보여줌). 오격발 0 유지(v2.1 꼬리 dup .21~.45 < 0.5 문턱 정합).
+- **정직 비용 회계**: 격발 seed는 검출 구간이 추가됨 — S12 s1 = 34+120 / S17 s2 = 122+95(FAIL
+  대비이므로 순이득) / **S17 s1 = 124+85 = 209 vs baseline 자연클리어 130 (+79 배치, 12건 중 1)**
+  — "자연 클리어 직전 격발" 리스크는 실재하나 결과는 클리어 유지(DNF 아님).
+- pinned 5/5 최종 재확인(값 전부 종전 동일) + probe 11/11. **§16 종결 — knowledge 레시피 확정** =
+  `--knowledge-mode stall`(+coef 1.0): 건강 런 불간섭·병리 런 자동 구출. always는 §14.4 재현·연구
+  대조용으로 잔존, 기본 권장 레시피 = stall.

@@ -1538,5 +1538,30 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - **knowledge 레시피 = 사용자 결정 대기 (3안, 어느 것도 지배 못함)**: (a) 상시화(집계 +, flip 리스크
   1/13) / (b) 정체-격발(§15.7 논거 붕괴 — near-clear 한정 격발이면 잔존, 복잡도↑) / (c) **현행
   opt-in 유지**(구현 0·단순). 세부 = 세션 로그 §15.6~15.8.
+- → **사용자 결정: (b) 정체-격발, "구현이 어려워도 제대로"** — 아래 §16 항목으로 진행·완결.
+
+## §16 정체-격발(stall-escalate) 구현·완결 (2026-07-11) — 12/12 클리어, baseline·always 엄격 우위
+
+> 세션 로그 = [2026-07-05-rl-brain-experiments.md](2026-07-05-rl-brain-experiments.md) §16.1~16.7.
+> 커밋 `33633a3`(§15)·`5f3979a`(§15.7)·`746783e`(§15.8) push 완료 후 사용자 go. 엔진/PlanRunner
+> 무변경(train.py + 실험 스크립트만). KNOWLEDGE 상수·ledger 계약 불변 = §R4 pin 안전.
+
+- **최종형 = `--knowledge-mode stall` (escalation-restart)**: 검출 런(knowledge 완전 미적용) →
+  격발(미개선 ≥30 batch AND 창 dup 점유율 ≥0.5 — 5점 실측 보정) 시 **같은 seed × knowledge=always
+  재시작**(§14.4 실증 레짐의 결정론 재현). 격발 즉시 검출 런 중단(예산 절약). `train_seed_escalate`
+  front-door, stall+reseed 배타, cfg 키는 stall일 때만 주입(산출물 config 호환).
+- **설계 여정 = 실측 반증 3판**(제대로의 실체): v1 최빈-plan 35% 트리거 = 불발(collapse도 변형 섞어
+  반복 → top 8.8%) → dup 메트릭 5점 보정(병리 0.76/0.91 vs 금지 0.37, v2.1 꼬리는 α-수혜라 의도적
+  제외) → v2 프런티어-해제 = 깜빡임(1 batch 소등) → v3 latch = 그래도 FAIL → **핵심 발견:
+  knowledge의 구출력은 batch 0부터의 경로 의존(α 초기 지급 + β 점진 성장 + baseline 공적응) —
+  mid-run 투입은 어떤 변형으로도 재현 불가** → 재시작으로 전환.
+- **최종 acceptance 12/12**(§16.7 표): 무격발 9런 전부 baseline 정확 일치(S17 s0 flip 회피·S12 s2
+  2배지연 회피 포함, 오격발 0) + 격발 3런 전부 구출/유지(S12 s1 FAIL→@120·S17 s2 DNF→@95 = always
+  런 batch-정확 재현, S17 s1 @85). 정직 비용: 격발 seed 검출-구간 추가(S17 s1 = 124+85 vs 자연 130,
+  12건 중 1). **권장 레시피 확정 = stall**(always는 재현·대조용 잔존).
+- 검증: probe 11/11(검출기 단위 8 + always byte-identity·무격발 무영향·escalate 통합 3) + pinned
+  격리 5/5 매 판 재확인(값 전부 종전 동일) + 재실행 사이 NameError 1건(리팩터 잔재 참조) 수정·probe
+  커버리지 보강(batch%10 출력 경로). 산출물 = train.py(StallGovernor+train_seed_escalate+CLI) +
+  `experiments/stall_governor_probe.py`(신규) + trap_v2_test `--stall` arm.
 - **게이트**: TileMetadataDriftTest PASS(82 layouts — 신규 fixture 포함 전수 스캔) + try_solve selftest
   19/19 PASS. 산출물 = `dev_stages/trap_blocker_v2/`(3파일) + `rl/experiments/trap_v2_{probe,test}.py`.

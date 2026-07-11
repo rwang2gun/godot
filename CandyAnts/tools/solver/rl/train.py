@@ -1044,6 +1044,91 @@ class KnowledgeLedger:
                 "best_w": self.best_w, "best_c": self.best_c}
 
 
+# ---------- 정체-진단 검출기 (워크로그 §16, 사용자 결정 2026-07-11 — opt-in) ----------
+
+class StallGovernor:
+    """정체-진단 검출기(§16.6 최종형) — **격발 = 재시작 신호**(mid-run 게이트 아님).
+
+    격발 = 미개선(bestR base) 연속 ≥ stall_batches **AND** 최근 stall_batches 창의
+    **dup 점유율(1 − unique/total plan sig)** ≥ stall_share. 격발 시 train_seed가 즉시 중단하고
+    오케스트레이터(train_seed_escalate)가 **같은 seed를 knowledge=always로 재시작**(§14.4가
+    구출을 실증한 정확한 레짐 — 결정론 재현).
+    지연-투입(게이트/램프/해제/latch)은 3판 실측 반증으로 폐기(§16.4~16.6): bestR-틱/프런티어-틱
+    해제 = 미세-진척 깜빡임으로 압력 누적 실패, latch(끝까지 유지)도 구출 실패 — knowledge의
+    구출력은 batch 0부터의 경로 의존(α 신규-토큰 초기 지급 + β 페널티 점진 성장 + baseline
+    공적응)이라 mid-run 투입으로 재현 불가.
+    보정 실측(§16.4, dup max): 격발해야 = S12s1 0.756·S17s2 0.915 / 격발 금지 = S17s0 0.371 →
+    기본 문턱 0.5. v2.1 꼬리(s4 0.452·s5 0.327)는 반복-병리가 아니라 초기-탐험(α) 수혜라
+    **의도적 비격발**(α는 건강-런 교란과 동전의 양면 — 정직 트레이드오프). 실측 오격발 0.
+    순수·RNG 미사용 — 검출 런의 보상 경로에 일절 불개입."""
+
+    def __init__(self, stall_batches: int, stall_share: float, data: dict | None = None):
+        d = data or {}
+        self.stall_batches = int(stall_batches)
+        self.stall_share = float(stall_share)
+        self.window: list[list[str]] = [list(x) for x in (d.get("window") or [])]
+        self.since_improve = int(d.get("since_improve", 0))
+        self.fired = bool(d.get("fired", False))
+        self.events: list[dict] = [dict(e) for e in (d.get("events") or [])]
+        # 진단 계측(격발-차단 상태 관측 — §16.4 acceptance가 트리거 불발을 드러내 추가)
+        self.blocked_n = int(d.get("blocked_n", 0))
+        self.blocked_max_top = float(d.get("blocked_max_top", 0.0))
+        self.blocked_max_dup = float(d.get("blocked_max_dup", 0.0))
+
+    def _top_share(self) -> tuple[float, float, int]:
+        """(최빈 sig 점유율, dup 점유율 = 1 − unique/total, 창 에피소드 수).
+        dup 점유율 = '창 안에서 반복된 plan의 비율' — 격발 메트릭(§16.4 보정)."""
+        n = sum(len(b) for b in self.window)
+        if not n:
+            return 0.0, 0.0, 0
+        cnt: dict[str, int] = {}
+        for b in self.window:
+            for s in b:
+                cnt[s] = cnt.get(s, 0) + 1
+        return max(cnt.values()) / n, 1.0 - len(cnt) / n, n
+
+    def observe_batch(self, batch_i: int, best_improved: bool, sigs: list[str]) -> None:
+        """best_improved = bestR(base) 갱신(정체 카운터 리셋 — 민감한 검출이 의도:
+        오검출은 dup 조건이 막고, 격발 후엔 train_seed가 중단하므로 과검출 비용 없음)."""
+        if self.fired:
+            return
+        self.window.append(list(sigs))
+        del self.window[:-self.stall_batches]
+        if best_improved:
+            self.since_improve = 0
+            return
+        self.since_improve += 1
+        if self.since_improve >= self.stall_batches:
+            share, dup, n = self._top_share()
+            if dup >= self.stall_share:
+                self.fired = True
+                self.events.append({"batch": batch_i, "event": "on",
+                                    "dup_share": round(dup, 4),
+                                    "top_share": round(share, 4), "window_eps": n})
+            else:
+                # 진단 계측: 정체인데 반복-지배 문턱 미달로 격발이 막힌 상태(최초 1회 + 최대값 갱신 기록)
+                if not self.blocked_n:
+                    self.events.append({"batch": batch_i, "event": "blocked_first",
+                                        "top_share": round(share, 4), "dup_share": round(dup, 4)})
+                self.blocked_n += 1
+                if share > self.blocked_max_top or dup > self.blocked_max_dup:
+                    self.blocked_max_top = max(self.blocked_max_top, share)
+                    self.blocked_max_dup = max(self.blocked_max_dup, dup)
+
+    def summary(self) -> dict:
+        return {"events": list(self.events), "blocked_n": self.blocked_n,
+                "blocked_max_top": round(self.blocked_max_top, 4),
+                "blocked_max_dup": round(self.blocked_max_dup, 4)}
+
+    def to_dict(self) -> dict:
+        return {"window": [list(x) for x in self.window],
+                "since_improve": self.since_improve,
+                "fired": self.fired, "events": list(self.events),
+                "blocked_n": self.blocked_n,
+                "blocked_max_top": self.blocked_max_top,
+                "blocked_max_dup": self.blocked_max_dup}
+
+
 # ---------- 학습 (seed 1개) ----------
 
 def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
@@ -1140,9 +1225,21 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     k_coef = float(cfg.get("knowledge_coef", 0.0) or 0.0)
     if k_coef and refine:
         raise RuntimeError("--knowledge-coef는 현재 non-refine(r2 primary) 경로 전용 — refine 미배선")
+    # §16: knowledge_mode. always(기본) = §14.4 원행동(아래 ledger 경로 원문 그대로) /
+    # stall = 검출 런(knowledge 미적용·governor만) → 격발 시 중단(train_seed_escalate가 재시작).
+    k_mode = str(cfg.get("knowledge_mode", "always"))
+    if k_mode not in ("always", "stall"):
+        raise RuntimeError(f"knowledge_mode 미지원: {k_mode}")
+    if k_mode == "stall" and not k_coef:
+        raise RuntimeError("knowledge_mode=stall은 knowledge_coef>0 필요(재시작 시 적용할 크기)")
     ledger = None
-    if k_coef:
+    if k_coef and k_mode == "always":
         ledger = KnowledgeLedger(k_coef, (ckpt_in or {}).get("knowledge_ledger")
+                                 if ckpt_mode == "resume" else None)
+    governor = None
+    if k_coef and k_mode == "stall":
+        governor = StallGovernor(cfg.get("stall_batches", 30), cfg.get("stall_share", 0.5),
+                                 (ckpt_in or {}).get("knowledge_governor")
                                  if ckpt_mode == "resume" else None)
     while not result["cleared"] and _budget_left():
         batch_i += 1
@@ -1165,12 +1262,12 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         else:
             eps = [_sample() for _ in range(cfg["batch"])]
             plans = [{"stage": mdp.stage_scene, "deadline_frames": cfg["train_deadline"],
-                      **({"trace": True} if (use_trace or k_coef) else {}),
+                      **({"trace": True} if (use_trace or ledger is not None) else {}),
                       **({"report_fired": True} if blocker_coef else {}),
                       "actions": mdp.decode_plan(p)} for p, _, _ in eps]
             rollouts = pool.evaluate(plans)
             episodes += len(eps)
-            if use_trace or k_coef:
+            if use_trace or ledger is not None:
                 # post-commit codex R4 MEDIUM: 빈-plan preflight만으론 "액션 발화 시 trace 소실" 회귀를 못
                 # 잡고, shaped_bonus의 {} fail-safe가 무력화를 침묵시킴 → **액션 롤아웃별 trace 검증**.
                 # 위반 = 학습 run 전체 fail(정직 크래시 — silent shaping 격하로 'trace' 라벨 산출물 금지).
@@ -1185,14 +1282,25 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         # 지식 항(§14.3): PG 보상에만 가산. bestR/SIL은 base 보상 기준(시간-가변 항 섞이면 비교 불능 +
         # SIL 수집-시점 고보상 박제가 collapse를 되레 지속시키는 역효과 — 사용-시점 repeat_term 재평가로 대체).
         br = rewards
-        if k_coef and not refine:
+        if ledger is not None and not refine:
             br = list(rewards)
             rewards = [rw + ledger.observe(p, r, mdp.layout)
                        for (p, _, _), r, rw in zip(eps, rollouts, br)]
+        prev_best = result["best_reward"]
         bi = max(range(len(br)), key=lambda i: br[i])
         if br[bi] > result["best_reward"]:
             result["best_episode"] = mdp.decode_plan(eps[bi][0])   # FAIL 사후 진단용(스윕 로그)
         result["best_reward"] = max(result["best_reward"], max(br))
+        if governor is not None:
+            # §16.6 검출 런: 보상 경로 불개입(위 ledger 분기 미진입) — 관측만. 격발 = 즉시 중단
+            # (지연-투입 3판 반증 — 구출은 train_seed_escalate의 always 재시작이 담당).
+            governor.observe_batch(batch_i, max(br) > prev_best,
+                                   [json.dumps(p, sort_keys=True) for p, _, _ in eps])
+            if governor.fired:
+                result["stall_escalate"] = dict(governor.events[-1])
+                print(f"  [seed {seed}] stall 격발(batch {batch_i}, "
+                      f"dup {governor.events[-1].get('dup_share')}) → 검출 런 중단")
+                break
         mean_r = sum(rewards) / len(rewards)
         mean_shape = sum(bonuses) / len(bonuses)
         curve.append(round(mean_r, 4))
@@ -1216,7 +1324,7 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
             for rew, p in sil_buf[cfg["sil_buffer"]:]:
                 sil_sigs.discard(json.dumps(p, sort_keys=True))
             del sil_buf[cfg["sil_buffer"]:]
-            if k_coef:
+            if ledger is not None:
                 used_sil = []
                 for rew, p in sil_buf:
                     eff = rew + ledger.repeat_term(json.dumps(p, sort_keys=True))
@@ -1235,8 +1343,10 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         baseline = cfg["baseline_decay"] * baseline + (1 - cfg["baseline_decay"]) * mean_r
         if batch_i % 10 == 0:
             shape_note = f" meanShape={mean_shape:.3f}" if use_trace else ""
+            gov_note = (f" gov=si{governor.since_improve}"
+                        if governor is not None else "")
             print(f"  [seed {seed}] batch {batch_i} eps={episodes} meanR={mean_r:.3f}{shape_note} "
-                  f"bestR={result['best_reward']:.3f} wall={time.monotonic() - t0:.0f}s")
+                  f"bestR={result['best_reward']:.3f}{gov_note} wall={time.monotonic() - t0:.0f}s")
         # greedy 평가(성공 판정 = 표준 deadline에서 saved==hp_stage)
         if batch_i % cfg["greedy_every"] == 0:
             with torch.no_grad():
@@ -1304,7 +1414,40 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         }
         if ledger is not None:      # §14.3 opt-in에서만 동승 — coef=0 ckpt는 기존과 키 구성 동일
             state["knowledge_ledger"] = ledger.to_dict()
+        if governor is not None:    # §16 stall 모드에서만 동승(resume 복원 + 격발 계측 박제)
+            state["knowledge_governor"] = governor.to_dict()
+    if governor is not None:
+        result["knowledge_governor"] = {"mode": "stall",
+                                        "stall_batches": governor.stall_batches,
+                                        "stall_share": governor.stall_share,
+                                        **governor.summary()}
+        print(f"  [seed {seed}] governor: {result['knowledge_governor']}")
     return result, state
+
+
+def train_seed_escalate(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
+                        ckpt_in: dict | None = None, ckpt_mode: str | None = None):
+    """§16.6 stall 모드 front-door — 검출 런 → 격발 시 **같은 seed × knowledge=always 재시작**.
+
+    근거: 지연-투입(게이트/latch)은 3판 실측 반증(§16.4~16.6) — knowledge의 구출력은 batch 0부터의
+    경로 의존이라 mid-run 투입으로 재현 불가. 재시작 레짐은 §14.4가 해당 병리(S12 s1 collapse·
+    S17 s2 고원) 구출을 실증한 **정확한 커맨드**(결정론 재현). §11.4 reseed(새 seed × 같은 레짐 =
+    같은 함정 반복)와 달리 같은 seed × 다른 레짐. 비용 = 검출 배치(stall_batches+α)가 격발 seed에
+    한해 추가 — 무격발(건강) seed는 검출 런이 곧 결과(보상 경로 불개입 = knowledge-무 런과 동일).
+    비-stall cfg는 무변경 통과(위임만). 반환 = 최종 (result, state); 격발 시 result에
+    stall_escalation(검출 회계) 동승."""
+    res, st = train_seed(mdp, pool, seed, cfg, ckpt_in, ckpt_mode)
+    if not res.get("stall_escalate"):
+        return res, st
+    always_cfg = {k: v for k, v in cfg.items()
+                  if k not in ("knowledge_mode", "stall_batches", "stall_share")}
+    print(f"  [seed {seed}] stall-escalate → knowledge=always 재시작(§14.4 레짐)")
+    res2, st2 = train_seed(mdp, pool, seed, always_cfg, ckpt_in, ckpt_mode)
+    res2["stall_escalation"] = {"fire": res["stall_escalate"],
+                                "detect_batches": res["batches"],
+                                "detect_episodes": res["episodes"],
+                                "detect_wall_s": res["wall_s"]}
+    return res2, st2
 
 
 # ---------- acceptance 오케스트레이션 (--seeds 집계, R2-H) ----------
@@ -1432,6 +1575,15 @@ def run_training(args) -> int:
                sil=bool(args.sil), max_batches=args.max_batches,
                blocker_coef=float(getattr(args, "blocker_coef", 0.0) or 0.0),  # opt-in(§6.4)
                knowledge_coef=float(getattr(args, "knowledge_coef", 0.0) or 0.0))  # opt-in(§14.3)
+    # §16 정체-격발(opt-in): cfg 키는 stall일 때만 주입 — always/off 런의 cfg_pub(산출물 config·
+    # 병합 동일성 비교)을 종전과 바이트 단위로 보존.
+    if getattr(args, "knowledge_mode", "always") == "stall":
+        if not cfg["knowledge_coef"]:
+            print("--knowledge-mode stall은 --knowledge-coef>0 필요(격발 시 적용할 크기)")
+            return 2
+        cfg.update(knowledge_mode="stall",
+                   stall_batches=int(getattr(args, "stall_batches", 30)),
+                   stall_share=float(getattr(args, "stall_share", 0.5)))
     if refine:                                    # plan §R3 — trace-refinement 계약(opt-in)
         cfg.update(refine=True, dense_shaping=bool(getattr(args, "dense_shaping", False)),
                    trace_blind=bool(getattr(args, "trace_blind", False)),
@@ -1456,6 +1608,9 @@ def run_training(args) -> int:
     if reseed_k and ckpt_in is not None:
         print("--reseed-on-fail은 scratch 학습 전용(ckpt 로드 모드=per-seed 사슬 계약과 배타)")
         return 2
+    if reseed_k and cfg.get("knowledge_mode") == "stall":
+        print("--reseed-on-fail과 --knowledge-mode stall은 배타(둘 다 재시도 오케스트레이션 — 조합 의미 미정의)")
+        return 2
     try:
         if reseed_k:
             # collapse 회피(§11): 요청 seed가 FAIL이면 대체 seed로 재시도. 실제 학습된 seed로
@@ -1474,7 +1629,7 @@ def run_training(args) -> int:
                 eff_seeds.append(rs[0]["seed"])
             seeds = eff_seeds
         else:
-            outs = [train_seed(mdp, pool, s, cfg, ckpt_in, ckpt_mode) for s in seeds]
+            outs = [train_seed_escalate(mdp, pool, s, cfg, ckpt_in, ckpt_mode) for s in seeds]
     finally:
         pool.close()
     seed_results = [r for r, _ in outs]
@@ -2816,6 +2971,20 @@ def main() -> int:
                          ">0이면 신규 토큰(필드 값) 첫 사용 +, '시행착오'(미클리어 & 빈손→candy/운반→home "
                          "프런티어 모두 미갱신) 동일 plan 반복 누진 −(cap 클립). 원장은 ckpt 동승"
                          "(resume 이월=재도전 가속 / transfer 리셋). SIL은 사용-시점 재평가")
+    ap.add_argument("--knowledge-mode", choices=["always", "stall"], default="always",
+                    help="§16 정체-격발(opt-in, 권장 레시피=stall): always=§14.4 원행동(knowledge-coef>0 "
+                         "시 상시 적용) / stall=검출 런(knowledge 미적용)을 돌리다 격발 시 **같은 seed를 "
+                         "knowledge=always로 재시작**(escalation-restart — §14.4 실증 레짐의 결정론 재현). "
+                         "격발 = 미개선(bestR) 연속 ≥ --stall-batches AND 최근 창 dup 점유율 ≥ "
+                         "--stall-share(반복-지배 정체 진단 — §16.4 5점 보정, 실측 오격발 0). "
+                         "지연-투입(게이트/latch)은 3판 실측 반증으로 폐기(§16.4~16.6). "
+                         "최종 acceptance 12/12(§16.7 — baseline·always 둘 다 엄격 우위). "
+                         "stall은 --knowledge-coef>0 필요. cfg 키는 stall일 때만 주입(산출물 config 호환)")
+    ap.add_argument("--stall-batches", type=int, default=30,
+                    help="§16 격발 조건 ⓐ: bestR 미갱신 연속 배치 수 문턱(= 반복-지배 창 크기)")
+    ap.add_argument("--stall-share", type=float, default=0.5,
+                    help="§16 격발 조건 ⓑ: 최근 창 dup 점유율(1−unique/total) 문턱. 보정 실측(§16.4): "
+                         "격발해야 = 0.756/0.915, 격발 금지 = 0.371 → 0.5")
     ap.add_argument("--reseed-on-fail", type=int, default=0,
                     help="collapse 회피(§11 안정화): FAIL로 끝난 seed를 대체 seed(base+1000·attempt)로 최대 "
                          "K회 재시도(opt-in, 0=기존 동작 불변). 오케스트레이션 전용 — train_seed 무변경이라 "
