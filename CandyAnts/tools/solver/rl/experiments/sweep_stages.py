@@ -22,6 +22,9 @@ digest** 일치까지 요구 — seeds/레시피/트레이너/레벨이 바뀐 �
 정당한 발견 결과(train.py 계약: 0=클리어 통과 / 1=무클리어 / 2=설정 오류). 크래시·집계줄
 부재·rc=2는 done=false로 남아 재실행 시 자동 재시도되고, 실패 스테이지가 하나라도 있으면
 러너 exit=1 + 말미 성공/실패 요약을 출력한다(codex R1: 실패를 완료로 위장 금지).
+시도별 분리 기록(2026-07-12 사용자 지시): 로그 = sweep_out/stageNN.attemptK.log(시도마다 새
+파일, 실패 로그 보존) / 시도 결과 이력 = sweep_out/attempts.jsonl append 누적(이력 SoT) /
+sweep_state.json = 스킵 판정용 최신 상태만.
 """
 from __future__ import annotations
 
@@ -188,8 +191,11 @@ def main() -> int:
             print(f"[sweep] {key} 완료 기록 있음(재검증·지문·레벨 digest 일치) — 스킵", flush=True)
             continue
         cmd = [sys.executable, str(TRAIN), "--stage", str(sid), "--seeds", args.seeds] + RECIPE
-        log_p = OUT / f"{key}.log"
-        print(f"[sweep] {key} 시작 → {log_p.name}", flush=True)
+        # 시도별 분리 기록(2026-07-12 사용자 지시): 로그는 attempt 번호로 파일 분리(덮어쓰기
+        # 없음 — 실패 시도의 로그도 보존), 결과 요약은 attempts.jsonl에 append 누적.
+        attempt = _prev_attempts(state.get(key)) + 1
+        log_p = OUT / f"{key}.attempt{attempt:02d}.log"
+        print(f"[sweep] {key} 시작(attempt {attempt}) → {log_p.name}", flush=True)
         t1 = time.monotonic()
         with open(log_p, "w", encoding="utf-8") as lf:
             rc = subprocess.call(cmd, stdout=lf, stderr=subprocess.STDOUT, env=env)
@@ -205,11 +211,16 @@ def main() -> int:
         ok = run_ok(rc, tail)                  # 실패는 done=false로 남겨 자동 재시도
         if not ok:
             failed.append(key)
-        state[key] = {"done": ok, "rc": rc, "wall_s": wall, "summary": tail,
-                      "attempts": _prev_attempts(state.get(key)) + 1, "fingerprint": fp,
-                      "level_digest": cur_ld,
-                      "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        entry = {"done": ok, "rc": rc, "wall_s": wall, "summary": tail,
+                 "attempts": attempt, "fingerprint": fp,
+                 "level_digest": cur_ld, "log": log_p.name,
+                 "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        state[key] = entry
         _save_state(state_p, state)
+        # 시도 이력 append(불변 누적 — state는 스킵 판정용 최신본, 이력의 SoT는 이 파일)
+        with open(OUT / "attempts.jsonl", "a", encoding="utf-8") as af:
+            af.write(json.dumps({"stage": key, "seeds": args.seeds, **entry},
+                                ensure_ascii=False) + "\n")
         print(f"[sweep] {key} {'OK' if ok else 'FAIL(재시도 대상)'} rc={rc} wall={wall}s | {tail}",
               flush=True)
     print(f"[sweep] 전체 종료 total_wall={round(time.monotonic() - t0, 1)}s "
