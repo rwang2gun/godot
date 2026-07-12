@@ -2,7 +2,7 @@
  "stage_id": 12,
  "stage": "res://scenes/stages/Stage12.tscn",
  "level_digest": "ebca7d4f9d49b734",
- "updated": "2026-07-11T14:23:19Z",
+ "updated": "2026-07-12T11:35:33Z",
  "solutions": [
   {
    "exec_digest": "a9cf7e3bb158ea2b",
@@ -56,9 +56,9 @@
     0,
     1
    ],
-   "runs": 9,
+   "runs": 11,
    "first_ts": "2026-07-07T13:51:03Z",
-   "last_ts": "2026-07-11T07:02:57Z",
+   "last_ts": "2026-07-12T11:27:40Z",
    "grammar": "r2.1",
    "episodes": 960,
    "deadline_frames": 7000,
@@ -120,9 +120,9 @@
    "seeds": [
     2
    ],
-   "runs": 6,
+   "runs": 7,
    "first_ts": "2026-07-07T13:58:50Z",
-   "last_ts": "2026-07-11T07:10:26Z",
+   "last_ts": "2026-07-12T11:35:33Z",
    "grammar": "r2.1",
    "episodes": 1200,
    "deadline_frames": 7000,

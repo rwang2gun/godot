@@ -2,7 +2,7 @@
  "stage_id": 7,
  "stage": "res://scenes/stages/Stage07.tscn",
  "level_digest": "da0501e512da3b0e",
- "updated": "2026-07-11T14:23:19Z",
+ "updated": "2026-07-12T09:56:42Z",
  "solutions": [
   {
    "exec_digest": "59a7ef95cc4308b2",
@@ -30,9 +30,109 @@
    "seeds": [
     0
    ],
-   "runs": 1,
+   "runs": 2,
    "first_ts": "2026-07-05T07:36:20Z",
-   "last_ts": "2026-07-05T07:36:20Z",
+   "last_ts": "2026-07-12T09:54:56Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "basher": 2
+   },
+   "stage": "res://scenes/stages/Stage07.tscn"
+  },
+  {
+   "exec_digest": "c01061489cc496a4",
+   "plan_key": "d04e4652d25f3f38",
+   "actions": [
+    {
+     "skill": "basher",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       4,
+       5
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 2400
+     }
+    },
+    {
+     "skill": "basher",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       4,
+       5
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 2400
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 4468,
+   "hp": 5,
+   "seeds": [
+    1
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T09:55:51Z",
+   "last_ts": "2026-07-12T09:55:51Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "basher": 2
+   },
+   "stage": "res://scenes/stages/Stage07.tscn"
+  },
+  {
+   "exec_digest": "601b7a15128bc48c",
+   "plan_key": "757532351447e571",
+   "actions": [
+    {
+     "skill": "basher",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       8,
+       1
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 1800
+     }
+    },
+    {
+     "skill": "basher",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       8,
+       1
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 1800
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 3401,
+   "hp": 5,
+   "seeds": [
+    2
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T09:56:42Z",
+   "last_ts": "2026-07-12T09:56:42Z",
    "grammar": "r2.1",
    "episodes": 80,
    "deadline_frames": 7000,

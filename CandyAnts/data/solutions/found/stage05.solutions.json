@@ -2,7 +2,7 @@
  "stage_id": 5,
  "stage": "res://scenes/stages/Stage05.tscn",
  "level_digest": "34aae184c563d4d4",
- "updated": "2026-07-11T14:23:19Z",
+ "updated": "2026-07-12T08:54:06Z",
  "solutions": [
   {
    "exec_digest": "bc36d6376664f588",
@@ -43,11 +43,115 @@
    "seeds": [
     0
    ],
-   "runs": 1,
+   "runs": 2,
    "first_ts": "2026-07-05T07:41:14Z",
-   "last_ts": "2026-07-05T07:41:14Z",
+   "last_ts": "2026-07-12T08:50:25Z",
    "grammar": "r2.1",
    "episodes": 400,
+   "deadline_frames": 7000,
+   "inventory": {
+    "floater": 1,
+    "sand_mound": 1
+   },
+   "stage": "res://scenes/stages/Stage05.tscn"
+  },
+  {
+   "exec_digest": "358a83ec27338aef",
+   "plan_key": "395c8f47af37b1e7",
+   "actions": [
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       17,
+       9
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 1200
+     }
+    },
+    {
+     "skill": "floater",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 192.0,
+      "y_max": 240.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 1200
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 4223,
+   "hp": 5,
+   "seeds": [
+    1
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T08:52:36Z",
+   "last_ts": "2026-07-12T08:52:36Z",
+   "grammar": "r2.1",
+   "episodes": 240,
+   "deadline_frames": 7000,
+   "inventory": {
+    "floater": 1,
+    "sand_mound": 1
+   },
+   "stage": "res://scenes/stages/Stage05.tscn"
+  },
+  {
+   "exec_digest": "e2fe9f107c3fa6c0",
+   "plan_key": "25901e2b0b96ce05",
+   "actions": [
+    {
+     "skill": "floater",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 192.0,
+      "y_max": 240.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1416.0
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       15,
+       9
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1416.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1671,
+   "hp": 5,
+   "seeds": [
+    2
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T08:54:06Z",
+   "last_ts": "2026-07-12T08:54:06Z",
+   "grammar": "r2.1",
+   "episodes": 160,
    "deadline_frames": 7000,
    "inventory": {
     "floater": 1,

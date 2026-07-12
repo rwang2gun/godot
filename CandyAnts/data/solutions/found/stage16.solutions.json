@@ -1,0 +1,164 @@
+{
+ "stage_id": 16,
+ "stage": "res://scenes/stages/Stage16.tscn",
+ "level_digest": "8804d25a3a32323e",
+ "updated": "2026-07-12T14:05:54Z",
+ "solutions": [
+  {
+   "exec_digest": "0fb1a9df5d2269b8",
+   "plan_key": "7fe15fa41b5f41b8",
+   "actions": [
+    {
+     "skill": "floater",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 216.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 408.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2438,
+   "hp": 5,
+   "seeds": [
+    0
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T13:43:10Z",
+   "last_ts": "2026-07-12T13:43:10Z",
+   "grammar": "r2.1",
+   "episodes": 1040,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 3,
+    "floater": 1
+   },
+   "stage": "res://scenes/stages/Stage16.tscn"
+  },
+  {
+   "exec_digest": "43b707136638921a",
+   "plan_key": "310b92ca21927358",
+   "actions": [
+    {
+     "skill": "floater",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 600.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1512.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2438,
+   "hp": 5,
+   "seeds": [
+    2
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T14:05:54Z",
+   "last_ts": "2026-07-12T14:05:54Z",
+   "grammar": "r2.1",
+   "episodes": 1280,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 3,
+    "floater": 1
+   },
+   "stage": "res://scenes/stages/Stage16.tscn"
+  }
+ ]
+}

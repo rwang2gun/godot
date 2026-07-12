@@ -2,7 +2,7 @@
  "stage_id": 4,
  "stage": "res://scenes/stages/Stage04.tscn",
  "level_digest": "781b0ff9ff1bba88",
- "updated": "2026-07-11T14:23:19Z",
+ "updated": "2026-07-12T08:46:31Z",
  "solutions": [
   {
    "exec_digest": "823f7c7660e0be35",
@@ -28,11 +28,13 @@
    "frame": 1782,
    "hp": 5,
    "seeds": [
-    0
+    0,
+    1,
+    2
    ],
-   "runs": 1,
+   "runs": 4,
    "first_ts": "2026-07-05T07:17:13Z",
-   "last_ts": "2026-07-05T07:17:13Z",
+   "last_ts": "2026-07-12T08:46:31Z",
    "grammar": "r1.1",
    "episodes": 80,
    "deadline_frames": 7000,

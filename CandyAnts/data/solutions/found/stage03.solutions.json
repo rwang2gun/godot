@@ -2,7 +2,7 @@
  "stage_id": 3,
  "stage": "res://scenes/stages/Stage03.tscn",
  "level_digest": "e770cde492514077",
- "updated": "2026-07-11T14:30:53Z",
+ "updated": "2026-07-12T08:37:19Z",
  "solutions": [
   {
    "exec_digest": "a40ff0b7825d0bb0",
@@ -46,9 +46,9 @@
     0,
     1
    ],
-   "runs": 6,
+   "runs": 8,
    "first_ts": "2026-07-11T10:09:13Z",
-   "last_ts": "2026-07-11T14:30:53Z",
+   "last_ts": "2026-07-12T08:37:19Z",
    "grammar": "r2.1",
    "episodes": 400,
    "deadline_frames": 7000,

@@ -1,0 +1,91 @@
+{
+ "stage_id": 9,
+ "stage": "res://scenes/stages/Stage09.tscn",
+ "level_digest": "785be51f17ba7f33",
+ "updated": "2026-07-12T10:45:12Z",
+ "solutions": [
+  {
+   "exec_digest": "991d099d94ee302a",
+   "plan_key": "9ee1419e8d632dd8",
+   "actions": [
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker",
+      "y_min": 240.0,
+      "y_max": 288.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 840.0
+     }
+    },
+    {
+     "skill": "basher",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       8,
+       9
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1176.0
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       16,
+       9
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    },
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2205,
+   "hp": 5,
+   "seeds": [
+    2
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T10:45:12Z",
+   "last_ts": "2026-07-12T10:45:12Z",
+   "grammar": "r2.1",
+   "episodes": 1760,
+   "deadline_frames": 7000,
+   "inventory": {
+    "basher": 1,
+    "blocker": 1,
+    "bridge": 1,
+    "sand_mound": 1
+   },
+   "stage": "res://scenes/stages/Stage09.tscn"
+  }
+ ]
+}

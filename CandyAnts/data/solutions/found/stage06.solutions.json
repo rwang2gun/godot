@@ -2,7 +2,7 @@
  "stage_id": 6,
  "stage": "res://scenes/stages/Stage06.tscn",
  "level_digest": "0adba01fbd1b0648",
- "updated": "2026-07-11T14:23:19Z",
+ "updated": "2026-07-12T09:31:40Z",
  "solutions": [
   {
    "exec_digest": "0fc0359c8d23ca35",
@@ -98,9 +98,9 @@
    "seeds": [
     1
    ],
-   "runs": 2,
+   "runs": 3,
    "first_ts": "2026-07-05T13:00:21Z",
-   "last_ts": "2026-07-05T13:00:21Z",
+   "last_ts": "2026-07-12T09:31:40Z",
    "grammar": "r2.1",
    "episodes": 1600,
    "deadline_frames": 7000,

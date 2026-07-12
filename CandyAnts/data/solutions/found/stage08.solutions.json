@@ -2,7 +2,7 @@
  "stage_id": 8,
  "stage": "res://scenes/stages/Stage08.tscn",
  "level_digest": "79a542661bcd0baa",
- "updated": "2026-07-11T14:23:19Z",
+ "updated": "2026-07-12T09:59:48Z",
  "solutions": [
   {
    "exec_digest": "f297f992b9a6c605",
@@ -75,11 +75,102 @@
    "seeds": [
     0
    ],
-   "runs": 1,
+   "runs": 2,
    "first_ts": "2026-07-05T07:36:25Z",
-   "last_ts": "2026-07-05T07:36:25Z",
+   "last_ts": "2026-07-12T09:57:38Z",
    "grammar": "r2.1",
    "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "cutter": 1,
+    "leaf_jump": 3
+   },
+   "stage": "res://scenes/stages/Stage08.tscn"
+  },
+  {
+   "exec_digest": "15e801074c550d66",
+   "plan_key": "81c571a21a21b1c9",
+   "actions": [
+    {
+     "skill": "cutter",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       2,
+       2
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1224.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2166,
+   "hp": 5,
+   "seeds": [
+    1
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T09:58:22Z",
+   "last_ts": "2026-07-12T09:58:22Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "cutter": 1,
+    "leaf_jump": 3
+   },
+   "stage": "res://scenes/stages/Stage08.tscn"
+  },
+  {
+   "exec_digest": "5d6f1544b55d6686",
+   "plan_key": "e9941d154ee73c34",
+   "actions": [
+    {
+     "skill": "cutter",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       4,
+       8
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1032.0
+     }
+    },
+    {
+     "skill": "leaf_jump",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       4,
+       8
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1032.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1772,
+   "hp": 5,
+   "seeds": [
+    2
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T09:59:48Z",
+   "last_ts": "2026-07-12T09:59:48Z",
+   "grammar": "r2.1",
+   "episodes": 160,
    "deadline_frames": 7000,
    "inventory": {
     "cutter": 1,
