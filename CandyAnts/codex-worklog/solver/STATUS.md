@@ -1597,3 +1597,15 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   2차 스윕(수정 레시피) S1·S2 3/3 후 사용자 지시로 중단.
 - **다음 세션**: ① codex 적대 리뷰(이월 — 사후 정책) ② 스윕 재개 `sweep_stages.py --stages 3-25`
   ③ 완료 후 `found_viewer.py --replay` 최종 보고서 + 부분해 카드 실데이터 검증.
+
+## §17 사후 codex 적대 리뷰 종결 (2026-07-12) — R1~R23 approve, 커밋 `c9674c6`
+
+> `fa525e5`(§17 스윕+레지스트리) 이월 리뷰 완료. **23라운드**(HIGH 7+MEDIUM 18 전건 수정,
+> defer 0) + 자체 선제 3건. 트레일 = `phases/solver/reviews/phaseR-impl-review.md` §17 섹션.
+> 골자: 레지스트리 내구성(OS-락·quarantine·스키마/hex·이벤트-원장 멱등 migrate) / 리플레이
+> 캐시 4중 결속(레벨+runtime+파이썬 스택+엔진 바이너리, 오류 payload 불인정) / 뷰어 3-상태
+> 현행-런타임 판정(미검증≠클리어) / 스윕 fail-closed(rc=3 영속화 격상·지문 결속·state 원자화).
+> 게이트: registry_guard_probe 104/104 · pinned verify 4/4(3회 재확인, 값 동일) · 15해
+> 현행-런타임 재검증 클리어. gotcha: codex CLI는 npm **alpha 채널**(0.145.0-alpha.4) 필요
+> (핀 gpt-5.6-sol이 latest 0.144.1 거부). **다음 = 스윕 재개 `--stages 3-25`**(state 지문
+> 결속으로 S1·S2 포함 전량 재시도되나 dup-무해).
