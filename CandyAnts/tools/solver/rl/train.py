@@ -42,6 +42,7 @@ import os
 import sys
 import tempfile
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -278,6 +279,22 @@ def _append_jsonl(path: Path, rec: dict) -> None:
                 pass
 
 
+# 발견 기록 영속화 실패 회계(codex §17-R5 H1): _record_found/_record_partial은 예외를 삼켜
+# 학습을 지속하지만(기록은 보조), 완주 후 rc를 3으로 격상해 스윕이 done으로 박제하지 못하게
+# 한다(rc=3은 sweep run_ok({0,1}) 거부 → 자동 재시도). run_training 시작 시 리셋.
+_PERSIST_FAILURES: list[str] = []
+
+
+def _final_rc(passed: bool) -> int:
+    """run_training 종료 코드: 0=클리어 통과 / 1=무클리어 완주 / **3=발견 기록 영속화 실패**
+    (quarantine·락 타임아웃·FS 오류 등으로 durable 기록이 유실된 채 정상 종료하는 것 차단)."""
+    if _PERSIST_FAILURES:
+        print(f"=== 영속화 실패 {len(_PERSIST_FAILURES)}건(rc=3): "
+              f"{'; '.join(_PERSIST_FAILURES)} ===")
+        return 3
+    return 0 if passed else 1
+
+
 def _record_found(mdp: "StageMDP", seed: int, plan: list, res: dict,
                   cfg: dict, refine: bool, episodes: int) -> None:
     """train_seed의 greedy-clear 지점에서 호출. 발견 해를 **solution_registry 경유**로 기록
@@ -288,6 +305,8 @@ def _record_found(mdp: "StageMDP", seed: int, plan: list, res: dict,
         import solution_registry               # tools/solver (sys.path 선등록) — 기록 경로 한정 의존
         FOUND_DIR.mkdir(parents=True, exist_ok=True)
         rec = {
+            "event": uuid.uuid4().hex[:16],    # 발견 이벤트 고유 ID(codex §17-R22: migrate
+            #                                    멱등 원장의 무충돌 SoT — 같은 초 별개 발견 구별)
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "stage_id": mdp.stage_id,
             "stage": mdp.stage_scene,
@@ -316,19 +335,25 @@ def _record_found(mdp: "StageMDP", seed: int, plan: list, res: dict,
         os.replace(tmp, side)                  # 원자적 교체(부분쓰기 sidecar 차단)
         print(f"  [seed {seed}] 신규 해 기록 → {reg_rel} + {_rel(side)}")
     except Exception as e:                     # noqa: BLE001 — 기록 실패가 학습을 죽이면 안 됨
-        print(f"  [seed {seed}] WARN 해 기록 실패(무시하고 학습 지속): {e}")
+        _PERSIST_FAILURES.append(f"found stage{mdp.stage_id:02d} seed{seed}: {e}")
+        print(f"  [seed {seed}] WARN 해 기록 실패(무시하고 학습 지속, 종료 rc=3 격상): {e}")
 
 
 def _record_partial(mdp: "StageMDP", seed: int, plan: list, cfg: dict,
                     episodes: int, batches: int, best_reward: float, refine: bool) -> None:
     """train_seed FAIL 종료 지점에서 호출(정규 학습 front-door 한정 — record_partial kwarg 게이트,
     verify/accept 경로는 기본 False라 미기록). 미클리어 seed의 최고-보상(base) 플랜을 durable 기록 —
-    '가장 멀리 도달' 보고용. 리플레이 메트릭(saved/frame/trace)은 보고 파이프라인이 결정론 리플레이로
-    산출(여기선 플랜+출처만). 부작용 전용·예외 삼킴(_record_found와 동일 계약)."""
+    '가장 멀리 도달' 보고용. 사이드카(.partial.json)는 **최신 런 스냅샷**(무조건 교체)이고,
+    최고-진척 권위는 partials.jsonl **전 이력** + found_viewer의 스테이지별 리플레이-best 선정
+    (codex R1-M3: 나중의 약한 런이 이전 최고를 못 가림). 리플레이 메트릭(saved/frame/trace)은
+    보고 파이프라인이 결정론 리플레이로 산출(여기선 플랜+출처만). 부작용 전용·예외 삼킴
+    (_record_found와 동일 계약)."""
     try:
         import solution_registry               # 레벨 digest 스탬프(뷰어 stale-체크용)
         FOUND_DIR.mkdir(parents=True, exist_ok=True)
         rec = {
+            "event": uuid.uuid4().hex[:16],    # 발견 이벤트 고유 ID(codex §17-R22: migrate
+            #                                    멱등 원장의 무충돌 SoT — 같은 초 별개 발견 구별)
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "stage_id": mdp.stage_id,
             "stage": mdp.stage_scene,
@@ -352,7 +377,8 @@ def _record_partial(mdp: "StageMDP", seed: int, plan: list, cfg: dict,
         os.replace(tmp, side)                  # 원자적 교체(found sidecar와 동일 패턴)
         print(f"  [seed {seed}] 부분-진척 기록 → {_rel(side)} + found/partials.jsonl")
     except Exception as e:                     # noqa: BLE001 — 기록 실패가 학습을 죽이면 안 됨
-        print(f"  [seed {seed}] WARN 부분-진척 기록 실패(무시): {e}")
+        _PERSIST_FAILURES.append(f"partial stage{mdp.stage_id:02d} seed{seed}: {e}")
+        print(f"  [seed {seed}] WARN 부분-진척 기록 실패(무시, 종료 rc=3 격상): {e}")
 
 
 def _file_sha(path: Path) -> str:
@@ -1638,6 +1664,7 @@ def _write_r3_artifact(mdp: StageMDP, args, cfg: dict, outs, seeds,
 
 
 def run_training(args) -> int:
+    _PERSIST_FAILURES.clear()                 # 영속화 실패 회계 리셋(in-process 재호출 안전)
     r2 = args.grammar in (GRAMMAR_R2, GRAMMAR_R4)     # r2-계열(ckpt/산출물 기계 공유 — §R4)
     seeds = [int(s) for s in args.seeds.split(",")]
     if (args.save_ckpt or args.resume_ckpt or args.transfer_ckpt) and not r2:
@@ -1737,7 +1764,7 @@ def run_training(args) -> int:
             _write_r3_artifact(mdp, args, cfg, outs, seeds, envs_effective, pf_info, saved_r3)
         else:
             print("--no-save: 산출물 미저장(판정은 위 집계줄 — plan §R3 스모크 격리)")
-        return 0 if passed else 1
+        return _final_rc(passed)
     if r2:
         # 체크포인트 저장(P1 — 영속화). 클리어 여부 무관 저장(FAIL 세그먼트도 exact resume 대상;
         # transfer는 _ckpt_compat이 미클리어 ckpt를 거부).
@@ -1753,7 +1780,7 @@ def run_training(args) -> int:
                                saved, ckpt_in, ckpt_mode)
         else:
             print("--no-save: 산출물 미저장(판정은 위 집계줄)")
-        return 0 if passed else 1
+        return _final_rc(passed)
     # ---- r1.1 산출물 경로(기존 그대로) ----
     ok = [r for r in seed_results if r["cleared"]]
     if ok and not args.no_save:
@@ -1788,7 +1815,7 @@ def run_training(args) -> int:
         print(f"산출물 저장: {path}")
     elif ok and args.no_save:
         print("--no-save: 산출물 미저장(판정은 위 집계줄 — plan §R1 S11 스모크 격리)")
-    return 0 if passed else 1
+    return _final_rc(passed)
 
 
 # ---------- r2 산출물 (seed-단위 병합 — per-seed 사슬 커맨드 계약, plan-R3 HIGH-2) ----------

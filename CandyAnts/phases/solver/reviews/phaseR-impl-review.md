@@ -623,3 +623,499 @@ Verdict: **approve** — "No ship-blocking fail-open, forgery, or verifier-bypas
   → codex R3[H1 transfer-유래 재개 silent 강등] → fix(fail-closed+F) → Self-R4 clean →
   **codex R4 approve**. 자체 선제 수정 2건(MEDIUM: 산출물 escalate 회계 동승 + "always 10/12"
   수치 정정) 포함. 최종 게이트: probe 15/15 + pinned 격리 5/5(매 라운드 재확인, 값 전부 종전 동일).
+
+---
+
+# §17 전 스테이지 스윕 + '정리된 해' 레지스트리 impl-stage 적대 리뷰 (2026-07-12)
+
+> 대상: 커밋 `fa525e5`(솔루션 레지스트리·궤적 보고서·스윕 러너, base `a107a40`). **사후 리뷰**
+> (push 후 — 워크로그 "codex 리뷰 이월" 이행). 스코프 branch(워킹트리의 사용자 그림-레벨 WIP 제외).
+> 부트스트랩: 핀 `gpt-5.6-sol`이 npm codex-cli 0.124.0에서 거부("requires a newer version") →
+> CLI `0.145.0-alpha.4`(alpha 채널)로 업그레이드해 해결. 모델 probe: gpt-5.7/5.7-sol/5.6/5.6-codex
+> 전부 400(ChatGPT 계정 미지원) — 핀 유지.
+
+## Round 1 (codex) — needs-attention (HIGH 1 + MEDIUM 3)
+
+- **[HIGH] 레지스트리 read-modify-replace 동시성·손상 불안전** (solution_registry.py):
+  ① 병행 학습 2개가 같은 스테이지 기록 시 마지막 replace가 상대 갱신 유실 + 공유 `.json.tmp`
+  경합 ② `load_registry`가 손상 JSON을 None으로 뭉개 다음 클리어가 **빈 레지스트리로 조용히
+  전체 파기** ③ `_record_found` 예외 삼킴이라 stdout 외 흔적 없음.
+- **[MEDIUM] 리플레이 캐시 레벨 미결속** (found_viewer.py): 키=stage 경로+deadline+actions뿐 —
+  레벨 변경 후 같은 플랜이 같은 캐시 파일명을 얻어 **옛 레벨 궤적/지표를 현재 보고서에 재사용**.
+- **[MEDIUM] 스윕 실패를 done으로 위장** (sweep_stages.py): 크래시·집계줄 부재도 done=true +
+  runner exit 0 — 재개 시 스킵돼 실패 스테이지가 캠페인에서 조용히 증발.
+- **[MEDIUM] partial이 최신-런 기준이라 최고-진척 아님** (train.py/found_viewer.py): 사이드카
+  무조건 교체 + 뷰어 최신-ts 선택 → 나중의 약한 런이 이전 최고-진척을 보고서에서 제거
+  ("가장 멀리 도달" 계약 위반, 재학습만으로 보고서 퇴행).
+
+## 수정 (전 4건 hot-fix — MEDIUM 포함 전부 수정, defer 0)
+
+- **H1**: `_stage_lock`(OS-수준 msvcrt/fcntl 논블로킹 잠금+타임아웃 — 프로세스 사망 시 자동
+  해제라 stale-break 불필요) 으로 load→mutate→replace 직렬화 + 라이터-고유 tmp(`.tmp<pid>`) +
+  `load_registry` missing(None)/corrupt(`RegistryCorruptError`) 구분 + 손상 시 **quarantine**
+  (`.corrupt-<ts>.json` 보존-이동, durable 흔적) 후 raise — 조용한 전체 파기 원천 차단.
+  예외 삼킴 계약(학습이 1차)은 유지하되 손상본이 durable 증거로 남는다.
+- **M1**: 캐시 키를 `solution_registry.replay_cache_key`(현재 **레벨 digest+스키마 버전 결속**,
+  migrate와 단일 출처)로 교체 + 캐시 payload `_cache` 결속(schema+level_digest) 검증(이중
+  안전망). 레거시 키 캐시는 전량 자동 미스(--replay 재생성 필요 — 재생 가능 아티팩트).
+- **M2**: 성공 판정 `run_ok(rc, tail)` = 집계줄 존재 AND rc∈{0,1}(1=무클리어 완주는 정당한
+  발견 결과, 2=설정오류) — 실패는 done=false 잔존(재실행 자동 재시도)+attempts 카운트,
+  실패 ≥1이면 runner exit 1 + 말미 요약.
+- **M3**: 뷰어 partial을 **전-이력 로드**(정확 중복만 제거) → 플랜-클래스 병합 → 리플레이 부착
+  → **스테이지별 리플레이-best 1개** 선정으로 재구성. 사이드카=최신 스냅샷·권위=partials.jsonl
+  전 이력임을 train.py docstring에 명문화(동작 무변경).
+
+## Self-Review Round 1 (수정 후)
+- **[self-HIGH] O_EXCL 락파일 초안의 stale-break 삭제 레이스**(A의 stat→unlink 사이 B가 갓
+  획득한 신선한 락을 삭제 가능) → OS-수준 잠금(msvcrt/fcntl)으로 교체해 해소(위 H1 최종형).
+- 점검 clean: quarantine 파일명이 뷰어 glob(`*.solutions.json`) 비매칭·gitignore 대상 /
+  registry 레코드(actions/stage/deadline_frames) 캐시 키 필드 충족 / 클래스 dedup의 deadline
+  비포함은 선재 의미론(비악화) / probe monkeypatch 원복 확인. 잉여 빈 줄 1건 정리.
+
+## 검증 (Round 1 수정)
+- **신설 `experiments/registry_guard_probe.py` 19/19 PASS**: P1 손상=quarantine+보존+비파기
+  +재시작 / P2 병렬 8프로세스 기록 유실 0 / P3 digest 변경→키 변경+결속 불일치 미스+일치 히트 /
+  P4 성공판정 5조합 / P5 약한-나중-런이 이전 최고를 못 가림(전-이력+best 선정).
+- **pinned verify 4/4 PASS 재확인**(r0·r1@12·r2@11·r2@19 — §17 보고서와 동일 세트, 값 동일:
+  S11 f=1342/S12 f=2239/S11 f=1488/S19 f=1583).
+- 실전 라운드트립: 뷰어 오프라인 빌드(15해/12스테이지 불변) + `--replay --stages 11` 신규-키
+  캐시 생성 → 오프라인 재빌드 캐시 히트+궤적(폴리라인) 포함.
+
+## Round 2 (codex) — needs-attention (HIGH 1 + MEDIUM 2)
+- **[HIGH] parse-valid 손상 우회** (solution_registry.py): 유효 JSON이지만 구조가 깨진
+  레지스트리(예: solutions는 남고 level_digest 누락)는 R1 수정의 JSONDecodeError 경로를 지나쳐
+  **'레벨 변경'으로 오인 → 파기**. 기타 위반 형태는 무관 예외로 quarantine 미진입.
+- **[MEDIUM] 레거시 state false-done 영구 스킵** (sweep_stages.py): 구버전 러너가 크래시에도
+  done=true를 썼으므로, 업그레이드 후 기존 sweep_state.json 재실행 시 **정확히 그 실패
+  스테이지들이 스킵**됨(run_ok는 신규 실행에만 적용됐음).
+- **[MEDIUM] 클래스 dedup이 리플레이 전에 후보 폐기** (found_viewer.py): plan_key는 의도적
+  손실(60f 버킷·셀 양자화) — 같은 클래스의 raw 플랜(at_frame 60 vs 119)이 리플레이 결과가
+  달라도 부착 전 best_reward 비교만으로 더 나은 쪽이 영구 폐기될 수 있음.
+
+## 수정 (Round 2 — 전 3건)
+- **H1**: `_schema_error`(최상위 dict / stage_id 일치 / level_digest 키 존재+형식 / solutions
+  list / 각 해의 plan_key·actions·seeds·exec_digest 타입) 검증을 `load_registry`에 편입 —
+  위반 = RegistryCorruptError → 기존 quarantine 경로. 뷰어 `load_registries`도 동일 스키마로
+  warn-skip(표시 전용). **커밋된 실 레지스트리 15해/12스테이지 전부 스키마 PASS 확인.**
+- **M1**: `state_entry_ok` — done=true라도 저장된 rc/summary를 run_ok로 **재검증** 후에만 스킵
+  (레거시 false-done 자동 재시도, 필드 결손도 재시도).
+- **M2**: 파이프라인 재배열 — 리플레이를 **raw 플랜 전체에 선부착** → 클래스 병합(리플레이
+  지표로 대표 선정) → 스테이지 best. 동일 raw 플랜은 캐시 히트라 실제 Godot 실행 수 = distinct
+  플랜 수(알려진 비용: 이력 누적 시 리플레이 대상 증가 — 현 레벨·미클리어 스테이지 한정으로 bounded).
+
+## Self-Review Round 2 (수정 후)
+- state_entry_ok의 rc None→TypeError→False(fail-closed) / _schema_error가 커밋 레지스트리와
+  정합(16-hex digest) / dedup 대표 병합 메타(_seeds/_runs) 불변 / 뷰어 스키마 가드는 표시
+  전용이라 warn-skip이 적정(파기 권한은 record_clear에만). 신규 HIGH 0 — clean.
+
+## 검증 (Round 2 수정)
+- **probe 확장 33/33 PASS**: P1b parse-valid 손상 quarantine+기존 해 잔존+오인 파기 없음
+  +위반 3유형 검출 / P4b 레거시 false-done 재시도·정상 완주 스킵 유지 / P5b 동일-클래스 리플레이
+  변별(보상 열위·리플레이 우위 raw 플랜이 대표).
+- 실 레지스트리 15해 스키마 ALL PASS + 뷰어 오프라인 빌드 15해/12스테이지 불변 + S11 --replay
+  라운드트립 캐시 히트 유지.
+
+## Round 3 (codex) — needs-attention (HIGH 1 + MEDIUM 2)
+- **[HIGH] 비-hex digest가 스키마 통과 → 파기 재발**: R2 검증이 '16자 문자열'만 요구해
+  `"x"*16` 같은 parse-valid 손상이 통과 → '레벨 변경' 오인 파기 경로 재개방.
+- **[MEDIUM] 뷰어 stage_id 자기-대조**: `_schema_error(reg, reg.get("stage_id"))`는 자기 자신과
+  비교라 무의미 — stage01 파일에 stage_id=2 내용이면 스테이지 2로 표시되고 covered 오염으로
+  정당한 레거시 기록이 억제됨.
+- **[MEDIUM] 스윕 state가 seeds/레시피 미결속**: `--seeds 0` 완료 후 `--seeds 0,1,2` 재실행이
+  스테이지를 스킵해 seed 1,2가 조용히 누락. 레시피 변경에도 옛 완료가 생존.
+
+## 수정 (Round 3 — 전 3건)
+- **H1**: `_is_hex16`([0-9a-f]{16} 전수 검사)을 level_digest·plan_key·exec_digest에 적용.
+- **M1**: 뷰어가 기대 stage_id를 **파일명**(`stage(\d{2,3}).solutions.json` 정규식)에서 파싱해
+  `_schema_error` 대조, 비정규 파일명 warn-skip. sid의 SoT = 파일명.
+- **M2**: `campaign_fingerprint`(정규화 seeds + RECIPE 전체 + STATE_SCHEMA sha16)를 state
+  엔트리에 저장, `state_entry_ok`가 지문 일치까지 요구(지문 없는 레거시 = 재시도).
+  기존 sweep_state의 S1·S2 완료 엔트리도 재시도 대상이 되나 dup 처리라 무해(보고서 §17 명시).
+- **자체 선제 수정**: `_quarantine` 이름이 초 해상도라 같은 초 내 재격리가 선행 격리본을
+  덮어씀 → 존재-검사 카운터 유일화(락 내부 호출이라 레이스 없음).
+
+## Self-Review Round 3 (수정 후)
+- sha256 hexdigest=소문자라 _is_hex16 정합 / 파일명 정규식이 dev fixture(stage990, 3자리) 포함 /
+  fingerprint는 json sort_keys 결정론 / state_entry_ok 시그니처 변경의 호출측 전수 갱신 확인.
+  신규 HIGH 0 — clean.
+
+## 검증 (Round 3 수정)
+- **probe 39/39 PASS**: 비-hex level_digest/plan_key 검출 + 비-hex digest→파기 아닌 quarantine
+  + 재격리 이름 유일화 / 지문 없는 레거시·seeds 변경 재시도 + seeds 정규화 동치 / 뷰어 파일명↔
+  내용 불일치 미표시·covered 미오염.
+- 실 레지스트리 15해 hex-강화 스키마 ALL PASS + 뷰어 오프라인 빌드 15해/12스테이지 불변.
+
+## Round 4 (codex) — needs-attention (MEDIUM 2, HIGH 0)
+- **[MEDIUM] 캠페인 지문이 스윕 대상 콘텐츠 미포함**: 성공 후 레벨(씬/레이아웃/리소스)이나
+  트레이너 구현이 바뀌어도 지문이 유효해 스킵 — 바뀐 스테이지가 미발견 상태로 남고 레지스트리
+  파기-대기가 영구화될 수 있음.
+- **[MEDIUM] 파일명 정규식이 숫자 별칭 허용**: `stage001.solutions.json`이 stage_id 1로 통과 —
+  스키마-유효 빈 별칭이 covered를 오염해 정당한 레거시 기록 억제·카드 중복 가능.
+
+## 수정 (Round 4 — 전 2건)
+- **M1**: state 엔트리에 per-stage `level_digest` 저장 + 스킵 시 현재 digest 대조(변경/산출
+  불가(None)/레거시 무-digest = 재시도). 캠페인 지문에 **train.py 소스 sha16** 포함(CLI 동일해도
+  트레이너 개정이면 전량 재시도 — 가장 보수적·정직한 대리, 재실행은 dup 처리라 무해).
+- **M2**: 파싱 sid의 canonical 이름(`registry_path(sid).name`)과 실제 파일명 일치 강제 —
+  숫자 별칭 warn-skip. 이름 SoT = registry_path.
+
+## Self-Review Round 4 (수정 후)
+- sweep의 solution_registry 경로 삽입(tools/solver) 정확 / fingerprint의 TRAIN 바이트 읽기는
+  main당 1회 / dev fixture(stage990)는 canonical 검사 통과(zero-pad 불변 3자리) / None-digest
+  스킵 불가는 캠페인 1~25(레벨 파일 전부 존재)에서 비발화. 신규 HIGH 0 — clean.
+
+## 검증 (Round 4 수정)
+- **probe 43/43 PASS**: 레벨 digest 변경/None/레거시 무-digest 재시도 + 숫자 별칭 3종
+  (stage001/099/000) 미표시·covered 미오염 + canonical 정상 통과.
+- 뷰어 오프라인 빌드 15해/12스테이지 불변.
+
+## Round 5 (codex) — needs-attention (HIGH 1 + MEDIUM 2)
+- **[HIGH] 영속화 실패가 done으로 박제**: train.py가 레지스트리 기록 실패(quarantine·락 타임아웃·
+  FS 오류)를 삼키고 정상 종료 → 스윕이 rc·집계줄만 보고 done=true → **유일한 발견 해가 유실된
+  채 영구 스킵**(경고는 스테이지 로그 안에만 잔존).
+- **[MEDIUM] 지문이 전이적 의존 미포함**: train.py만 해시 — mdp/model/env/solve/Godot 드라이버
+  변경이 지문에 안 잡혀 의미론이 바뀌어도 완료가 생존(R4 "트레이너 개정 무효화" 주장 불완전).
+- **[MEDIUM] 레벨 digest None이 오염 허용**: record_clear가 None 불일치를 리셋 조건에서 제외해
+  None-바인딩 레지스트리 생성/옛 digest 레지스트리에 추가 기록 가능. 뷰어 mismatch 검사도 양쪽
+  truthy 요구라 None=비-stale로 통과. 캐시도 None==None 우연 일치 가능.
+
+## 수정 (Round 5 — 전 3건)
+- **H1**: train.py `_PERSIST_FAILURES` 회계(“기록 실패 삼킴·학습 지속” 계약은 유지하되
+  _record_found/_record_partial 실패를 적재) + `_final_rc` — 완주 후 실패 ≥1이면 기계-판독
+  마커(`=== 영속화 실패 N건(rc=3)`) 출력 + **rc=3**(신설, 0=클리어/1=무클리어/2=설정오류와
+  구별). sweep run_ok({0,1})가 rc=3을 거부 → done=false → 자동 재시도. run_training 시작 시
+  카운터 리셋(in-process 재호출 안전).
+- **M1**: `FINGERPRINT_MANIFEST` — import 체인 실사(train→mdp/env/model, mdp→model/solve/
+  landmarks, env→run_test/solve) + _exec_config_digest driver_files 미러(PlanRunner/SimConfig/
+  PlanServerHarness/project.godot/capabilities.tres) + solution_registry(기록 의미론) = 14파일
+  소스 sha를 지문에 포함. 파일 부재도 None으로 지문 반영(삭제=변경).
+- **M2**: ① record_clear — 현재 digest None이면 `LevelUnverifiableError`(신설)로 기록 거부
+  (레지스트리 미생성/미변경) ② 뷰어 — 저장/현재 digest 어느 쪽이든 None = 검증-불가 →
+  미표시+파기-대기 표기(불일치와 동일 취급), `_partial_level_ok`도 무-digest 제외로 전환
+  ③ 캐시 — binding digest None이면 읽기/쓰기 생략(None==None 불인정, in-memory 부착만).
+
+## Self-Review Round 5 (수정 후)
+- rc=3은 신규 코드(기존 0/1/2와 비충돌)·pinned verify 경로는 run_training 밖(별도 반환) /
+  probe 스테이지 99가 digest None이 되므로 기록 테스트는 FAKE_LD 모킹(spawn 워커별 재적용) /
+  P6 canonical 케이스는 실 stage01 digest로 갱신 / dev fixture(레벨 파일 없는 990+)는 캐시
+  생략=매회 리플레이(느리지만 정직). 신규 HIGH 0 — clean.
+
+## 검증 (Round 5 수정)
+- **probe 51/51 PASS**: P7(digest None → 기록 거부·레지스트리 미생성 / 저장 None → 미표시+
+  파기-대기 / 캐시 None==None 불인정) + P8(기록 실패 주입 → 회계 적재 → rc=3 격상 → 스윕 거부)
+  + P4b 지문이 매니페스트 기반으로 재계산됨(기존 케이스 전부 유지).
+- 뷰어 오프라인 빌드 15해/12스테이지 불변. pinned verify 4종 재실행(아래 R6 전 확인).
+
+## Round 6 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] Godot 게임플레이 전이 의존이 모든 digest 밖**: 스테이지 씬이 ext_resource로 로드하는
+  StageRunner/AntSpawner/Terrain/엔티티 씬/hazard 스크립트 변경이 campaign_fingerprint에도
+  level_digest에도 안 잡힘 — 옛 스윕 완료가 스킵 가능하게 잔존하고 레지스트리/리플레이 캐시가
+  바뀐 롤아웃 의미론에서도 수용됨.
+
+## 수정 (Round 6) + 의도적 스코프 결정
+- **`solution_registry.runtime_digest` 신설**: 정밀 per-stage 전이 폐쇄 대신 **coarse 과대포함**
+  (scripts/**/*.gd + scenes/**(stages 제외 — per-stage는 level_digest 소관) +
+  tests/PlanServerHarness.* + data/solver/** + project.godot; 프로세스당 캐시). 과잉 무효화는
+  무해(스윕 재실행=dup, 캐시=재생성)하고 누락이 해악이므로 보수 방향 선택.
+- **결속 2면**: ① 리플레이 캐시 키+payload `_cache`에 runtime_digest 추가(REPLAY_CACHE_SCHEMA
+  2→3, 기존 캐시 전량 자동 미스) ② campaign_fingerprint에 `runtime` 멤버 추가(파이썬 매니페스트는
+  유지, Godot 드라이버 6파일은 runtime_digest가 포섭하므로 매니페스트에서 이관).
+- **레지스트리 파기 스코프는 레벨 한정 유지(의도적 결정, 문서화)**: §17 사용자 계약 ③의 파기
+  트리거는 명시적으로 "레벨 변경"이다. 엔진 의미론 드리프트에 해를 **파기하는 대신**, 보고서의
+  지표·궤적이 전부 결정론 리플레이 재검증(이제 엔진-결속 캐시)에서 나오므로 더 이상 안 풀리는
+  해는 리플레이 결과로 정직하게 드러난다 — 발견 provenance를 보존하면서 정직성 유지. selftest/
+  verify 게이트도 엔진 변경 시 저장 해를 재검증하는 기존 안전망.
+
+## Self-Review Round 6 (수정 후)
+- runtime_digest 정렬 순회 결정론(rel 경로 sorted) / dev fixture(레벨 파일 없음)는 P7 fail-closed
+  경로 유지 / train.py 무변경(pinned verify 직전 4/4 유효). 신규 HIGH 0 — clean.
+
+## 검증 (Round 6 수정)
+- **probe 55/55 PASS**: P9 — 게임플레이 .gd 변경(.tscn 무변경) → runtime digest 변경 /
+  scenes/stages 변경은 불변(level_digest 소관 분리) / runtime 변경 → 캐시 키·스윕 지문 변경.
+- 뷰어 오프라인 빌드 15해/12스테이지 불변 + S11 --replay가 v3 키로 재생성·동일 결과
+  (saved=4 frame=1342).
+
+## Round 7 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] 리플레이 하니스가 runtime digest 밖**: runtime_digest가 PlanServerHarness.*만 포함
+  — 뷰어 리플레이(solve.run_plan)가 실제로 띄우는 **PlanReplayHarness.gd/.tscn**(SOLVER_RESULT
+  방출 의미론 보유) 변경이 캐시 키/결속에 안 잡혀 옛 캐시가 현재 것으로 수용됨.
+
+## 수정 (Round 7)
+- runtime_digest groups에 `tests/PlanReplayHarness.*` 추가(하니스 2종 전부 결속) + P9 확장
+  (하니스 .gd/.tscn 각각 변경 → digest 변경 확인).
+
+## 검증 (Round 7 수정)
+- **probe 57/57 PASS** + S11 --replay 확장-digest 키로 재생성·동일 결과(saved=4 frame=1342)
+  + 뷰어 오프라인 빌드 15해/12스테이지 불변. train.py 무변경(pinned verify 4/4 유효).
+
+## Round 8 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] 리플레이 digest가 Python 드라이버·Godot 러너 누락**: 뷰어 리플레이는
+  solve.run_plan → run_test.py 경유인데 runtime_digest가 solve.py/run_test.py 미포함 —
+  플랜 직렬화·러너 인자·결과 파싱·Godot 선택이 바뀌어도 캐시 수용. 선택된 Godot 실행파일
+  정체성도 미결속(엔진 업그레이드 후 이전-엔진 캐시 재사용 가능).
+
+## 수정 (Round 8)
+- runtime_digest에 `tools/solver/solve.py` + `scripts/run_test.py` 편입 + **Godot 실행파일
+  정체성**(`_godot_identity` = find_godot resolved 경로, _exec_config_digest godot_binary 선례;
+  해석 불가=None → 엔진-존재 시점 캐시와 자동 불일치=fail-closed) 해시 결속.
+  REPLAY_CACHE_SCHEMA 3→4. 캐시는 머신-로컬(gitignore)이라 경로 결속의 cross-PC 비용 없음.
+- P9 확장: solve.py/run_test.py 변경 → digest 변경 + **옛 runtime payload 캐시 미스 negative**.
+
+## 검증 (Round 8 수정)
+- **probe 60/60 PASS** + S11 --replay v4 키 재생성·동일 결과(saved=4 frame=1342) + 뷰어
+  오프라인 빌드 15해/12스테이지 불변. train.py 무변경(pinned verify 4/4 유효).
+
+## Round 9 (codex) — needs-attention (HIGH 1)
+- **[HIGH] Godot 부재 시 오프라인 뷰어 종료**: `find_godot()`는 실패를 `sys.exit()`로 보고 —
+  `SystemExit`은 `except Exception` 밖이라 `_godot_identity`가 None을 반환하는 대신 전파,
+  엔진 없는 머신의 오프라인 빌드(캐시 결속 검사 경유)가 죽음.
+
+## 수정 (Round 9)
+- `except (Exception, SystemExit)`로 명시 확장(BaseException 광역 삼킴은 회피 — KeyboardInterrupt
+  등은 전파 유지). P9에 SystemExit 주입 → identity None 회귀 추가.
+
+## 검증 (Round 9 수정)
+- **probe 61/61 PASS** + `GODOT_BIN=<존재하지 않는 경로>` 오프라인 빌드 정상 완료(exit 0,
+  15해/12스테이지). train.py 무변경(pinned verify 4/4 유효).
+
+## Round 10 (codex) — needs-attention (HIGH 2)
+- **[HIGH] 리플레이-실패 해가 여전히 '클리어'로 표시**: _card가 등재 해의 rep['cleared'/'saved'/
+  'frame']을 무시하고 역사적 저장값+클리어 배지 고정 — "리플레이가 무효 해를 드러낸다"는
+  레벨-한정 파기 설계의 전제와 모순.
+- **[HIGH] 같은 경로 엔진 교체 미검출**: identity가 resolved 경로만 해시 — 패키지 관리/고정
+  경로 설치에서 엔진 업그레이드가 캐시·스윕 완료를 그대로 통과.
+
+## 수정 (Round 10 — 전 2건)
+- **H1**: _card — 등재 해에 리플레이 결과가 있으면 그것이 권위: 실패 시 `등재 해 · 현행 런타임
+  리플레이 실패` 적색 배지 + 현행 실측값 표시 + data-cleared=false(필터/집계 제외, 카드 자체는
+  provenance 보존). 성공 시에도 저장값 대신 현행 실측 saved/frame 우선. render 요약 =
+  현행-클리어만 집계 + `리플레이 실패 N개(엔진 변경 의심)` 명시 표기.
+- **H2**: `_godot_identity` = resolved 경로 + **바이너리 내용 스트리밍 sha16**(프로세스당 1회
+  캐시 — 수백 MB 해시 비용 상각). 같은 경로 교체/업그레이드도 결속.
+
+## Self-Review Round 7~10 누적 (수정 후)
+- identity 캐시와 probe의 monkeypatch 상호작용(전후 캐시 클리어) 정리 / _card의 rep-우선
+  분기가 부분해(cleared=False) 경로 불변 / render 요약의 ok_groups 분리가 파기-대기 표기와
+  독립. 신규 HIGH 0 — clean.
+
+## 검증 (Round 10 수정)
+- **probe 66/66 PASS**: P9 같은-경로 엔진 교체 → digest 변경 / P10 리플레이 성공=클리어 배지·
+  집계 포함, 실패=stale 배지·현행 실측값·집계 제외+요약 명시.
+- S11 --replay 재생성(내용-결속 identity 키)·동일 결과(saved=4 frame=1342) + 뷰어 오프라인
+  빌드 15해/12스테이지 불변(전부 리플레이-성공 해). train.py 무변경(pinned verify 4/4 유효).
+
+## Round 11 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] 일시 리플레이 오류가 권위 판정으로 캐시**: run_plan의 인프라 오류 응답
+  (`{"error":"no SOLVER_RESULT"}` — Godot 크래시 등)이 현재 runtime identity로 캐시돼 이후
+  --replay가 재시도 없이 재사용 — 정상 등재 해가 뷰어 집계에서 무기한 제외.
+
+## 수정 (Round 11)
+- attach_replays: `error` 응답/`cleared` 불리언 부재 = 게임플레이 verdict 아님 → **캐시·부착
+  모두 생략**(리플레이-불가로 두고 다음 --replay 재시도, 오류의 stale-판정 박제 금지). 캐시
+  읽기 측도 동일 유효성 요구(과거 오염 캐시 방어).
+
+## 검증 (Round 11 수정)
+- **probe 70/70 PASS**: P11 — 1회차 오류 응답=부착·캐시 없음 → 2회차 --replay 재호출(재시도)
+  → 정상 verdict 부착+캐시. 뷰어 오프라인 빌드 15해/12스테이지 불변. train.py 무변경.
+
+## Round 12 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] `error: null` 키가 양쪽 가드 우회**: R11 수정이 값-검사(`is None`/`is not None`)라
+  `{"error": null, "cleared": true}`가 부착·캐시됨 — 저장소 관례는 error **키 존재** 자체가
+  인프라 실패.
+
+## 수정 (Round 12)
+- 키-존재 계약으로 정정: 신규 응답 `"error" in res` 거부 / 캐시 읽기 `"error" not in cached`
+  요구. P11 확장 — null-값 error 신규 응답(부착·캐시 없음+재시도) + 오염 캐시(error:null
+  잔존물) 불인정+재시도.
+
+## 검증 (Round 12 수정)
+- **probe 73/73 PASS**. 뷰어·train.py 추가 변경 없음(오프라인 빌드 15해/12스테이지 불변,
+  pinned verify 4/4 유효).
+
+## Round 13 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] migrate가 오염 캐시 payload 수용**: migrate()는 truthy cleared+trace만 확인 —
+  `{error:null, cleared:true, trace:...}`가 record_clear로 흘러 권위 해로 승격 가능. 73-probe는
+  attach_replays 경로만 커버(소비자별 가드 드리프트).
+
+## 수정 (Round 13)
+- **공유 검증기 단일화**: `solution_registry.valid_replay_payload`(dict / error 키 부재 /
+  cleared 불리언 / binding 지정 시 `_cache` 정확 일치) + `cache_binding(stage_id)` 신설 —
+  뷰어 읽기·신규 결과·migrate 3소비자가 전부 이 검증기 경유(found_viewer._cache_binding은
+  위임으로 전환). migrate는 추가로 cleared is True + trace 요구.
+- probe 자체 결함 1건 자체 발견·수정: P12 첫 작성본이 migrate 기본 `stage_max=25`에 걸려
+  스테이지 99가 순회 제외 — 검증기가 아닌 범위 필터로 "차단"되던 가짜 통과. `stage_max=99`
+  명시로 검증기를 실제로 관통시킴(양성 케이스가 이를 드러냄 — 음성-only probe의 함정).
+
+## 검증 (Round 13 수정)
+- **probe 76/76 PASS**: P12 — 오염 payload(error:null) 승격 차단 / 결속 불일치 차단 /
+  유효 payload 정상 이행(신규 1). 뷰어 오프라인 빌드 15해/12스테이지 불변. train.py 무변경.
+
+## Round 14 (codex) — needs-attention (HIGH 1)
+- **[HIGH] 리플레이 부재가 클리어로 통과**: 런타임 변경이 캐시를 무효화하면 `_replay` 부재 —
+  _card/render가 이를 성공과 동일 취급해 기본 오프라인 재빌드가 **미검증 해를 현행 클리어로
+  보고**(R10 안전망이 캐시-미스로 우회).
+
+## 수정 (Round 14)
+- **3-상태 모델**: 등재 해 = 검증-클리어(ok, 리플레이 성공) / 검증-실패(failed) /
+  **미검증(unverified, 리플레이 부재)**. 미검증 = 회색 `등재 해 · 미검증(현행 런타임 리플레이
+  필요)` 배지 + 역사값 표시 + data-cleared=false(집계·필터 제외). render 요약 =
+  `클리어(검증)`·`고유 해(검증)`만 집계 + 미검증/실패 별도 명시(`--replay` 안내).
+
+## 검증 (Round 14 수정)
+- **probe 77/77 PASS**(P10 확장: 리플레이 부재 카드 = unverified 배지·집계 제외 + 요약 3-상태).
+- **전체 15해 현행-런타임 재검증**: `--replay --stages 1-25` → 15해 전부 리플레이 성공
+  (S17 3해 f=3920/2403/3857 등), 최종 보고서 = 클리어(검증) 12스테이지·고유 해(검증) 15개·
+  미검증 0·실패 0. train.py 무변경(pinned verify 4/4 유효).
+
+## Round 15 (codex) — 미완(usage limit)
+- R14 수정 재리뷰 요청이 ChatGPT usage limit으로 거부("try again at 2:51 PM") — 2026-07-12
+  11:09 시점. R15는 quota 해제 후 동일 인자로 재실행 예정(그때까지 hot-fix 커밋 보류 —
+  clean verdict 전 커밋 금지 정책).
+
+## Round 15 (codex, quota 해제 후 재실행) — needs-attention (MEDIUM 2)
+- **[MEDIUM] failed/미검증이 '미클리어' 필터로 오분류**: data-cleared 불리언만으로 필터링 —
+  미클리어 선택 시 실패/미검증 등재 해가 부분해처럼 표시.
+- **[MEDIUM] sweep state 중단-손상 취약**: 손상 무처리 로드(기동 좌초) + 직접 덮어쓰기
+  (비원자) + 동시 러너 상호 덮어쓰기.
+
+## 수정 (Round 15 — 전 2건)
+- **M1**: 카드에 명시적 `data-state`(verified-clear/partial/failed/unverified) + 필터 4버튼
+  (전체/클리어(검증)/미클리어/**요주의(실패·미검증)**) — JS가 상태 정확 매칭(불리언 필터 은퇴).
+- **M2**: `_load_state`(손상 = quarantine 보존 후 빈 state 재시작 — 재시도는 dup-무해) +
+  `_save_state`(프로세스-고유 tmp + os.replace 원자 교체) + **단일-러너 락**(sweep.lock,
+  레지스트리와 동일 OS-수준 잠금, 러너 수명 보유 — 동시 스윕 거부 exit 1).
+
+## 검증 (Round 15 수정)
+- **probe 85/85 PASS**: P10 확장(4-상태 data-state 부여 + JS 정확-매칭·attention 필터·불리언
+  필터 은퇴 구조 검증) + P13(손상 state quarantine·빈 재시작 / 원자 저장 라운드트립·tmp 무잔존 /
+  동시 러너 락 거부). 뷰어 재빌드 = 클리어(검증) 12·고유 해(검증) 15 불변. train.py 무변경.
+
+## Round 16 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] 손상-복구의 기동-크래시 잔여 경로**: `_load_state`가 UnicodeDecodeError(비-UTF8)
+  미포착 + parse-valid 구조 위반(`{"stage01": null}`)이 state_entry_ok/attempts 산술에서
+  AttributeError/ValueError — 어느 쪽이든 quarantine 없이 러너가 죽어 R15 내구성 목표 미달.
+
+## 수정 (Round 16)
+- `_load_state` catch에 UnicodeDecodeError 추가 / `state_entry_ok` 비-dict 엔트리 = 재시도
+  가능(False) / `_prev_attempts` 헬퍼(비-dict·비수치 = 0 관용).
+- **probe가 잡은 자체 결함 1건**: sweep quarantine 이름이 초-해상도라 같은 초 재격리가 선행본
+  덮어씀(레지스트리 R3 자체수정과 동일 패턴) → 존재-검사 카운터 유일화.
+
+## 검증 (Round 16 수정)
+- **probe 90/90 PASS**: 비-UTF8 → quarantine+빈 재시작(재격리 보존 포함) / null·list 엔트리
+  재시도(크래시 없음) / 비수치 attempts 관용. train.py·뷰어 무변경.
+
+## Round 17 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] 레지스트리 쪽 비-UTF8 손상 미포착**: R16이 sweep state에만 적용 —
+  `load_registry`의 UnicodeDecodeError는 RegistryCorruptError로 안 감싸져 quarantine 미진입,
+  train.py가 rc=3을 반복해 해당 스테이지 스윕 완료가 무기한 차단.
+
+## 수정 (Round 17)
+- `load_registry` catch에 UnicodeDecodeError 추가(기존 quarantine 경로 합류). P1b 확장 —
+  비-UTF8 레지스트리 bytes → 유일화 quarantine+RegistryCorruptError + 후속 기록 재시작.
+
+## 검증 (Round 17 수정)
+- **probe 92/92 PASS**. 뷰어·train.py 무변경(보고서·pinned verify 유효).
+
+## Round 18 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] 뷰어가 비-UTF8 레지스트리에 크래시**: `load_registries`가 UnicodeDecodeError
+  미포착 — canonical 레지스트리 1개 손상이 보고서 전체를 중단.
+
+## 수정 (Round 18)
+- 뷰어 warn-skip에 UnicodeDecodeError 추가 + **동일 클래스 잔여 read 경로 전부 선제 적용**
+  (뷰어 사이드카/캐시/analysis 읽기 3곳 + solution_registry migrate 입력 2곳 — 5개 사이트
+  일괄, 클래스 단위 종결로 두더지잡기 방지). P6 확장 — 비-UTF8 canonical 레지스트리 warn-skip.
+
+## 검증 (Round 18 수정)
+- **probe 92/92 PASS**(P6 케이스 흡수) + 뷰어 재빌드 15해/12스테이지 불변. train.py 무변경.
+
+## Round 19 (codex) — needs-attention (MEDIUM 2)
+- **[MEDIUM×2] JSONL 통파일 read_text 2곳이 per-line 핸들러 밖**: 뷰어 `_load_all`과
+  `migrate`의 log.jsonl 읽기 — 비-UTF8 1바이트가 보고서 전체/이행 전체를 중단(R18 "전 사이트
+  봉합" 주장의 누락 — except 절만 교체하고 통파일 디코드 지점을 놓침).
+
+## 수정 (Round 19)
+- 두 곳 모두 **bytes 읽기 + 라인 단위 독립 디코딩**으로 전환 — 손상 라인만 스킵, 유효 레코드
+  생존(파일 OSError는 warn 후 빈 처리). P6 확장(손상 log/partials 라인 스킵+유효 생존) +
+  P12 확장(손상 log 공존에도 사이드카 이행 계속).
+
+## 검증 (Round 19 수정)
+- **probe 94/94 PASS** + 뷰어 재빌드 15해/12스테이지 불변. train.py 무변경.
+
+## Round 20 (codex) — needs-attention (MEDIUM 2)
+- **[MEDIUM] parse-valid 구조 위반 JSONL이 뷰어 크래시**: `null`/`[]`/스칼라 라인·비-int
+  stage_id·비-list actions가 디코더는 통과하고 rec.get/정렬/plan_key에서 사망.
+- **[MEDIUM] migrate 이중 카운트 + 비멱등**: train.py가 같은 발견을 사이드카+log 이중 기재 —
+  무dedup 연결로 runs 2배, 재실행마다 재증가(부분 실패 후 재시도가 카운트 오염).
+
+## 수정 (Round 20 — 전 2건)
+- **M1**: `_valid_record`(dict / stage_id int / seed int|None / actions list-of-dict / ts str)
+  검증을 per-line·사이드카 경계 안에 편입 — 위반 warn-skip.
+- **M2**: migrate에 ① 이벤트 정체성 `(stage,seed,ts,plan_key)` 선-dedup(이중 기재 1회화)
+  ② 재실행 멱등 가드(동일 exec_digest 해에 seed 등재 + last_ts ≥ 이벤트 ts = 이미 이행 →
+  record_clear 미호출) + 구조 위반 레코드 스킵.
+
+## 검증 (Round 20 수정)
+- **probe 97/97 PASS**: 구조 위반 6종 라인 전부 스킵+유효 생존 / 이중 기재 1회 카운트(runs=1) /
+  migrate 재실행 runs·seeds 불변(멱등). 뷰어 재빌드 15해/12스테이지 불변. train.py 무변경.
+
+## Round 21 (codex) — needs-attention (MEDIUM 3)
+- **[MEDIUM] 얕은 action 검증**: actions 원소가 dict인 것만 확인 — `{"target":1}`·비수치
+  frame이 plan_key/canon_action에서 뷰어 전체를 죽임.
+- **[MEDIUM] migrate의 seed/ts 타입 무검증**: 문자열 seed가 등재되면 이후 int seed와 정렬
+  TypeError로 이행 중단. bool이 int 검사 통과.
+- **[MEDIUM] ts 고수위 멱등의 이벤트 유실**: 늦게 캐시-적격이 된 이전 실행-동치 이벤트가
+  해의 공유 last_ts에 가려 영구 미카운트 + seed 간 혼동 + 락 밖 프리체크.
+
+## 수정 (Round 21 — 전 3건)
+- **M1·M2**: `valid_event_record` **공유 검증기**(solution_registry — 뷰어 `_valid_record`는
+  위임): `type() is int`(bool 배제)·seed int|None·ts str·actions list-of-dict + **plan_key
+  시험-평가**(canon이 실제 소화 못 하는 중첩 손상 전부 사전 거부). migrate 프리필터 교체
+  (스킵 건수 warn).
+- **M3**: ts 고수위 폐기 → **영속 이벤트-원장**: `event_id`(stage,seed,ts,plan_key sha16)를
+  `record_clear(event=...)`로 전달, 해별 `events` 목록을 **락 안에서** 원자 검사 — 등재된
+  이벤트는 무갱신 "dup", 미등재면 카운트+원장 추가. 라이브 학습 경로는 event 미지정(매 발견
+  카운트, 동작 불변). 스키마 검증에 events(hex16 list, 선택) 추가.
+
+## 검증 (Round 21 수정)
+- **probe 101/101 PASS**: 중첩 action 손상 3종+타입 손상 3종 라인 스킵(뷰어) / migrate 타입
+  손상 거부(runs·seeds 불변) / **R21-M3 반례 재현-해소**: 다른 plan_key·같은 trace의 이전
+  이벤트가 캐시 부재 시 미이행 → 캐시 생성 후 재실행에서 회수(runs 1→2, 해 1개 유지, events
+  2건) → 추가 재실행 멱등. 뷰어 재빌드 15해/12스테이지 불변. train.py 무변경(신규 kwarg
+  기본값 경로 = 종전 동작).
+
+## Round 22 (codex) — needs-attention (MEDIUM 1)
+- **[MEDIUM] 손실 event_id의 충돌 유실**: event_id가 plan_key(60f 버킷·셀 양자화) 기반 —
+  같은 초·같은 seed의 다른 raw 플랜(at_frame 60 vs 119)이 같은 ID로 붕괴, migrate가 캐시
+  읽기 전에 dedup해 검증된 해 하나가 조용히 누락(train.py ts는 초 해상도).
+
+## 수정 (Round 22)
+- **train.py가 기록 생성 시 고유 event ID(uuid hex16) 부여**(_record_found/_record_partial —
+  사이드카·jsonl 동반, 무충돌 SoT). event_id는 ① 부여 ID 우선 ② 레거시 폴백 = **무손실**
+  digest(stage_id/seed/ts/stage 씬/deadline/**raw actions 전체** — 양자화 없음). 레거시에서
+  같은 초·동일 raw 플랜의 진짜 별개 런은 이중 기재와 구별 불가(한계 문서화, v2부터 해소).
+  뷰어 load_partials 정확-중복 키도 event_id로 통일(동일 손실 문제 선제 해소).
+
+## 검증 (Round 22 수정)
+- **probe 104/104 PASS**: 충돌 반례(같은 초·같은 plan_key·다른 raw actions·다른 trace) —
+  event_id 비충돌 + **둘 다 이행**(해 1→3) / 부여 event ID 패스스루. 뷰어 재빌드 15해/
+  12스테이지 불변. train.py 변경(event 필드 추가) → pinned verify 4종 재실행(아래 확인).
+
+## Round 23 (codex) — **approve (종결)**
+- "Ship: no material adversarial finding remains in the scoped Round 23 changes. Assigned event
+  IDs propagate unchanged through dual-writes, the legacy fallback includes full raw-plan
+  identity, and migration/viewer dedup share the corrected event_id path. No material findings."
+
+## §17 사후 리뷰 루프 요약 (R1~R23)
+- **23 codex 라운드**(HIGH 7 + MEDIUM 18 전건 수정, defer 0) + 자체 선제 수정 3건(O_EXCL
+  stale-break 레이스 → OS-락 / quarantine 이름 충돌 ×2). 매 라운드 사이 자체 적대 리뷰.
+- 주제 축: ① 레지스트리 내구성(락·quarantine·스키마+hex·digest-None 거부·이벤트 원장)
+  ② 리플레이 캐시 정직성(레벨+runtime+파이썬 스택+엔진 바이너리 결속, 오류 payload 불인정)
+  ③ 뷰어 3-상태 현행-런타임 판정(검증-클리어/실패/미검증 + 4-상태 필터) ④ 스윕 fail-closed
+  (rc=3 영속화 격상, 지문=seeds+레시피+의존 매니페스트+레벨 digest, state 원자화·단일 러너)
+  ⑤ 손상 클래스 일괄 봉합(무효 JSON·parse-valid 스키마 위반·비-hex·비-UTF8·구조 위반 라인).
+- **최종 게이트**: registry_guard_probe **104/104** · pinned verify r0/r1@12/r2@11/r2@19
+  **4/4**(train.py 3회 편집마다 재확인, 값 전부 종전 동일) · 전체 15해 현행-런타임 --replay
+  재검증 클리어(보고서 "클리어(검증) 12 · 고유 해(검증) 15") · 뷰어 오프라인/replay/Godot-부재
+  3모드 빌드 정상. 사용량 한도로 2회 중단·재개(부트스트랩: codex CLI alpha 채널 업그레이드).

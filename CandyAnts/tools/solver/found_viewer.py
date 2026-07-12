@@ -21,9 +21,9 @@ RL/휴리스틱 솔버가 해를 찾는 즉시 durable 기록으로 남기는
 from __future__ import annotations
 
 import argparse
-import hashlib
 import html
 import json
+import re
 import sys
 import webbrowser
 from pathlib import Path
@@ -38,26 +38,53 @@ CELL = 48
 
 # ---------- 로딩 ----------
 
-def _load_latest(found_dir: Path, sidecar_glob: str, jsonl_name: str) -> list[dict]:
-    """사이드카 + jsonl을 모아 (stage_id, seed) 기준 최신 ts만 남긴다."""
+def _valid_record(rec) -> bool:
+    """레코드 구조 검증 = solution_registry.valid_event_record(**공유 출처** — codex R20-M1·
+    R21-M1: 중첩 action 손상까지 canon 시험-평가로 거부, migrate와 가드 드리프트 차단)."""
+    return solution_registry.valid_event_record(rec)
+
+
+def _load_all(found_dir: Path, sidecar_glob: str, jsonl_name: str) -> list[dict]:
+    """사이드카 + jsonl의 전 레코드(파싱·구조 검증 실패만 스킵)."""
     records: list[dict] = []
     for path in sorted(found_dir.glob(sidecar_glob)):
         try:
-            records.append(json.loads(path.read_text(encoding="utf-8")))
-        except (json.JSONDecodeError, OSError) as exc:
+            rec = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
             print(f"warn: skip {path.name}: {exc}", file=sys.stderr)
+            continue
+        if not _valid_record(rec):
+            print(f"warn: skip {path.name}: 구조 위반 레코드", file=sys.stderr)
+            continue
+        records.append(rec)
     log = found_dir / jsonl_name
     if log.exists():
-        for line in log.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
+        # bytes로 읽어 **라인 단위 독립 디코딩**(codex R19: 통파일 read_text는 비-UTF8 1바이트에
+        # 전체 보고서가 죽음 — 손상 라인만 스킵하고 유효 레코드는 생존)
+        try:
+            raw = log.read_bytes()
+        except OSError as exc:
+            print(f"warn: skip {jsonl_name}: {exc}", file=sys.stderr)
+            raw = b""
+        for bline in raw.splitlines():
+            if not bline.strip():
                 continue
             try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError as exc:
+                rec = json.loads(bline.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                 print(f"warn: skip {jsonl_name} line: {exc}", file=sys.stderr)
+                continue
+            if not _valid_record(rec):
+                print(f"warn: skip {jsonl_name} line: 구조 위반 레코드", file=sys.stderr)
+                continue
+            records.append(rec)
+    return records
+
+
+def load_found(found_dir: Path) -> list[dict]:
+    """클리어 해: (stage_id, seed) 기준 최신 ts만 (레거시 폴백 경로 — 레지스트리가 권위)."""
     best: dict[tuple, dict] = {}
-    for rec in records:
+    for rec in _load_all(found_dir, "*.found.json", "log.jsonl"):
         key = (rec.get("stage_id"), rec.get("seed"))
         cur = best.get(key)
         if cur is None or str(rec.get("ts", "")) >= str(cur.get("ts", "")):
@@ -65,12 +92,22 @@ def _load_latest(found_dir: Path, sidecar_glob: str, jsonl_name: str) -> list[di
     return sorted(best.values(), key=lambda r: (r.get("stage_id") or 0, r.get("seed") or 0))
 
 
-def load_found(found_dir: Path) -> list[dict]:
-    return _load_latest(found_dir, "*.found.json", "log.jsonl")
-
-
 def load_partials(found_dir: Path) -> list[dict]:
-    return _load_latest(found_dir, "*.partial.json", "partials.jsonl")
+    """부분해: '최신'이 아니라 **전 이력**(정확 중복만 제거 — 사이드카와 jsonl은 같은 기록의
+    이중 기재). 나중의 더 약한 런이 이전 최고-진척을 가리지 않도록(codex R1-M3), 대표 선정은
+    플랜-클래스 병합 후 스테이지별 리플레이-best(main의 _best_per_stage)가 한다."""
+    seen: set[str] = set()
+    out: list[dict] = []
+    for rec in _load_all(found_dir, "*.partial.json", "partials.jsonl"):
+        # 정확-중복 키 = event_id(무손실 — codex R22: plan_key 양자화는 같은 초의 별개
+        # 발견을 충돌시킴; v2 레코드는 train.py 부여 고유 event가 SoT)
+        key = solution_registry.event_id(rec)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(rec)
+    return sorted(out, key=lambda r: (r.get("stage_id") or 0, r.get("seed") or 0,
+                                      str(r.get("ts", ""))))
 
 
 def parse_stages(spec: str) -> set[int]:
@@ -95,17 +132,39 @@ def load_registries(found_dir: Path, keep: set[int] | None
     covered: set[int] = set()
     stale: set[int] = set()
     for p in sorted(found_dir.glob("*.solutions.json")):
+        # 기대 stage_id = **파일명**에서 파싱(codex R3-M1: 내용의 stage_id를 자기 자신과
+        # 대조하면 무의미 — 파일명↔내용 불일치가 다른 스테이지의 레거시 기록을 억제한다)
+        m = re.fullmatch(r"stage(\d{2,3})\.solutions\.json", p.name)
+        if m is None:
+            print(f"warn: skip {p.name}: 비정규 파일명", file=sys.stderr)
+            continue
+        expected_sid = int(m.group(1))
+        # canonical 강제(codex R4-M2): stage001 같은 별칭이 stage_id 1로 통과해 covered를
+        # 오염(정당한 레거시 기록 억제)·카드 중복시키는 것 차단 — 이름의 SoT = registry_path
+        if p.name != solution_registry.registry_path(expected_sid, found_dir).name:
+            print(f"warn: skip {p.name}: 비정규(canonical={expected_sid:02d}) 별칭", file=sys.stderr)
+            continue
         try:
             reg = json.loads(p.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:   # 비-UTF8도(R18)
             print(f"warn: skip {p.name}: {exc}", file=sys.stderr)
             continue
-        sid = reg.get("stage_id")
+        # parse-valid 손상 방어(codex R2-H1과 동일 스키마, 파일명-기대 sid 대조) — 표시 전용 warn-skip
+        err = (solution_registry._schema_error(reg, expected_sid)
+               if isinstance(reg, dict) else "최상위가 dict 아님")
+        if err is not None:
+            print(f"warn: skip {p.name}: 스키마 위반 — {err}", file=sys.stderr)
+            continue
+        sid = expected_sid
         if keep is not None and sid not in keep:
             continue
+        # fail-closed(codex R5-M2): 저장/현재 digest 어느 쪽이든 None = 레벨 정체성 검증 불가 —
+        # 불일치와 동일하게 보고서에서 제외 + 파기-대기 표기(진위 확인 없이 해를 현재 것처럼 표시 금지)
         cur = solution_registry.level_digest(sid) if isinstance(sid, int) else None
-        if reg.get("level_digest") and cur and reg["level_digest"] != cur:
-            print(f"warn: stage{sid:02d} 레벨 변경 감지 — 등재 해 {len(reg.get('solutions', []))}개 "
+        if reg.get("level_digest") is None or cur is None or reg["level_digest"] != cur:
+            why = ("레벨 변경 감지" if (reg.get("level_digest") and cur)
+                   else "레벨 digest 검증 불가(저장/현재 digest 부재)")
+            print(f"warn: stage{sid:02d} {why} — 등재 해 {len(reg.get('solutions', []))}개 "
                   f"파기 대기(다음 학습 기록 시 리셋)", file=sys.stderr)
             covered.add(sid)
             stale.add(sid)
@@ -170,29 +229,53 @@ def _partial_better(a: dict, b: dict) -> bool:
     return ka > kb
 
 
+def _best_per_stage(records: list[dict], better) -> list[dict]:
+    """스테이지당 대표 1개 — '가장 멀리 도달' 보고 계약의 단일 최고-진척(codex R1-M3)."""
+    best: dict[int, dict] = {}
+    for rec in records:
+        sid = rec.get("stage_id")
+        cur = best.get(sid)
+        if cur is None or better(rec, cur):
+            best[sid] = rec
+    return sorted(best.values(), key=lambda r: r.get("stage_id") or 0)
+
+
 # ---------- 리플레이(궤적·지표) 캐시 ----------
 
 def _replay_key(rec: dict) -> str:
-    payload = json.dumps({"stage": rec.get("stage"),
-                          "deadline": rec.get("deadline_frames") or 6000,
-                          "actions": rec.get("actions") or []},
-                         sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+    """캐시 키 = solution_registry.replay_cache_key(단일 출처) — 현재 레벨 digest+스키마 결속.
+    레벨이 바뀌면 키가 달라져 옛 레벨의 궤적/지표가 현재 보고서에 재사용될 수 없다(codex R1-M2)."""
+    return solution_registry.replay_cache_key(rec)
+
+
+def _cache_binding(rec: dict) -> dict:
+    """결속 구성 = solution_registry.cache_binding(단일 출처 — migrate와 공유)."""
+    return solution_registry.cache_binding(rec.get("stage_id"))
 
 
 def attach_replays(records: list[dict], found_dir: Path, do_replay: bool) -> None:
     """각 레코드에 캐시된 리플레이 결과(_replay: trace+지표)를 붙인다.
-    do_replay=True면 캐시 미스를 결정론 리플레이(solve.run_plan, D4 무수정 verdict)로 채운다."""
+    do_replay=True면 캐시 미스를 결정론 리플레이(solve.run_plan, D4 무수정 verdict)로 채운다.
+    캐시 payload의 _cache 결속(schema+level_digest)이 현재와 다르면 미스로 취급(파일명 키
+    결속의 이중 안전망 — 해시 절단 충돌·수동 복사 방어)."""
     cache_dir = found_dir / "replay_cache"
     run_plan = None
     for rec in records:
+        binding = _cache_binding(rec)
+        # fail-closed(codex R5-M2): 현재 레벨 digest 산출 불가 = 캐시 정체성 검증 불가 —
+        # 읽기/쓰기 모두 생략(None==None 우연 일치로 미검증 궤적이 재사용되는 것 차단)
+        verifiable = binding["level_digest"] is not None
         key = _replay_key(rec)
         cpath = cache_dir / f"stage{(rec.get('stage_id') or 0):02d}_{key}.json"
-        if cpath.exists():
+        if verifiable and cpath.exists():
             try:
-                rec["_replay"] = json.loads(cpath.read_text(encoding="utf-8"))
-                continue
-            except (json.JSONDecodeError, OSError):
+                cached = json.loads(cpath.read_text(encoding="utf-8"))
+                # 공유 검증기(R11~R13): error 키 존재(null 포함)·cleared 비-불리언·결속 불일치
+                # 전부 미스 — 오류/오염 payload가 권위 판정으로 재사용되는 것 차단
+                if solution_registry.valid_replay_payload(cached, binding):
+                    rec["_replay"] = cached
+                    continue
+            except (json.JSONDecodeError, UnicodeDecodeError, OSError):
                 pass
         if not do_replay:
             continue
@@ -208,8 +291,18 @@ def attach_replays(records: list[dict], found_dir: Path, do_replay: bool) -> Non
         if not isinstance(res, dict):
             print(f"warn: replay stage{rec.get('stage_id')}: SOLVER_RESULT 없음", file=sys.stderr)
             continue
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        cpath.write_text(json.dumps(res, ensure_ascii=False), encoding="utf-8")
+        # 인프라 오류(codex R11~R13 공유 검증기): error 키 존재(null 포함)/cleared 불리언 부재 =
+        # 게임플레이 verdict 아님 — 캐시·부착 모두 생략(리플레이-불가로 두고 다음 --replay
+        # 재시도; 오류를 stale 판정으로 박제 금지)
+        if not solution_registry.valid_replay_payload(res):
+            print(f"warn: replay stage{rec.get('stage_id')}: 무효 응답(캐시 미저장, "
+                  f"다음 --replay 재시도): {res.get('error') or 'cleared 부재/error 키'}",
+                  file=sys.stderr)
+            continue
+        if verifiable:                         # 검증 불가 결과는 캐시에 남기지 않음(in-memory만)
+            res["_cache"] = binding
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cpath.write_text(json.dumps(res, ensure_ascii=False), encoding="utf-8")
         rec["_replay"] = res
         print(f"replayed stage{rec.get('stage_id'):02d} "
               f"saved={res.get('saved')} frame={res.get('frame')} → {cpath.name}")
@@ -238,7 +331,7 @@ def build_level_svg(rec: dict) -> str:
                 pts = [x.get("target", {}).get("target_pos") for x in pa]
                 if len(pts) == len(actions) and all(pts):
                     resolved = pts
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, UnicodeDecodeError, OSError):
                 pass
         trace = (rec.get("_replay") or {}).get("trace") or None
         return level_render.render_svg(layout, actions, spawn=spawn,
@@ -306,7 +399,19 @@ def _seed_label(rec: dict) -> str:
 def _card(rec: dict, cleared: bool) -> str:
     sid = rec.get("stage_id")
     rep = rec.get("_replay") or {}
-    saved = rec.get("saved") if cleared else rep.get("saved")
+    # 현행-런타임 3-상태(codex R10-H1·R14-H1): 등재 해의 권위 = 현행 리플레이 —
+    # ok(검증-클리어) / failed(검증-실패) / unverified(리플레이 부재 — 캐시 무효화 직후 등.
+    # 미검증을 클리어로 취급하면 런타임 드리프트 안전망이 캐시-미스로 우회된다).
+    replay_state = None
+    if cleared:
+        replay_state = ("unverified" if not rep
+                        else ("ok" if rep.get("cleared") else "failed"))
+    if cleared and rep:
+        saved = rep.get("saved")               # 저장값 아닌 현행 엔진 실측 우선
+    elif cleared:
+        saved = rec.get("saved")               # 미검증 = 역사값 표시(배지가 미검증임을 명시)
+    else:
+        saved = rep.get("saved")
     hp = rec.get("hp")
     inv = rec.get("inventory", {}) or {}
     inv_html = " ".join(
@@ -324,9 +429,15 @@ def _card(rec: dict, cleared: bool) -> str:
         )
     steps_html = "\n".join(steps) or '<li class="muted">액션 없음</li>'
 
-    if cleared:
-        badge = '<span class="badge full">클리어</span>'
+    if replay_state == "failed":
+        badge = '<span class="badge stale">등재 해 · 현행 런타임 리플레이 실패</span>'
+        frame = rep.get("frame")
+    elif replay_state == "unverified":
+        badge = '<span class="badge unverified">등재 해 · 미검증(현행 런타임 리플레이 필요)</span>'
         frame = rec.get("frame")
+    elif cleared:
+        badge = '<span class="badge full">클리어</span>'
+        frame = rep.get("frame")
     else:
         badge = '<span class="badge part">미클리어 · 최고 진척</span>'
         frame = rep.get("frame")
@@ -350,8 +461,15 @@ def _card(rec: dict, cleared: bool) -> str:
               if (rec.get("_replay") or {}).get("trace") else "")
     level_html = f'<div class="level-wrap">{level_svg}{legend}</div>' if level_svg else ""
     saved_disp = esc(saved) if saved is not None else "?"
+    # 명시적 4-상태(codex R15-M1): verified-clear / partial / failed / unverified —
+    # data-cleared(불리언)만으로는 failed·미검증이 '미클리어(partial)' 필터에 오분류된다.
+    # 검증-클리어(ok)만 현행-클리어 필터/집계에 포함, 발견 provenance는 카드로 보존.
+    cleared_now = replay_state == "ok"
+    data_state = ("verified-clear" if replay_state == "ok"
+                  else replay_state if replay_state in ("failed", "unverified")
+                  else "partial")
     return f"""
-    <article class="card" data-cleared="{str(cleared).lower()}" data-stage="{esc(sid)}">
+    <article class="card" data-cleared="{str(cleared_now).lower()}" data-state="{data_state}" data-stage="{esc(sid)}">
       <header>
         <div class="title">
           <span class="sid">Stage {esc(sid)}</span>
@@ -379,12 +497,29 @@ def render(found_groups: list[dict], partial_groups: list[dict],
     cards = [_card(rec, cleared) for rec, cleared in tagged]
     cards_html = "\n".join(cards) or '<p class="empty">아직 기록된 해가 없습니다.</p>'
 
-    cleared_ids = {r.get("stage_id") for r in found_groups}
+    # 현행-클리어 집계(codex R10-H1·R14-H1): 검증-클리어(ok)만 클리어로 집계 — 실패는 물론
+    # **미검증(리플레이 부재)** 도 제외(캐시 무효화 직후 미검증 해가 클리어로 보이는 것 차단)
+    def _replay_state(r: dict) -> str:
+        rep = r.get("_replay") or {}
+        if not rep:
+            return "unverified"
+        return "ok" if rep.get("cleared") else "failed"
+
+    ok_groups = [r for r in found_groups if _replay_state(r) == "ok"]
+    n_replay_fail = sum(1 for r in found_groups if _replay_state(r) == "failed")
+    n_unverified = sum(1 for r in found_groups if _replay_state(r) == "unverified")
+    cleared_ids = {r.get("stage_id") for r in ok_groups}
     stage_ids = {r.get("stage_id") for r in found_groups + partial_groups}
     n_stage = len(stage_ids)
     n_clear_stage = len(cleared_ids)
-    summary = (f"{n_stage}개 스테이지 · 클리어 {n_clear_stage} · 미클리어 {n_stage - n_clear_stage}"
-               f" · 고유 해 {len(found_groups)}개")
+    summary = (f"{n_stage}개 스테이지 · 클리어(검증) {n_clear_stage} · "
+               f"고유 해(검증) {len(ok_groups)}개")
+    if n_unverified:
+        summary += (f' · <span class="warn">미검증 {n_unverified}개'
+                    '(--replay로 현행 런타임 검증 필요)</span>')
+    if n_replay_fail:
+        summary += (f' · <span class="stale">현행 런타임 리플레이 실패 {n_replay_fail}개'
+                    '(엔진 변경 의심)</span>')
     if stale_ids:
         summary += (' · <span class="stale">레벨 변경으로 파기 대기: '
                     + ", ".join(f"S{s}" for s in sorted(stale_ids)) + "</span>")
@@ -424,6 +559,9 @@ def render(found_groups: list[dict], partial_groups: list[dict],
   .badge {{ font-size: 11px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }}
   .badge.full {{ background: rgba(123,216,143,.15); color: var(--green); border: 1px solid rgba(123,216,143,.4); }}
   .badge.part {{ background: rgba(224,164,88,.15); color: var(--amber); border: 1px solid rgba(224,164,88,.4); }}
+  .badge.stale {{ background: rgba(255,110,110,.15); color: #ff8a8a; border: 1px solid rgba(255,110,110,.4); }}
+  .badge.unverified {{ background: rgba(160,160,160,.15); color: #b9b9b9; border: 1px solid rgba(160,160,160,.4); }}
+  .warn {{ color: var(--amber); }}
   .score {{ display: flex; align-items: baseline; gap: 6px; }}
   .score .saved {{ font-size: 30px; font-weight: 800; color: var(--green); line-height: 1; }}
   .score .sep {{ font-size: 22px; color: var(--muted); }}
@@ -470,14 +608,16 @@ def render(found_groups: list[dict], partial_groups: list[dict],
   <div class="summary">{summary}</div>
   <div class="controls">
     <button data-filter="all" class="active">전체</button>
-    <button data-filter="clear">클리어</button>
+    <button data-filter="verified-clear">클리어(검증)</button>
     <button data-filter="partial">미클리어</button>
+    <button data-filter="attention">요주의(실패·미검증)</button>
   </div>
 </header>
 <main id="grid">
 {cards_html}
 </main>
 <script>
+  // 필터 = data-state 정확 매칭(codex R15-M1) — failed/unverified가 '미클리어'로 오분류 금지
   const buttons = document.querySelectorAll('.controls button');
   const cards = document.querySelectorAll('.card');
   buttons.forEach(b => b.addEventListener('click', () => {{
@@ -485,8 +625,9 @@ def render(found_groups: list[dict], partial_groups: list[dict],
     b.classList.add('active');
     const f = b.dataset.filter;
     cards.forEach(c => {{
-      const cleared = c.dataset.cleared === 'true';
-      const show = f === 'all' || (f === 'clear' && cleared) || (f === 'partial' && !cleared);
+      const s = c.dataset.state;
+      const show = f === 'all' || (f === 'attention' ? (s === 'failed' || s === 'unverified')
+                                                     : s === f);
       c.style.display = show ? '' : 'none';
     }});
   }}));
@@ -527,20 +668,27 @@ def main() -> int:
     partials = [r for r in partials if r.get("stage_id") not in stale]
 
     def _partial_level_ok(r: dict) -> bool:
+        # fail-closed(codex R5-M2): 저장/현재 digest 부재 = 검증 불가 → 제외. §17 이후
+        # _record_partial이 항상 digest를 스탬프하므로 무-digest는 결함 기록뿐(정직 제외).
         ld, sid = r.get("level_digest"), r.get("stage_id")
         if not ld or not isinstance(sid, int):
-            return True                        # 레거시(digest 없는) partial은 통과
+            return False
         cur = solution_registry.level_digest(sid)
-        return cur is None or ld == cur
+        return cur is not None and ld == cur
 
     partials = [r for r in partials if _partial_level_ok(r)]
     # 클리어가 있는 스테이지의 partial은 잉여
     cleared_ids = {r.get("stage_id") for r in found_groups}
     partials = [r for r in partials if r.get("stage_id") not in cleared_ids]
 
-    # 리플레이 부착: 캐시 우선, --replay 시 미스 채움(partial 대표 선정이 리플레이 지표를 쓰므로 선행)
+    # 부분해 ①: 리플레이를 **raw 플랜 전체**에 먼저 부착(codex R2-M2: plan_key는 60f 버킷·셀
+    # 양자화로 의도적 손실 — 같은 클래스라도 리플레이 결과가 다를 수 있어, 부착 전에 클래스
+    # 병합하면 더 나은 raw 플랜이 best_reward 비교만으로 버려진다). 동일 raw 플랜은 캐시 히트.
     attach_replays(found_groups + partials, found_dir, do_replay=args.replay)
-    partial_groups = dedup_by_class(partials, _partial_better)
+    # ②: 플랜-클래스 병합(대표 = 리플레이 지표 우선) ③: 스테이지별 최고-진척 1개 —
+    # 전 이력 대상이라 나중의 약한 런이 이전 최고를 못 가림(codex R1-M3)
+    partials = dedup_by_class(partials, _partial_better)
+    partial_groups = _best_per_stage(partials, _partial_better)
 
     out = args.out or (found_dir / "index.html")
     out.write_text(render(found_groups, partial_groups, stale), encoding="utf-8")
