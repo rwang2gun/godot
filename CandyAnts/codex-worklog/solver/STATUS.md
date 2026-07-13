@@ -1623,3 +1623,38 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   신규 스테이지 S9·S16(진행 중에 이미 1해)
 - 남은 대상: S16(진행)~S25. 완료 후 `found_viewer.py --replay --stages 1-25` 최종 보고서.
   진행 확인 = `sweep_out/attempts.jsonl`·`runner_console.log`. 레지스트리 커밋은 스윕 완료 후.
+
+## 실패 분석 후속 도구 실전 검증 착수 (2026-07-13) — P1 유효성 그린 + 도구① max_len "필요조건이나 불충분" 실증 (S14·S15 FAIL)
+
+> 배경: 2차 스윕(S3~S25) 완료 후 미클리어 12 스테이지 실패 분석([2026-07-13-sweep-fail-analysis.md](2026-07-13-sweep-fail-analysis.md))
+> + 후속 3도구 커밋(`2cdd74b`, py_compile·정적 검증만). 이 세션 = 그 3도구 **실전(학습 런) 검증 착수**.
+> 사용자 지시로 도구① 검증 중 중단(S20 미착수·도구②③ 미착수). 로그·attempts는 정리 후 커밋.
+
+- **P1 유효성 검증(전제) 완료·전부 그린**: solve/witness JSON을 `run_plan.py`로 현 레벨 replay —
+  S14(8액션)·S15(7)·S20(7)·S23(witness 5)·S24(witness 4) **전부 cleared**(saved 5/5·5/5·5/5·7/7·7/7).
+  보고서 §1 "⚠ 유보: solve.json 6월 산출 → 현 레벨 digest 미검증" **해소** — 6월 auto-solver 해가 현
+  레벨에서 그대로 유효. → 도구①(max_len)·③(witness-prefix)이 정공법임 확정.
+- **3도구 배선 스모크(각 3배치) 전부 그린**: ① `--max-len 8` 배너 `max_len=8`·MDP grid 빌드 /
+  ③ `--prefix-plan --prefix-k 3` 배너 `prefix=3@…witness.json`·best plan 앞3액션 witness 구조 강제 /
+  ② `--stall-any-batches 60` governor cfg에 `stall_any_batches:60` 주입. (플럼빙 OK — 크래시·NaN 0.)
+- **도구① `--max-len-overrides` 실전 검증**: `sweep_stages.py --stages 14,15,20 --max-len-overrides
+  "14:8,15:7,20:7"`. **S14·S15 완주, S20 착수 전 사용자 중단.**
+  - **S14(max_len 8): 0/3 FAIL** (wall 2718s, `stage14.attempt02.log`). seed0 bestR **1.173 정체** —
+    best plan=**blocker×3만**(하강 발판), climber×5 미조립. meanR이 고원으로 수렴(0.6→1.17=착취) →
+    **배치 연장으로 탈출 불가**. 원인 = 신용 공백: blocker×3 후 climber 1개 얹어도 무보상(carry
+    연쇄 5개 다 있어야 saved 상승)이라 "climber 추가" 방향 기울기 0. si32(무개선 32배치) 도달했으나
+    dup 게이트로 구제 미발동 + 미세 상승이 카운터 리셋. **solve.py 예측솔버가 score 2-fix(전원픽업
+    디딤돌+carry 연쇄)로 넘었던 바로 그 장벽을 순수 RL은 못 넘음**(§S14 자동발견 참조).
+  - **S15(max_len 7): 0/3 FAIL** (wall 1195s, `stage15.attempt02.log`)이나 **seed1 near-clear
+    bestR 3.130** — 전체 **7액션 구조(floater×2+climber×5) 발견**, batch 150에서 막 수렴 중 컷(gov
+    si10, meanR 3.130). 클리어 문턱(≈3.7~4.0) 직전. seed0/2는 floater-only 0.449 붕괴(si144/145).
+    **"기울기 살아있는 채 컷 + 니어클리어"(보고서 유형 ②·⑤) 실증** — 예산 연장 or 재시작으로 클리어 여지.
+- **핵심 결론**: **max_len 오버라이드는 문법 천장을 정확히 제거하나(스모크+S15 구조 발견으로 확증),
+  그것만으로 클리어를 보장하지 않는다.** 스테이지 성격이 갈림 — **S14 = 탐색 장벽**(curriculum/score
+  개입 필요, 배치 연장 무의미) / **S15 = 예산·니어클리어**(연장·재시작 여지). "클리어 가능(해 존재)"과
+  "RL이 더 학습하면 발견"은 별개 — 보상 기울기가 해까지 이어질 때만 예산이 유효.
+- **다음(미착수)**: 도구③ witness-prefix 실전(S14·S23·S24 — 어려운 전제를 prefix로 고정하고 나머지만
+  학습) / 도구② stall-any 실전(평평-고원 S18/S10 보조 격발 발화) / S20 max_len 검증 재개 / S15 예산 연장.
+- **아티팩트 정리**: max_len 런 로그는 `stageNN.attempt02.log`로 보존(커밋된 max_len-6 `attempt01.log`
+  불가침 — 이 PC state에 S14/15 부재로 attempt 넘버 충돌하던 것 정정). attempts.jsonl에 `max_len` 필드
+  동반 2엔트리 append. S20 미착수(0바이트 로그 삭제). 도구 3종은 코드 무변경(전부 `2cdd74b` 기커밋).

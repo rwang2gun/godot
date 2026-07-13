@@ -1,0 +1,58 @@
+=== Phase R 학습: stage 15 (hp=5, inv={'climber': 5, 'floater': 2}, max_len=7, flat_dim=950 grid=17x32) grammar=r2.1 seeds=[0, 1, 2] shaping=trace train_deadline=4500 ckpt=none ===
+[preflight] envs=4 runs=8 trace=True trace_present=True parallel identical=True wall=1.01s base={'cleared': False, 'saved': 0, 'lost': 0, 'hp': -1, 'frame': 601, 'actions_fired': 0, 'picked_total': 0}
+  [seed 0] batch 10 eps=160 meanR=0.330 meanShape=0.362 bestR=0.449 gov=si4 wall=23s
+  [seed 0] batch 20 eps=320 meanR=0.369 meanShape=0.403 bestR=0.449 gov=si14 wall=48s
+  [seed 0] batch 30 eps=480 meanR=0.360 meanShape=0.395 bestR=0.449 gov=si24 wall=73s
+  [seed 0] batch 40 eps=640 meanR=0.346 meanShape=0.378 bestR=0.449 gov=si34 wall=98s
+  [seed 0] batch 50 eps=800 meanR=0.399 meanShape=0.428 bestR=0.449 gov=si44 wall=123s
+  [seed 0] batch 60 eps=960 meanR=0.437 meanShape=0.461 bestR=0.449 gov=si54 wall=149s
+  [seed 0] batch 70 eps=1120 meanR=0.420 meanShape=0.461 bestR=0.449 gov=si64 wall=175s
+  [seed 0] batch 80 eps=1280 meanR=0.395 meanShape=0.428 bestR=0.449 gov=si74 wall=200s
+  [seed 0] batch 90 eps=1440 meanR=0.412 meanShape=0.445 bestR=0.449 gov=si84 wall=226s
+  [seed 0] batch 100 eps=1600 meanR=0.426 meanShape=0.461 bestR=0.449 gov=si94 wall=251s
+  [seed 0] batch 110 eps=1760 meanR=0.431 meanShape=0.461 bestR=0.449 gov=si104 wall=277s
+  [seed 0] batch 120 eps=1920 meanR=0.411 meanShape=0.436 bestR=0.449 gov=si114 wall=302s
+  [seed 0] batch 130 eps=2080 meanR=0.434 meanShape=0.461 bestR=0.449 gov=si124 wall=328s
+  [seed 0] batch 140 eps=2240 meanR=0.435 meanShape=0.461 bestR=0.449 gov=si134 wall=353s
+  [seed 0] batch 150 eps=2400 meanR=0.439 meanShape=0.461 bestR=0.449 gov=si144 wall=379s
+  [seed 0] FAIL bestR=0.449 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "any", "y_min": 0.0, "y_max": 48.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 120.0}}]
+  [seed 0] 부분-진척 기록 → data/solutions/found/stage15_seed0.partial.json + found/partials.jsonl
+  [seed 0] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [{'batch': 36, 'event': 'blocked_first', 'top_share': 0.0083, 'dup_share': 0.0479}], 'blocked_n': 115, 'blocked_max_top': 0.025, 'blocked_max_dup': 0.2958}
+  [seed 1] batch 10 eps=160 meanR=0.419 meanShape=0.461 bestR=0.449 gov=si7 wall=25s
+  [seed 1] batch 20 eps=320 meanR=0.364 meanShape=0.395 bestR=0.449 gov=si17 wall=50s
+  [seed 1] batch 30 eps=480 meanR=0.321 meanShape=0.370 bestR=0.449 gov=si27 wall=76s
+  [seed 1] batch 40 eps=640 meanR=0.393 meanShape=0.420 bestR=0.449 gov=si37 wall=102s
+  [seed 1] batch 50 eps=800 meanR=0.424 meanShape=0.453 bestR=0.449 gov=si47 wall=127s
+  [seed 1] batch 60 eps=960 meanR=0.409 meanShape=0.436 bestR=0.449 gov=si57 wall=154s
+  [seed 1] batch 70 eps=1120 meanR=0.390 meanShape=0.420 bestR=0.449 gov=si67 wall=180s
+  [seed 1] batch 80 eps=1280 meanR=0.425 meanShape=0.453 bestR=0.449 gov=si77 wall=205s
+  [seed 1] batch 90 eps=1440 meanR=0.431 meanShape=0.461 bestR=0.449 gov=si87 wall=231s
+  [seed 1] batch 100 eps=1600 meanR=0.436 meanShape=0.469 bestR=0.449 gov=si97 wall=257s
+  [seed 1] batch 110 eps=1760 meanR=0.437 meanShape=0.469 bestR=0.449 gov=si107 wall=282s
+  [seed 1] batch 120 eps=1920 meanR=0.413 meanShape=0.453 bestR=0.449 gov=si117 wall=308s
+  [seed 1] batch 130 eps=2080 meanR=0.438 meanShape=0.469 bestR=0.449 gov=si127 wall=334s
+  [seed 1] batch 140 eps=2240 meanR=0.568 meanShape=0.443 bestR=3.130 gov=si0 wall=362s
+  [seed 1] batch 150 eps=2400 meanR=3.130 meanShape=0.490 bestR=3.130 gov=si10 wall=411s
+  [seed 1] FAIL bestR=3.130 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker"}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 1272.0}}, {"skill": "floater", "target": {"mode": "ant", "select": "max_x", "state": "any"}, "trigger": {"type": "at_frame", "frame": 900}}, {"skill": "climber", "target": {"mode": "ant", "select": "max_x", "state": "any"}, "trigger": {"type": "ant_reaches_x", "cmp": "ge", "x": 1224.0}}, {"skill": "climber", "target": {"mode": "ant", "select": "min_x", "state": "any"}, "trigger": {"type": "at_frame", "frame": 900}}, {"skill": "climber", "target": {"mode": "ant", "select": "max_x", "state": "any"}, "trigger": {"type": "at_frame", "frame": 900}}, {"skill": "climber", "target": {"mode": "ant", "select": "max_x", "state": "any"}, "trigger": {"type": "at_frame", "frame": 900}}, {"skill": "climber", "target": {"mode": "ant", "select": "max_x", "state": "any"}, "trigger": {"type": "ant_reaches_x", "cmp": "ge", "x": 984.0}}]
+  [seed 1] 부분-진척 기록 → data/solutions/found/stage15_seed1.partial.json + found/partials.jsonl
+  [seed 1] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [{'batch': 33, 'event': 'blocked_first', 'top_share': 0.0083, 'dup_share': 0.0312}], 'blocked_n': 98, 'blocked_max_top': 0.0292, 'blocked_max_dup': 0.2979}
+  [seed 2] batch 10 eps=160 meanR=0.315 meanShape=0.362 bestR=0.449 gov=si5 wall=24s
+  [seed 2] batch 20 eps=320 meanR=0.351 meanShape=0.386 bestR=0.449 gov=si15 wall=50s
+  [seed 2] batch 30 eps=480 meanR=0.306 meanShape=0.353 bestR=0.449 gov=si25 wall=75s
+  [seed 2] batch 40 eps=640 meanR=0.335 meanShape=0.362 bestR=0.449 gov=si35 wall=101s
+  [seed 2] batch 50 eps=800 meanR=0.395 meanShape=0.428 bestR=0.449 gov=si45 wall=127s
+  [seed 2] batch 60 eps=960 meanR=0.361 meanShape=0.403 bestR=0.449 gov=si55 wall=153s
+  [seed 2] batch 70 eps=1120 meanR=0.385 meanShape=0.411 bestR=0.449 gov=si65 wall=179s
+  [seed 2] batch 80 eps=1280 meanR=0.408 meanShape=0.445 bestR=0.449 gov=si75 wall=205s
+  [seed 2] batch 90 eps=1440 meanR=0.426 meanShape=0.461 bestR=0.449 gov=si85 wall=230s
+  [seed 2] batch 100 eps=1600 meanR=0.403 meanShape=0.427 bestR=0.449 gov=si95 wall=257s
+  [seed 2] batch 110 eps=1760 meanR=0.428 meanShape=0.453 bestR=0.449 gov=si105 wall=283s
+  [seed 2] batch 120 eps=1920 meanR=0.425 meanShape=0.461 bestR=0.449 gov=si115 wall=310s
+  [seed 2] batch 130 eps=2080 meanR=0.397 meanShape=0.428 bestR=0.449 gov=si125 wall=336s
+  [seed 2] batch 140 eps=2240 meanR=0.435 meanShape=0.461 bestR=0.449 gov=si135 wall=362s
+  [seed 2] batch 150 eps=2400 meanR=0.409 meanShape=0.436 bestR=0.449 gov=si145 wall=388s
+  [seed 2] FAIL bestR=0.449 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "max_x", "state": "any"}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 120.0}}]
+  [seed 2] 부분-진척 기록 → data/solutions/found/stage15_seed2.partial.json + found/partials.jsonl
+  [seed 2] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [{'batch': 35, 'event': 'blocked_first', 'top_share': 0.0042, 'dup_share': 0.0188}], 'blocked_n': 116, 'blocked_max_top': 0.0187, 'blocked_max_dup': 0.2708}
+=== 집계: 0/3 seed 클리어 (필요 ≥2) → FAIL ===
+--no-save: 산출물 미저장(판정은 위 집계줄)
