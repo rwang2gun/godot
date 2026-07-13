@@ -1,0 +1,39 @@
+=== Phase R 학습: stage 13 (hp=5, inv={'blocker': 1, 'climber': 5}, max_len=6, flat_dim=816 grid=17x32) grammar=r2.1 seeds=[0, 1, 2] shaping=trace train_deadline=4500 ckpt=none ===
+[preflight] envs=4 runs=8 trace=True trace_present=True parallel identical=True wall=0.74s base={'cleared': False, 'saved': 0, 'lost': 0, 'hp': -1, 'frame': 601, 'actions_fired': 0, 'picked_total': 0}
+  [seed 0] batch 10 eps=160 meanR=0.747 meanShape=0.463 bestR=0.847 gov=si9 wall=63s
+  [seed 0] batch 20 eps=320 meanR=0.847 meanShape=0.480 bestR=0.847 gov=si19 wall=145s
+  [seed 0] batch 30 eps=480 meanR=0.847 meanShape=0.480 bestR=0.847 gov=si29 wall=229s
+  [seed 0] stall 격발(batch 31, dup 0.7208) → 검출 런 중단
+  [seed 0] FAIL bestR=0.847 best plan: [{"skill": "blocker", "target": {"mode": "ant", "select": "max_x", "state": "walker", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "ant_reaches_x", "cmp": "ge", "x": 72.0}}]
+  [seed 0] 부분-진척 기록 → data/solutions/found/stage13_seed0.partial.json + found/partials.jsonl
+  [seed 0] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [{'batch': 31, 'event': 'on', 'dup_share': 0.7208, 'top_share': 0.1229, 'window_eps': 480}], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+  [seed 0] stall-escalate → knowledge=always 재시작(§14.4 레짐)
+  [seed 0] batch 10 eps=160 meanR=0.709 meanShape=0.467 bestR=0.847 wall=57s
+  [seed 0] GREEDY CLEAR saved=5/5 frame=1669 eps=160
+  [seed 0] 중복 해(실행-동치 기존 등재) → data/solutions/found/stage13.solutions.json 카운트만 갱신
+  [seed 1] batch 10 eps=160 meanR=0.381 meanShape=0.387 bestR=0.847 gov=si6 wall=37s
+  [seed 1] batch 20 eps=320 meanR=0.720 meanShape=0.456 bestR=0.847 gov=si16 wall=102s
+  [seed 1] batch 30 eps=480 meanR=0.816 meanShape=0.473 bestR=0.847 gov=si26 wall=185s
+  [seed 1] stall 격발(batch 34, dup 0.5375) → 검출 런 중단
+  [seed 1] FAIL bestR=0.847 best plan: [{"skill": "blocker", "target": {"mode": "ant", "select": "max_x", "state": "walker", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 1368.0}}]
+  [seed 1] 부분-진척 기록 → data/solutions/found/stage13_seed1.partial.json + found/partials.jsonl
+  [seed 1] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [{'batch': 34, 'event': 'on', 'dup_share': 0.5375, 'top_share': 0.1313, 'window_eps': 480}], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+  [seed 1] stall-escalate → knowledge=always 재시작(§14.4 레짐)
+  [seed 1] batch 10 eps=160 meanR=0.587 meanShape=0.438 bestR=0.847 wall=54s
+  [seed 1] GREEDY CLEAR saved=5/5 frame=1669 eps=240
+  [seed 1] 중복 해(실행-동치 기존 등재) → data/solutions/found/stage13.solutions.json 카운트만 갱신
+  [seed 2] batch 10 eps=160 meanR=0.343 meanShape=0.374 bestR=0.847 gov=si3 wall=34s
+  [seed 2] batch 20 eps=320 meanR=0.750 meanShape=0.462 bestR=0.847 gov=si13 wall=105s
+  [seed 2] batch 30 eps=480 meanR=0.816 meanShape=0.473 bestR=0.847 gov=si23 wall=185s
+  [seed 2] stall 격발(batch 37, dup 0.5271) → 검출 런 중단
+  [seed 2] FAIL bestR=0.847 best plan: [{"skill": "blocker", "target": {"mode": "ant", "select": "max_x", "state": "any", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 1416.0}}]
+  [seed 2] 부분-진척 기록 → data/solutions/found/stage13_seed2.partial.json + found/partials.jsonl
+  [seed 2] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [{'batch': 37, 'event': 'on', 'dup_share': 0.5271, 'top_share': 0.0708, 'window_eps': 480}], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+  [seed 2] stall-escalate → knowledge=always 재시작(§14.4 레짐)
+  [seed 2] batch 10 eps=160 meanR=0.374 meanShape=0.386 bestR=0.827 wall=34s
+  [seed 2] batch 20 eps=320 meanR=0.456 meanShape=0.406 bestR=0.847 wall=82s
+  [seed 2] batch 30 eps=480 meanR=0.769 meanShape=0.483 bestR=0.847 wall=162s
+  [seed 2] GREEDY CLEAR saved=5/5 frame=1669 eps=560
+  [seed 2] 중복 해(실행-동치 기존 등재) → data/solutions/found/stage13.solutions.json 카운트만 갱신
+=== 집계: 3/3 seed 클리어 (필요 ≥2) → PASS ===
+--no-save: 산출물 미저장(판정은 위 집계줄)

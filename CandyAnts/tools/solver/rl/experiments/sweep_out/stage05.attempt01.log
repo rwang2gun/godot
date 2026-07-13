@@ -1,0 +1,17 @@
+=== Phase R 학습: stage 5 (hp=5, inv={'floater': 1, 'sand_mound': 1}, max_len=6, flat_dim=816 grid=17x32) grammar=r2.1 seeds=[0, 1, 2] shaping=trace train_deadline=4500 ckpt=none ===
+[preflight] envs=4 runs=8 trace=True trace_present=True parallel identical=True wall=0.74s base={'cleared': False, 'saved': 0, 'lost': 0, 'hp': -1, 'frame': 601, 'actions_fired': 0, 'picked_total': 0}
+  [seed 0] batch 10 eps=160 meanR=0.328 meanShape=0.444 bestR=3.270 gov=si5 wall=105s
+  [seed 0] batch 20 eps=320 meanR=2.005 meanShape=0.487 bestR=3.750 gov=si7 wall=196s
+  [seed 0] GREEDY CLEAR saved=5/5 frame=2128 eps=400
+  [seed 0] 중복 해(실행-동치 기존 등재) → data/solutions/found/stage05.solutions.json 카운트만 갱신
+  [seed 0] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+  [seed 1] batch 10 eps=160 meanR=0.385 meanShape=0.457 bestR=0.610 gov=si9 wall=94s
+  [seed 1] GREEDY CLEAR saved=5/5 frame=4223 eps=240
+  [seed 1] 신규 해 기록 → data/solutions/found/stage05.solutions.json + data/solutions/found/stage05_seed1.found.json
+  [seed 1] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+  [seed 2] batch 10 eps=160 meanR=2.060 meanShape=0.473 bestR=3.750 gov=si4 wall=89s
+  [seed 2] GREEDY CLEAR saved=5/5 frame=1671 eps=160
+  [seed 2] 신규 해 기록 → data/solutions/found/stage05.solutions.json + data/solutions/found/stage05_seed2.found.json
+  [seed 2] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+=== 집계: 3/3 seed 클리어 (필요 ≥2) → PASS ===
+--no-save: 산출물 미저장(판정은 위 집계줄)

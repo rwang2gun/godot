@@ -1,0 +1,14 @@
+=== Phase R 학습: stage 8 (hp=5, inv={'cutter': 1, 'leaf_jump': 3}, max_len=6, flat_dim=816 grid=15x32) grammar=r2.1 seeds=[0, 1, 2] shaping=trace train_deadline=4500 ckpt=none ===
+[preflight] envs=4 runs=8 trace=True trace_present=True parallel identical=True wall=0.74s base={'cleared': False, 'saved': 0, 'lost': 0, 'hp': -1, 'frame': 601, 'actions_fired': 0, 'picked_total': 0}
+  [seed 0] GREEDY CLEAR saved=5/5 frame=1846 eps=80
+  [seed 0] 중복 해(실행-동치 기존 등재) → data/solutions/found/stage08.solutions.json 카운트만 갱신
+  [seed 0] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+  [seed 1] GREEDY CLEAR saved=5/5 frame=2166 eps=80
+  [seed 1] 신규 해 기록 → data/solutions/found/stage08.solutions.json + data/solutions/found/stage08_seed1.found.json
+  [seed 1] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+  [seed 2] batch 10 eps=160 meanR=2.037 meanShape=0.435 bestR=3.769 gov=si7 wall=86s
+  [seed 2] GREEDY CLEAR saved=5/5 frame=1772 eps=160
+  [seed 2] 신규 해 기록 → data/solutions/found/stage08.solutions.json + data/solutions/found/stage08_seed2.found.json
+  [seed 2] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+=== 집계: 3/3 seed 클리어 (필요 ≥2) → PASS ===
+--no-save: 산출물 미저장(판정은 위 집계줄)
