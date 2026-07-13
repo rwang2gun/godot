@@ -72,22 +72,42 @@ FINGERPRINT_MANIFEST = [
 ]
 
 
-def campaign_fingerprint(seeds: str) -> str:
+def campaign_fingerprint(seeds: str, max_len: int | None = None) -> str:
     """스킵 자격의 결속 지문 — 정규화 seeds + RECIPE 전체 + **파이썬 의존 매니페스트 소스 sha**
     + **엔진 runtime digest** + state 스키마(codex R3-M2: seeds/레시피가 다른 완료는 스킵 자격
     없음 / R4-M1·R5-M1·R6: CLI 인자가 같아도 트레이너·롤아웃·게임플레이 의미론이 바뀌면 옛
     완료가 살아남으면 안 됨. 매니페스트 파일 부재는 None으로 지문에 반영(삭제도 변경). 과잉
-    무효화 비용은 무해 — 스윕 재실행은 레지스트리 dup 처리)."""
+    무효화 비용은 무해 — 스윕 재실행은 레지스트리 dup 처리).
+    max_len(2026-07-13 실패 분석): per-stage 오버라이드가 있는 스테이지만 지문에 키를 추가 —
+    오버라이드 없는 스테이지의 payload는 종전과 byte-identical(기존 done 엔트리 스킵 자격 보존)."""
     norm_seeds = ",".join(str(s) for s in sorted({int(x) for x in seeds.split(",")}))
     root = solution_registry.REPO
     srcs = {rel: (hashlib.sha256((root / rel).read_bytes()).hexdigest()[:16]
                   if (root / rel).exists() else None)
             for rel in FINGERPRINT_MANIFEST}
-    payload = json.dumps({"schema": STATE_SCHEMA, "seeds": norm_seeds, "recipe": RECIPE,
-                          "sources": srcs,
-                          "runtime": solution_registry.runtime_digest()},
-                         sort_keys=True, ensure_ascii=False)
+    body = {"schema": STATE_SCHEMA, "seeds": norm_seeds, "recipe": RECIPE,
+            "sources": srcs,
+            "runtime": solution_registry.runtime_digest()}
+    if max_len is not None:
+        body["max_len"] = int(max_len)
+    payload = json.dumps(body, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def parse_max_len_overrides(spec: str) -> dict[int, int]:
+    """"14:8,15:7,20:7" → {14:8, 15:7, 20:7}. 형식 위반 = ValueError(fail-closed — 스테이지가
+    의도한 문법 확장 없이 기본 max_len으로 돌아가 조용히 FAIL 반복하는 것 차단)."""
+    out: dict[int, int] = {}
+    for part in (spec or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        sid_s, v_s = part.split(":", 1)
+        sid, v = int(sid_s), int(v_s)
+        if v < 1:
+            raise ValueError(f"max_len 오버라이드는 ≥1: {part}")
+        out[sid] = v
+    return out
 
 
 def state_entry_ok(entry, fingerprint: str, level_digest: str | None) -> bool:
@@ -168,7 +188,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--stages", default="1-25")
     ap.add_argument("--seeds", default="0,1,2")
+    ap.add_argument("--max-len-overrides", default="",
+                    help="per-stage 문법 길이 오버라이드 \"14:8,15:7,20:7\" — 알려진 해가 기본 "
+                         "max_len=6을 초과하는 스테이지용(2026-07-13 실패 분석 ①: S14=8·S15=7·"
+                         "S20=7액션 해가 표현 공간 밖). 오버라이드 스테이지는 지문에 max_len이 "
+                         "결속돼 기본-길이 완료 기록과 별개로 재시도된다")
     args = ap.parse_args()
+    overrides = parse_max_len_overrides(args.max_len_overrides)
     OUT.mkdir(exist_ok=True)
     # 단일-러너 강제(codex R15-M2): 동시 스윕 2개가 state를 서로 덮어쓰는 것 차단 —
     # 레지스트리와 동일 OS-수준 락(프로세스 사망 시 자동 해제), 러너 수명 전체 보유
@@ -187,10 +213,15 @@ def main() -> int:
     for sid in stages:
         key = f"stage{sid:02d}"
         cur_ld = solution_registry.level_digest(sid)
-        if state_entry_ok(state.get(key, {}), fp, cur_ld):
+        # per-stage 지문: max_len 오버라이드 스테이지만 지문이 갈라짐(기본 스테이지 = 종전 fp 그대로)
+        ml = overrides.get(sid)
+        stage_fp = campaign_fingerprint(args.seeds, max_len=ml) if ml is not None else fp
+        if state_entry_ok(state.get(key, {}), stage_fp, cur_ld):
             print(f"[sweep] {key} 완료 기록 있음(재검증·지문·레벨 digest 일치) — 스킵", flush=True)
             continue
         cmd = [sys.executable, str(TRAIN), "--stage", str(sid), "--seeds", args.seeds] + RECIPE
+        if ml is not None:
+            cmd += ["--max-len", str(ml)]
         # 시도별 분리 기록(2026-07-12 사용자 지시): 로그는 attempt 번호로 파일 분리(덮어쓰기
         # 없음 — 실패 시도의 로그도 보존), 결과 요약은 attempts.jsonl에 append 누적.
         attempt = _prev_attempts(state.get(key)) + 1
@@ -212,7 +243,8 @@ def main() -> int:
         if not ok:
             failed.append(key)
         entry = {"done": ok, "rc": rc, "wall_s": wall, "summary": tail,
-                 "attempts": attempt, "fingerprint": fp,
+                 "attempts": attempt, "fingerprint": stage_fp,
+                 **({"max_len": ml} if ml is not None else {}),
                  "level_digest": cur_ld, "log": log_p.name,
                  "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         state[key] = entry

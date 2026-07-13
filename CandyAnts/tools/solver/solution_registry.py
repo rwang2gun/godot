@@ -475,6 +475,9 @@ def _record_clear_locked(rec: dict, res: dict, sid: int, found_dir: Path,
         "inventory": rec.get("inventory") or {},
         "stage": rec.get("stage"),
         **({"events": [event]} if event is not None else {}),
+        # witness-prefix curriculum 출처(2026-07-13, opt-in에서만 rec에 존재): 힌트-유래 해를
+        # '순수 RL 발견'과 레지스트리 차원에서 구별(정직 provenance). 무힌트 rec = 키 부재 = 종전 구성.
+        **({"hint": dict(rec["hint"])} if rec.get("hint") else {}),
     })
     reg["updated"] = _now()
     _save(reg, found_dir)

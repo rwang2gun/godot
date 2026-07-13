@@ -320,6 +320,9 @@ def _record_found(mdp: "StageMDP", seed: int, plan: list, res: dict,
             "deadline_frames": cfg.get("replay_deadline"),
             "inventory": mdp.inventory,
             "actions": plan,                   # 디코딩된 플랜 — 무수정 replay/시각화용
+            # witness-prefix curriculum 출처(opt-in에서만 키 존재 — 무힌트 발견 rec은 종전과
+            # 구성 동일). 힌트-유래 해를 '순수 RL 발견'으로 과대표시하는 것 차단(정직 provenance).
+            **({"hint": dict(cfg["prefix_hint"])} if cfg.get("prefix_hint") else {}),
         }
         outcome = solution_registry.record_clear(rec, res, FOUND_DIR)
         reg_rel = _rel(solution_registry.registry_path(mdp.stage_id, FOUND_DIR))
@@ -369,6 +372,7 @@ def _record_partial(mdp: "StageMDP", seed: int, plan: list, cfg: dict,
             "deadline_frames": cfg.get("replay_deadline"),
             "inventory": mdp.inventory,
             "actions": plan,                   # 디코딩된 최고-보상 플랜 — 무수정 replay/시각화용
+            **({"hint": dict(cfg["prefix_hint"])} if cfg.get("prefix_hint") else {}),  # provenance
         }
         _append_jsonl(FOUND_DIR / "partials.jsonl", rec)
         side = FOUND_DIR / f"stage{mdp.stage_id:02d}_seed{seed}.partial.json"
@@ -706,15 +710,24 @@ def _masked(lg, allowed: list[int], size: int):
     return lg + m
 
 
-def _sample_episode_r2(mdp: StageMDP, policy, grid_t, greedy: bool = False):
+def _sample_episode_r2(mdp: StageMDP, policy, grid_t, greedy: bool = False,
+                       prefix: list[dict[str, int]] | None = None):
     """r2 조건부 factored 샘플링: skill → (SUBMIT면 종료) → kind(스킬 메타로 단일 유효) → trigger →
     트리거-의존 head → kind-의존 head. 활성 head만 logp/entropy에 기여(비활성 head는 미샘플).
-    스텝 0 SUBMIT 마스킹·인벤토리 동적 마스크는 mdp.head_mask가 담당."""
+    스텝 0 SUBMIT 마스킹·인벤토리 동적 마스크는 mdp.head_mask가 담당.
+
+    prefix(opt-in, witness-guided curriculum — 2026-07-13 스윕 실패 분석): 앞 k스텝을 인코딩된
+    강제 액션으로 고정하고 정책은 그 이후만 샘플. 강제 스텝은 **결정이 아니므로** logp/entropy
+    비기여(SIL replay도 _episode_logp_r2(start=k)로 동일 규약 — 마스크 밖 강제 idx의 -inf
+    log_prob NaN 오염 차단). prefix=None(기본) = 기존 경로 byte-identical."""
     torch, _ = _torch()
-    partial: list[dict[str, int]] = []
+    partial: list[dict[str, int]] = [dict(a) for a in (prefix or [])]
     used: dict[str, int] = {}
+    for a in partial:                             # 강제 스텝의 인벤토리 소비를 마스크 문맥에 반영
+        sid = mdp.skills[a["skill"]]
+        used[sid] = used.get(sid, 0) + 1
     logps, ents = [], []
-    for _t in range(mdp.max_len):
+    for _t in range(len(partial), mdp.max_len):
         flat = torch.tensor(mdp.obs_flat_r2(partial), dtype=torch.float32).unsqueeze(0)
         logits = policy(grid_t, flat)
         idx: dict[str, int] = {}
@@ -746,12 +759,19 @@ def _sample_episode_r2(mdp: StageMDP, policy, grid_t, greedy: bool = False):
     return partial, (sum(logps) if logps else zero), (sum(ents) if ents else zero)
 
 
-def _episode_logp_r2(mdp: StageMDP, policy, grid_t, partial: list[dict[str, int]]):
-    """저장 에피소드의 현행-정책 log-prob 재계산(SIL) — 샘플링 경로와 동일한 조건부 head·마스킹."""
+def _episode_logp_r2(mdp: StageMDP, policy, grid_t, partial: list[dict[str, int]],
+                     start: int = 0):
+    """저장 에피소드의 현행-정책 log-prob 재계산(SIL) — 샘플링 경로와 동일한 조건부 head·마스킹.
+    start>0 = prefix curriculum의 강제 스텝 수: t<start는 logp 비기여(인벤토리 문맥만 반영) —
+    강제 idx가 마스크 밖이면 log_prob=-inf로 loss가 NaN 오염되는 것 차단. start=0(기본) 무변경."""
     torch, _ = _torch()
     total = torch.tensor(0.0)
     used: dict[str, int] = {}
     for t, a in enumerate(partial):
+        if t < start:                             # 강제 스텝 — 결정 아님(샘플링 경로와 동일 규약)
+            sid = mdp.skills[a["skill"]]
+            used[sid] = used.get(sid, 0) + 1
+            continue
         flat = torch.tensor(mdp.obs_flat_r2(partial[:t]), dtype=torch.float32).unsqueeze(0)
         logits = policy(grid_t, flat)
         for h in ["skill"] + mdp.active_heads(a):
@@ -1125,6 +1145,10 @@ class StallGovernor:
     **dup 점유율(1 − unique/total plan sig)** ≥ stall_share. 격발 시 train_seed가 즉시 중단하고
     오케스트레이터(train_seed_escalate)가 **같은 seed를 knowledge=always로 재시작**(§14.4가
     구출을 실증한 정확한 레짐 — 결정론 재현).
+    보조 격발(opt-in, 2026-07-13 스윕 실패 분석): any_batches>0이면 **미개선 연속 ≥ any_batches
+    단독**으로도 격발(dup 무관). 근거 = 2차 스윕 FAIL 12 중 10개가 '다양-고원'(dup 0.02~0.08 —
+    여러 plan을 시도하며 전부 실패)이라 dup 조건이 격발을 영구 차단, blocked_n ~120으로 검출
+    런이 예산을 전소(S6·S10·S18·S23·S24 실측). any_batches=0(기본) = 기존 동작 byte-identical.
     지연-투입(게이트/램프/해제/latch)은 3판 실측 반증으로 폐기(§16.4~16.6): bestR-틱/프런티어-틱
     해제 = 미세-진척 깜빡임으로 압력 누적 실패, latch(끝까지 유지)도 구출 실패 — knowledge의
     구출력은 batch 0부터의 경로 의존(α 신규-토큰 초기 지급 + β 페널티 점진 성장 + baseline
@@ -1134,10 +1158,12 @@ class StallGovernor:
     **의도적 비격발**(α는 건강-런 교란과 동전의 양면 — 정직 트레이드오프). 실측 오격발 0.
     순수·RNG 미사용 — 검출 런의 보상 경로에 일절 불개입."""
 
-    def __init__(self, stall_batches: int, stall_share: float, data: dict | None = None):
+    def __init__(self, stall_batches: int, stall_share: float, data: dict | None = None,
+                 any_batches: int = 0):
         d = data or {}
         self.stall_batches = int(stall_batches)
         self.stall_share = float(stall_share)
+        self.any_batches = int(any_batches)      # 0=off(기존 동작) — 보조 격발 문턱(dup 무관)
         self.window: list[list[str]] = [list(x) for x in (d.get("window") or [])]
         self.since_improve = int(d.get("since_improve", 0))
         self.fired = bool(d.get("fired", False))
@@ -1175,6 +1201,13 @@ class StallGovernor:
             if dup >= self.stall_share:
                 self.fired = True
                 self.events.append({"batch": batch_i, "event": "on",
+                                    "dup_share": round(dup, 4),
+                                    "top_share": round(share, 4), "window_eps": n})
+            elif self.any_batches and self.since_improve >= self.any_batches:
+                # 보조 격발(다양-고원): dup 문턱 미달이어도 미개선이 any_batches까지 누적되면 격발.
+                # rule 키로 주-격발(dup)과 구별 — 회계/사후분석에서 격발 사유 추적 가능.
+                self.fired = True
+                self.events.append({"batch": batch_i, "event": "on", "rule": "any_batches",
                                     "dup_share": round(dup, 4),
                                     "top_share": round(share, 4), "window_eps": n})
             else:
@@ -1278,14 +1311,20 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         return (episodes < cfg["max_episodes"]
                 and wall_prev + (time.monotonic() - t0) < cfg["max_wall"])
 
+    # witness-prefix curriculum(opt-in — run_training이 r2.1·non-refine·scratch로 게이트).
+    # prefix 부재(기본) = 기존 경로 byte-identical(빈 리스트 → 샘플러/logp 인자 기본값과 동일 동작).
+    prefix = [dict(a) for a in (cfg.get("prefix_actions") or [])]
+    if prefix and (not r2 or r4 or refine):
+        raise RuntimeError("prefix curriculum은 --grammar r2.1 non-refine 경로 전용(방어 가드)")
+
     def _sample(greedy: bool = False):
-        return (_sample_episode_r2(mdp, policy, grid_t, greedy) if r2
+        return (_sample_episode_r2(mdp, policy, grid_t, greedy, prefix=prefix or None) if r2
                 else _sample_episode(mdp, policy, greedy))
 
     def _ep_logp(p):
         if refine:
             return _episode_logp_r3(mdp, policy, grid_t, p, roll, blind=blind)
-        return (_episode_logp_r2(mdp, policy, grid_t, p) if r2
+        return (_episode_logp_r2(mdp, policy, grid_t, p, start=len(prefix)) if r2
                 else _episode_logp(mdp, policy, p))
 
     use_trace = cfg["shaping"] == "trace"                 # plan §R1 — trace-shaped 보상
@@ -1313,7 +1352,8 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     if k_coef and k_mode == "stall":
         governor = StallGovernor(cfg.get("stall_batches", 30), cfg.get("stall_share", 0.5),
                                  (ckpt_in or {}).get("knowledge_governor")
-                                 if ckpt_mode == "resume" else None)
+                                 if ckpt_mode == "resume" else None,
+                                 any_batches=int(cfg.get("stall_any_batches", 0) or 0))
     # §16 codex R1-H1 fail-closed: resume는 ckpt의 **유효 knowledge 모드**와 일치해야 한다.
     # escalate 재시작 ckpt = always-포맷(ledger 동승) — stall CLI로 재개하면 ledger 무시 + fresh
     # governor = 결정론 resume 계약 위반(침묵 오염). 레거시 ckpt(키 부재)는 동승 상태로 추론.
@@ -1384,8 +1424,10 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
                                    [json.dumps(p, sort_keys=True) for p, _, _ in eps])
             if governor.fired:
                 result["stall_escalate"] = dict(governor.events[-1])
+                ev = governor.events[-1]
+                rule_note = f", rule={ev['rule']}" if ev.get("rule") else ""
                 print(f"  [seed {seed}] stall 격발(batch {batch_i}, "
-                      f"dup {governor.events[-1].get('dup_share')}) → 검출 런 중단")
+                      f"dup {ev.get('dup_share')}{rule_note}) → 검출 런 중단")
                 break
         mean_r = sum(rewards) / len(rewards)
         mean_shape = sum(bonuses) / len(bonuses)
@@ -1514,6 +1556,9 @@ def train_seed(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
         result["knowledge_governor"] = {"mode": "stall",
                                         "stall_batches": governor.stall_batches,
                                         "stall_share": governor.stall_share,
+                                        # 보조 격발 문턱은 opt-in일 때만 표기(기존 로그/회계 포맷 보존)
+                                        **({"stall_any_batches": governor.any_batches}
+                                           if governor.any_batches else {}),
                                         **governor.summary()}
         print(f"  [seed {seed}] governor: {result['knowledge_governor']}")
     return result, state
@@ -1536,7 +1581,8 @@ def train_seed_escalate(mdp: StageMDP, pool: EnvPool, seed: int, cfg: dict,
     if not res.get("stall_escalate"):
         return res, st
     always_cfg = {k: v for k, v in cfg.items()
-                  if k not in ("knowledge_mode", "stall_batches", "stall_share")}
+                  if k not in ("knowledge_mode", "stall_batches", "stall_share",
+                               "stall_any_batches")}
     # 구출 런 ckpt 라우팅(§16 codex R2-H1): resume-모드 검출 ckpt(stall_detect)를 always_cfg에
     # 그대로 넘기면 R1 fail-closed 가드가 격발 시점에 거부 → **resume이면 무-ckpt 재시작**(문서화된
     # escalate 의미론 = 같은 seed × 처음부터 always). transfer는 보존(가중치 warm-start가 사용자
@@ -1680,6 +1726,34 @@ def run_training(args) -> int:
     if refine and not r2:
         print("--refine는 --grammar r2.1 전용(plan §R3)")
         return 2
+    # witness-prefix curriculum 검증(opt-in — 2026-07-13 스윕 실패 분석 액션 5).
+    # 계약: r2.1 전용·non-refine·scratch 전용(ckpt 플래그 배타 — mask_digest가 prefix를 모름)·
+    # --no-save 필수(pinned 산출물 rl*.json 완전 불가침 — 발견 기록은 레지스트리가 담당하고
+    # hint 출처가 rec에 동승). k < max_len(자유 슬롯 ≥1 없으면 학습 대상이 없음).
+    prefix_k = int(getattr(args, "prefix_k", 0) or 0)
+    prefix_plan = getattr(args, "prefix_plan", None)
+    if prefix_k < 0:
+        print(f"--prefix-k는 음수 불가: {prefix_k}")
+        return 2
+    if bool(prefix_k) != bool(prefix_plan):
+        print("--prefix-plan과 --prefix-k(>0)는 함께 지정(witness-prefix curriculum)")
+        return 2
+    if prefix_k:
+        if args.grammar != GRAMMAR_R2:
+            print("--prefix-plan은 --grammar r2.1 전용(r2 인코더/샘플러 경로)")
+            return 2
+        if refine:
+            print("--prefix-plan은 non-refine 경로 전용(refine 샘플러 미배선)")
+            return 2
+        if args.save_ckpt or args.resume_ckpt or args.transfer_ckpt:
+            print("--prefix-plan은 scratch 전용(ckpt 계약이 prefix를 모름 — resume/transfer 오염 차단)")
+            return 2
+        if not args.no_save:
+            print("--prefix-plan은 --no-save 필수(pinned 산출물 보호 — 발견 기록은 레지스트리 담당)")
+            return 2
+        if prefix_k >= args.max_len:
+            print(f"--prefix-k {prefix_k} >= --max-len {args.max_len} — 자유 슬롯 0(학습 대상 없음)")
+            return 2
     mdp = StageMDP(args.stage, max_len=args.max_len, grammar=args.grammar,
                    at_frame_cap=args.train_deadline)
     cfg = dict(DEFAULTS, max_episodes=args.max_episodes, max_wall=args.max_wall,
@@ -1696,6 +1770,41 @@ def run_training(args) -> int:
         cfg.update(knowledge_mode="stall",
                    stall_batches=int(getattr(args, "stall_batches", 30)),
                    stall_share=float(getattr(args, "stall_share", 0.5)))
+        # 보조 격발(다양-고원, opt-in): 키는 >0일 때만 주입 — 기존 stall 런의 cfg_pub/산출물
+        # config를 바이트 단위로 보존(§16 주입 규약과 동일).
+        any_b = int(getattr(args, "stall_any_batches", 0) or 0)
+        if any_b:
+            if any_b < cfg["stall_batches"]:
+                print(f"--stall-any-batches {any_b} < --stall-batches {cfg['stall_batches']} — "
+                      "보조 문턱은 주 문턱 이상이어야 함(주-격발이 항상 선평가)")
+                return 2
+            cfg["stall_any_batches"] = any_b
+    if prefix_k:
+        # prefix 로드·인코딩(fail-closed): 어휘 밖 스킬/형식 오류 = 즉시 거부. encode는 witness
+        # 값을 가장 가까운 격자로 스냅(x→셀센터, frame→양자화 bin) — 정확 재현이 아니라 유도가 목적.
+        try:
+            pp = Path(prefix_plan)
+            pdata = json.loads(pp.read_text(encoding="utf-8"))
+            pacts = pdata.get("actions") or pdata.get("plan") or []
+            if prefix_k > len(pacts):
+                print(f"--prefix-k {prefix_k} > 플랜 액션 수 {len(pacts)}")
+                return 2
+            encoded = [mdp.encode_action(a) for a in pacts[:prefix_k]]
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as e:
+            print(f"--prefix-plan 로드/인코딩 실패(fail-closed): {e}")
+            return 2
+        need_inv: dict[str, int] = {}
+        for a in encoded:
+            sid_s = mdp.skills[a["skill"]]
+            need_inv[sid_s] = need_inv.get(sid_s, 0) + 1
+        over = {s: n for s, n in need_inv.items() if n > mdp.inventory.get(s, 0)}
+        if over:
+            print(f"--prefix-plan 인벤토리 초과(fail-closed): {over} vs {mdp.inventory}")
+            return 2
+        cfg["prefix_actions"] = encoded
+        cfg["prefix_hint"] = {                    # 발견 기록 provenance(무힌트 발견과 명시 구별)
+            "k": prefix_k, "source": _rel(pp),
+            "sha256_16": hashlib.sha256(pp.read_bytes()).hexdigest()[:16]}
     if refine:                                    # plan §R3 — trace-refinement 계약(opt-in)
         cfg.update(refine=True, dense_shaping=bool(getattr(args, "dense_shaping", False)),
                    trace_blind=bool(getattr(args, "trace_blind", False)),
@@ -1708,10 +1817,12 @@ def run_training(args) -> int:
     elif args.transfer_ckpt:
         ckpt_in, ckpt_mode = load_ckpt(args.transfer_ckpt), "transfer"
     dim_note = f"obs_dim={mdp.obs_dim}" if not r2 else f"flat_dim={mdp.flat_dim} grid={mdp.H}x{mdp.W}"
+    prefix_note = (f" prefix={cfg['prefix_hint']['k']}@{cfg['prefix_hint']['source']}"
+                   if cfg.get("prefix_hint") else "")
     print(f"=== Phase R 학습: stage {args.stage} (hp={mdp.hp}, inv={mdp.inventory}, "
           f"max_len={mdp.max_len}, {dim_note}) grammar={args.grammar} seeds={seeds} "
           f"shaping={cfg['shaping']} train_deadline={cfg['train_deadline']} "
-          f"ckpt={ckpt_mode or 'none'} ===")
+          f"ckpt={ckpt_mode or 'none'}{prefix_note} ===")
     pool, envs_effective, pf_info = build_pool(
         args.envs, mdp.stage_scene,
         with_trace=(cfg["shaping"] == "trace" or refine or cfg["blocker_coef"] > 0
@@ -3106,6 +3217,11 @@ def main() -> int:
     ap.add_argument("--stall-share", type=float, default=0.5,
                     help="§16 격발 조건 ⓑ: 최근 창 dup 점유율(1−unique/total) 문턱. 보정 실측(§16.4): "
                          "격발해야 = 0.756/0.915, 격발 금지 = 0.371 → 0.5")
+    ap.add_argument("--stall-any-batches", type=int, default=0,
+                    help="보조 격발(opt-in, 2026-07-13 스윕 실패 분석): bestR 미개선 연속 배치가 이 값에 "
+                         "도달하면 dup 문턱과 무관하게 격발(다양-고원 구제 — 2차 스윕 FAIL 12 중 10개가 "
+                         "dup 0.02~0.08로 주-격발 영구 차단 실측). 0=off(기존 동작 byte-identical), "
+                         "--stall-batches 이상이어야 함. --knowledge-mode stall 전용")
     ap.add_argument("--reseed-on-fail", type=int, default=0,
                     help="collapse 회피(§11 안정화): FAIL로 끝난 seed를 대체 seed(base+1000·attempt)로 최대 "
                          "K회 재시도(opt-in, 0=기존 동작 불변). 오케스트레이션 전용 — train_seed 무변경이라 "
@@ -3121,6 +3237,15 @@ def main() -> int:
                     help="r2: curriculum 전이(타 스테이지 — 가중치만 이월, 전역 어휘 digest fail-closed)")
     ap.add_argument("--max-batches", type=int, default=0,
                     help="이 invocation의 배치-수 종료 조건(등가성 시험 전용; wall/에피소드 예산 비활성)")
+    ap.add_argument("--prefix-plan", type=str, default=None,
+                    help="witness-prefix curriculum(opt-in, 2026-07-13 스윕 실패 분석): 플랜 JSON"
+                         "(witness/solve 포맷, actions 배열)의 앞 --prefix-k개 액션을 격자 인코딩해 "
+                         "강제 prefix로 고정하고 정책은 이후 스텝만 학습. r2.1·non-refine·scratch 전용, "
+                         "--no-save 필수(pinned 산출물 불가침 — 발견은 레지스트리에 hint provenance 동승). "
+                         "encode가 witness 값을 격자로 스냅(정확 재현 아님 — 유도 목적)")
+    ap.add_argument("--prefix-k", type=int, default=0,
+                    help="--prefix-plan에서 강제할 앞 액션 수(0=off). k < --max-len(자유 슬롯 ≥1). "
+                         "k를 줄여가며(예: 4→2→0) 자력 발견 비중을 확대하는 curriculum 용법")
     ap.add_argument("--refine", action="store_true",
                     help="r3 trace-refinement(plan §R3): 부분 plan 롤아웃 trace를 상태로 관측(closed-loop)")
     ap.add_argument("--dense-shaping", action="store_true",
