@@ -1,0 +1,79 @@
+{
+ "stage_id": 22,
+ "stage": "res://scenes/stages/Stage22.tscn",
+ "level_digest": "177c8e1d5b0e7d6a",
+ "updated": "2026-07-13T07:16:07Z",
+ "solutions": [
+  {
+   "exec_digest": "b9b8286e5d84f632",
+   "plan_key": "3ccb221a99e6371d",
+   "actions": [
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 456.0
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       10,
+       2
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 456.0
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       10,
+       2
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 264.0
+     }
+    }
+   ],
+   "saved": 7,
+   "frame": 2158,
+   "hp": 7,
+   "seeds": [
+    0,
+    2
+   ],
+   "runs": 2,
+   "first_ts": "2026-07-13T06:36:49Z",
+   "last_ts": "2026-07-13T07:16:07Z",
+   "grammar": "r2.1",
+   "episodes": 800,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 2,
+    "bridge": 1,
+    "floater": 1,
+    "sand_mound": 2,
+    "slideL": 1,
+    "slideR": 1
+   },
+   "stage": "res://scenes/stages/Stage22.tscn"
+  }
+ ]
+}

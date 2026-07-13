@@ -1,0 +1,83 @@
+{
+ "stage_id": 19,
+ "stage": "res://scenes/stages/Stage19.tscn",
+ "level_digest": "43670e5ead8f954f",
+ "updated": "2026-07-13T04:11:50Z",
+ "solutions": [
+  {
+   "exec_digest": "5ec2457d123d5177",
+   "plan_key": "31157d5d4a150cd7",
+   "actions": [
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       3,
+       10
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 600.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1583,
+   "hp": 5,
+   "seeds": [
+    0,
+    2
+   ],
+   "runs": 2,
+   "first_ts": "2026-07-13T04:08:39Z",
+   "last_ts": "2026-07-13T04:11:50Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "sand_mound": 2
+   },
+   "stage": "res://scenes/stages/Stage19.tscn"
+  },
+  {
+   "exec_digest": "0bfb79db2e277bcd",
+   "plan_key": "22edb2efb1ee4b7f",
+   "actions": [
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       4,
+       9
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 456.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1505,
+   "hp": 5,
+   "seeds": [
+    1
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-13T04:09:41Z",
+   "last_ts": "2026-07-13T04:09:41Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "sand_mound": 2
+   },
+   "stage": "res://scenes/stages/Stage19.tscn"
+  }
+ ]
+}
