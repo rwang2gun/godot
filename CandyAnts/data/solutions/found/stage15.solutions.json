@@ -1,0 +1,124 @@
+{
+ "stage_id": 15,
+ "stage": "res://scenes/stages/Stage15.tscn",
+ "level_digest": "4cc146ed475cf722",
+ "updated": "2026-07-15T04:30:15Z",
+ "solutions": [
+  {
+   "exec_digest": "9393d9fec66e3763",
+   "plan_key": "26f7a3b494f9965d",
+   "actions": [
+    {
+     "skill": "floater",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 312.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 624.0,
+      "y_max": 672.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 888.0
+     }
+    },
+    {
+     "skill": "floater",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 888.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 888.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 888.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 888.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 888.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2635,
+   "hp": 5,
+   "seeds": [
+    2
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-15T04:30:14Z",
+   "last_ts": "2026-07-15T04:30:14Z",
+   "grammar": "r2.1",
+   "episodes": 2720,
+   "deadline_frames": 7000,
+   "inventory": {
+    "climber": 5,
+    "floater": 2
+   },
+   "stage": "res://scenes/stages/Stage15.tscn"
+  }
+ ]
+}

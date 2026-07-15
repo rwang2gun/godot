@@ -1,0 +1,252 @@
+{
+ "stage_id": 20,
+ "stage": "res://scenes/stages/Stage20.tscn",
+ "level_digest": "d54e604aa698458d",
+ "updated": "2026-07-15T04:52:43Z",
+ "solutions": [
+  {
+   "exec_digest": "2a0ddef60bb25dc9",
+   "plan_key": "178153208ab98044",
+   "actions": [
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 600
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    },
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    },
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1869,
+   "hp": 5,
+   "seeds": [
+    0,
+    1
+   ],
+   "runs": 2,
+   "first_ts": "2026-07-15T04:40:15Z",
+   "last_ts": "2026-07-15T04:49:35Z",
+   "grammar": "r2.1",
+   "episodes": 1840,
+   "deadline_frames": 7000,
+   "inventory": {
+    "bridge": 2,
+    "climber": 5
+   },
+   "stage": "res://scenes/stages/Stage20.tscn"
+  },
+  {
+   "exec_digest": "c7bef228fcd7ee34",
+   "plan_key": "533bc41708f993b2",
+   "actions": [
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    },
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    },
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 528.0,
+      "y_max": 576.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 840.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2979,
+   "hp": 5,
+   "seeds": [
+    2
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-15T04:52:43Z",
+   "last_ts": "2026-07-15T04:52:43Z",
+   "grammar": "r2.1",
+   "episodes": 720,
+   "deadline_frames": 7000,
+   "inventory": {
+    "bridge": 2,
+    "climber": 5
+   },
+   "stage": "res://scenes/stages/Stage20.tscn"
+  }
+ ]
+}
