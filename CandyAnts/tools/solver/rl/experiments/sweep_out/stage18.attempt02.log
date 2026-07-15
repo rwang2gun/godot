@@ -1,0 +1,92 @@
+=== Phase R 학습: stage 18 (hp=5, inv={'blocker': 2, 'climber': 5, 'floater': 1}, max_len=6, flat_dim=816 grid=17x32) grammar=r2.1 seeds=[0, 1, 2] shaping=trace train_deadline=4500 ckpt=none ===
+[preflight] envs=4 runs=8 trace=True trace_present=True parallel identical=True wall=0.74s base={'cleared': False, 'saved': 0, 'lost': 0, 'hp': -1, 'frame': 601, 'actions_fired': 0, 'picked_total': 0}
+  [seed 0] batch 10 eps=160 meanR=0.353 meanShape=0.378 bestR=0.358 gov=si9 wall=20s
+  [seed 0] batch 20 eps=320 meanR=0.347 meanShape=0.379 bestR=0.396 gov=si2 wall=42s
+  [seed 0] batch 30 eps=480 meanR=0.351 meanShape=0.378 bestR=0.396 gov=si12 wall=63s
+  [seed 0] batch 40 eps=640 meanR=0.345 meanShape=0.380 bestR=0.396 gov=si22 wall=84s
+  [seed 0] batch 50 eps=800 meanR=0.354 meanShape=0.378 bestR=0.396 gov=si32 wall=104s
+  [seed 0] batch 60 eps=960 meanR=0.342 meanShape=0.375 bestR=0.396 gov=si42 wall=123s
+  [seed 0] batch 70 eps=1120 meanR=0.331 meanShape=0.378 bestR=0.396 gov=si52 wall=142s
+  [seed 0] stall 격발(batch 78, dup 0.025, rule=any_batches) → 검출 런 중단
+  [seed 0] FAIL bestR=0.396 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "at_frame", "frame": 600}}]
+  [seed 0] 부분-진척 기록 → data/solutions/found/stage18_seed0.partial.json + found/partials.jsonl
+  [seed 0] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'stall_any_batches': 60, 'events': [{'batch': 48, 'event': 'blocked_first', 'top_share': 0.0042, 'dup_share': 0.0312}, {'batch': 78, 'event': 'on', 'rule': 'any_batches', 'dup_share': 0.025, 'top_share': 0.0042, 'window_eps': 480}], 'blocked_n': 30, 'blocked_max_top': 0.0063, 'blocked_max_dup': 0.0312}
+  [seed 0] stall-escalate → knowledge=always 재시작(§14.4 레짐)
+  [seed 0] batch 10 eps=160 meanR=0.297 meanShape=0.357 bestR=0.358 wall=22s
+  [seed 0] batch 20 eps=320 meanR=0.327 meanShape=0.376 bestR=0.384 wall=43s
+  [seed 0] batch 30 eps=480 meanR=0.351 meanShape=0.378 bestR=0.384 wall=63s
+  [seed 0] batch 40 eps=640 meanR=0.330 meanShape=0.378 bestR=0.384 wall=81s
+  [seed 0] batch 50 eps=800 meanR=0.340 meanShape=0.378 bestR=0.384 wall=101s
+  [seed 0] batch 60 eps=960 meanR=0.343 meanShape=0.378 bestR=0.384 wall=120s
+  [seed 0] batch 70 eps=1120 meanR=0.338 meanShape=0.378 bestR=0.384 wall=140s
+  [seed 0] batch 80 eps=1280 meanR=0.337 meanShape=0.378 bestR=0.384 wall=159s
+  [seed 0] batch 90 eps=1440 meanR=0.346 meanShape=0.378 bestR=0.384 wall=178s
+  [seed 0] batch 100 eps=1600 meanR=0.326 meanShape=0.370 bestR=0.396 wall=197s
+  [seed 0] batch 110 eps=1760 meanR=0.338 meanShape=0.375 bestR=0.396 wall=216s
+  [seed 0] batch 120 eps=1920 meanR=0.345 meanShape=0.378 bestR=0.396 wall=235s
+  [seed 0] batch 130 eps=2080 meanR=0.338 meanShape=0.378 bestR=0.396 wall=254s
+  [seed 0] batch 140 eps=2240 meanR=0.320 meanShape=0.370 bestR=0.396 wall=274s
+  [seed 0] batch 150 eps=2400 meanR=0.349 meanShape=0.375 bestR=0.396 wall=293s
+  [seed 0] FAIL bestR=0.396 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "any", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "at_frame", "frame": 600}}]
+  [seed 0] 부분-진척 기록 → data/solutions/found/stage18_seed0.partial.json + found/partials.jsonl
+  [seed 1] batch 10 eps=160 meanR=0.338 meanShape=0.378 bestR=0.358 gov=si9 wall=20s
+  [seed 1] batch 20 eps=320 meanR=0.344 meanShape=0.378 bestR=0.358 gov=si19 wall=38s
+  [seed 1] batch 30 eps=480 meanR=0.351 meanShape=0.378 bestR=0.358 gov=si29 wall=57s
+  [seed 1] batch 40 eps=640 meanR=0.345 meanShape=0.378 bestR=0.396 gov=si5 wall=76s
+  [seed 1] batch 50 eps=800 meanR=0.337 meanShape=0.370 bestR=0.396 gov=si15 wall=96s
+  [seed 1] batch 60 eps=960 meanR=0.331 meanShape=0.374 bestR=0.396 gov=si25 wall=116s
+  [seed 1] batch 70 eps=1120 meanR=0.348 meanShape=0.375 bestR=0.396 gov=si35 wall=135s
+  [seed 1] batch 80 eps=1280 meanR=0.334 meanShape=0.378 bestR=0.396 gov=si45 wall=155s
+  [seed 1] batch 90 eps=1440 meanR=0.344 meanShape=0.378 bestR=0.396 gov=si55 wall=175s
+  [seed 1] stall 격발(batch 95, dup 0.0188, rule=any_batches) → 검출 런 중단
+  [seed 1] FAIL bestR=0.396 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "at_frame", "frame": 600}}]
+  [seed 1] 부분-진척 기록 → data/solutions/found/stage18_seed1.partial.json + found/partials.jsonl
+  [seed 1] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'stall_any_batches': 60, 'events': [{'batch': 31, 'event': 'blocked_first', 'top_share': 0.0063, 'dup_share': 0.0292}, {'batch': 95, 'event': 'on', 'rule': 'any_batches', 'dup_share': 0.0188, 'top_share': 0.0063, 'window_eps': 480}], 'blocked_n': 34, 'blocked_max_top': 0.0063, 'blocked_max_dup': 0.0354}
+  [seed 1] stall-escalate → knowledge=always 재시작(§14.4 레짐)
+  [seed 1] batch 10 eps=160 meanR=0.335 meanShape=0.375 bestR=0.358 wall=21s
+  [seed 1] batch 20 eps=320 meanR=0.334 meanShape=0.378 bestR=0.358 wall=43s
+  [seed 1] batch 30 eps=480 meanR=0.320 meanShape=0.370 bestR=0.358 wall=64s
+  [seed 1] batch 40 eps=640 meanR=0.356 meanShape=0.378 bestR=0.358 wall=84s
+  [seed 1] batch 50 eps=800 meanR=0.346 meanShape=0.378 bestR=0.358 wall=103s
+  [seed 1] batch 60 eps=960 meanR=0.325 meanShape=0.370 bestR=0.396 wall=122s
+  [seed 1] batch 70 eps=1120 meanR=0.344 meanShape=0.380 bestR=0.396 wall=142s
+  [seed 1] batch 80 eps=1280 meanR=0.348 meanShape=0.378 bestR=0.396 wall=161s
+  [seed 1] batch 90 eps=1440 meanR=0.339 meanShape=0.378 bestR=0.396 wall=182s
+  [seed 1] batch 100 eps=1600 meanR=0.343 meanShape=0.378 bestR=0.396 wall=201s
+  [seed 1] batch 110 eps=1760 meanR=0.344 meanShape=0.375 bestR=0.396 wall=220s
+  [seed 1] batch 120 eps=1920 meanR=0.338 meanShape=0.378 bestR=0.396 wall=240s
+  [seed 1] batch 130 eps=2080 meanR=0.339 meanShape=0.378 bestR=0.396 wall=258s
+  [seed 1] batch 140 eps=2240 meanR=0.345 meanShape=0.378 bestR=0.396 wall=276s
+  [seed 1] batch 150 eps=2400 meanR=0.343 meanShape=0.378 bestR=0.396 wall=297s
+  [seed 1] FAIL bestR=0.396 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "at_frame", "frame": 600}}]
+  [seed 1] 부분-진척 기록 → data/solutions/found/stage18_seed1.partial.json + found/partials.jsonl
+  [seed 2] batch 10 eps=160 meanR=0.342 meanShape=0.375 bestR=0.396 gov=si6 wall=21s
+  [seed 2] batch 20 eps=320 meanR=0.346 meanShape=0.378 bestR=0.396 gov=si16 wall=40s
+  [seed 2] batch 30 eps=480 meanR=0.350 meanShape=0.378 bestR=0.396 gov=si26 wall=60s
+  [seed 2] batch 40 eps=640 meanR=0.346 meanShape=0.378 bestR=0.396 gov=si36 wall=78s
+  [seed 2] batch 50 eps=800 meanR=0.331 meanShape=0.378 bestR=0.396 gov=si46 wall=98s
+  [seed 2] batch 60 eps=960 meanR=0.350 meanShape=0.375 bestR=0.396 gov=si56 wall=118s
+  [seed 2] stall 격발(batch 64, dup 0.0104, rule=any_batches) → 검출 런 중단
+  [seed 2] FAIL bestR=0.396 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "any", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "at_frame", "frame": 600}}]
+  [seed 2] 부분-진척 기록 → data/solutions/found/stage18_seed2.partial.json + found/partials.jsonl
+  [seed 2] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'stall_any_batches': 60, 'events': [{'batch': 34, 'event': 'blocked_first', 'top_share': 0.0063, 'dup_share': 0.025}, {'batch': 64, 'event': 'on', 'rule': 'any_batches', 'dup_share': 0.0104, 'top_share': 0.0063, 'window_eps': 480}], 'blocked_n': 30, 'blocked_max_top': 0.0063, 'blocked_max_dup': 0.0312}
+  [seed 2] stall-escalate → knowledge=always 재시작(§14.4 레짐)
+  [seed 2] batch 10 eps=160 meanR=0.318 meanShape=0.370 bestR=0.358 wall=20s
+  [seed 2] batch 20 eps=320 meanR=0.338 meanShape=0.373 bestR=0.358 wall=40s
+  [seed 2] batch 30 eps=480 meanR=0.343 meanShape=0.378 bestR=0.358 wall=61s
+  [seed 2] batch 40 eps=640 meanR=0.350 meanShape=0.378 bestR=0.396 wall=82s
+  [seed 2] batch 50 eps=800 meanR=0.330 meanShape=0.374 bestR=0.396 wall=103s
+  [seed 2] batch 60 eps=960 meanR=0.342 meanShape=0.377 bestR=0.396 wall=122s
+  [seed 2] batch 70 eps=1120 meanR=0.335 meanShape=0.378 bestR=0.396 wall=142s
+  [seed 2] batch 80 eps=1280 meanR=0.328 meanShape=0.378 bestR=0.396 wall=161s
+  [seed 2] batch 90 eps=1440 meanR=0.355 meanShape=0.378 bestR=0.396 wall=180s
+  [seed 2] batch 100 eps=1600 meanR=0.336 meanShape=0.378 bestR=0.396 wall=199s
+  [seed 2] batch 110 eps=1760 meanR=0.343 meanShape=0.378 bestR=0.396 wall=219s
+  [seed 2] batch 120 eps=1920 meanR=0.341 meanShape=0.378 bestR=0.396 wall=237s
+  [seed 2] batch 130 eps=2080 meanR=0.346 meanShape=0.378 bestR=0.396 wall=258s
+  [seed 2] batch 140 eps=2240 meanR=0.314 meanShape=0.367 bestR=0.396 wall=276s
+  [seed 2] batch 150 eps=2400 meanR=0.336 meanShape=0.378 bestR=0.396 wall=295s
+  [seed 2] FAIL bestR=0.396 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "any", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "at_frame", "frame": 600}}]
+  [seed 2] 부분-진척 기록 → data/solutions/found/stage18_seed2.partial.json + found/partials.jsonl
+=== 집계: 0/3 seed 클리어 (필요 ≥2) → FAIL ===
+--no-save: 산출물 미저장(판정은 위 집계줄)

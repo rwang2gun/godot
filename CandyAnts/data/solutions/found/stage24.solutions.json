@@ -1,0 +1,246 @@
+{
+ "stage_id": 24,
+ "stage": "res://scenes/stages/Stage24.tscn",
+ "level_digest": "d468c431363bdce4",
+ "updated": "2026-07-15T09:34:11Z",
+ "solutions": [
+  {
+   "exec_digest": "636a85d276ead514",
+   "plan_key": "e19351ffe44f5623",
+   "actions": [
+    {
+     "skill": "floater",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 96.0,
+      "y_max": 144.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 216.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 672.0,
+      "y_max": 720.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 24.0
+     }
+    },
+    {
+     "skill": "slideL",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "carrying",
+      "y_min": 96.0,
+      "y_max": 144.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 900
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       9,
+       13
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 900
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       9,
+       13
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 900
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "carrying",
+      "y_min": 96.0,
+      "y_max": 144.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 900
+     }
+    }
+   ],
+   "saved": 7,
+   "frame": 2070,
+   "hp": 7,
+   "seeds": [
+    1
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-15T09:28:44Z",
+   "last_ts": "2026-07-15T09:28:44Z",
+   "grammar": "r2.1",
+   "episodes": 560,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 2,
+    "floater": 1,
+    "sand_mound": 2,
+    "slideL": 1,
+    "slideR": 1
+   },
+   "stage": "res://scenes/stages/Stage24.tscn",
+   "hint": {
+    "k": 2,
+    "source": "data/solutions/stage24.witness.json",
+    "sha256_16": "775bba3f3f70b821"
+   }
+  },
+  {
+   "exec_digest": "92aacf81fe047166",
+   "plan_key": "c45cf4f083f017fc",
+   "actions": [
+    {
+     "skill": "floater",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 96.0,
+      "y_max": 144.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 216.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 672.0,
+      "y_max": 720.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 24.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "carrying",
+      "y_min": 96.0,
+      "y_max": 144.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 600.0
+     }
+    },
+    {
+     "skill": "slideR",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "carrying",
+      "y_min": 96.0,
+      "y_max": 144.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 600.0
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       9,
+       13
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 600.0
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       9,
+       13
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 600.0
+     }
+    }
+   ],
+   "saved": 7,
+   "frame": 2070,
+   "hp": 7,
+   "seeds": [
+    2
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-15T09:34:11Z",
+   "last_ts": "2026-07-15T09:34:11Z",
+   "grammar": "r2.1",
+   "episodes": 400,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 2,
+    "floater": 1,
+    "sand_mound": 2,
+    "slideL": 1,
+    "slideR": 1
+   },
+   "stage": "res://scenes/stages/Stage24.tscn",
+   "hint": {
+    "k": 2,
+    "source": "data/solutions/stage24.witness.json",
+    "sha256_16": "775bba3f3f70b821"
+   }
+  }
+ ]
+}

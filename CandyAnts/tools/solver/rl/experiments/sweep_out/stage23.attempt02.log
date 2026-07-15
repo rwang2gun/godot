@@ -1,0 +1,79 @@
+=== Phase R 학습: stage 23 (hp=7, inv={'blocker': 2, 'bridge': 2, 'floater': 1, 'sand_mound': 2}, max_len=6, flat_dim=816 grid=17x32) grammar=r2.1 seeds=[0, 1, 2] shaping=trace train_deadline=4500 ckpt=none prefix=3@data/solutions/stage23.witness.json ===
+[preflight] envs=4 runs=8 trace=True trace_present=True parallel identical=True wall=1.00s base={'cleared': False, 'saved': 0, 'lost': 0, 'hp': -1, 'frame': 601, 'actions_fired': 0, 'picked_total': 0}
+  [seed 0] batch 10 eps=160 meanR=0.291 meanShape=0.367 bestR=0.322 gov=si9 wall=36s
+  [seed 0] batch 20 eps=320 meanR=0.295 meanShape=0.367 bestR=0.322 gov=si19 wall=72s
+  [seed 0] batch 30 eps=480 meanR=0.297 meanShape=0.367 bestR=0.322 gov=si29 wall=105s
+  [seed 0] stall 격발(batch 34, dup 0.5083) → 검출 런 중단
+  [seed 0] FAIL bestR=0.322 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 240.0, "y_max": 288.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 312.0}}, {"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 624.0, "y_max": 672.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 24.0}}, {"skill": "sand_mound", "target": {"mode": "cell", "cell": [15, 14]}, "trigger": {"type": "at_frame", "frame": 0}}, {"skill": "blocker", "target": {"mode": "ant", "select": "max_x", "state": "walker", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "ant_reaches_x", "cmp": "ge", "x": 456.0}}, {"skill": "bridge", "target": {"mode": "ant", "select": "max_x", "state": "walker"}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 744.0}}]
+  [seed 0] 부분-진척 기록 → data/solutions/found/stage23_seed0.partial.json + found/partials.jsonl
+  [seed 0] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [{'batch': 31, 'event': 'blocked_first', 'top_share': 0.4688, 'dup_share': 0.4729}, {'batch': 34, 'event': 'on', 'dup_share': 0.5083, 'top_share': 0.5021, 'window_eps': 480}], 'blocked_n': 3, 'blocked_max_top': 0.4938, 'blocked_max_dup': 0.4958}
+  [seed 0] stall-escalate → knowledge=always 재시작(§14.4 레짐)
+  [seed 0] batch 10 eps=160 meanR=0.244 meanShape=0.369 bestR=0.322 wall=40s
+  [seed 0] batch 20 eps=320 meanR=0.245 meanShape=0.361 bestR=0.322 wall=80s
+  [seed 0] batch 30 eps=480 meanR=0.262 meanShape=0.371 bestR=0.322 wall=124s
+  [seed 0] batch 40 eps=640 meanR=0.236 meanShape=0.355 bestR=0.322 wall=166s
+  [seed 0] batch 50 eps=800 meanR=0.258 meanShape=0.362 bestR=0.322 wall=207s
+  [seed 0] batch 60 eps=960 meanR=0.279 meanShape=0.367 bestR=0.322 wall=241s
+  [seed 0] batch 70 eps=1120 meanR=0.262 meanShape=0.361 bestR=0.322 wall=275s
+  [seed 0] batch 80 eps=1280 meanR=0.262 meanShape=0.367 bestR=0.322 wall=315s
+  [seed 0] batch 90 eps=1440 meanR=0.276 meanShape=0.367 bestR=0.322 wall=356s
+  [seed 0] batch 100 eps=1600 meanR=0.257 meanShape=0.355 bestR=0.322 wall=392s
+  [seed 0] batch 110 eps=1760 meanR=0.270 meanShape=0.360 bestR=0.322 wall=433s
+  [seed 0] batch 120 eps=1920 meanR=0.277 meanShape=0.367 bestR=0.322 wall=472s
+  [seed 0] batch 130 eps=2080 meanR=0.265 meanShape=0.366 bestR=0.322 wall=511s
+  [seed 0] batch 140 eps=2240 meanR=0.264 meanShape=0.365 bestR=0.322 wall=550s
+  [seed 0] batch 150 eps=2400 meanR=0.272 meanShape=0.361 bestR=0.322 wall=589s
+  [seed 0] FAIL bestR=0.322 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 240.0, "y_max": 288.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 312.0}}, {"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 624.0, "y_max": 672.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 24.0}}, {"skill": "sand_mound", "target": {"mode": "cell", "cell": [15, 14]}, "trigger": {"type": "at_frame", "frame": 0}}, {"skill": "blocker", "target": {"mode": "ant", "select": "max_x", "state": "walker", "y_min": 288.0, "y_max": 336.0}, "trigger": {"type": "ant_reaches_x", "cmp": "ge", "x": 456.0}}, {"skill": "bridge", "target": {"mode": "ant", "select": "max_x", "state": "walker"}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 744.0}}]
+  [seed 0] 부분-진척 기록 → data/solutions/found/stage23_seed0.partial.json + found/partials.jsonl
+  [seed 1] batch 10 eps=160 meanR=0.289 meanShape=0.367 bestR=0.307 gov=si9 wall=33s
+  [seed 1] batch 20 eps=320 meanR=0.299 meanShape=0.367 bestR=0.307 gov=si19 wall=67s
+  [seed 1] batch 30 eps=480 meanR=0.281 meanShape=0.361 bestR=0.307 gov=si29 wall=100s
+  [seed 1] stall 격발(batch 31, dup 0.5396) → 검출 런 중단
+  [seed 1] FAIL bestR=0.307 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 240.0, "y_max": 288.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 312.0}}, {"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 624.0, "y_max": 672.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 24.0}}, {"skill": "sand_mound", "target": {"mode": "cell", "cell": [15, 14]}, "trigger": {"type": "at_frame", "frame": 0}}]
+  [seed 1] 부분-진척 기록 → data/solutions/found/stage23_seed1.partial.json + found/partials.jsonl
+  [seed 1] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [{'batch': 31, 'event': 'on', 'dup_share': 0.5396, 'top_share': 0.5354, 'window_eps': 480}], 'blocked_n': 0, 'blocked_max_top': 0.0, 'blocked_max_dup': 0.0}
+  [seed 1] stall-escalate → knowledge=always 재시작(§14.4 레짐)
+  [seed 1] batch 10 eps=160 meanR=0.248 meanShape=0.364 bestR=0.307 wall=38s
+  [seed 1] batch 20 eps=320 meanR=0.161 meanShape=0.367 bestR=0.307 wall=78s
+  [seed 1] batch 30 eps=480 meanR=0.254 meanShape=0.367 bestR=0.307 wall=121s
+  [seed 1] batch 40 eps=640 meanR=0.269 meanShape=0.367 bestR=0.307 wall=158s
+  [seed 1] batch 50 eps=800 meanR=0.262 meanShape=0.361 bestR=0.307 wall=196s
+  [seed 1] batch 60 eps=960 meanR=0.264 meanShape=0.362 bestR=0.307 wall=235s
+  [seed 1] batch 70 eps=1120 meanR=0.267 meanShape=0.369 bestR=0.307 wall=273s
+  [seed 1] batch 80 eps=1280 meanR=0.280 meanShape=0.367 bestR=0.307 wall=306s
+  [seed 1] batch 90 eps=1440 meanR=0.266 meanShape=0.361 bestR=0.307 wall=343s
+  [seed 1] batch 100 eps=1600 meanR=0.281 meanShape=0.367 bestR=0.307 wall=377s
+  [seed 1] batch 110 eps=1760 meanR=0.274 meanShape=0.367 bestR=0.307 wall=413s
+  [seed 1] batch 120 eps=1920 meanR=0.279 meanShape=0.367 bestR=0.307 wall=449s
+  [seed 1] batch 130 eps=2080 meanR=0.276 meanShape=0.361 bestR=0.307 wall=487s
+  [seed 1] batch 140 eps=2240 meanR=0.286 meanShape=0.367 bestR=0.307 wall=522s
+  [seed 1] batch 150 eps=2400 meanR=0.217 meanShape=0.369 bestR=0.307 wall=558s
+  [seed 1] FAIL bestR=0.307 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 240.0, "y_max": 288.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 312.0}}, {"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 624.0, "y_max": 672.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 24.0}}, {"skill": "sand_mound", "target": {"mode": "cell", "cell": [15, 14]}, "trigger": {"type": "at_frame", "frame": 0}}]
+  [seed 1] 부분-진척 기록 → data/solutions/found/stage23_seed1.partial.json + found/partials.jsonl
+  [seed 2] batch 10 eps=160 meanR=0.289 meanShape=0.367 bestR=0.307 gov=si9 wall=33s
+  [seed 2] batch 20 eps=320 meanR=0.294 meanShape=0.367 bestR=0.307 gov=si19 wall=66s
+  [seed 2] batch 30 eps=480 meanR=0.286 meanShape=0.367 bestR=0.307 gov=si29 wall=100s
+  [seed 2] stall 격발(batch 39, dup 0.5125) → 검출 런 중단
+  [seed 2] FAIL bestR=0.307 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 240.0, "y_max": 288.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 312.0}}, {"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 624.0, "y_max": 672.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 24.0}}, {"skill": "sand_mound", "target": {"mode": "cell", "cell": [15, 14]}, "trigger": {"type": "at_frame", "frame": 0}}]
+  [seed 2] 부분-진척 기록 → data/solutions/found/stage23_seed2.partial.json + found/partials.jsonl
+  [seed 2] governor: {'mode': 'stall', 'stall_batches': 30, 'stall_share': 0.5, 'events': [{'batch': 31, 'event': 'blocked_first', 'top_share': 0.4896, 'dup_share': 0.4917}, {'batch': 39, 'event': 'on', 'dup_share': 0.5125, 'top_share': 0.5146, 'window_eps': 480}], 'blocked_n': 8, 'blocked_max_top': 0.4938, 'blocked_max_dup': 0.4917}
+  [seed 2] stall-escalate → knowledge=always 재시작(§14.4 레짐)
+  [seed 2] batch 10 eps=160 meanR=0.196 meanShape=0.367 bestR=0.307 wall=41s
+  [seed 2] batch 20 eps=320 meanR=0.219 meanShape=0.367 bestR=0.307 wall=83s
+  [seed 2] batch 30 eps=480 meanR=0.270 meanShape=0.369 bestR=0.307 wall=125s
+  [seed 2] batch 40 eps=640 meanR=0.246 meanShape=0.355 bestR=0.307 wall=163s
+  [seed 2] batch 50 eps=800 meanR=0.261 meanShape=0.367 bestR=0.307 wall=201s
+  [seed 2] batch 60 eps=960 meanR=0.262 meanShape=0.369 bestR=0.307 wall=237s
+  [seed 2] batch 70 eps=1120 meanR=0.262 meanShape=0.361 bestR=0.307 wall=276s
+  [seed 2] batch 80 eps=1280 meanR=0.267 meanShape=0.361 bestR=0.307 wall=311s
+  [seed 2] batch 90 eps=1440 meanR=0.277 meanShape=0.367 bestR=0.307 wall=347s
+  [seed 2] batch 100 eps=1600 meanR=0.280 meanShape=0.367 bestR=0.307 wall=388s
+  [seed 2] batch 110 eps=1760 meanR=0.274 meanShape=0.369 bestR=0.307 wall=431s
+  [seed 2] batch 120 eps=1920 meanR=0.269 meanShape=0.369 bestR=0.307 wall=475s
+  [seed 2] batch 130 eps=2080 meanR=0.225 meanShape=0.367 bestR=0.307 wall=519s
+  [seed 2] batch 140 eps=2240 meanR=0.257 meanShape=0.362 bestR=0.307 wall=558s
+  [seed 2] batch 150 eps=2400 meanR=0.277 meanShape=0.367 bestR=0.307 wall=597s
+  [seed 2] FAIL bestR=0.307 best plan: [{"skill": "floater", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 240.0, "y_max": 288.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 312.0}}, {"skill": "blocker", "target": {"mode": "ant", "select": "min_x", "state": "walker", "y_min": 624.0, "y_max": 672.0}, "trigger": {"type": "ant_reaches_x", "cmp": "le", "x": 24.0}}, {"skill": "sand_mound", "target": {"mode": "cell", "cell": [15, 14]}, "trigger": {"type": "at_frame", "frame": 0}}]
+  [seed 2] 부분-진척 기록 → data/solutions/found/stage23_seed2.partial.json + found/partials.jsonl
+=== 집계: 0/3 seed 클리어 (필요 ≥2) → FAIL ===
+--no-save: 산출물 미저장(판정은 위 집계줄)
