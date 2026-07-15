@@ -73,7 +73,9 @@ FINGERPRINT_MANIFEST = [
 
 
 def campaign_fingerprint(seeds: str, max_len: int | None = None,
-                         max_batches: int | None = None) -> str:
+                         max_batches: int | None = None,
+                         stall_any: int | None = None,
+                         prefix: dict | None = None) -> str:
     """스킵 자격의 결속 지문 — 정규화 seeds + RECIPE 전체 + **파이썬 의존 매니페스트 소스 sha**
     + **엔진 runtime digest** + state 스키마(codex R3-M2: seeds/레시피가 다른 완료는 스킵 자격
     없음 / R4-M1·R5-M1·R6: CLI 인자가 같아도 트레이너·롤아웃·게임플레이 의미론이 바뀌면 옛
@@ -95,6 +97,10 @@ def campaign_fingerprint(seeds: str, max_len: int | None = None,
         body["max_len"] = int(max_len)
     if max_batches is not None:
         body["max_batches"] = int(max_batches)
+    if stall_any is not None:
+        body["stall_any"] = int(stall_any)
+    if prefix is not None:                     # 경로+k(어떤 witness의 앞 몇 액션을 고정했는가)를 결속
+        body["prefix"] = {"path": str(prefix["path"]), "k": int(prefix["k"])}
     payload = json.dumps(body, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
@@ -129,6 +135,45 @@ def parse_max_batches_overrides(spec: str) -> dict[int, int]:
         if v < 1:
             raise ValueError(f"max_batches 오버라이드는 ≥1: {part}")
         out[sid] = v
+    return out
+
+
+def parse_stall_any_overrides(spec: str) -> dict[int, int]:
+    """"18:60,10:60" → {18:60, 10:60}. 보조 격발(§도구②, 2026-07-13 실패분석) per-stage 부여 —
+    평평-고원(dup 0.02~0.08로 주-격발 영구차단) 스테이지에 dup-무관 격발 문턱. train.py가
+    stall-any ≥ stall-batches(30)를 최종 강제(여기선 ≥1만, fail-closed는 트레이너 계약에 위임).
+    형식 위반 = ValueError."""
+    out: dict[int, int] = {}
+    for part in (spec or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        sid_s, v_s = part.split(":", 1)
+        sid, v = int(sid_s), int(v_s)
+        if v < 1:
+            raise ValueError(f"stall_any 오버라이드는 ≥1: {part}")
+        out[sid] = v
+    return out
+
+
+def parse_prefix_overrides(spec: str) -> dict[int, dict]:
+    """"23:data/solutions/stage23.witness.json:3,24:...:2" → {23:{"path":..,"k":3}, ...}.
+    witness-prefix curriculum(§도구③) per-stage — 어려운 앞부분 k개 액션을 witness에서 고정.
+    형식 = sid:경로:k (경로에 콜론 없음 가정; sid=첫 필드, k=끝 필드, 경로=사이). 경로는 러너
+    CWD(=CandyAnts) 상대 해석. 형식 위반·k<1·빈 경로 = ValueError(fail-closed)."""
+    out: dict[int, dict] = {}
+    for part in (spec or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        sid_s, rest = part.split(":", 1)
+        path, k_s = rest.rsplit(":", 1)
+        sid, k = int(sid_s), int(k_s)
+        if k < 1:
+            raise ValueError(f"prefix k는 ≥1: {part}")
+        if not path.strip():
+            raise ValueError(f"prefix 경로 비어있음: {part}")
+        out[sid] = {"path": path.strip(), "k": k}
     return out
 
 
@@ -220,9 +265,18 @@ def main() -> int:
                          "(150)에서 수렴 중 컷된 니어클리어 스테이지에 예산 추가(2026-07-15). "
                          "오버라이드 스테이지는 지문에 max_batches가 결속돼 기본-예산 '무클리어 "
                          "완주' 기록을 스킵하지 않고 새 예산으로 재도전한다")
+    ap.add_argument("--stall-any-overrides", default="",
+                    help="per-stage 보조 격발 \"18:60,10:60\" — 평평-고원(dup 저점유로 주-격발 "
+                         "영구차단) 스테이지에 stall-any 문턱 부여(§도구②). 지문에 결속")
+    ap.add_argument("--prefix-overrides", default="",
+                    help="per-stage witness-prefix \"23:data/solutions/stage23.witness.json:3\" "
+                         "(sid:경로:k) — 어려운 앞 k액션을 witness에서 고정하고 이후만 학습(§도구③). "
+                         "경로는 러너 CWD 상대. 지문에 (경로,k) 결속")
     args = ap.parse_args()
     overrides = parse_max_len_overrides(args.max_len_overrides)
     batch_overrides = parse_max_batches_overrides(args.max_batches_overrides)
+    stall_any_overrides = parse_stall_any_overrides(args.stall_any_overrides)
+    prefix_overrides = parse_prefix_overrides(args.prefix_overrides)
     OUT.mkdir(exist_ok=True)
     # 단일-러너 강제(codex R15-M2): 동시 스윕 2개가 state를 서로 덮어쓰는 것 차단 —
     # 레지스트리와 동일 OS-수준 락(프로세스 사망 시 자동 해제), 러너 수명 전체 보유
@@ -241,11 +295,15 @@ def main() -> int:
     for sid in stages:
         key = f"stage{sid:02d}"
         cur_ld = solution_registry.level_digest(sid)
-        # per-stage 지문: max_len·max_batches 오버라이드 스테이지만 지문이 갈라짐(기본 스테이지 = 종전 fp 그대로)
+        # per-stage 지문: max_len·max_batches·stall_any·prefix 오버라이드 스테이지만 지문이
+        # 갈라짐(기본 스테이지 = 종전 fp 그대로 — byte-identical payload로 스킵 자격 보존)
         ml = overrides.get(sid)
         mb = batch_overrides.get(sid)
-        stage_fp = (campaign_fingerprint(args.seeds, max_len=ml, max_batches=mb)
-                    if (ml is not None or mb is not None) else fp)
+        sa = stall_any_overrides.get(sid)
+        pfx = prefix_overrides.get(sid)
+        stage_fp = (campaign_fingerprint(args.seeds, max_len=ml, max_batches=mb,
+                                         stall_any=sa, prefix=pfx)
+                    if any(v is not None for v in (ml, mb, sa, pfx)) else fp)
         if state_entry_ok(state.get(key, {}), stage_fp, cur_ld):
             print(f"[sweep] {key} 완료 기록 있음(재검증·지문·레벨 digest 일치) — 스킵", flush=True)
             continue
@@ -258,6 +316,10 @@ def main() -> int:
         cmd = [sys.executable, str(TRAIN), "--stage", str(sid), "--seeds", args.seeds] + recipe
         if ml is not None:
             cmd += ["--max-len", str(ml)]
+        if sa is not None:                     # §도구② 보조 격발(train.py가 ≥stall-batches 최종 강제)
+            cmd += ["--stall-any-batches", str(sa)]
+        if pfx is not None:                    # §도구③ witness-prefix(경로는 CWD 상대; train.py fail-closed 검증)
+            cmd += ["--prefix-plan", pfx["path"], "--prefix-k", str(pfx["k"])]
         # 시도별 분리 기록(2026-07-12 사용자 지시): 로그는 attempt 번호로 파일 분리(덮어쓰기
         # 없음 — 실패 시도의 로그도 보존), 결과 요약은 attempts.jsonl에 append 누적.
         attempt = _prev_attempts(state.get(key)) + 1
@@ -282,6 +344,8 @@ def main() -> int:
                  "attempts": attempt, "fingerprint": stage_fp,
                  **({"max_len": ml} if ml is not None else {}),
                  **({"max_batches": mb} if mb is not None else {}),
+                 **({"stall_any": sa} if sa is not None else {}),
+                 **({"prefix": pfx} if pfx is not None else {}),
                  "level_digest": cur_ld, "log": log_p.name,
                  "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         state[key] = entry
