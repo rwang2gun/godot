@@ -1,5 +1,12 @@
 # 2차 스윕 미클리어 스테이지 실패 분석 (2026-07-13)
 
+> **⚠ 2026-07-14 정정**: S25의 유형⑤("예산 내 미수렴 — resume 연장 후보") 분류는 **철회**됨 —
+> total_ants 분모 결함(solve.py 기본 0 vs 엔진 10, S24·S25만 해당)으로 S25 bestR/meanR이
+> blocker_bonus 10× 과대계상에 오염된 판독이었음(bestR 2.280 소수점 재구성으로 실증, 결함은
+> 07-14에 수정됨). §5의 S25 resume 권고와 §6 표 6번의 S25 부분도 같은 이유로 무효.
+> S18의 "witness 확보(휴리스틱)" 방안도 cap 상향으로는 불가함이 확인됨(STATUS 5d① 선행 반증 —
+> cap80에서 40롤 포화). 상세·후속 = [2026-07-14-unresolved-stages-analysis.md](2026-07-14-unresolved-stages-analysis.md)
+
 > 대상: 2차 스윕 S3~S25 (레시피 = shaping trace + train_deadline 4500, grammar r2.1, max_len=6,
 > seeds 0/1/2, 배치 150·2400eps/seed, acceptance ≥2/3 seed 클리어, attempts=1)
 > 근거: `tools/solver/rl/experiments/sweep_out/attempts.jsonl` + `stageNN.attempt01.log`
@@ -30,9 +37,17 @@
 
 ## 1. 유형 ① 문법 한계 — max_len=6 < 필요 액션 수 (S14·S15·S20)
 
+> **⚠ 2026-07-14 실전 정정 (커밋 `b6b9eba`)**: 이 유형은 **S20만 순수**로 성립했다. max_len 오버라이드
+> 실전 결과 — **S20(max_len=7·300배치) 3/3 CLEAR**(문법천장이 유일 장벽 확증) / **S15(max_len=7·
+> 500배치) 1/3**(문법 필요 + 예산 상향 필요) / **S14(max_len=8) 0/3 FAIL**(문법은 필요조건이나
+> **불충분** — blocker×3 후 carry 연쇄 미조립 = 탐색·신용할당 장벽, 배치 연장으로 탈출 불가).
+> 즉 "max_len만 올리면 풀린다"는 이 절의 함의는 S20 한정. 상세 = STATUS.md 실전 검증 절 +
+> [2026-07-14-unresolved-stages-analysis.md](2026-07-14-unresolved-stages-analysis.md) §0 갱신 배너.
+
 ### 원인
-RL plan 문법이 최대 6액션인데, 알려진(검증된) 해가 그보다 길다. **정답이 정책의 표현 공간 밖**
-— 아무리 학습해도 클리어 불가.
+RL plan 문법이 최대 6액션인데, 알려진(검증된) 해가 그보다 길다 → **정답이 정책의 표현 공간 밖**
+(max_len 상향이 **필요조건**). 단 표현 공간을 열어도 보상 기울기가 해까지 이어지지 않으면
+(S14) RL은 여전히 못 찾는다 — 문법 천장 제거는 필요하나 불충분(07-14 실증).
 
 ### 근거 (확정적)
 - `data/solutions/stage14.solve.json` = **8액션** (blocker×3 + climber×5, auto-solver 트랙 2026-06-19
@@ -43,9 +58,9 @@ RL plan 문법이 최대 6액션인데, 알려진(검증된) 해가 그보다 �
 - `data/solutions/stage20.solve.json` = **7액션** (bridge×2 + climber×5). 스윕 best plan들도 6액션을
   꽉 채운 bridge+climber 조합 — 문법 천장에 부딪힘. batch 150에서 bestR 여전히 상승 중(0.51)이었으나
   천장 위 해에는 도달 불가.
-- ⚠ 유보: solve.json이 6월 auto-solver 시점 산출이라 **현 레벨 digest와의 일치 미검증**
-  (S14는 과거 "사용자 레벨 미완성·테스트 깨짐" 이력 있음). 착수 전 witness replay로 현 레벨에서
-  재검증 필요.
+- ~~⚠ 유보: solve.json 6월 산출 → 현 레벨 digest 미검증~~ **해소(2026-07-14)**: S14/15/20 solve +
+  S23/24 witness를 `run_plan.py`로 현 레벨 replay → **전부 cleared**(saved 5/5·5/5·5/5·7/7·7/7).
+  6월 auto-solver 해가 현 레벨에서 그대로 유효.
 
 ### 해결 방안
 1. **per-stage max_len 상향**: `max_len = min(8, sum(inventory))` 등 인벤토리 총량 기반.

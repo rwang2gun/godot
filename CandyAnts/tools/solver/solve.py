@@ -186,8 +186,11 @@ def stage_meta(stage_id: int, tres_path=None) -> dict:
     def _int(name, dflt):
         m = re.search(name + r"\s*=\s*([\d.]+)", tres)
         return type(dflt)(float(m.group(1))) if m else dflt
+    # 기본값 = 엔진 StageData.gd @export 기본과 반드시 일치(meta_defaults_probe가 강제) — total_ants
+    # 기본 0은 mdp ants_total=max(1,0)=1로 shaping/blocker 분모를 10× 축소시킨 실증 버그
+    # (2026-07-14 분석 §4.1: S25 bestR 2.280 재구성, S24/25만 .tres 필드 부재).
     return {"inventory": inv, "notes": notes, "candy_hp": _int("candy_hp", 10),
-            "time_limit_seconds": _int("time_limit_seconds", 100.0), "total_ants": _int("total_ants", 0)}
+            "time_limit_seconds": _int("time_limit_seconds", 120.0), "total_ants": _int("total_ants", 10)}
 
 
 # ---------- 닫힌 루프 ----------
