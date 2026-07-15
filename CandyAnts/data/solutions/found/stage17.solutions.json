@@ -2,7 +2,7 @@
  "stage_id": 17,
  "stage": "res://scenes/stages/Stage17.tscn",
  "level_digest": "1591dfd28370506c",
- "updated": "2026-07-11T14:23:19Z",
+ "updated": "2026-07-12T14:13:46Z",
  "solutions": [
   {
    "exec_digest": "e1dcb4daaddbb5c3",
@@ -236,6 +236,86 @@
    "last_ts": "2026-07-11T08:21:48Z",
    "grammar": "r2.1",
    "episodes": 1520,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 4
+   },
+   "stage": "res://scenes/stages/Stage17.tscn"
+  },
+  {
+   "exec_digest": "932cc0de1ef21d97",
+   "plan_key": "5c1a635e06212a1e",
+   "actions": [
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker",
+      "y_min": 576.0,
+      "y_max": 624.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1080.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 1080.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 144.0,
+      "y_max": 192.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 936.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 1176.0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2567,
+   "hp": 5,
+   "seeds": [
+    0
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-12T14:13:46Z",
+   "last_ts": "2026-07-12T14:13:46Z",
+   "grammar": "r2.1",
+   "episodes": 1120,
    "deadline_frames": 7000,
    "inventory": {
     "blocker": 4

@@ -1,0 +1,142 @@
+{
+ "stage_id": 14,
+ "stage": "res://scenes/stages/Stage14.tscn",
+ "level_digest": "0bf74311fed6404c",
+ "updated": "2026-07-15T14:33:07Z",
+ "solutions": [
+  {
+   "exec_digest": "f1f2589029fa7513",
+   "plan_key": "a7e8c973f5f21f12",
+   "actions": [
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker",
+      "y_min": 144.0,
+      "y_max": 192.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 1080.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "walker",
+      "y_min": 288.0,
+      "y_max": 336.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 408.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "walker",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 1080.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "carrying"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 168.0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "carrying"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "carrying"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "carrying"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    },
+    {
+     "skill": "climber",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "carrying"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 0
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 4624,
+   "hp": 5,
+   "seeds": [
+    1
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-15T14:33:07Z",
+   "last_ts": "2026-07-15T14:33:07Z",
+   "grammar": "r2.1",
+   "episodes": 80,
+   "deadline_frames": 7000,
+   "inventory": {
+    "blocker": 3,
+    "climber": 5
+   },
+   "stage": "res://scenes/stages/Stage14.tscn",
+   "hint": {
+    "k": 3,
+    "source": "data/solutions/stage14.solve.json",
+    "sha256_16": "b900bc4fb4826fdc"
+   }
+  }
+ ]
+}
