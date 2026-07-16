@@ -1658,3 +1658,24 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - **아티팩트 정리**: max_len 런 로그는 `stageNN.attempt02.log`로 보존(커밋된 max_len-6 `attempt01.log`
   불가침 — 이 PC state에 S14/15 부재로 attempt 넘버 충돌하던 것 정정). attempts.jsonl에 `max_len` 필드
   동반 2엔트리 append. S20 미착수(0바이트 로그 삭제). 도구 3종은 코드 무변경(전부 `2cdd74b` 기커밋).
+
+## 오프라인 미해결 테스트 (2026-07-16) — S9 3/3 클리어 · S25 분모수정 A/B 확증 · S23 witness 문법 표현불가 규명
+
+> 세션 로그 = [2026-07-16-offline-unresolved-test.md](2026-07-16-offline-unresolved-test.md). 미해결
+> (레지스트리 미등재) = S10·S18·S21·S23·S25 조회 후, 오프라인 무인 실행 가능한 3 arm을 detached 러너
+> (`experiments/offline_unresolved_run.ps1`)로 2h8m 실행. 사전 게이트(분모수정 `fcc3996` 후 첫 학습 전):
+> meta_defaults_probe 13/13 + selftest 19/19 PASS. S10/S18/S21은 witness 부재 = RL 재투입 금지로 제외.
+
+- **S9 3/3 PASS**(seeds 3,4,5 복권): 레지스트리 1해→**3해**. 부분(1/3) 군 이탈.
+- **S25 0/3이나 A/B 판정 성공**: bestR 2.280(파밍)→0.398~0.477(예측 ~0.43 적중), meanR 건강 상승 —
+  분모 수정 유효 실전 확증. **seed2 상승 중 컷(0.477, si46)** = S15-동형 연장 후보(`25:400`).
+  ⚠ 기존 `stage25_seed*.partial.json`은 버그-부풀림 bestR이라 미갱신·신뢰 불가.
+- **S23 0/3 → 근본 원인 확정**: witness를 r2.1로 encode→decode 왕복하면 **클리어 불가**(no_more_ants
+  f964, fired 2/5) — 수작업 witness의 넓은 y밴드가 문법 1셀 해상도로 붕괴(blocker x 40→24·y 개방밴드
+  →[624,672] 등). **k=3·k=4 모두 오염된 prefix로 학습한 것**(3-seed 0.287 동결의 전모). "replay 검증 =
+  표현 가능" 판독(07-13 §3)은 정정 — 표현 가능성은 별개 검증 필요. S14 성공은 solve.json이 grid-정렬
+  산출물이라 무손실이었던 것.
+- **다음**: ① S25 연장(`--max-batches-overrides 25:400`) ② S23 witness grid-정렬 재구성→prefix 재시도
+  ③ train.py prefix 의미론 fail-closed 검증(코드 수정 → 리뷰 대상) ④ S10/S18/S21 수동 witness probe.
+- 이력 정정: S9 attempt 번호 충돌(S14/15 선례 재발 — 크로스PC attempt01 덮어씀) → attempt02 재번호 +
+  attempt01 git 복원 + attempts.jsonl/sweep_state 정정.

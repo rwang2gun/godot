@@ -1,55 +1,25 @@
 {
  "stage_id": 9,
  "stage": "res://scenes/stages/Stage09.tscn",
- "level_digest": "785be51f17ba7f33",
- "updated": "2026-07-12T10:45:12Z",
+ "level_digest": "b5170c3f430efbf9",
+ "updated": "2026-07-16T07:10:05Z",
  "solutions": [
   {
-   "exec_digest": "991d099d94ee302a",
-   "plan_key": "9ee1419e8d632dd8",
+   "exec_digest": "253dd931b4e1b2c3",
+   "plan_key": "48b510c6f63df62e",
    "actions": [
     {
      "skill": "blocker",
      "target": {
       "mode": "ant",
       "select": "max_x",
-      "state": "walker",
-      "y_min": 240.0,
-      "y_max": 288.0
-     },
-     "trigger": {
-      "type": "ant_reaches_x",
-      "cmp": "ge",
-      "x": 840.0
-     }
-    },
-    {
-     "skill": "basher",
-     "target": {
-      "mode": "cell",
-      "cell": [
-       8,
-       9
-      ]
-     },
-     "trigger": {
-      "type": "ant_reaches_x",
-      "cmp": "le",
-      "x": 1176.0
-     }
-    },
-    {
-     "skill": "sand_mound",
-     "target": {
-      "mode": "cell",
-      "cell": [
-       16,
-       9
-      ]
+      "state": "any",
+      "y_min": 432.0,
+      "y_max": 480.0
      },
      "trigger": {
       "type": "at_frame",
-      "frame": 0
+      "frame": 3000
      }
     },
     {
@@ -63,21 +33,183 @@
      },
      "trigger": {
       "type": "at_frame",
-      "frame": 0
+      "frame": 300
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       13,
+       4
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 300
      }
     }
    ],
    "saved": 5,
-   "frame": 2205,
+   "frame": 1509,
    "hp": 5,
    "seeds": [
-    2
+    3
    ],
    "runs": 1,
-   "first_ts": "2026-07-12T10:45:12Z",
-   "last_ts": "2026-07-12T10:45:12Z",
+   "first_ts": "2026-07-16T06:45:33Z",
+   "last_ts": "2026-07-16T06:45:33Z",
    "grammar": "r2.1",
-   "episodes": 1760,
+   "episodes": 1040,
+   "deadline_frames": 7000,
+   "inventory": {
+    "basher": 1,
+    "blocker": 1,
+    "bridge": 1,
+    "sand_mound": 1
+   },
+   "stage": "res://scenes/stages/Stage09.tscn"
+  },
+  {
+   "exec_digest": "487f1a16dba64ea6",
+   "plan_key": "d16acc3737da88e8",
+   "actions": [
+    {
+     "skill": "basher",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       7,
+       8
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "ge",
+      "x": 888.0
+     }
+    },
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 408.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "max_x",
+      "state": "any",
+      "y_min": 432.0,
+      "y_max": 480.0
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 3900
+     }
+    },
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       13,
+       8
+      ]
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 1500
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 2982,
+   "hp": 5,
+   "seeds": [
+    4
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-16T06:58:56Z",
+   "last_ts": "2026-07-16T06:58:56Z",
+   "grammar": "r2.1",
+   "episodes": 1440,
+   "deadline_frames": 7000,
+   "inventory": {
+    "basher": 1,
+    "blocker": 1,
+    "bridge": 1,
+    "sand_mound": 1
+   },
+   "stage": "res://scenes/stages/Stage09.tscn"
+  },
+  {
+   "exec_digest": "2cc9da3b85940c57",
+   "plan_key": "afc485c65f514057",
+   "actions": [
+    {
+     "skill": "sand_mound",
+     "target": {
+      "mode": "cell",
+      "cell": [
+       13,
+       6
+      ]
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 984.0
+     }
+    },
+    {
+     "skill": "bridge",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "ant_reaches_x",
+      "cmp": "le",
+      "x": 648.0
+     }
+    },
+    {
+     "skill": "blocker",
+     "target": {
+      "mode": "ant",
+      "select": "min_x",
+      "state": "any"
+     },
+     "trigger": {
+      "type": "at_frame",
+      "frame": 3300
+     }
+    }
+   ],
+   "saved": 5,
+   "frame": 1509,
+   "hp": 5,
+   "seeds": [
+    5
+   ],
+   "runs": 1,
+   "first_ts": "2026-07-16T07:10:05Z",
+   "last_ts": "2026-07-16T07:10:05Z",
+   "grammar": "r2.1",
+   "episodes": 1600,
    "deadline_frames": 7000,
    "inventory": {
     "basher": 1,
