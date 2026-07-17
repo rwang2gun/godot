@@ -1703,3 +1703,43 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
 - **다음**: ① S25 attempt03 판독 ② witness-prefix 스윕 재투입(S23 그대로 · S18 `18:8` · S21 그대로 ·
   S10 `10:10`+train-deadline 9000 — 러너 오버라이드 배선 선행) ③ model.py carry max_x 축(S18 자동발견
   재도전) ④ 레지스트리 등재는 RL 발견 해만(witness=힌트) 정책 유지.
+
+### S25 witness probe (07-17) — **구조적 UNSOLVABLE 규명** (세션 로그 [2026-07-17-s25-witness-probe.md](2026-07-17-s25-witness-probe.md))
+
+attempt03 판독(아래) 후 witness probe 수행 → **witness 부재 확정**. spawn=home=(19,4)가 **완전 밀폐 박스**
+(천장 row1·바닥 row5·좌벽 col14·우벽 col20 cols14-20 전부 solid, 프로그램 검증)에 있고, 유일 탈출로 =
+`sand_mound` 상향 mantle(**일방통행** — 전 trace 박스 재진입 0건, 천장 연속 solid라 하강 ledge 없음).
+인벤토리에 타일-파괴(basher/digger/cutter) 없어 재진입 통로를 못 뚫음 → 운반 개미가 home 박스에 배달 물리
+불가 → **saved>0 영구 불가**. picked_total도 전 런 0(RL 400b×3seed도 0.562="천장 도달" shaping뿐).
+S21/S24식 solver-capability 갭이 **아니라 레벨 설계 결함**. *candy 픽업 경로 자체는 존재*(floater 분배자로
+천장낙하 생존 + blocker 라우팅 → 3칸 계단 하강 → 분지), 배달만 불가. **수정 = 레벨 재설계 필요**(박스 재진입
+개구부 / 타일-파괴 스킬 추가 / home 이설 중 사용자 결정). 코드·데이터 변경 없음. 메커니즘: DeadState=영구기절
+(≥5칸 낙하), floater=분배자(1개로 다수 안전낙하).
+
+### S25 연장 런 attempt03 판독 (07-17 오후) — 0.562 공유 어트랙터, witness-선행 재분류
+
+400배치×3seed(5.4h, `stage25.attempt03.log`): **0/3 FAIL이나 연장 효과 실재** — 어제 컷(b150 bestR
+0.477)을 전 seed 돌파(갱신 b150/b230/b280). 그러나 **3-seed 전부 동일 bestR 0.562·동일 플랜 계열**
+(sand_mound cell(15,2~4)+blocker row4 밴드)로 수렴, stall-escalate 재시작 포함 전 런이 같은 지점 회귀,
+이후 120~250배치 동결. 판정: 예산 추가 연장 무익(S15 선례 비재현) — **S25도 witness 확보 선행 대상**
+(07-13 §3 원칙, S10/18/21 probe 방법론 재사용: 0.562 플랜 trace 판독→부족분 특정). witness-prefix
+스윕 4종(S10/18/21/23)은 S25 종료 즉시 자동 투입됨(파이프라인).
+
+### witness-prefix 스윕 4종 판독 (07-17 오후) — S18/S21/S23 완전 클리어, grid-정렬 게이트 실전 검증
+
+S25 종료 직후 자동 투입(락 대기 파이프라인), 4종 순차:
+
+| 스테이지 | prefix | 결과 | seed별 클리어(eps) |
+|---|---|---|---|
+| S18(`18:8` k=3) | witness.json | **3/3 PASS** | s0@240·s1@480·s2@320, saved 5/5 f2380 |
+| S21(k=2) | witness.json | **3/3 PASS** | s0@480·s1@320·s2@560, saved 7/7 |
+| S23(`witness_grid`:4) | witness_grid.json | **3/3 PASS** | s0@1440·s1@2000·s2@1440, saved 7/7 f2399 |
+| S10(`10:10`+dl9000 k=3) | witness.json | 1/3 FAIL | bestR 0.63(s0)/0.60(s2) — 10액션 최난도, 자유슬롯 7 미완 |
+
+**핵심 성과**: **S23이 어제 오염-prefix 0.287 완전동결에서 3/3 완전클리어로 반전** — grid-정렬 witness
+재구성 + prefix 의미론 게이트가 실전에서 정확히 작동함을 입증(위증 prefix 차단 + 정상 prefix 학습 진척).
+S18/S21도 첫 witness가 그대로 RL 커리큘럼으로 성립. 4종 중 3종이 witness→prefix→무힌트-잔여학습으로
+클리어 = witness-prefix 방법론의 실전 검증 완료. 게이트 [prefix] 의미론 검증 PASS가 매 스테이지 선행.
+- S10만 미해결(문법 최대 난도 10액션 = 자유슬롯 7, prefix 3 고정으로도 부족) — 별도 과제(prefix-k 상향
+  또는 다단 curriculum). bestR 0.63은 어제 witness 확보 전 대비 대폭 상승.
+- 레지스트리 등재는 정책상 보류(witness=힌트, RL 발견해만 등재 — 이 클리어들은 prefix 유도라 순수발견 아님).
