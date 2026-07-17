@@ -1,0 +1,82 @@
+{
+ "stage": "res://scenes/stages/Stage23.tscn",
+ "deadline_frames": 12000,
+ "expect": {
+  "cleared": true,
+  "saved": 7
+ },
+ "actions": [
+  {
+   "skill": "floater",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 288.0,
+    "y_max": 336.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 312.0
+   }
+  },
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 672.0,
+    "y_max": 720.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 24.0
+   }
+  },
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     15,
+     14
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     19,
+     10
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "bridge",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "state": "carrying",
+    "y_min": 240.0,
+    "y_max": 288.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 792.0
+   }
+  }
+ ],
+ "note": "stage23.witness.json의 r2.1 grid-정렬 재구성(2026-07-16 §1 후속 2). 원본 witness는 넓은 y밴드가 r2.1 1셀 해상도로 붕괴해 encode→decode 왕복 시 위증(fired 2/5, no_more_ants f964). 이 파일 = report_fired 리플레이의 발화 시점 개미 y로 밴드를 1셀 정렬(floater row6 [288,336]·blocker row14 [672,720]·bridge row5 [240,288], 전부 stage23 surface rows)하고 트리거 x를 셀 센터 격자(312/24/792)로 재표현. 3중 검증: ① 이 플랜 리플레이 cleared saved=7/7 f2399 ② encode_action→decode_plan 왕복 무손실(fixpoint) ③ 왕복 산출 플랜 리플레이 cleared saved=7/7 f2399. witness-prefix 커리큘럼(--prefix-plan)은 이 파일을 사용할 것. 원본 stage23.witness.json은 사용자 의도-해 회귀 기준으로 유지."
+}

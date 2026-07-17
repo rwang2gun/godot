@@ -214,6 +214,10 @@ def rediscover_verify(targets: dict) -> int:
     if not solve._selfcheck_la2_reserve():
         print("[rediscover-verify] FAIL — _selfcheck_la2_reserve (LA2 reserve first-step 보존 회귀).")
         return 1
+    # ①'' carrymax quota 계약(매몰 append·base-live 판정·LA2 base2 배선 — codex carrymax R4 M2, 순수 단위).
+    if not solve.model._selfcheck_carrymax_quota():
+        print("[rediscover-verify] FAIL — _selfcheck_carrymax_quota (carrymax quota/speculative-base 회귀).")
+        return 1
     # ② up-루프 대표 스테이지를 solve.solve(save=False)로 재발견 → cleared + 액션 시그니처 일치.
     for sid in sorted(targets):
         cap = targets[sid]

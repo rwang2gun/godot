@@ -1,0 +1,53 @@
+{
+ "stage": "res://scenes/stages/Stage21.tscn",
+ "deadline_frames": 6000,
+ "expect": {
+  "cleared": true,
+  "saved": 7
+ },
+ "actions": [
+  {
+   "skill": "sand_mound",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     15,
+     14
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "slideL",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 384.0,
+    "y_max": 432.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 744.0
+   }
+  },
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "y_min": 384.0,
+    "y_max": 432.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "ge",
+    "x": 888.0
+   }
+  }
+ ],
+ "note": "S21 사상 첫 해(2026-07-16 수동 witness probe #1 — 07-14 분석 §3 해결안 1, 첫 시도 즉중). 경로: ① sand_mound SIGN (15,14) — 바닥 개미가 우측 슬래브(row9 cols14-19) 밑에서 4 rung + cap-onto-ledge로 슬래브 표면(row8) 진입(S24 needle 동형, 사다리=영구 지형이라 후속 개미 전원 통행) ② slideL — 슬래브 도착 첫 개미(x≤744=col15 센터)를 좌향 전환, col14 절벽에서 대각 상승 계단 (14,8)→(13,7)→(12,6) 축조, 정지조건(전방-아래 지형+전방 빈칸)이 candy 플랫폼(row6 cols5-11)과 같은 높이에서 자동 정지 → 플랫폼 (11,5) 접속 ③ blocker — 슬래브 우단(x≥888=col18 센터)에서 후속 개미 물낙사 차단·좌향 반사. 귀환 = 플랫폼 좌단 (5,5) 낙하→중간렛지(cols3-7 row9, 3행 안전)→좌단 낙하→홈렛지 (2,11)→home. 핵심 발견: slideL/slideR=하강 램프가 아니라 **절벽 대각 상승 계단 빌더**(WorkerState._place_one_tile up-first). 07-14 §3 주가설(cap-onto-ledge 니들+순차 결합) 실증, 단 렛지는 좌측(cols3-7)이 아닌 우측 슬래브가 정답. 인벤토리 5 중 3 사용(blocker 1·bridge 1 잔여), max_len 6 이내라 prefix 시 오버라이드 불필요. 좌표는 발화 실측 기준 격자 정렬(1셀 밴드 row8 [384,432], 셀센터 x). 3중 검증: ① 리플레이 cleared saved=7/7 f2686 ② r2.1 encode→decode 왕복 무손실 ③ 왕복 플랜 리플레이 cleared saved=7/7 f2686(byte-동일 궤적)."
+}

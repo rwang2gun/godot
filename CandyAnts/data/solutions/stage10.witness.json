@@ -1,0 +1,141 @@
+{
+ "stage": "res://scenes/stages/Stage10.tscn",
+ "deadline_frames": 9000,
+ "expect": {
+  "cleared": true,
+  "saved": 5
+ },
+ "actions": [
+  {
+   "skill": "leaf_jump",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     4,
+     11
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "slideR",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "y_min": 480.0,
+    "y_max": 528.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "ge",
+    "x": 312.0
+   }
+  },
+  {
+   "skill": "cutter",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     16,
+     7
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 0
+   }
+  },
+  {
+   "skill": "digger",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     19,
+     7
+    ]
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 900
+   }
+  },
+  {
+   "skill": "leaf_jump",
+   "target": {
+    "mode": "cell",
+    "cell": [
+     7,
+     10
+    ]
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 1
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 1200
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 1800
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 2400
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 3000
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "at_frame",
+    "frame": 3600
+   }
+  }
+ ],
+ "note": "S10 사상 첫 해(2026-07-16~17 수동 witness probe P1~P5+v2~v6). 07-14 분석 §1 주가설(다단 순차 조합) 실증. 경로: ① leaf_jump 패드 (4,11) — 물골1(col5) 포물선 통과(패드=재사용 장치·1개미 직렬 처리, 전방 4칸 내 착지 바닥 필수라 물골2는 점프 불가) ② slideR(x≥312 블록 도착 개미) — (9,10) 절벽 상승 계단 (9,10)→(10,9)→(11,8)이 매시프 공동 입구 (12,7)에 정확 접속 ③ cutter SIGN (16,7) — plant 기둥(cols17-19) row7 터널 절단 ④ digger SIGN (19,7) at_frame 900 — **col19 하향 굴착**(챔버 좌벽 col18 인접이 관건: col20 굴착은 picked 5/5여도 climber가 잡을 벽면 없음→전원 감금, P4 실증). (19,7)은 plant 절단 후에야 설치 가능 → at_frame 900 지연(양자화 bin 3). cutter/digger를 mode:ant 무장으로 쓰면 리플레이는 통과하나 r2.1 마스크(cell 전용) 밖 = 정책 생성 불가 — cell SIGN 형태가 정본 ⑤ leaf_jump 패드 (7,10) picked_ge 1 지연 설치(조기 설치 시 우향 재점프·slideR 오발 간섭, P3 실증) — 귀환 운반자 좌향 점프로 물골1 역통과 ⑥ climber×5 — **max_x carrying + at_frame 1200/1800/2400/3000/3600 (600f 간격)**: min_x는 이미 무장된 여행자를 재선택해 재시도-블로킹으로 간격이 무너지고, 300f 간격은 트립 편차(~700f vs ~1000f, 굴착공 클라임 대기열)에 잠식돼 패드 1개미-직렬 처리(busy ~90f)와 충돌해 후속 운반자가 미발사 통과→col5 익사(v2~v5에서 saved 4/5 고정 재현). 600f 간격이 최악 편차에도 3.6× 마진. 다른 gotcha: digger는 무장/도착 즉시 수직 굴착(P3: 스폰 무장→홈 바닥 관통 전원 추락사)이라 위치 고정 필수. 스킬 10/10 전부 사용(인벤토리 정확 소진). 10액션 = max_len 6 초과 → prefix 시 --max-len-overrides \"10:10\" 필요. 좌표 전부 격자 정렬. 3중 검증: ① 리플레이 cleared saved=5/5 f4746 ② r2.1 encode→decode 왕복 무손실+마스크 위반 0 ③ 왕복 플랜 리플레이 cleared saved=5/5."
+}

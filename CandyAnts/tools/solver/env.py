@@ -38,7 +38,7 @@ HERE = Path(__file__).resolve().parent          # tools/solver
 ROOT = HERE.parents[1]                            # .../CandyAnts
 sys.path.insert(0, str(ROOT / "scripts"))        # run_test.find_godot
 sys.path.insert(0, str(HERE))                    # solve.run_plan (self-test 비교용)
-from run_test import find_godot                   # noqa: E402
+from run_test import find_godot, suppress_crash_dialogs  # noqa: E402
 
 HARNESS_SCENE = "res://tests/PlanServerHarness.tscn"
 
@@ -56,6 +56,7 @@ class GodotEnv:
     """persistent Godot 헤드리스 환경. 부팅 1회 → step(plan)을 NDJSON으로 반복."""
 
     def __init__(self, port: int | None = None, fixed_fps: int = 60, boot_timeout: float = 40.0):
+        suppress_crash_dialogs()          # Windows WER 모달 억제(자식 godot에 상속) — run_test.py 참조
         self.godot = find_godot()
         self.port = port or _free_port()
         env = os.environ.copy()

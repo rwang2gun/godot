@@ -1,0 +1,113 @@
+{
+ "stage": "res://scenes/stages/Stage18.tscn",
+ "deadline_frames": 6000,
+ "expect": {
+  "cleared": true,
+  "saved": 5
+ },
+ "actions": [
+  {
+   "skill": "floater",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "y_min": 288.0,
+    "y_max": 336.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "ge",
+    "x": 216.0
+   }
+  },
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "y_min": 528.0,
+    "y_max": 576.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "ge",
+    "x": 696.0
+   }
+  },
+  {
+   "skill": "blocker",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "y_min": 384.0,
+    "y_max": 432.0
+   },
+   "trigger": {
+    "type": "ant_reaches_x",
+    "cmp": "le",
+    "x": 360.0
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 1
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 2
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 3
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "min_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 4
+   }
+  },
+  {
+   "skill": "climber",
+   "target": {
+    "mode": "ant",
+    "select": "max_x",
+    "state": "carrying"
+   },
+   "trigger": {
+    "type": "picked_ge",
+    "n": 5
+   }
+  }
+ ],
+ "note": "S18 사상 첫 완주 해(2026-07-16, 수동 witness probe — 07-14 분석 §2 해결안 1). 니어-해(휴리스틱 saved 4/5: floater+blocker×2+climber@carry1~4 min_x)에서 5번째 운반자(ant7)가 candy 플라토 좌단 col9 벽 반전→우단 col18 낙하→물 익사하던 것을, 잔여 climber 1개를 **select=max_x**+picked_ge 5로 최우측(=5번째) 운반자에 전달해 해소. 휴리스틱 propose가 carry 후보를 min_x로만 내는 것(model.py:573)이 '후보 공간 밖'의 실체 — max_x 축이 없어 40롤 포화. 8액션 = max_len 6 초과 → prefix 커리큘럼 시 --max-len-overrides \"18:8\" 필요. 좌표는 report_fired 발화 실측을 1셀 surface row 밴드(6/11/8)·셀센터 x(216/696/360)로 grid-정렬. 3중 검증: ① 리플레이 cleared saved=5/5 ② r2.1 encode→decode 왕복 무손실 ③ 왕복 플랜 리플레이 cleared saved=5/5."
+}

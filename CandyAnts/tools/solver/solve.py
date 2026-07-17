@@ -102,8 +102,131 @@ def dump_capabilities() -> dict:
 
 # ---------- 엔진 롤아웃 (PlanReplayHarness, D4 verdict) ----------
 
+def _make_kill_on_close_job():
+    """Windows Job Object(KILL_ON_JOB_CLOSE) 생성 — 자식+후손 전체의 수명을 **부모 PID와 무관하게**
+    잡아둔다(codex 07-17 R8 MEDIUM: 중간 부모 run_test가 먼저 죽으면 taskkill/PID 기준 정리가 살아남은
+    godot 손자를 못 잡는다). 반환 = job 핸들(int) 또는 None(생성 실패 — 호출자는 taskkill 폴백만 수행).
+    핸들은 호출자가 CloseHandle로 닫아야 하며, 닫히는 순간 잡 소속 전 프로세스가 강제 종료된다."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class _BASIC(ctypes.Structure):
+            _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64),
+                        ("PerJobUserTimeLimit", ctypes.c_int64),
+                        ("LimitFlags", wintypes.DWORD),
+                        ("MinimumWorkingSetSize", ctypes.c_size_t),
+                        ("MaximumWorkingSetSize", ctypes.c_size_t),
+                        ("ActiveProcessLimit", wintypes.DWORD),
+                        ("Affinity", ctypes.c_size_t),
+                        ("PriorityClass", wintypes.DWORD),
+                        ("SchedulingClass", wintypes.DWORD)]
+
+        class _IO(ctypes.Structure):
+            _fields_ = [(n, ctypes.c_uint64) for n in
+                        ("ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+                         "ReadTransferCount", "WriteTransferCount", "OtherTransferCount")]
+
+        class _EXT(ctypes.Structure):
+            _fields_ = [("BasicLimitInformation", _BASIC), ("IoInfo", _IO),
+                        ("ProcessMemoryLimit", ctypes.c_size_t),
+                        ("JobMemoryLimit", ctypes.c_size_t),
+                        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                        ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+        k32 = ctypes.windll.kernel32
+        job = k32.CreateJobObjectW(None, None)
+        if not job:
+            return None
+        info = _EXT()
+        info.BasicLimitInformation.LimitFlags = 0x2000   # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        if not k32.SetInformationJobObject(job, 9,       # JobObjectExtendedLimitInformation
+                                           ctypes.byref(info), ctypes.sizeof(info)):
+            k32.CloseHandle(job)
+            return None
+        return job
+    except Exception:
+        return None
+
+
+def _resume_process(pid: int) -> bool:
+    """CREATE_SUSPENDED로 만든 프로세스의 (유일한) 주 스레드를 재개(Windows 전용). Popen은 CreateProcess의
+    스레드 핸들을 즉시 닫으므로 Toolhelp 스냅샷으로 pid 소유 스레드를 찾아 ResumeThread한다."""
+    import ctypes
+    from ctypes import wintypes
+
+    class _TE32(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ThreadID", wintypes.DWORD), ("th32OwnerProcessID", wintypes.DWORD),
+                    ("tpBasePri", wintypes.LONG), ("tpDeltaPri", wintypes.LONG),
+                    ("dwFlags", wintypes.DWORD)]
+
+    k32 = ctypes.windll.kernel32
+    snap = k32.CreateToolhelp32Snapshot(0x4, 0)          # TH32CS_SNAPTHREAD
+    if snap == ctypes.c_void_p(-1).value:
+        return False
+    resumed = False
+    try:
+        te = _TE32()
+        te.dwSize = ctypes.sizeof(_TE32)
+        ok = k32.Thread32First(snap, ctypes.byref(te))
+        while ok:
+            if te.th32OwnerProcessID == pid:
+                h = k32.OpenThread(0x0002, False, te.th32ThreadID)   # THREAD_SUSPEND_RESUME
+                if h:
+                    # ResumeThread 실패 = (DWORD)-1 → 기본 restype c_int로는 -1. 성공 = 이전
+                    # suspend count(CREATE_SUSPENDED 주 스레드면 1) ≥ 0.
+                    if k32.ResumeThread(h) != -1:
+                        resumed = True
+                    k32.CloseHandle(h)
+            ok = k32.Thread32Next(snap, ctypes.byref(te))
+    finally:
+        k32.CloseHandle(snap)
+    return resumed
+
+
+def _kill_tree(proc: subprocess.Popen, job=None) -> None:
+    """타임아웃된 리플레이 자식의 프로세스 트리를 **상한 시간 안에** 최선-노력 종료(codex 07-17 R7/R8
+    MEDIUM). 원 결함이 '정리 경로의 영구 대기·고아 잔존'이므로 어떤 실패에도 블록/예외 없이 반환한다:
+    - Windows: job(KILL_ON_JOB_CLOSE) 핸들이 있으면 TerminateJobObject — 중간 부모가 이미 죽었어도
+      잡 소속 후손 전체가 죽는다(부모 PID 수명과 분리, R8). 실패/부재 시 taskkill /T /F(자체 timeout
+      15s)+반환코드 검사 → 그마저 실패면 직계 proc.kill() 폴백(블록보다 낫다).
+    - POSIX: start_new_session=True로 자식이 곧 그룹 리더(pgid == proc.pid)이므로 **getpgid 조회 없이**
+      killpg(proc.pid) — 부모 선종료 후에도 그룹이 살아 있는 한 유효(R8).
+    - 마지막 reap도 wait(timeout=10)으로 상한."""
+    killed = False
+    try:
+        if sys.platform == "win32":
+            if job:
+                import ctypes
+                killed = bool(ctypes.windll.kernel32.TerminateJobObject(job, 1))
+            if not killed:
+                r = subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                                   capture_output=True, timeout=15)
+                if r.returncode != 0:
+                    proc.kill()
+        else:
+            import signal
+            os.killpg(proc.pid, signal.SIGKILL)         # start_new_session → pgid == proc.pid
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+    try:
+        proc.wait(timeout=10)
+    except Exception:
+        pass
+
+
 def run_plan(stage_scene: str, actions: list[dict], deadline: int, trace: bool = True,
-             report_fired: bool = False) -> dict:
+             report_fired: bool = False, timeout: float | None = None) -> dict:
+    """timeout(초, opt-in — 기본 None=종전과 byte-identical 무제한): deadline_frames는 시뮬 프레임
+    한도라 Godot이 부팅/셧다운에서 행 걸리면 무력하다. wall-clock 초과 시 subprocess.run이 자식을
+    죽이고 TimeoutExpired를 던지므로 error dict로 정규화해 호출자가 fail-closed 처리하게 한다
+    (codex 2026-07-17 R6 MEDIUM — prefix 게이트가 락 쥔 채 영구 블록되는 조건 차단)."""
     plan = {"stage": stage_scene, "deadline_frames": deadline, "trace": trace, "actions": actions}
     if report_fired:                 # 각 blocker 액션의 uid별 충돌 카운트(bumps)를 결과에 실음
         plan["report_fired"] = True
@@ -113,10 +236,68 @@ def run_plan(stage_scene: str, actions: list[dict], deadline: int, trace: bool =
     env = os.environ.copy()
     env["CANDYANTS_PLAN_PATH"] = plan_path
     env["CANDYANTS_DETERMINISTIC"] = "1"
+    cmd = [sys.executable, str(RUN_TEST), PLAN_HARNESS, "--fixed-fps", "60"]
     try:
-        p = subprocess.run([sys.executable, str(RUN_TEST), PLAN_HARNESS, "--fixed-fps", "60"],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace",
-                           cwd=str(ROOT), env=env)
+        if timeout is None:
+            p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                               errors="replace", cwd=str(ROOT), env=env)
+        else:
+            # timeout 경로는 Popen — subprocess.run의 타임아웃 kill은 직계 자식(run_test 파이썬)만
+            # 죽여 행 걸린 godot 손자가 고아로 남는다. 트리 종료·reap 상한은 _kill_tree가 담당.
+            # Windows: CREATE_SUSPENDED로 생성 → 잡 편입 → 재개(codex R9 — 편입이 실행보다 항상
+            #   선행해 "편입 전 부모 선종료" 경쟁 원천 차단). 잡 준비/편입/재개 실패 = fail-closed
+            #   (격리 없는 workload 실행 금지 — 원 결함 재발 경로를 열어두지 않는다).
+            # POSIX: 새 세션(=새 프로세스 그룹, pgid == 자식 pid)으로 띄워 killpg 대상이 되게 한다.
+            job = None
+            if sys.platform == "win32":
+                import ctypes
+                job = _make_kill_on_close_job()
+                if not job:
+                    return {"error": "job object 생성 실패 — 격리 불가로 timeout-guarded 리플레이 거부"}
+                # 셋업 전체(Popen·편입·재개)를 단일 소유권 경계로(codex R10): 어느 단계가 예외를
+                # 던져도 finally가 생성분 정리(+미편입이면 taskkill 경로)·잡 CloseHandle을 보장하고,
+                # 예외 전파 대신 error dict로 정규화한다. 성공 handoff 시에만 잡을 열어둔 채 진행.
+                proc = None
+                assigned = False
+                handoff = False
+                try:
+                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                            text=True, encoding="utf-8", errors="replace",
+                                            cwd=str(ROOT), env=env,
+                                            creationflags=0x00000004)  # CREATE_SUSPENDED
+                    assigned = bool(ctypes.windll.kernel32.AssignProcessToJobObject(
+                        job, int(proc._handle)))
+                    handoff = assigned and _resume_process(proc.pid)
+                except Exception:
+                    handoff = False
+                finally:
+                    if not handoff:
+                        if proc is not None:
+                            _kill_tree(proc, job if assigned else None)   # suspended라 후손 없음
+                        try:
+                            ctypes.windll.kernel32.CloseHandle(job)
+                        except Exception:
+                            pass
+                        job = None
+                if not handoff:
+                    return {"error": "job 편입/재개 실패 — 격리 불가로 timeout-guarded 리플레이 거부"}
+            else:
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        text=True, encoding="utf-8", errors="replace",
+                                        cwd=str(ROOT), env=env, start_new_session=True)
+            try:
+                out, _err = proc.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                _kill_tree(proc, job)
+                return {"error": f"replay timeout {timeout}s (wall-clock) — 엔진 행/부팅 실패 의심"}
+            finally:
+                if job:
+                    try:
+                        import ctypes
+                        ctypes.windll.kernel32.CloseHandle(job)   # KILL_ON_CLOSE: 잔존 후손 일괄 종료
+                    except Exception:
+                        pass
+            p = subprocess.CompletedProcess(cmd, proc.returncode, stdout=out, stderr=_err)
     finally:
         try:
             Path(plan_path).unlink()

@@ -46,6 +46,20 @@ CANDIDATES: list[Path] = [
 DEFAULT_QUIT_AFTER_FRAMES = 18000  # 5분 @ 60fps 안전망 (스테이지 완주 여유)
 
 
+def suppress_crash_dialogs() -> None:
+    """Windows WER "응용 프로그램 오류" 모달 억제 (2026-07-16). Godot 4.6 헤드리스가 SOLVER_RESULT
+    출력 **후** 엔진 셧다운 중 간헐 access-violation으로 죽을 때 모달이 떠 부모 파이썬(리플레이/스윕)을
+    사용자가 [확인]을 누를 때까지 블록한다. 에러 모드는 자식 프로세스(godot)에 상속되므로 spawn 전
+    부모에서 1회 설정하면 충분. 판정 권위는 stdout 마커(SOLVER_RESULT/PASS)라 결과에 무영향."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+    SEM_FAILCRITICALERRORS = 0x0001
+    SEM_NOGPFAULTERRORBOX = 0x0002
+    kernel32 = ctypes.windll.kernel32
+    kernel32.SetErrorMode(kernel32.GetErrorMode() | SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX)
+
+
 def find_godot() -> Path:
     env_bin = os.environ.get("GODOT_BIN")
     if env_bin:
@@ -89,6 +103,8 @@ def main() -> int:
     if len(sys.argv) < 2:
         print(__doc__)
         return 64
+
+    suppress_crash_dialogs()
 
     if sys.argv[1] == "--import":
         return run_import(find_godot())

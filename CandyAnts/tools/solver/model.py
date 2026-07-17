@@ -15,6 +15,7 @@ D10: 엔진은 진실(verdict 오라클)이고, 이 모듈은 *계획 가속 휴
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -574,6 +575,22 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
                       "trigger": {"type": "picked_ge", "n": n}}
             cands.append({"action": action, "label": label, "_class": "up_armed",
                           "_w": carry_base + (cnt - n) + _note_w(notes, sid)})
+        # carry max_x 축(2026-07-17, S18 witness 실증): min_x는 "가장 왼쪽(벽 근처) 운반 개미"만
+        # 무장한다 — picked_ge n 시점에 앞선 운반자들이 아직 귀로에 있으면 min_x가 그 무장-완료
+        # 개미를 재선택해 **마지막(최우측) 운반자에게 잔여 climber가 영영 전달되지 않는다**(S18:
+        # 5번째 운반자 col18 낙하-익사, saved 4/5 고정 = 40롤 포화의 실체). max_x 변형이 그 축을
+        # 연다. 가중 = min 블록 **전체보다 엄격히 아래**(-cnt): 동일 가중이면 carry{n} 채택 다음
+        # 라운드에 dup-가드로 빠진 min{n} 자리에서 carrymax{n}이 선평가되고, carry{n+1}과 점수
+        # 동률 시 선평가자가 채택돼 min-체인을 오염(S13 rediscover 회귀 실측). min이 진척하는 동안
+        # max는 평가 순위 밖 — min 정체·Phase B(빔은 가중 아닌 frontier 순위)에서만 기여한다.
+        for n in range(1, cnt + 1):
+            label = "%s@carrymax%d" % (sid, n)
+            if carry_base <= 0:
+                continue
+            action = {"skill": sid, "target": {"mode": "ant", "select": "max_x", "state": "carrying"},
+                      "trigger": {"type": "picked_ge", "n": n}}
+            cands.append({"action": action, "label": label, "_class": "up_armed",
+                          "_w": carry_base + (cnt - n) - cnt + _note_w(notes, sid)})
         for n in range(1, cnt + 1):                      # late: 회수 완료 후 max_x 무장
             label = "%s@afterpick%d" % (sid, n)
             if label in exclude:
@@ -628,7 +645,38 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
                                   "_w": _note_w(notes, sid) * 8 + tgt_w * 8 + off})
 
     cands.sort(key=lambda c: -c["_w"])
-    return _class_prefix_protect(cands, max_n)
+    # quota의 채택-판정은 **speculative base**(LA2의 base2=plan+[c1] 포함 — cellup_base와 동일 인자,
+    # codex 배치-R3 M1): 확정 plan만 보면 LA2가 carrymax1을 c1로 깔았을 때 helper가 그걸 live로
+    # 오판·항등 반환하고 eval은 base2 중복으로 스킵 → carrymax×2 조합이 영영 평가 불가.
+    # early-chain 게이트(plan, 확정)와 직교 — cell-up 같은-col 회피와 같은 이유·같은 인자.
+    return _ensure_carrymax_quota(_class_prefix_protect(cands, max_n), cands,
+                                  cellup_base if cellup_base is not None else plan)
+
+
+def _ensure_carrymax_quota(out: list[dict], cands: list[dict], base: list | None) -> list[dict]:
+    """carrymax 축 최소 quota(codex carrymax-배치 R1 M2). max 블록은 min 블록 전체보다 아래 가중이라
+    (S13 회귀 수정), candy_hp가 크면 min 블록만으로 top-`max_n`이 차 carrymax가 **반환조차 안 되고**
+    축이 죽는다(hp=7이면 min 7개 > max_n 6 — 해결하려던 '후보 공간 밖'이 그대로). 절단에 밀렸으면
+    base 미포함 최상위 carrymax **1개**를 bounded append(반환 +1 상한): 맨 끝 평가라 점수 동률은
+    기존 후보가 이기고 엄격-우위만 채택 — 기존 채택 경로 보존(rediscover-verify 재검증).
+    base = **speculative 평가 베이스**(main eval=확정 plan, LA2=plan+[c1] — codex R3 M1: 확정
+    plan만 보면 LA2가 carrymax1을 c1로 깔 때 live 오판·항등 반환 → carrymax×2 조합 평가 불가).
+    base 포함분은 quota 대상에서 제외 — eval action-dup 가드가 스킵할 후보로 quota를 낭비해 다음
+    n의 carrymax가 다시 매몰되는 것 방지(codex R2 M1). carrymax 후보 부재·이미 반환 안이면 항등."""
+    base_sigs = {json.dumps(a, sort_keys=True) for a in (base or [])}
+
+    def _live_max(c: dict) -> bool:
+        # "살아있는" carrymax = 평가 베이스 미포함분만. 베이스 포함분은 eval action-dup 가드가
+        # 스킵할 후보라 항등-반환 근거가 못 된다(codex R2 M1·R3 M1).
+        return ("@carrymax" in c.get("label", "")
+                and json.dumps(c["action"], sort_keys=True) not in base_sigs)
+
+    if any(_live_max(c) for c in out):
+        return out
+    top_max = next((c for c in cands if _live_max(c)), None)
+    if top_max is not None:
+        out = out + [top_max]
+    return out
 
 
 def _class_prefix_protect(cands: list[dict], max_n: int) -> list[dict]:
@@ -683,6 +731,73 @@ def _note_w(notes: dict, sid: str) -> int:
     if notes and sid in notes:
         return 1
     return 0
+
+
+def _selfcheck_carrymax_quota() -> bool:
+    """carrymax quota의 **fail-closed 단위 검증**(codex carrymax-배치 R4 M2 — 임시 스크립트가 아닌
+    저장소 게이트로 박제, 엔진 불요). 계약: ⓐ 절단 매몰 시 base-미포함 최상위 carrymax 1개 append
+    ⓑ 반환 안에 live carrymax 존재 시 항등 ⓒ base 포함분(채택/LA2 speculative)은 live 아님 — out에
+    있어도 다음 미포함분 append(R2 M1) ⓓ **LA2 base2 형태**: 확정 plan=[] 이어도 base2=[carrymax1]이면
+    carrymax2 append(R3 M1 — cellup_base→plan 회귀 검출) ⓔ 후보 부재 항등 ⓕ propose가 quota에
+    speculative base(cellup_base 우선)를 배선하는지 소스 검사. 반환 True=PASS / False=FAIL(상세 출력)."""
+    def _C(label, action=None, w=0):
+        return {"label": label, "action": action or {"skill": "x", "n": label}, "_w": w}
+    mins = [_C(f"climber@carry{n}", w=220 + 7 - n) for n in range(1, 8)]
+    maxs = [_C(f"climber@carrymax{n}", {"skill": "climber", "select": "max_x", "n": n},
+               w=220 + 7 - n - 7) for n in range(1, 8)]
+    cands = sorted(mins + maxs, key=lambda c: -c["_w"])
+    out6 = cands[:6]
+    # ⓐ hp=7 절단 매몰 → carrymax1 append(+1 상한)
+    r = _ensure_carrymax_quota(out6, cands, None)
+    if not (len(r) == 7 and r[-1]["label"] == "climber@carrymax1"):
+        print("[carrymax selfcheck] FAIL ⓐ 매몰 append:", [c["label"] for c in r]); return False
+    # ⓑ live carrymax가 반환 안에 있으면 항등
+    if len(_ensure_carrymax_quota(cands[:14], cands, None)) != 14:
+        print("[carrymax selfcheck] FAIL ⓑ 항등"); return False
+    # ⓒ out 안의 carrymax1이 base 포함(채택)이면 live 아님 → carrymax2 append
+    out5m = mins[:5] + [maxs[0]]
+    r = _ensure_carrymax_quota(out5m, cands, [maxs[0]["action"]])
+    if r[-1]["label"] != "climber@carrymax2":
+        print("[carrymax selfcheck] FAIL ⓒ 채택분 제외:", r[-1]["label"]); return False
+    # ⓓ LA2 base2 형태: 확정 plan은 비었지만 speculative base에 carrymax1 → carrymax2 append
+    r = _ensure_carrymax_quota(out6, cands, [maxs[0]["action"]])
+    if r[-1]["label"] != "climber@carrymax2":
+        print("[carrymax selfcheck] FAIL ⓓ LA2 base2:", r[-1]["label"]); return False
+    # ⓔ carrymax 후보 부재 항등
+    if len(_ensure_carrymax_quota(mins[:6], mins, None)) != 6:
+        print("[carrymax selfcheck] FAIL ⓔ 부재 항등"); return False
+    # ⓕ propose → quota 배선이 speculative base(cellup_base 우선)인지 — cellup_base→plan 회귀 검출
+    import inspect
+    if "cellup_base if cellup_base is not None else plan" not in inspect.getsource(propose):
+        print("[carrymax selfcheck] FAIL ⓕ propose 배선(cellup_base 우선) 소실"); return False
+    # ⓖ **행동 검증(codex R4→R5 M — 실제 생성부)**: 합성 quota 유닛만으론 propose의 carrymax 생성
+    # 루프(스키마·max_x·carrying·picked_ge) 파손·제거가 그린으로 남는다. 실제 propose를 대표 입력
+    # (운반 trace → picked_total≥1, hp=7 → min 블록 7 > max_n=3 절단)으로 호출해 ①carrymax 후보가
+    # quota로 생존 반환되고 ②액션 스키마가 계약대로인지 단언.
+    lay_g = {"cell_size": 48, "occupied": {(c, 11) for c in range(0, 8)}, "ladder": set(),
+             "kinds": {}, "hazard": {}, "candy": (6, 10), "home": (0, 10)}
+    tr_g = {"0": [[i, c, 10, 1] for i, c in enumerate([5, 4, 3])]}   # carry=1 샘플 → picked_total 1
+    d_g = diagnose(tr_g, lay_g, 7)
+    if d_g["picked_total"] < 1:
+        print("[carrymax selfcheck] FAIL ⓖ 사전조건: picked_total", d_g["picked_total"]); return False
+    metas_g = {"climber": {"target": "ant", "category": "ANT_ARMED", "routing": "up"}}
+    out_g = propose(lay_g, d_g, {"climber": 7}, metas_g, {}, exclude=set(), max_n=3,
+                    plan=[], cellup_base=[])
+    lm = [c for c in out_g if "@carrymax" in c.get("label", "")]
+    if not lm:
+        print("[carrymax selfcheck] FAIL ⓖ propose 절단(max_n=3) 반환에 carrymax 부재 — 생성/quota 파손:",
+              [c.get("label") for c in out_g]); return False
+    a_g = lm[0]["action"]
+    if not (a_g.get("skill") == "climber"
+            and a_g.get("target", {}).get("select") == "max_x"
+            and a_g.get("target", {}).get("state") == "carrying"
+            and a_g.get("trigger", {}).get("type") == "picked_ge"):
+        print("[carrymax selfcheck] FAIL ⓖ carrymax 액션 스키마 위반:", a_g); return False
+    if not any("@carry" in c.get("label", "") and "@carrymax" not in c.get("label", "")
+               for c in out_g):
+        print("[carrymax selfcheck] FAIL ⓖ min-carry 후보 부재(생성 루프 파손 의심):",
+              [c.get("label") for c in out_g]); return False
+    return True
 
 
 def _selfcheck_wall_targets() -> bool:

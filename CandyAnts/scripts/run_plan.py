@@ -36,7 +36,7 @@ SOLUTIONS_DIR = ROOT / "data" / "solutions"
 # Phase 2 자동발견 해의 **최소 기대 집합** — 이 중 하나라도 solve.json이 없으면 게이트 FAIL(fail-closed,
 # codex Phase 2 리뷰 R1-HIGH). golden만으로 통과하거나 solve 파일 실수 삭제가 조용히 지나가는 fail-open
 # 차단. 새 해(S15+) 추가 시 여기에 등재 — 그래야 회귀 게이트가 그 해도 강제한다.
-EXPECTED_SOLVE_STAGES = (1, 2, 3, 4, 11, 12, 13, 14, 15, 16, 17, 19, 20, 22)
+EXPECTED_SOLVE_STAGES = (1, 2, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22)
 
 
 def run_plan_file(plan_path: Path) -> dict:

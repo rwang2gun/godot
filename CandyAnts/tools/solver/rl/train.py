@@ -1789,18 +1789,74 @@ def run_training(args) -> int:
             if prefix_k > len(pacts):
                 print(f"--prefix-k {prefix_k} > 플랜 액션 수 {len(pacts)}")
                 return 2
-            encoded = [mdp.encode_action(a) for a in pacts[:prefix_k]]
-        except (OSError, ValueError, KeyError, json.JSONDecodeError) as e:
-            print(f"--prefix-plan 로드/인코딩 실패(fail-closed): {e}")
+            # witness **전체** 인코딩(codex 07-16 R2 HIGH-1): 잔여 액션도 r2.1 격자로 표현 가능해야
+            # "학습 표현 안에 클리어 completion 존재"가 성립한다. prefix만 인코딩하면 잔여가 문법 밖인
+            # witness가 거짓 통과.
+            encoded_all = [mdp.encode_action(a) for a in pacts]
+            encoded = encoded_all[:prefix_k]
+        except (OSError, ValueError, KeyError, json.JSONDecodeError,
+                AttributeError, TypeError, IndexError) as e:
+            # AttributeError/TypeError/IndexError: 기형 witness 형상(최상위 배열, null actions,
+            # 빈 cell 배열 등)도 traceback(rc=1)이 아니라 rc=2 정규 거부(codex R5 MEDIUM).
+            print(f"--prefix-plan 로드/인코딩 실패(fail-closed): {type(e).__name__}: {e}")
             return 2
-        need_inv: dict[str, int] = {}
-        for a in encoded:
-            sid_s = mdp.skills[a["skill"]]
-            need_inv[sid_s] = need_inv.get(sid_s, 0) + 1
-        over = {s: n for s, n in need_inv.items() if n > mdp.inventory.get(s, 0)}
-        if over:
-            print(f"--prefix-plan 인벤토리 초과(fail-closed): {over} vs {mdp.inventory}")
+        if len(pacts) > mdp.max_len:              # 총 길이도 학습 슬롯 수 안(codex R2 HIGH-1)
+            print(f"--prefix-plan 액션 수 {len(pacts)} > 학습 max_len {mdp.max_len} — "
+                  "clear completion이 학습 표현 밖(fail-closed)")
             return 2
+        # 마스크-표현 가능성(codex R4 HIGH, _grammar_canon과 동일 워크): 인코딩이 되더라도 per-stage
+        # head 마스크 밖이면(예: cell-전용 sand_mound를 mode:"ant"로) 정책 샘플러가 그 액션을 영원히
+        # 생성할 수 없다 — 리플레이는 명시 mode를 존중해 클리어할 수 있으므로 리플레이 전에 거부.
+        # 인벤토리 초과도 skill head 동적 마스크가 함께 잡는다(used 추적).
+        used_mask: dict[str, int] = {}
+        for i, enc_a in enumerate(encoded_all):
+            for h in ["skill"] + mdp.active_heads(enc_a):
+                if enc_a[h] not in mdp.head_mask(h, i, used_mask, enc_a):
+                    print(f"--prefix-plan 마스크-표현 불가(fail-closed): actions[{i}] head "
+                          f"{h}={enc_a[h]} — 정책이 산출할 수 없는 액션(스킬-대상 종류/인벤토리/"
+                          "row·frame 도메인 위반). witness를 문법 안으로 재구성 후 재시도")
+                    return 2
+            sid_s = mdp.skills[enc_a["skill"]]
+            used_mask[sid_s] = used_mask.get(sid_s, 0) + 1
+        # 의미론 fail-closed(2026-07-16 §1 후속 1): 격자 스냅은 "가장 가까운" 표현일 뿐 의미 보존을
+        # 보증하지 않는다 — S23 사례: 넓은 y밴드 witness가 1셀 밴드로 붕괴해 액션 미발화, 매 에피소드가
+        # 오염 prefix로 시작 → 클리어 방향 기울기 원천 0(수 시간 낭비). **전체 왕복 플랜**(잔여도 왕복 —
+        # codex R2 HIGH-1)을 엔진 리플레이 1회(권위 경로)로 확인, cleared 아니면 즉시 거부.
+        joined = mdp.decode_plan(encoded_all)
+        # deadline = 학습 롤아웃과 동일한 train_deadline(codex 07-16 R1 HIGH): witness 자체 deadline
+        # (예: 12000)으로 리플레이하면 학습 지평(4500) 밖에서 클리어되는 witness가 거짓 통과 —
+        # 어떤 학습 에피소드도 그 클리어에 도달할 수 없는데 게이트만 초록이 되는 조건을 차단.
+        sem_deadline = int(args.train_deadline)
+        # wall-clock 600s(codex R6 MEDIUM): deadline_frames는 시뮬 한도라 엔진 행에 무력 —
+        # 행 시 run_plan이 자식을 죽이고 error dict 반환 → 아래 cleared 검사에서 rc=2 정규 거부.
+        sem = solve.run_plan(mdp.stage_scene, joined, sem_deadline, trace=False,
+                             report_fired=True, timeout=600.0)
+        # 성공 기준 = cleared AND saved==hp_stage(codex R3 HIGH): 게임 cleared=true는 부분 회수
+        # (saved<hp, 예: S18 니어-해 cleared=true saved=4/5)에서도 성립하지만 RL 학습 판정은
+        # saved==hp라, cleared만 보면 학습이 도달할 수 없는 부분-클리어 witness가 거짓 통과한다.
+        if not (sem.get("cleared") and int(sem.get("saved") or 0) == mdp.hp):
+            err = f" error={sem.get('error')!r}" if sem.get("error") else ""
+            print(f"--prefix-plan 의미론 검증 실패(fail-closed): 전체 왕복 플랜({len(joined)}액션) "
+                  f"리플레이(deadline={sem_deadline}) cleared={sem.get('cleared')} "
+                  f"saved={sem.get('saved')}/{mdp.hp}(요구=전량) reason={sem.get('reason')!r} "
+                  f"frame={sem.get('frame')}{err} — witness가 격자 인코딩에서 의미를 잃었거나(밴드 "
+                  "붕괴/트리거 스냅 등) 학습 지평(--train-deadline) 안에 전량-회수 클리어하지 못함. "
+                  "grid-정렬 재구성 또는 deadline 재검토 후 재시도")
+            return 2
+        # prefix 발화 검사(codex R2 HIGH-2): cleared만 보면 prefix가 한 번도 발화하지 않아도(죽은
+        # prefix) 잔여만으로 클리어되는 witness가 통과한다. 학습은 매 에피소드에 prefix를 강제해
+        # 인벤토리·마스킹만 소모하므로 fail-closed 거부. (fired_actions.index = 플랜 배열 위치)
+        fired_idx = {int(e.get("index", -1)) for e in (sem.get("fired_actions") or [])}
+        unfired_prefix = [i for i in range(prefix_k) if i not in fired_idx]
+        if unfired_prefix:
+            print(f"--prefix-plan 의미론 검증 실패(fail-closed): prefix 액션 {unfired_prefix} 미발화 — "
+                  "잔여만으로 클리어되는 죽은 prefix. witness에서 불필요 액션 제거 후 재시도")
+            return 2
+        unfired_rest = [i for i in range(prefix_k, len(joined)) if i not in fired_idx]
+        if unfired_rest:
+            print(f"[prefix] 경고: 잔여 액션 {unfired_rest} 미발화(클리어에는 무영향) — witness 정리 권장")
+        print(f"[prefix] 의미론 검증 PASS: 전체 왕복 플랜({len(joined)}액션, prefix {prefix_k} 전부 발화) "
+              f"리플레이(deadline={sem_deadline}) cleared saved={sem.get('saved')} frame={sem.get('frame')}")
         cfg["prefix_actions"] = encoded
         cfg["prefix_hint"] = {                    # 발견 기록 provenance(무힌트 발견과 명시 구별)
             "k": prefix_k, "source": _rel(pp),

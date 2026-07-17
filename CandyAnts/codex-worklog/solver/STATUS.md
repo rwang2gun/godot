@@ -1679,3 +1679,27 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   ③ train.py prefix 의미론 fail-closed 검증(코드 수정 → 리뷰 대상) ④ S10/S18/S21 수동 witness probe.
 - 이력 정정: S9 attempt 번호 충돌(S14/15 선례 재발 — 크로스PC attempt01 덮어씀) → attempt02 재번호 +
   attempt01 git 복원 + attempts.jsonl/sweep_state 정정.
+
+## 미해결 4종 witness 전원 확보 + prefix 의미론 게이트 (2026-07-16 밤~07-17)
+
+> 세션 로그 = [2026-07-16-witness-probes-and-prefix-gate.md](2026-07-16-witness-probes-and-prefix-gate.md).
+> 07-16 "다음" 1~4를 같은 날 밤 전부 이행.
+
+- **S18·S21·S10 사상 첫 해 확보**(수동 witness probe): `stage18.witness.json`(8액션 — 니어-해의 5번째
+  운반자 col18 낙하-익사를 climber **max_x** carrying picked_ge 5로 해소; min_x 하드코딩이 휴리스틱
+  "후보 공간 밖"의 실체) / `stage21.witness.json`(3액션, probe #1 즉중 — **slideL/R = 절벽 대각 상승
+  계단 빌더** 발견, mound cap→슬래브→상승계단→플랫폼) / `stage10.witness.json`(10액션, 인벤토리 정확
+  소진 — 패드 직렬 처리·digger col19 벽인접·600f 릴리스 간격이 관건). 전부 3중 검증(리플레이·왕복
+  fixpoint·왕복 리플레이) + 마스크 워크 0 위반 + 게이트 PASS.
+- **S23 grid-정렬 재구성**: `stage23.witness_grid.json` — 발화 실측 y를 1셀 surface row 밴드·셀센터 x로
+  재표현, 3중 검증 PASS. prefix 재투입 준비 완료.
+- **train.py --prefix-plan 의미론 fail-closed 게이트**(codex **11R → R11 approve**: HIGH 4+MEDIUM 6 전부
+  수정, 회귀 20종+ — R6~R10은 run_plan timeout 경로 견고성 연쇄: opt-in timeout→_kill_tree→Job Object
+  (KILL_ON_JOB_CLOSE)→CREATE_SUSPENDED 선편입→단일 소유권 경계. 상세=세션 로그 §1):
+  전체-인코딩+max_len+마스크 워크 → 전체 왕복 플랜 리플레이(train_deadline) → cleared AND saved==hp →
+  prefix 전부-발화(report_fired). "위증 witness로 수 시간 학습" 조건을 리플레이 1회 비용으로 차단.
+- 부수: `run_test.py`+`env.py` `suppress_crash_dialogs()`(Godot 헤드리스 셧다운-crash WER 모달 억제,
+  SetErrorMode 자식 상속) / S25 연장 런(`25:400`) attempt03 병행 실행.
+- **다음**: ① S25 attempt03 판독 ② witness-prefix 스윕 재투입(S23 그대로 · S18 `18:8` · S21 그대로 ·
+  S10 `10:10`+train-deadline 9000 — 러너 오버라이드 배선 선행) ③ model.py carry max_x 축(S18 자동발견
+  재도전) ④ 레지스트리 등재는 RL 발견 해만(witness=힌트) 정책 유지.

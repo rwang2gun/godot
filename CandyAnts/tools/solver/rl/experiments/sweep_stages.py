@@ -75,7 +75,8 @@ FINGERPRINT_MANIFEST = [
 def campaign_fingerprint(seeds: str, max_len: int | None = None,
                          max_batches: int | None = None,
                          stall_any: int | None = None,
-                         prefix: dict | None = None) -> str:
+                         prefix: dict | None = None,
+                         train_deadline: int | None = None) -> str:
     """스킵 자격의 결속 지문 — 정규화 seeds + RECIPE 전체 + **파이썬 의존 매니페스트 소스 sha**
     + **엔진 runtime digest** + state 스키마(codex R3-M2: seeds/레시피가 다른 완료는 스킵 자격
     없음 / R4-M1·R5-M1·R6: CLI 인자가 같아도 트레이너·롤아웃·게임플레이 의미론이 바뀌면 옛
@@ -101,6 +102,8 @@ def campaign_fingerprint(seeds: str, max_len: int | None = None,
         body["stall_any"] = int(stall_any)
     if prefix is not None:                     # 경로+k(어떤 witness의 앞 몇 액션을 고정했는가)를 결속
         body["prefix"] = {"path": str(prefix["path"]), "k": int(prefix["k"])}
+    if train_deadline is not None:
+        body["train_deadline"] = int(train_deadline)
     payload = json.dumps(body, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
@@ -152,6 +155,24 @@ def parse_stall_any_overrides(spec: str) -> dict[int, int]:
         sid, v = int(sid_s), int(v_s)
         if v < 1:
             raise ValueError(f"stall_any 오버라이드는 ≥1: {part}")
+        out[sid] = v
+    return out
+
+
+def parse_train_deadline_overrides(spec: str) -> dict[int, int]:
+    """"10:9000" → {10: 9000}. RECIPE 기본 --train-deadline(4500)을 스테이지별로 상향 —
+    witness 클리어가 학습 지평 밖인 스테이지용(2026-07-17: S10 witness f4746 > 4500이라 prefix
+    의미론 게이트가 기본 지평에서 정당 거부 → 지평 자체를 witness에 맞춘다). 형식 위반 =
+    ValueError(fail-closed — 조용히 기본 지평으로 돌아가 게이트 거부를 반복하는 것 차단)."""
+    out: dict[int, int] = {}
+    for part in (spec or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        sid_s, v_s = part.split(":", 1)
+        sid, v = int(sid_s), int(v_s)
+        if v < 1:
+            raise ValueError(f"train_deadline 오버라이드는 ≥1: {part}")
         out[sid] = v
     return out
 
@@ -272,11 +293,16 @@ def main() -> int:
                     help="per-stage witness-prefix \"23:data/solutions/stage23.witness.json:3\" "
                          "(sid:경로:k) — 어려운 앞 k액션을 witness에서 고정하고 이후만 학습(§도구③). "
                          "경로는 러너 CWD 상대. 지문에 (경로,k) 결속")
+    ap.add_argument("--train-deadline-overrides", default="",
+                    help="per-stage 학습 지평 오버라이드 \"10:9000\" — witness 클리어 프레임이 "
+                         "RECIPE 기본 --train-deadline(4500) 밖인 스테이지용(prefix 의미론 게이트가 "
+                         "기본 지평에서 정당 거부하는 케이스). 지문에 결속")
     args = ap.parse_args()
     overrides = parse_max_len_overrides(args.max_len_overrides)
     batch_overrides = parse_max_batches_overrides(args.max_batches_overrides)
     stall_any_overrides = parse_stall_any_overrides(args.stall_any_overrides)
     prefix_overrides = parse_prefix_overrides(args.prefix_overrides)
+    deadline_overrides = parse_train_deadline_overrides(args.train_deadline_overrides)
     OUT.mkdir(exist_ok=True)
     # 단일-러너 강제(codex R15-M2): 동시 스윕 2개가 state를 서로 덮어쓰는 것 차단 —
     # 레지스트리와 동일 OS-수준 락(프로세스 사망 시 자동 해제), 러너 수명 전체 보유
@@ -295,15 +321,16 @@ def main() -> int:
     for sid in stages:
         key = f"stage{sid:02d}"
         cur_ld = solution_registry.level_digest(sid)
-        # per-stage 지문: max_len·max_batches·stall_any·prefix 오버라이드 스테이지만 지문이
-        # 갈라짐(기본 스테이지 = 종전 fp 그대로 — byte-identical payload로 스킵 자격 보존)
+        # per-stage 지문: max_len·max_batches·stall_any·prefix·train_deadline 오버라이드 스테이지만
+        # 지문이 갈라짐(기본 스테이지 = 종전 fp 그대로 — byte-identical payload로 스킵 자격 보존)
         ml = overrides.get(sid)
         mb = batch_overrides.get(sid)
         sa = stall_any_overrides.get(sid)
         pfx = prefix_overrides.get(sid)
+        td = deadline_overrides.get(sid)
         stage_fp = (campaign_fingerprint(args.seeds, max_len=ml, max_batches=mb,
-                                         stall_any=sa, prefix=pfx)
-                    if any(v is not None for v in (ml, mb, sa, pfx)) else fp)
+                                         stall_any=sa, prefix=pfx, train_deadline=td)
+                    if any(v is not None for v in (ml, mb, sa, pfx, td)) else fp)
         if state_entry_ok(state.get(key, {}), stage_fp, cur_ld):
             print(f"[sweep] {key} 완료 기록 있음(재검증·지문·레벨 digest 일치) — 스킵", flush=True)
             continue
@@ -313,6 +340,11 @@ def main() -> int:
                 recipe[recipe.index("--max-batches") + 1] = str(mb)
             else:
                 recipe += ["--max-batches", str(mb)]
+        if td is not None:                     # RECIPE의 --train-deadline 값 in-place 교체(동일 패턴)
+            if "--train-deadline" in recipe:
+                recipe[recipe.index("--train-deadline") + 1] = str(td)
+            else:
+                recipe += ["--train-deadline", str(td)]
         cmd = [sys.executable, str(TRAIN), "--stage", str(sid), "--seeds", args.seeds] + recipe
         if ml is not None:
             cmd += ["--max-len", str(ml)]

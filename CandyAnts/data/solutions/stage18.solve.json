@@ -1,0 +1,145 @@
+{
+  "stage": "res://scenes/stages/Stage18.tscn",
+  "deadline_frames": 7500,
+  "inventory": {
+    "blocker": 2,
+    "climber": 5,
+    "floater": 1
+  },
+  "expect": {
+    "cleared": true,
+    "saved": 5
+  },
+  "search_meta": {
+    "rollouts": 224,
+    "tool": "solve.py",
+    "phase": 2,
+    "method": "predictive",
+    "retired_ants": {
+      "water": 0,
+      "fall": 0,
+      "total": 0
+    },
+    "total_ants": 8,
+    "tools_used": 8
+  },
+  "actions": [
+    {
+      "skill": "floater",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "y_min": 280.0,
+        "y_max": 392.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "ge",
+        "x": 216.0
+      }
+    },
+    {
+      "skill": "blocker",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "y_min": 520.0,
+        "y_max": 632.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "ge",
+        "x": 696.0
+      }
+    },
+    {
+      "skill": "blocker",
+      "target": {
+        "mode": "ant",
+        "select": "min_x",
+        "y_min": 376.0,
+        "y_max": 488.0
+      },
+      "trigger": {
+        "type": "ant_reaches_x",
+        "cmp": "le",
+        "x": 360.0
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 1
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 1
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 1
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 1
+      }
+    },
+    {
+      "skill": "climber",
+      "target": {
+        "mode": "ant",
+        "select": "max_x",
+        "state": "carrying"
+      },
+      "trigger": {
+        "type": "picked_ge",
+        "n": 1
+      }
+    }
+  ],
+  "result": {
+    "actions_fired": 8,
+    "best_carry_home_dist": 45.4706764221191,
+    "best_min_y": 136.424011230469,
+    "cell_size": 48,
+    "cleared": true,
+    "frame": 2380,
+    "hp": 5,
+    "lost": 0,
+    "picked": true,
+    "picked_total": 5,
+    "reason": "",
+    "remaining_hp": 0,
+    "saved": 5
+  }
+}
