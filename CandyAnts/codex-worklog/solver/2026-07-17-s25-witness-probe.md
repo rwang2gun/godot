@@ -37,23 +37,70 @@
   박스 floor에 위치 → 천장 top 4칸 위에선 트리거 불가, 실측 확인).
 - 박스 재진입로 = **오직 sand_mound 사다리 cap 뿐인데 그게 일방통행(상향)**. 천장이 연속 solid라
   어떤 스킬도 하향 통로를 못 뚫음(인벤토리에 타일-파괴 0; bridge/slide/sand_mound는 타일 **추가**만).
-- **실측 확증**: escape 후 개미가 박스 내부(cols15-19, rows2-5) 재진입 = **0건**(전 런). picked_total도
-  전 런 0. RL attempt03 400b×3seed도 picked_total 0(0.562 = "천장 도달" shaping뿐).
+- (probe 범위 내) escape 후 개미가 박스 내부 **천장 경유** 재진입 = 0건. picked_total도 전 probe 0.
 
-## 결론
-- **S25는 현 인벤토리로 saved>0 불가 → 클리어 witness가 존재하지 않음.** 이는 solver-capability 갭
-  (S21/S24처럼 "beam은 못 풀지만 손witness는 됨")이 **아니라** 레벨 자체의 **구조적 결함**:
-  home이 일방통행 출구뿐인 밀폐 박스에 있어 사탕 회수 후 배달 경로가 물리적으로 없음.
-- 정합 근거: beam "유효 후보 0"(STATUS §5g) · 사용자 잠정 "못 깬다고 봐야"(STATUS beam 결론) · RL 0/3.
+## ⚠️ 결론 정정 (2026-07-17, 사용자 인게임 실증으로 **UNSOLVABLE 철회**)
+- **S25는 풀린다.** 사용자가 인게임에서 직접 클리어 실증(스크린샷 **SAVED 6·LOST 0**, CANDY HP 1 잔여,
+  사용 인벤토리 = sand_mound×3 + bridge×1 + floater×1 + blocker×1). 앞선 "구조적 UNSOLVABLE" 판정은
+  **오류** — 내 분석이 박스 **천장** 경유 탈출/재진입에만 매몰돼 **바닥(floor) 아래에서의 재진입**을 검토
+  안 함.
+- **놓친 메커니즘 = sand_mound 바닥-관통 재진입**: home 박스 floor(row5, cols14-20) 3칸 아래 row8 플랫폼
+  (cols16-22)에 sand_mound를 세우면, rung(row7,row6) + **cap이 박스 floor 타일(예 (19,5))을
+  LADDER_TIER_TOP으로 reskin**(`_can_cap_ledge`→`reskin_cell_to_ladder`) → 운반 개미가 **바닥을 뚫고
+  올라 home(19,4) 진입 → SAVED**. 스크린샷 우측의 수직 사다리(박스↔하단 플랫폼)와 정합. sand_mound cap은
+  천장뿐 아니라 **어떤 solid 면이든 위로 관통**(위→아래 아니라 아래→위 진입)이 핵심.
+- 즉 앞서 확립한 것(escape=sand_mound 상향 mantle / 하강=floater 분배자+blocker 라우팅으로 3칸 계단 →
+  분지 → candy)에 **바닥-관통 sand_mound 재진입**을 붙이면 완주. 배달 경로는 실재.
+- 부수 확인된 메커니즘(유효): DeadState=영구기절(≥5칸 낙하 STUN_FALL_CELLS=5), floater=분배자(1개로 다수
+  안전낙하·개미1 소모), LadderClimbState=상승전용(단 cap-reskin된 사다리 셀은 climb-up 진입로가 됨).
 
-## 수정 옵션 (사용자 결정 필요 — 레벨 디자인)
-1. **박스에 재진입 가능한 개구부**: 천장/벽 1칸 제거하거나 사다리를 양방향(정적 sand_mound 지형)으로 —
-   왼쪽 "눈" 박스(col5에 정적 sand_mound 사다리 보유)처럼 home 박스도 통행 가능하게.
-2. **인벤토리에 타일-파괴 스킬**(basher/digger/cutter) 추가 → 천장 뚫어 재진입.
-3. **home을 박스 밖(도달 가능 지점)으로 이설**.
-- 어느 쪽이든 **레벨 재설계**라 사용자 승인 후 진행. 재설계 시 위 하강 경로(floater 분배자 + blocker
-  라우팅)가 candy 접근 witness의 뼈대가 됨.
+## 저장 정책 (사용자 지시, 2026-07-17)
+- **이 해는 휴리스틱 트랙에만 귀속. RL은 참조 금지 — "해가 존재한다"는 사실만.**
+  - **`data/solutions/stage25.witness.json` 생성 금지**(witness = train.py `--prefix-plan`의 RL 참조
+    아티팩트). S25를 **witness-prefix 스윕에 절대 편입하지 말 것**(현 스윕 4종=S10/18/21/23에 S25 없음, 유지).
+  - RL 관점 = S25는 여전히 **자력 발견 대상**(UNSOLVABLE 아님·힌트 없음). 레지스트리 등재는 RL 발견 해만.
+  - 휴리스틱 쪽 활용은 별개(model.py에 바닥-관통 재진입 routing 추가 시 자동발견 가능 — 후속 과제, RL과 무관).
 
-## 산출물
-- 코드/데이터 변경 **없음**(probe만, 임시 스크립트는 scratchpad). solve.json/witness.json 미생성(해 없음).
-- witness-prefix 스윕 4종(S10/18/21/23)은 S25와 독립 — 별도 진행 가능(본 probe는 S25만 종결).
+## 산출물 (probe 단계)
+- probe 단계 코드/데이터 변경 없음(임시 스크립트는 scratchpad). **witness.json 미생성**(RL 오염 방지).
+
+## 휴리스틱 솔버 자력풀이 개조 (2026-07-18, 사용자 지시 "solver가 S25를 풀게")
+
+> 사용자 결정: witness 저장 대신 **휴리스틱 솔버가 S25를 자력 발견**하게(RL은 여전히 미참조).
+> 병목 규명 후 3개 개조 + 1 버그수정. **회귀 0 검증**(rediscover-verify S4/13/19/20/22 byte-identical).
+
+**병목 규명(실측)**: S25 baseline은 **0 candidates**(솔버가 시작조차 못 함). 원인 = ① 밀폐 박스 개미는 낙하
+가장자리가 없어 `reverse_targets`=0 ② 탈출은 **위로**(candy는 아래 row13) 가야 하는데 cell-up(`wall_targets`)이
+**goal-above 게이트**라 하향-목표 상향-탈출을 미제안. → floor-breach가 아니라 **비단조 상향 탈출**이 진짜 첫 병목.
+
+**개조 3 + 버그 1 (`tools/solver/model.py`·`solve.py`):**
+1. **`_escape_targets`**(model.py) — 밀폐(전방-solid 벽 반전 + 낙하 가장자리 전무 + 미픽업) 개미의 벽-기저 셀을
+   cell-up 소스로 추가(goal-above 예외). diagnose에서 **reverse/wall 타깃 전무일 때만**(마지막 수단) 산출 →
+   기존 스테이지 byte-identical. propose ③에 `escape` 소스 편입.
+2. **`_deliver_below_targets`+`_home_enclosed`**(model.py) — **밀폐 home**(바닥 solid AND 위 ≤4행 천장) 아래
+   플랫폼의 운반 개미 grounded 셀(위 2~3행 solid=cap 대상)을 cell-up 소스로. 평지라 `wall_targets`가 못 잡는
+   바닥/플랫폼 관통 상승을 연다. `_home_enclosed` False(열린 home)면 미산출 → byte-identical. propose ③에
+   `deliver` 소스 편입.
+3. **force_la2 escape 고정**(solve.py 채택부) — 밀폐 baseline(escape_targets 존재)이면 첫 라운드 그리디를
+   건너뛰고 **LA2 강제**. 그리디는 retired-우선 score 때문에 *소심한* 탈출(개미 안 죽지만 진척 0)에 lock-in하고
+   *생산적* 탈출(candy 근처 도달하나 floater 없어 낙사)을 기각하는데, LA2 frontier=goal_dist 최근접이라 생산적
+   탈출을 고르고 second-step에서 floater를 얹어 **escape+floater 쌍**을 조립. `not plan`(첫 라운드) AND
+   escape_targets 게이트 → 비밀폐 스테이지 byte-identical.
+4. **버그수정 `_home_enclosed` 탐색폭 range(1,3)→(1,5)** — S25 천장(row1)이 home(row4) **3행 위**라 기존
+   ≤2행 검사로는 `_home_enclosed(S25)=False` → **deliver-below가 내내 비활성**이던 결함. 수정 후 True·deliver
+   후보 산출 확인.
+
+**단위 검증**: `model._selfcheck_escape_deliver()`(ⓐ밀폐탈출 검출+게이트 ⓑreverse 있으면 미산출 ⓒ밀폐 바닥관통
+검출 ⓓ열린home 미산출 ⓔ미운반 미산출) 신설 + `rediscover-verify`에 편입.
+
+**성과(실측)**: escape 개조로 S25가 **0 candidates → reached=7**(개미 7마리 전원 candy 픽업). force_la2 전엔
+reached=1이 한계였다. **메커니즘 전구간 엔진 실증**: 탈출(sand_mound 천장-관통 mantle) + 하강(floater 분배자+
+라우팅) + 픽업(reached=7) + **바닥-관통 배달**(별도 probe: 개미가 (19,7)→(19,4) home 진입 확인).
+
+**미완**: full `saved=7` 자동클리어는 **미달**. 남은 벽 = 운반 개미의 **home-향 상승 라우팅**(분지→row11→row8→
+(19,7) breach). deliver-below가 (15,13) 후보는 내나 채택 경쟁서 좌측(막다른) 분지 사다리에 밀리고, row11 플랫폼
+상 운반 개미 **방향 제어**(col16~18로 우향)가 blocker 예산(2개, 하강에 소진) 안에서 안 풀림. 사용자 실제 해는
+blocker1+bridge로 더 효율적 — 미재현. → **개조는 실질 capability 향상(회귀0)이나 S25 완주는 상승-라우팅 추가 과제.**
+
+## solve.json 정책
+- 자동클리어 미달이라 **stage25.solve.json 미생성**(정직: 솔버가 아직 못 풂). RL 격리 유지(witness/prefix 없음).

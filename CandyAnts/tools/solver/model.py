@@ -183,10 +183,18 @@ def diagnose(trace: dict, layout: dict, candy_hp: int) -> dict:
                         "backpath_above": edge_back_above.get(k),
                         "to_water": bool(edge_water.get(k)), "count": fall_edges[k],
                         "goal_above": bool(edge_goal_above.get(k))} for k in keys]
+    wall_targets = _wall_targets(trace, layout)
+    # 밀폐(enclosure) 상향 탈출 — cell-up의 goal-above 예외(**마지막 수단**). reverse/wall 타깃이 **전무**할 때만
+    # (기존 소스로 낼 후보가 0 = 봉쇄된 spawn) 산출 → 기존 스테이지는 항상 다른 후보가 있어 escape_targets=[]
+    # (byte-identical 보존). S25처럼 home이 밀폐 박스라 개미가 갇혀 튕기기만 할 때 상향 탈출 사다리를 연다.
+    escape_targets = (_escape_targets(trace, layout)
+                      if (not reverse_targets and not wall_targets) else [])
     return {
         "picked_total": picked_ants,
         "reverse_targets": reverse_targets,
-        "wall_targets": _wall_targets(trace, layout),   # 상승판(sand_mound cell-up routing)
+        "wall_targets": wall_targets,        # 상승판(sand_mound cell-up routing)
+        "escape_targets": escape_targets,    # 밀폐 탈출판(goal-above 예외, 마지막 수단)
+        "deliver_targets": _deliver_below_targets(trace, layout),  # 바닥-관통 배달(밀폐 home, cell-up 특수판)
         "fall_edges": keys,                  # legacy(좌표 키 리스트)
         "near_candy": near_candy,
         "candy_hp": candy_hp,
@@ -263,6 +271,120 @@ def _wall_targets(trace: dict, layout: dict) -> list[dict]:
     keys = sorted(agg.keys(), key=lambda k: (abs(k[0] - agg[k]["gx"]), -agg[k]["count"], k[0], k[1], k[2], k[3]))
     return [{"cell": (k[0], k[1]), "dir": k[2], "backpath": agg[k]["backpath"], "count": agg[k]["count"]}
             for k in keys]
+
+
+def _escape_targets(trace: dict, layout: dict) -> list[dict]:
+    """**밀폐(enclosure) 상향 탈출** 후보 — `_wall_targets`의 *goal-above 게이트 예외판*. diagnose에서 reverse/wall
+    타깃이 전무할 때만 호출(마지막 수단, 기존 스테이지 byte-identical).
+    조건: 개미가 (a) 전방 same-row solid 벽에서 반전을 반복하고 (b) 트레이스 전체에 **낙하 가장자리가 전무**
+    (받쳐진→안받쳐진 진입 0 = 완전 봉쇄) (c) candy **미픽업**일 때, 그 벽-기저 셀을 상향 사다리(sand_mound cell-up)
+    소스로 수집한다. **goal-above 무시** — candy가 아래여도 봉쇄된 spawn(S25 home 박스)은 위로 나가야 진척한다
+    (탈출 후 개미가 candy 방향으로 낙하하므로 best_goal_dist는 오히려 개선). backpath 수집은 `_wall_targets`와 동일."""
+    occ = layout["occupied"]
+    def supported(cx, cy):
+        return (cx, cy + 1) in occ
+    agg: dict = {}
+    for si in sorted({int(k) for k in trace.keys()}) if trace else []:
+        ss = _samples(trace, si)
+        if len(ss) < 2:
+            continue
+        if any(s[3] == 1 for s in ss):                 # 픽업한 개미는 밀폐 아님(탈출 성공)
+            continue
+        fell = False                                    # 낙하 가장자리(받쳐짐→안받쳐짐, 수평/하향)가 하나라도 있으면 밀폐 아님
+        for i in range(len(ss) - 1):
+            cur, nxt = ss[i], ss[i + 1]
+            if supported(cur[1], cur[2]) and not supported(nxt[1], nxt[2]) and nxt[2] >= cur[2]:
+                fell = True
+                break
+        if fell:
+            continue
+        for i in range(1, len(ss) - 1):                 # 벽-반전 셀(_wall_targets와 동일, goal-above 게이트만 제거)
+            cx, cy = ss[i][1], ss[i][2]
+            if not supported(cx, cy):
+                continue
+            dx_in = ss[i][1] - ss[i - 1][1]
+            dx_out = ss[i + 1][1] - ss[i][1]
+            if dx_in == 0:
+                continue
+            d_in = 1 if dx_in > 0 else -1
+            reversed_here = (dx_out == 0) or ((1 if dx_out > 0 else -1) != d_in)
+            if not reversed_here:
+                continue
+            if (cx + d_in, cy) not in occ:              # 전방 same-row solid 아님 → 벽 아님
+                continue
+            key = (cx, cy, d_in)
+            if key in agg:
+                agg[key]["count"] += 1
+                continue
+            bp: list = []                               # 진입측 grounded 타일 거슬러 ≥6 (연속 세그먼트, 비인접 중단)
+            last = None
+            for j in range(i, -1, -1):
+                s = ss[j]
+                if not supported(s[1], s[2]):
+                    continue
+                cell = (s[1], s[2])
+                if last is not None and cell == last:
+                    continue
+                if last is not None and (abs(cell[0] - last[0]) > 1 or abs(cell[1] - last[1]) > 1):
+                    break
+                bp.append(cell)
+                last = cell
+                if len(bp) >= 6:
+                    break
+            agg[key] = {"backpath": bp, "count": 1}
+    keys = sorted(agg.keys(), key=lambda k: (-agg[k]["count"], k[0], k[1], k[2]))
+    return [{"cell": (k[0], k[1]), "dir": k[2], "backpath": agg[k]["backpath"], "count": agg[k]["count"]}
+            for k in keys]
+
+
+def _home_enclosed(layout: dict) -> bool:
+    """home이 **밀폐 박스**인가 — 운반 개미가 박스 바닥을 아래에서 뚫고(sand_mound cap) 들어가야만 배달되는
+    지오메트리. 3조건 AND: ① 바로 아래 solid(바닥) ② 위 ≤4행에 solid(천장; S25는 home row4·천장 row1 = 3행 위,
+    폭 4 = 박스 내부 높이 상한) ③ **home 행이 양옆 벽으로 bounded**(좌·우로 ≤8칸 내 same-row solid) — 이게
+    핵심 판별: S12처럼 천장만 있고 옆이 뚫린 *열린 ledge*(개미가 수평 보행으로 home 진입 가능)를 배제한다.
+    일반 스테이지(열린 지면 home)는 False → deliver-below 후보 0(byte-identical). 순수·결정론(레이아웃만)."""
+    home = layout.get("home")
+    occ = layout["occupied"]
+    if home is None:
+        return False
+    hc, hr = home
+    if (hc, hr + 1) not in occ:                                  # ① 바닥
+        return False
+    if not any((hc, hr - k) in occ for k in range(1, 5)):        # ② 천장(≤4행 위)
+        return False
+    def _walled(step: int) -> bool:                             # ③ home 행 양옆 벽(≤8칸)
+        return any((hc + step * d, hr) in occ for d in range(1, 9))
+    return _walled(-1) and _walled(1)
+
+
+def _deliver_below_targets(trace: dict, layout: dict) -> list[dict]:
+    """**바닥-관통 배달**(deliver-from-below) — 운반 개미가 **밀폐 home**(=`_home_enclosed`) 아래 플랫폼에
+    갇혀 배달 못 할 때, 박스 바닥 아래 grounded 셀에 sand_mound(cell-up)를 세워 **바닥 타일을 cap-reskin**해
+    개미가 위로 뚫고 박스에 진입(→ home 보행 도달)하게 한다. 평지 플랫폼이라 `_wall_targets`(벽-반전)가 못 잡는
+    cell-up 특수판. 조건: 운반 개미의 grounded 샘플이 (a) home보다 아래 (b) home 열 근방(|Δcol|≤4) (c) **위 ≤3행에
+    solid(cap 대상 바닥)** 일 때 그 셀을 후보로. goal-above 자동 충족(운반→home 위)이나 벽 불요가 요점.
+    `_home_enclosed`가 False면 빈 리스트(byte-identical)."""
+    if not _home_enclosed(layout):
+        return []
+    home = layout["home"]; occ = layout["occupied"]
+    hc, hr = home
+    def supported(cx, cy):
+        return (cx, cy + 1) in occ
+    agg: dict = {}
+    for si in sorted({int(k) for k in trace.keys()}) if trace else []:
+        for s in _samples(trace, si):
+            if s[3] != 1:                               # 운반 개미만
+                continue
+            cx, cy = s[1], s[2]
+            if cy <= hr or abs(cx - hc) > 4:            # home보다 아래 + home 열 근방
+                continue
+            if not supported(cx, cy):                   # grounded(사다리 기저)만
+                continue
+            if not any((cx, cy - k) in occ for k in range(2, 4)):  # 위 2~3행에 cap 대상 바닥이 있어야
+                continue
+            agg[(cx, cy)] = agg.get((cx, cy), 0) + 1
+    keys = sorted(agg.keys(), key=lambda k: (abs(k[0] - hc), -agg[k], k[1], k[0]))
+    return [{"cell": k, "dir": 0, "backpath": [k], "count": agg[k]} for k in keys]
 
 
 # ---------- 개입 제안 (메타 routing 디스패치, D11) ----------
@@ -613,12 +735,15 @@ def propose(layout: dict, diag: dict, inventory: dict, metas: dict,
     # goal_above로(목표-아래 전용 가장자리는 fall_up에서 빠짐 → 미emit). 수집 상한 N: wall=6(R3-M1), fall=4(reverse
     # backpath cap). inert: cell-up 스킬 없으면 루프 미진입, fall_up 비면 fall 소스 무발화(byte-identical).
     fall_up = [t for t in diag.get("reverse_targets", []) if t.get("goal_above")]
+    escape_up = diag.get("escape_targets", [])            # 밀폐 탈출(goal-above 예외, diagnose에서 마지막-수단 게이트)
+    deliver_up = diag.get("deliver_targets", [])          # 바닥-관통 배달(밀폐 home, diagnose에서 geometry 게이트)
     for sid in sorted(inventory):
         meta = metas.get(sid) or {}
         if str(meta.get("target")) != "cell" or str(meta.get("routing")) != "up":
             continue
         seen_cells: set = set()                           # 좌·우 벽 + fall/wall이 같은 backpath 셀을 양쪽서 내는
-        for src_order, (src_list, n_cap, risk_kind) in enumerate(((wts, 6, "wall"), (fall_up, 4, "fall"))):
+        for src_order, (src_list, n_cap, risk_kind) in enumerate(
+                ((wts, 6, "wall"), (fall_up, 4, "fall"), (escape_up, 6, "escape"), (deliver_up, 6, "deliver"))):
             for ti, tgt in enumerate(src_list):           # 중복 차단(첫 발견 가중 유지). src_order·ti = diagnose 우선순위.
                 # fall은 **목표-위 phase backpath**(backpath_above, codex impl R1 HIGH — stale 픽업전 동선 회피),
                 # wall은 wall_targets backpath. fall_up은 goal_above=True만이라 backpath_above 존재(fallback 안전).
@@ -1000,4 +1125,54 @@ def _selfcheck_wall_targets() -> bool:
     print("[wall_targets selfcheck] PASS — ⓐ-ⓚ 검출/방향/정렬/per-sample목표/phase별키/연속backpath/목표-위fall-edge"
           "/cell-up backpath_above(stale 픽업전 회피) + R3-M1 off=5 + R3-H1 same-col + D2 burial-protect witness off=2 "
           "(bounded ≤2·max_n·non-cell starvation 없음·many-risk bounded·source-priority 보존·cross-source 공평·inert 항등).")
+    return True
+
+
+def _selfcheck_escape_deliver() -> bool:
+    """`_escape_targets`(밀폐 상향 탈출) + `_deliver_below_targets`/`_home_enclosed`(바닥-관통 배달) fail-closed 단위
+    검증(엔진 불요, 2026-07-18 S25). escape: ⓐ 밀폐 박스 개미(양벽 반전·낙하 0·미픽업)의 벽-기저 셀 검출(goal-above
+    예외) + diagnose 게이트(reverse/wall 있으면 escape 미산출) ⓑ 낙하 가장자리 있으면 미산출(byte-identical).
+    deliver: ⓒ 밀폐 home 아래 운반 개미 셀 검출(천장 3행 위 = S25 지오메트리) ⓓ 열린 home(천장 없음)=미산출
+    ⓔ 미운반=미산출. 반환 True=PASS."""
+    def _L(occupied, candy=None, home=None):
+        return {"cell_size": 48, "occupied": set(occupied), "ladder": set(), "kinds": {},
+                "hazard": {}, "candy": candy, "home": home}
+    # 밀폐 박스(S25형): floor row5 cols14-20, 좌벽 col14 rows1-5, 우벽 col20 rows1-5, 천장 row1 cols14-20.
+    box = set()
+    for c in range(14, 21):
+        box |= {(c, 5), (c, 1)}
+    for r in range(1, 6):
+        box |= {(14, r), (20, r)}
+    # ⓐ 개미가 row4 내부(cols15-19) 왕복(floor row5). candy 아래(11,13) → wall_targets(goal-above) 미검출 → escape 산출.
+    path = [18, 17, 16, 15, 16, 17, 18, 19, 18]                     # col15(좌벽)·col19(우벽 전방 col20)서 반전
+    tr_box = {"0": [[i, c, 4, 0] for i, c in enumerate(path)]}
+    diag_box = diagnose(tr_box, _L(box, candy=(11, 13), home=(19, 4)), 7)
+    esc = diag_box["escape_targets"]
+    if not (any(t["cell"] == (15, 4) and t["dir"] == -1 for t in esc)
+            and any(t["cell"] == (19, 4) and t["dir"] == 1 for t in esc)):
+        print("[escape_deliver selfcheck] FAIL ⓐ 밀폐 탈출 미검출:", esc); return False
+    if diag_box["reverse_targets"] or diag_box["wall_targets"]:
+        print("[escape_deliver selfcheck] FAIL ⓐ' 밀폐인데 reverse/wall 오검출(게이트 전제 붕괴)"); return False
+    # ⓑ 낙하 가장자리 존재(절벽) → reverse_targets 있음 → escape_targets=[](마지막-수단 게이트, byte-identical).
+    occ_fall = {(c, 11) for c in range(0, 5)}
+    tr_fall = {"0": [[0, 0, 10, 0], [1, 1, 10, 0], [2, 2, 10, 0], [3, 3, 10, 0], [4, 4, 10, 0], [5, 5, 10, 0]]}
+    if diagnose(tr_fall, _L(occ_fall, candy=(3, 5)), 1)["escape_targets"]:
+        print("[escape_deliver selfcheck] FAIL ⓑ reverse 있음에도 escape 산출(게이트 회귀)"); return False
+    # ⓒ 밀폐 home(19,4) 아래 row8 플랫폼(19,7 grounded, (19,8) floor). 천장 row1 = home 3행 위(range(1,5) 필수).
+    home_box = box | {(19, 8)}
+    tr_carry = {"0": [[0, 17, 7, 1], [1, 18, 7, 1], [2, 19, 7, 1]]}  # 운반(hc=1) 개미 → (19,7)
+    if not _home_enclosed(_L(home_box, home=(19, 4))):
+        print("[escape_deliver selfcheck] FAIL ⓒ' _home_enclosed 오판(천장 3행 위 미검출)"); return False
+    dl = _deliver_below_targets(tr_carry, _L(home_box, candy=(11, 13), home=(19, 4)))
+    if not any(t["cell"] == (19, 7) for t in dl):
+        print("[escape_deliver selfcheck] FAIL ⓒ 밀폐 home 바닥관통 미검출:", dl); return False
+    # ⓓ 열린 home(천장 없음): floor만 solid → _home_enclosed False → [](byte-identical).
+    open_occ = {(19, 5), (19, 8)}
+    if _deliver_below_targets(tr_carry, _L(open_occ, home=(19, 4))):
+        print("[escape_deliver selfcheck] FAIL ⓓ 열린 home 오검출(byte-identical 회귀)"); return False
+    # ⓔ 미운반(hc=0): 배달 상황 아님 → [].
+    tr_empty = {"0": [[0, 17, 7, 0], [1, 18, 7, 0], [2, 19, 7, 0]]}
+    if _deliver_below_targets(tr_empty, _L(home_box, home=(19, 4))):
+        print("[escape_deliver selfcheck] FAIL ⓔ 미운반 오검출"); return False
+    print("[escape_deliver selfcheck] PASS — escape(밀폐 탈출 검출·게이트) + deliver(바닥관통 검출·열린home/미운반 미산출).")
     return True

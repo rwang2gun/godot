@@ -218,6 +218,10 @@ def rediscover_verify(targets: dict) -> int:
     if not solve.model._selfcheck_carrymax_quota():
         print("[rediscover-verify] FAIL — _selfcheck_carrymax_quota (carrymax quota/speculative-base 회귀).")
         return 1
+    # ①''' 밀폐 탈출(escape_targets) + 바닥-관통 배달(deliver-below/home_enclosed) 검출·게이트(2026-07-18 S25, 순수 단위).
+    if not solve.model._selfcheck_escape_deliver():
+        print("[rediscover-verify] FAIL — _selfcheck_escape_deliver (밀폐 탈출/바닥관통 배달 검출·게이트 회귀).")
+        return 1
     # ② up-루프 대표 스테이지를 solve.solve(save=False)로 재발견 → cleared + 액션 시그니처 일치.
     for sid in sorted(targets):
         cap = targets[sid]

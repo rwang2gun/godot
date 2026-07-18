@@ -1704,17 +1704,17 @@ R1~R5 전체. **정책 예외(impl HIGH accept)는 사용자 결정 override**(�
   S10 `10:10`+train-deadline 9000 — 러너 오버라이드 배선 선행) ③ model.py carry max_x 축(S18 자동발견
   재도전) ④ 레지스트리 등재는 RL 발견 해만(witness=힌트) 정책 유지.
 
-### S25 witness probe (07-17) — **구조적 UNSOLVABLE 규명** (세션 로그 [2026-07-17-s25-witness-probe.md](2026-07-17-s25-witness-probe.md))
+### S25 witness probe (07-17) — **SOLVABLE (앞선 UNSOLVABLE 판정 철회)** (세션 로그 [2026-07-17-s25-witness-probe.md](2026-07-17-s25-witness-probe.md))
 
-attempt03 판독(아래) 후 witness probe 수행 → **witness 부재 확정**. spawn=home=(19,4)가 **완전 밀폐 박스**
-(천장 row1·바닥 row5·좌벽 col14·우벽 col20 cols14-20 전부 solid, 프로그램 검증)에 있고, 유일 탈출로 =
-`sand_mound` 상향 mantle(**일방통행** — 전 trace 박스 재진입 0건, 천장 연속 solid라 하강 ledge 없음).
-인벤토리에 타일-파괴(basher/digger/cutter) 없어 재진입 통로를 못 뚫음 → 운반 개미가 home 박스에 배달 물리
-불가 → **saved>0 영구 불가**. picked_total도 전 런 0(RL 400b×3seed도 0.562="천장 도달" shaping뿐).
-S21/S24식 solver-capability 갭이 **아니라 레벨 설계 결함**. *candy 픽업 경로 자체는 존재*(floater 분배자로
-천장낙하 생존 + blocker 라우팅 → 3칸 계단 하강 → 분지), 배달만 불가. **수정 = 레벨 재설계 필요**(박스 재진입
-개구부 / 타일-파괴 스킬 추가 / home 이설 중 사용자 결정). 코드·데이터 변경 없음. 메커니즘: DeadState=영구기절
-(≥5칸 낙하), floater=분배자(1개로 다수 안전낙하).
+probe 중 "구조적 UNSOLVABLE"로 잠정 판정했으나 **사용자 인게임 실증(스크린샷 SAVED 6·LOST 0)으로 철회**.
+오류 = 분석이 박스 **천장** 경유 재진입에만 매몰. **놓친 메커니즘 = sand_mound 바닥-관통 재진입**: home 박스
+floor(row5) 3칸 아래 row8 플랫폼(cols16-22)에 sand_mound → **cap이 floor 타일((19,5) 등)을 사다리로 reskin**
+→ 운반 개미가 바닥 뚫고 home(19,4) 진입=SAVED. 완주 = escape(sand_mound 상향 mantle) + 하강(floater 분배자
++blocker 라우팅, 3칸 계단→분지→candy) + **바닥-관통 sand_mound 재진입**. 사용 인벤토리 =
+sand_mound×3+bridge×1+floater×1+blocker×1. 메커니즘: DeadState=영구기절(≥5칸 낙하), floater=분배자
+(1개로 다수 안전낙하), **sand_mound cap = 어떤 solid 면도 아래→위로 관통 진입**(천장 전용 아님).
+**저장 정책(사용자 지시): 이 해는 휴리스틱 트랙 전용 · RL 참조 금지** — stage25.witness.json 생성 금지,
+witness-prefix 스윕 편입 금지(RL엔 "해 존재" 사실만·자력 발견 대상 유지). 코드·데이터 변경 없음.
 
 ### S25 연장 런 attempt03 판독 (07-17 오후) — 0.562 공유 어트랙터, witness-선행 재분류
 

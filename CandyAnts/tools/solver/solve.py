@@ -588,7 +588,14 @@ def solve(stage_id: int, max_rollouts: int, seed_fn=None, stats: dict | None = N
                 break
             _harvest(plan, best, evaluated)          # [5g] read-only seed harvest(Phase A 거동 불변)
             cand, res = min(evaluated, key=lambda cr: score(cr[1], layout))
-            if score(res, layout) < score(best, layout):
+            # **밀폐 탈출 그리디 lock-in 회피**(2026-07-18, S25): baseline이 밀폐 박스(escape_targets 존재)면
+            # 첫 라운드 그리디는 retired-우선 score 때문에 *소심한* 탈출(개미 안 죽지만 진척 0)을 채택하고
+            # *생산적* 탈출(candy 근처 도달하나 floater 없어 낙사)을 기각해 lock-in한다. 탈출은 본질적으로
+            # floater와 쌍(escape+floater)이라, 이 케이스만 그리디를 건너뛰고 **LA2로 강제**(LA2 frontier=goal_dist
+            # 최근접이라 생산적 탈출을 고르고 second-step에서 floater를 얹어 조립). 게이트=`not plan`(첫 라운드) AND
+            # escape_targets(밀폐, 일반 스테이지는 diagnose에서 빈 리스트) → **비밀폐 스테이지 byte-identical**.
+            force_la2 = (not plan) and bool(diag.get("escape_targets"))
+            if not force_la2 and score(res, layout) < score(best, layout):
                 plan = plan + [cand["action"]]
                 plan_sources = plan_sources + [cand.get("source", "fallback")]
                 best = res
